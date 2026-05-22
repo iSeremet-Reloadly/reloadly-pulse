@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reloadly Task Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#09090e;--surf:#111118;--surf2:#18181f;--brd:#252533;--acc:#6c63ff;--grn:#4ade80;--red:#ff6b6b;--yel:#fbbf24;--txt:#e4e4f0;--mut:#64647a;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Syne',sans-serif;min-height:100vh}
+.hdr{height:56px;background:var(--surf);border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:200}
+.logo{display:flex;align-items:center;gap:10px}
+.hex{width:26px;height:26px;background:var(--acc);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);flex-shrink:0}
+.logo-t{font-size:13px;font-weight:800;letter-spacing:.06em}
+.logo-s{font-family:'DM Mono',monospace;font-size:9px;color:var(--mut);letter-spacing:.1em}
+.hdr-r{display:flex;gap:8px;align-items:center}
+.ts{font-family:'DM Mono',monospace;font-size:10px;color:var(--mut)}
+.hbtn{font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--brd);background:transparent;color:var(--mut);cursor:pointer;display:flex;align-items:center;gap:5px;transition:.2s;white-space:nowrap}
+.hbtn:hover{border-color:var(--acc);color:var(--acc)}
+.hbtn.ok{border-color:var(--grn);color:var(--grn)}
+.hbtn.warn{border-color:var(--yel);color:var(--yel)}
+.hdot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.pulse{animation:p 1.2s infinite}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.15}}
+.wrap{display:flex;height:calc(100vh - 56px)}
+.sb{width:200px;min-width:200px;background:var(--surf);border-right:1px solid var(--brd);padding:16px 0;overflow-y:auto}
+.sb-lbl{font-family:'DM Mono',monospace;font-size:9px;color:var(--mut);letter-spacing:.14em;padding:0 18px;margin-bottom:4px;margin-top:14px}
+.sb-lbl:first-child{margin-top:0}
+.ni{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;border-left:2px solid transparent;transition:.15s;gap:6px;margin:1px 0}
+.ni:hover{background:var(--surf2)}
+.ni.active{background:var(--surf2);border-left-color:var(--acc)}
+.ni-l{display:flex;align-items:center;gap:8px}
+.dd{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cnt{font-family:'DM Mono',monospace;font-size:9px;color:var(--mut);background:var(--bg);padding:1px 5px;border-radius:3px}
+.main{flex:1;overflow-y:auto;padding:24px 28px}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--brd);border-radius:2px}
+.ptitle{font-size:20px;font-weight:800;margin-bottom:2px}
+.psub{font-family:'DM Mono',monospace;font-size:10px;color:var(--mut);margin-bottom:20px}
+.sc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.sc{background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:14px;position:relative;overflow:hidden;cursor:pointer;transition:.15s}
+.sc:hover{border-color:var(--acc)}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.sc.mgt::before{background:var(--acc)}
+.sc.ops::before{background:var(--grn)}
+.sc.fin::before{background:var(--yel)}
+.sc.eng::before{background:var(--red)}
+.sc-lbl{font-family:'DM Mono',monospace;font-size:9px;color:var(--mut);letter-spacing:.1em;margin-bottom:6px}
+.sc-num{font-size:28px;font-weight:800;line-height:1;margin-bottom:2px}
+.sc-sub{font-size:10px;color:var(--mut)}
+.sc-bar{display:flex;gap:2px;margin-top:8px;height:3px;background:var(--bg);border-radius:2px;overflow:hidden}
+.sc-bar div{height:100%}
+.ov-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.ov-card{background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:14px}
+.ov-l{font-family:'DM Mono',monospace;font-size:9px;color:var(--mut);letter-spacing:.1em;margin-bottom:6px}
+.ov-n{font-size:34px;font-weight:800;line-height:1}
+.ov-s{font-size:10px;color:var(--mut);margin-top:3px}
+.charts-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+.dept-charts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.cc{background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:16px}
+.cc-t{font-size:12px;font-weight:700;margin-bottom:2px}
+.cc-s{font-family:'DM Mono',monospace;font-size:9px;color:var(--mut);margin-bottom:12px}
+.cw{position:relative;height:190px}
+.atb{background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:14px;margin-bottom:16px;display:grid;grid-template-columns:1fr 110px 110px 120px auto;gap:8px;align-items:end}
+.fld{display:flex;flex-direction:column;gap:3px}
+.fld label{font-family:'DM Mono',monospace;font-size:9px;color:var(--mut);letter-spacing:.07em}
+input,select,textarea{background:var(--bg);border:1px solid var(--brd);color:var(--txt);font-family:'Syne',sans-serif;font-size:12px;padding:6px 8px;border-radius:5px;outline:none;transition:border-color .15s;width:100%}
+input:focus,select:focus{border-color:var(--acc)}
+select option{background:var(--surf2)}
+.add-btn{background:var(--acc);color:#fff;border:none;border-radius:5px;padding:6px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;height:32px;white-space:nowrap;transition:opacity .15s}
+.add-btn:hover{opacity:.85}
+.fb{display:flex;gap:5px;margin-bottom:11px;flex-wrap:wrap;align-items:center}
+.fc{font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);cursor:pointer;transition:.15s}
+.fc:hover,.fc.active{border-color:var(--acc);color:var(--txt);background:rgba(108,99,255,.1)}
+.si{height:26px;padding:2px 8px;font-size:11px;max-width:160px}
+.tw{background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden;margin-bottom:20px}
+table{width:100%;border-collapse:collapse}
+thead th{background:var(--surf2);font-family:'DM Mono',monospace;font-size:9px;color:var(--mut);letter-spacing:.08em;padding:9px 12px;text-align:left;border-bottom:1px solid var(--brd)}
+tbody tr{border-bottom:1px solid var(--brd);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--surf2)}
+td{padding:8px 12px;font-size:12px;vertical-align:middle}
+.tid{font-family:'DM Mono',monospace;font-size:10px;color:var(--mut);white-space:nowrap}
+.badge{display:inline-flex;align-items:center;padding:2px 6px;border-radius:3px;font-family:'DM Mono',monospace;font-size:9px;white-space:nowrap}
+.badge.Critical{background:rgba(255,68,68,.12);color:#ff4444;border:1px solid rgba(255,68,68,.2)}
+.badge.High{background:rgba(255,140,66,.12);color:#ff8c42;border:1px solid rgba(255,140,66,.2)}
+.badge.Medium{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.2)}
+.badge.Low{background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.2)}
+.sp{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap}
+.sp.ns{background:rgba(100,100,122,.12);color:var(--mut)}
+.sp.ip{background:rgba(108,99,255,.12);color:var(--acc)}
+.sp.bl{background:rgba(255,107,107,.12);color:var(--red)}
+.sp.dn{background:rgba(74,222,128,.12);color:var(--grn)}
+.sp.ur{background:rgba(251,191,36,.12);color:var(--yel)}
+.sdot{width:4px;height:4px;border-radius:50%;background:currentColor}
+.ie{background:transparent;border:none;font-size:12px;color:var(--txt);font-family:'Syne',sans-serif;width:100%}
+.ie:focus{background:var(--bg);border:1px solid var(--acc);padding:3px 6px;border-radius:4px;outline:none}
+.isel{background:transparent;border:none;color:inherit;font-family:inherit;font-size:inherit;font-weight:inherit;cursor:pointer;padding:0;outline:none;width:100%}
+.pw{width:55px;background:var(--bg);border-radius:2px;height:3px;flex-shrink:0}
+.pf{height:100%;border-radius:2px;background:var(--acc)}
+.del{background:none;border:none;color:var(--mut);cursor:pointer;padding:2px 6px;border-radius:3px;font-size:14px;opacity:0;transition:.15s}
+tbody tr:hover .del{opacity:1}
+.del:hover{background:rgba(255,68,68,.1);color:#ff4444}
+.empty{text-align:center;padding:40px 20px;color:var(--mut);font-family:'DM Mono',monospace;font-size:11px}
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sh-t{font-size:15px;font-weight:700}
+.sh-s{font-family:'DM Mono',monospace;font-size:9px;color:var(--mut);margin-top:1px}
+.toast{position:fixed;bottom:18px;right:18px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;padding:9px 14px;font-family:'DM Mono',monospace;font-size:11px;z-index:9999;animation:su .2s ease;max-width:260px;pointer-events:none}
+@keyframes su{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.toast.ok{border-color:var(--grn);color:var(--grn)}
+.toast.err{border-color:var(--red);color:var(--red)}
+.notice{background:rgba(108,99,255,.07);border:1px solid rgba(108,99,255,.18);border-radius:8px;padding:10px 14px;font-family:'DM Mono',monospace;font-size:10px;color:var(--mut);margin-bottom:18px;display:flex;align-items:center;gap:8px}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="logo">
+    <div class="hex"></div>
+    <div><div class="logo-t">RELOADLY</div><div class="logo-s">TASK MANAGER</div></div>
+  </div>
+  <div class="hdr-r">
+    <div class="ts" id="ts"></div>
+    <button class="hbtn" id="sbtn" onclick="doSave()">
+      <div class="hdot" id="sdot"></div><span id="slbl">SAVE</span>
+    </button>
+  </div>
+</div>
+<div class="wrap">
+  <div class="sb">
+    <div class="sb-lbl">OVERVIEW</div>
+    <div class="ni active" id="nav-dashboard" onclick="go('dashboard')">
+      <div class="ni-l"><div class="dd" style="background:var(--mut)"></div>Dashboard</div>
+    </div>
+    <div class="sb-lbl">DEPARTMENTS</div>
+    <div class="ni" id="nav-Management" onclick="go('Management')">
+      <div class="ni-l"><div class="dd" style="background:var(--acc)"></div>Management</div>
+      <div class="cnt" id="c-Management">0</div>
+    </div>
+    <div class="ni" id="nav-Operations" onclick="go('Operations')">
+      <div class="ni-l"><div class="dd" style="background:var(--grn)"></div>Operations</div>
+      <div class="cnt" id="c-Operations">0</div>
+    </div>
+    <div class="ni" id="nav-Finance" onclick="go('Finance')">
+      <div class="ni-l"><div class="dd" style="background:var(--yel)"></div>Finance</div>
+      <div class="cnt" id="c-Finance">0</div>
+    </div>
+    <div class="ni" id="nav-Engineering" onclick="go('Engineering')">
+      <div class="ni-l"><div class="dd" style="background:var(--red)"></div>Engineering</div>
+      <div class="cnt" id="c-Engineering">0</div>
+    </div>
+  </div>
+  <div class="main" id="main"></div>
+</div>
+<div id="toast" style="display:none" class="toast"></div>
+<script>
+const DEPTS=['Management','Operations','Finance','Engineering'];
+const CFG={
+  Management:{p:'MGT',col:'#6c63ff',cls:'mgt'},
+  Operations:{p:'OPS',col:'#4ade80',cls:'ops'},
+  Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},
+  Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'}
+};
+const STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
+const PRIORITIES=['Critical','High','Medium','Low'];
+const SPC={'Not Started':'ns','In Progress':'ip','Blocked':'bl','Under Review':'ur','Done':'dn'};
+const SEED={
+  Management:[
+    {id:'MGT-001',name:'Series B prep - investor deck',assignee:'Michel Francis',priority:'High',status:'In Progress',dueDate:'2026-06-15',startDate:'2026-05-01',progress:30,notes:'Needs financial model update',category:'Strategy'},
+    {id:'MGT-002',name:'Q2 OKR review session',assignee:'Dren',priority:'High',status:'Not Started',dueDate:'2026-05-30',startDate:'2026-05-22',progress:0,notes:'',category:''},
+    {id:'MGT-003',name:'Board report - May 2026',assignee:'Michel Francis',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-20',progress:40,notes:'',category:''},
+    {id:'MGT-004',name:'Leadership offsite follow-ups',assignee:'Dren',priority:'Medium',status:'In Progress',dueDate:'2026-05-25',startDate:'2026-05-18',progress:60,notes:'',category:''},
+    {id:'MGT-005',name:'Company health dashboard update',assignee:'Dren',priority:'Medium',status:'In Progress',dueDate:'2026-05-27',startDate:'2026-05-22',progress:20,notes:'',category:''},
+  ],
+  Operations:[
+    {id:'OPS-001',name:'Swype - Bluebanc wind-down completion',assignee:'Dren',priority:'Critical',status:'In Progress',dueDate:'2026-05-31',startDate:'2026-05-01',progress:70,notes:'Decline fee dispute outstanding',category:'Compliance'},
+    {id:'OPS-002',name:'KYB enforcement - Persona backlog',assignee:'Irene Paez',priority:'High',status:'In Progress',dueDate:'2026-05-29',startDate:'2026-05-15',progress:50,notes:'',category:'Compliance'},
+    {id:'OPS-003',name:'Partner onboarding form - Tally.so',assignee:'Irene Paez',priority:'Medium',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-10',progress:80,notes:'',category:''},
+    {id:'OPS-004',name:'Rebtel route failure review',assignee:'David Bassey',priority:'Medium',status:'Under Review',dueDate:'2026-05-26',startDate:'2026-05-20',progress:90,notes:'93% overall success rate',category:''},
+    {id:'OPS-005',name:'Swype card customer support SLA',assignee:'David Bassey',priority:'Medium',status:'Not Started',dueDate:'2026-06-10',startDate:'2026-06-01',progress:0,notes:'',category:''},
+  ],
+  Finance:[
+    {id:'FIN-001',name:'Gross margin run rate analysis',assignee:'Alketa Berisha',priority:'Critical',status:'In Progress',dueDate:'2026-05-30',startDate:'2026-05-15',progress:45,notes:'Target $10M ARR - gap review',category:''},
+    {id:'FIN-002',name:'Series B financial model',assignee:'Alketa Berisha',priority:'High',status:'In Progress',dueDate:'2026-06-15',startDate:'2026-05-20',progress:25,notes:'Investor-ready format required',category:''},
+    {id:'FIN-003',name:'Bluebanc decline fee dispute',assignee:'Dren',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-10',progress:60,notes:'',category:''},
+    {id:'FIN-004',name:'NRR tracking setup',assignee:'Alketa Berisha',priority:'High',status:'Not Started',dueDate:'2026-06-20',startDate:'2026-06-01',progress:0,notes:'Most critical missing metric for Series B',category:''},
+    {id:'FIN-005',name:'Interchange revenue reconciliation',assignee:'Alketa Berisha',priority:'Medium',status:'Not Started',dueDate:'2026-06-30',startDate:'2026-06-10',progress:0,notes:'Swype Cards breakage + interchange',category:''},
+  ],
+  Engineering:[
+    {id:'ENG-001',name:'API uptime dashboard',assignee:'Samuel Nnabugwu',priority:'High',status:'In Progress',dueDate:'2026-05-30',startDate:'2026-05-18',progress:55,notes:'',category:''},
+    {id:'ENG-002',name:'Persona KYB webhook integration',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-15',progress:65,notes:'',category:''},
+    {id:'ENG-003',name:'Lithic card API integration - POC',assignee:'Emmanuel Piard',priority:'High',status:'Not Started',dueDate:'2026-06-10',startDate:'2026-06-01',progress:0,notes:'Pending Lithic contract sign-off',category:''},
+    {id:'ENG-004',name:'Rebtel route failure alerts',assignee:'Emmanuel Piard',priority:'Medium',status:'Under Review',dueDate:'2026-05-26',startDate:'2026-05-20',progress:90,notes:'',category:''},
+    {id:'ENG-005',name:'Swype card status webhook',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',dueDate:'2026-05-31',startDate:'2026-05-22',progress:35,notes:'',category:''},
+    {id:'ENG-006',name:'Rate limiter improvements',assignee:'Samuel Nnabugwu',priority:'Medium',status:'Not Started',dueDate:'2026-06-15',startDate:'2026-06-01',progress:0,notes:'',category:''},
+  ]
+};
+let data={Management:[],Operations:[],Finance:[],Engineering:[]};
+let view='dashboard',fStatus='All',fSearch='',charts={},toastT;
+function init(){const s=localStorage.getItem('rl_tasks_v4');if(s){try{data=JSON.parse(s);return;}catch(e){}}data=JSON.parse(JSON.stringify(SEED));save();}
+function save(){localStorage.setItem('rl_tasks_v4',JSON.stringify(data));updCnts();}
+function doSave(){setState('saving');save();setTimeout(()=>{setState('saved');document.getElementById('ts').textContent='Saved '+new Date().toLocaleTimeString();},500);}
+function setState(s){const btn=document.getElementById('sbtn'),dot=document.getElementById('sdot'),lbl=document.getElementById('slbl');btn.className='hbtn';dot.className='hdot';if(s==='unsaved'){btn.classList.add('warn');lbl.textContent='UNSAVED •';}else if(s==='saving'){btn.classList.add('ok');dot.classList.add('pulse');lbl.textContent='SAVING…';}else if(s==='saved'){btn.classList.add('ok');lbl.textContent='SAVED ✓';setTimeout(()=>setState('idle'),3000);}else lbl.textContent='SAVE';}
+function nextId(dept){const p=CFG[dept].p;const nums=data[dept].map(t=>parseInt(t.id.replace(p+'-',''))||0);const max=nums.length?Math.max(...nums):0;return p+'-'+String(max+1).padStart(3,'0');}
+function addTask(dept){const name=document.getElementById('nn').value.trim();if(!name){toast('Task name required','err');return;}const t={id:nextId(dept),name,assignee:document.getElementById('na').value.trim()||'Unassigned',priority:document.getElementById('np').value,status:'Not Started',dueDate:document.getElementById('nd').value,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',category:'',lastUpdated:new Date().toISOString().split('T')[0]};data[dept].unshift(t);save();setState('unsaved');render();toast(t.id+' created','ok');document.getElementById('nn').value='';document.getElementById('na').value='';}
+function upd(dept,id,field,val){const t=data[dept].find(x=>x.id===id);if(!t)return;t[field]=val;t.lastUpdated=new Date().toISOString().split('T')[0];save();setState('unsaved');if(['status','priority'].includes(field))render();}
+function del(dept,id){if(!confirm('Delete '+id+'?'))return;data[dept]=data[dept].filter(t=>t.id!==id);save();setState('unsaved');render();toast('Deleted','ok');}
+function stats(dept){const l=data[dept];return{total:l.length,ns:l.filter(t=>t.status==='Not Started').length,ip:l.filter(t=>t.status==='In Progress').length,bl:l.filter(t=>t.status==='Blocked').length,ur:l.filter(t=>t.status==='Under Review').length,dn:l.filter(t=>t.status==='Done').length,critical:l.filter(t=>t.priority==='Critical').length,high:l.filter(t=>t.priority==='High').length,medium:l.filter(t=>t.priority==='Medium').length,low:l.filter(t=>t.priority==='Low').length};}
+function go(v){view=v;fStatus='All';fSearch='';document.querySelectorAll('.ni').forEach(e=>e.classList.remove('active'));const el=document.getElementById('nav-'+v);if(el)el.classList.add('active');Object.values(charts).forEach(c=>{try{c.destroy();}catch(e){}});charts={};render();}
+function updCnts(){DEPTS.forEach(d=>{const el=document.getElementById('c-'+d);if(el)el.textContent=data[d].length;});}
+function render(){if(view==='dashboard')renderDash();else renderDept(view);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function spill(s){return '<span class="sp '+(SPC[s]||'ns')+'"><span class="sdot"></span>'+s+'</span>';}
+function bpill(p){return '<span class="badge '+p+'">'+p+'</span>';}
+function mkChart(id,cfg){const el=document.getElementById(id);if(!el)return null;const ctx=el.getContext('2d');if(charts[id])charts[id].destroy();charts[id]=new Chart(ctx,cfg);return charts[id];}
+const CO={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#64647a',font:{size:9},boxWidth:8}},tooltip:{backgroundColor:'#18181f',borderColor:'#252533',borderWidth:1,titleColor:'#e4e4f0',bodyColor:'#64647a'}},scales:{x:{ticks:{color:'#64647a',font:{size:9}},grid:{color:'rgba(37,37,51,.4)'}},y:{ticks:{color:'#64647a',font:{size:9}},grid:{color:'rgba(37,37,51,.4)'}}}};
+const NO={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#64647a',font:{size:9},boxWidth:8}},tooltip:{backgroundColor:'#18181f',borderColor:'#252533',borderWidth:1,titleColor:'#e4e4f0',bodyColor:'#64647a'}}};
+function renderDash(){const all=DEPTS.flatMap(d=>data[d].map(t=>Object.assign({},t,{dept:d})));const tot=all.length,dn=all.filter(t=>t.status==='Done').length,ip=all.filter(t=>t.status==='In Progress').length,bl=all.filter(t=>t.status==='Blocked').length;const crit=all.filter(t=>t.priority==='Critical'&&t.status!=='Done');const due=all.filter(t=>{if(!t.dueDate||t.status==='Done')return false;const d=Math.ceil((new Date(t.dueDate)-new Date())/864e5);return d>=0&&d<=7;}).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));const today=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});const cards=DEPTS.map(dept=>{const s=stats(dept);const c=CFG[dept];const pct=s.total?Math.round(s.dn/s.total*100):0;return '<div class="sc '+c.cls+'" onclick="go(\''+dept+'\')">'+'<div class="sc-lbl">'+dept.toUpperCase()+'</div>'+'<div class="sc-num" style="color:'+c.col+'">'+s.total+'</div>'+'<div class="sc-sub">'+pct+'% done · '+s.bl+' blocked</div>'+'<div class="sc-bar">'+'<div style="width:'+(s.total?s.dn/s.total*100:0)+'%;background:var(--grn)"></div>'+'<div style="width:'+(s.total?s.ip/s.total*100:0)+'%;background:var(--acc)"></div>'+'<div style="width:'+(s.total?s.ur/s.total*100:0)+'%;background:var(--yel)"></div>'+'<div style="width:'+(s.total?s.bl/s.total*100:0)+'%;background:var(--red)"></div>'+'</div>'+'<div style="margin-top:8px;display:flex;gap:8px">'+'<span style="font-size:9px;color:var(--mut)">'+s.ns+' pending</span>'+'<span style="font-size:9px;color:var(--acc)">'+s.ip+' active</span>'+'<span style="font-size:9px;color:var(--grn)">'+s.dn+' done</span>'+'</div></div>';}).join('');let h='<div class="ptitle">Dashboard</div>'+'<div class="psub">'+today+'</div>'+'<div class="notice">🔗 Linked to spreadsheet <strong style="color:var(--txt)">1wesqW4QzCuUA0fYygRlMmGsLFyMRf5xAKJPmTZCHERA</strong> · Pre-loaded with your active tasks · Add more via department pages</div>'+'<div class="ov-row">'+'<div class="ov-card"><div class="ov-l">TOTAL TASKS</div><div class="ov-n">'+tot+'</div><div class="ov-s">across 4 departments</div></div>'+'<div class="ov-card" style="border-color:rgba(74,222,128,.3)"><div class="ov-l">COMPLETED</div><div class="ov-n" style="color:var(--grn)">'+dn+'</div><div class="ov-s">'+(tot?Math.round(dn/tot*100):0)+'% completion rate</div></div>'+'<div class="ov-card" style="border-color:rgba(255,107,107,.3)"><div class="ov-l">BLOCKED</div><div class="ov-n" style="color:var(--red)">'+bl+'</div><div class="ov-s">'+ip+' currently active</div></div>'+'</div>'+'<div class="sc-grid">'+cards+'</div>'+'<div class="charts-grid">'+'<div class="cc"><div class="cc-t">Status by Department</div><div class="cc-s">Stacked · all statuses</div><div class="cw"><canvas id="ch-s"></canvas></div></div>'+'<div class="cc"><div class="cc-t">Priority Distribution</div><div class="cc-s">Across all departments</div><div class="cw"><canvas id="ch-p"></canvas></div></div>'+'<div class="cc"><div class="cc-t">Completion Rate</div><div class="cc-s">% done per department</div><div class="cw"><canvas id="ch-c"></canvas></div></div>'+'<div class="cc"><div class="cc-t">Active vs Blocked</div><div class="cc-s">In Progress vs Blocked</div><div class="cw"><canvas id="ch-ab"></canvas></div></div>'+'</div>';if(crit.length){h+='<div class="sh"><div><div class="sh-t">🔴 Critical Tasks</div><div class="sh-s">'+crit.length+' needing immediate attention</div></div></div>'+'<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>ASSIGNEE</th><th>STATUS</th><th>DUE</th></tr></thead><tbody>'+crit.map(t=>'<tr onclick="go(\''+t.dept+'\')" style="cursor:pointer">'+'<td class="tid">'+t.id+'</td><td>'+esc(t.name)+'</td>'+'<td>'+bpill(t.dept)+'</td>'+'<td>'+esc(t.assignee)+'</td><td>'+spill(t.status)+'</td>'+'<td style="font-family:DM Mono,monospace;font-size:10px;color:var(--mut)">'+(t.dueDate||'—')+'</td>'+'</tr>').join('')+'</tbody></table></div>';}if(due.length){h+='<div class="sh"><div><div class="sh-t">📅 Due This Week</div><div class="sh-s">'+due.length+' tasks due within 7 days</div></div></div>'+'<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>PRIORITY</th><th>STATUS</th><th>DUE</th></tr></thead><tbody>'+due.map(t=>{const diff=Math.ceil((new Date(t.dueDate)-new Date())/864e5);const dc=diff<=1?'var(--red)':diff<=3?'var(--yel)':'var(--mut)';return '<tr onclick="go(\''+t.dept+'\')" style="cursor:pointer">'+'<td class="tid">'+t.id+'</td><td>'+esc(t.name)+'</td>'+'<td style="font-size:10px;color:var(--mut)">'+t.dept+'</td>'+'<td>'+(t.priority?bpill(t.priority):'—')+'</td>'+'<td>'+spill(t.status)+'</td>'+'<td style="font-family:DM Mono,monospace;font-size:10px;color:'+dc+'">'+t.dueDate+' <span style="font-size:9px">('+diff+'d)</span></td>'+'</tr>';}).join('')+'</tbody></table></div>';}if(!tot)h+='<div class="empty">No tasks yet. Click a department to add some.</div>';document.getElementById('main').innerHTML=h;setTimeout(buildDashCharts,60);}
+function buildDashCharts(){const st=Object.assign({},CO,{scales:{x:Object.assign({},CO.scales.x,{stacked:true}),y:Object.assign({},CO.scales.y,{stacked:true})}});mkChart('ch-s',{type:'bar',data:{labels:DEPTS.map(d=>d.substring(0,3).toUpperCase()),datasets:[{label:'Done',data:DEPTS.map(d=>stats(d).dn),backgroundColor:'rgba(74,222,128,.75)',borderRadius:2},{label:'In Progress',data:DEPTS.map(d=>stats(d).ip),backgroundColor:'rgba(108,99,255,.75)',borderRadius:2},{label:'Under Review',data:DEPTS.map(d=>stats(d).ur),backgroundColor:'rgba(251,191,36,.75)',borderRadius:2},{label:'Blocked',data:DEPTS.map(d=>stats(d).bl),backgroundColor:'rgba(255,107,107,.75)',borderRadius:2},{label:'Not Started',data:DEPTS.map(d=>stats(d).ns),backgroundColor:'rgba(100,100,122,.4)',borderRadius:2}]},options:st});const af=DEPTS.flatMap(d=>data[d]);mkChart('ch-p',{type:'doughnut',data:{labels:['Critical','High','Medium','Low'],datasets:[{data:[af.filter(t=>t.priority==='Critical').length,af.filter(t=>t.priority==='High').length,af.filter(t=>t.priority==='Medium').length,af.filter(t=>t.priority==='Low').length],backgroundColor:['rgba(255,68,68,.8)','rgba(255,140,66,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],borderWidth:0,hoverOffset:5}]},options:Object.assign({},NO,{cutout:'62%'})});mkChart('ch-c',{type:'bar',data:{labels:DEPTS.map(d=>d.substring(0,3).toUpperCase()),datasets:[{label:'% Done',data:DEPTS.map(d=>{const s=stats(d);return s.total?Math.round(s.dn/s.total*100):0;}),backgroundColor:DEPTS.map(d=>CFG[d].col+'bb'),borderRadius:4}]},options:Object.assign({},CO,{plugins:Object.assign({},CO.plugins,{legend:{display:false}}),scales:{x:CO.scales.x,y:Object.assign({},CO.scales.y,{max:100,ticks:Object.assign({},CO.scales.y.ticks,{callback:v=>v+'%'})})}})});mkChart('ch-ab',{type:'bar',data:{labels:DEPTS.map(d=>d.substring(0,3).toUpperCase()),datasets:[{label:'In Progress',data:DEPTS.map(d=>stats(d).ip),backgroundColor:'rgba(108,99,255,.75)',borderRadius:2},{label:'Blocked',data:DEPTS.map(d=>stats(d).bl),backgroundColor:'rgba(255,107,107,.75)',borderRadius:2}]},options:CO});}
+function renderDept(dept){const c=CFG[dept],s=stats(dept);const fil=data[dept].filter(t=>{return(fStatus==='All'||t.status===fStatus)&&(!fSearch||[t.name,t.id,t.assignee||''].join(' ').toLowerCase().includes(fSearch.toLowerCase()));});let h='<div class="ptitle" style="color:'+c.col+'">'+dept+'</div>'+'<div class="psub">'+data[dept].length+' tasks · '+s.dn+' done · '+s.ip+' in progress · '+s.bl+' blocked</div>'+'<div class="dept-charts">'+'<div class="cc"><div class="cc-t">Status Distribution</div><div class="cc-s">'+dept+' by status</div><div class="cw"><canvas id="dc-s"></canvas></div></div>'+'<div class="cc"><div class="cc-t">Priority Breakdown</div><div class="cc-s">'+dept+' by priority</div><div class="cw"><canvas id="dc-p"></canvas></div></div>'+'<div class="cc"><div class="cc-t">Avg Progress</div><div class="cc-s">Task completion gauge</div><div class="cw"><canvas id="dc-g"></canvas></div></div>'+'</div>'+'<div class="atb">'+'<div class="fld"><label>TASK NAME</label><input id="nn" placeholder="Describe the task…" onkeydown="if(event.key===\'Enter\')addTask(\''+dept+'\')" ></div>'+'<div class="fld"><label>ASSIGNEE</label><input id="na" placeholder="Name…"></div>'+'<div class="fld"><label>PRIORITY</label><select id="np">'+PRIORITIES.map(p=>'<option>'+p+'</option>').join('')+'</select></div>'+'<div class="fld"><label>DUE DATE</label><input id="nd" type="date"></div>'+'<button class="add-btn" onclick="addTask(\''+dept+'\')" >+ ADD</button>'+'</div>'+'<div class="fb">'+'<input class="si" placeholder="🔍 Search…" oninput="fSearch=this.value;renderDept(\''+dept+'\')" value="'+esc(fSearch)+'">'+ ['All',...STATUSES].map(st=>'<button class="fc '+(fStatus===st?'active':'')+' " onclick="fStatus=\''+st+'\';renderDept(\''+dept+'\')" >'+st+'</button>').join('')+'</div>';if(!fil.length){h+='<div class="tw"><div class="empty">'+(data[dept].length===0?'No tasks yet — add the first one above.':'Nothing matches this filter.')+'</div></div>';}else{h+='<div class="tw"><table><thead><tr>'+'<th>ID</th><th>TASK NAME</th><th>ASSIGNEE</th><th>PRIORITY</th><th>STATUS</th><th>PROG%</th><th>DUE</th><th>NOTES</th><th></th>'+'</tr></thead><tbody>'+fil.map(t=>trow(dept,t)).join('')+'</tbody></table></div>';}document.getElementById('main').innerHTML=h;setTimeout(()=>buildDeptCharts(dept),60);}
+function trow(dept,t){const pr=t.progress||0;const id=t.id;return '<tr>'+'<td class="tid">'+id+'</td>'+'<td style="min-width:160px;max-width:260px"><input class="ie" value="'+esc(t.name)+'" onblur="if(this.value.trim())upd(\''+dept+'\',\''+id+'\',\'name\',this.value.trim())" onkeydown="if(event.key===\'Enter\')this.blur()" ></td>'+'<td style="min-width:90px"><input class="ie" style="width:90px" value="'+esc(t.assignee||'')+'" onblur="upd(\''+dept+'\',\''+id+'\',\'assignee\',this.value.trim())" onkeydown="if(event.key===\'Enter\')this.blur()" ></td>'+'<td><select class="isel" onchange="upd(\''+dept+'\',\''+id+'\',\'priority\',this.value)" >'+PRIORITIES.map(p=>'<option'+(t.priority===p?' selected':'')+'>'+p+'</option>').join('')+'</select></td>'+'<td><select class="isel" style="min-width:100px" onchange="upd(\''+dept+'\',\''+id+'\',\'status\',this.value)" >'+STATUSES.map(s=>'<option'+(t.status===s?' selected':'')+'>'+s+'</option>').join('')+'</select></td>'+'<td><div style="display:flex;align-items:center;gap:5px"><div class="pw"><div class="pf" style="width:'+pr+'%"></div></div>'+'<input type="number" min="0" max="100" value="'+pr+'" style="width:34px;padding:1px 3px;font-size:10px;font-family:DM Mono,monospace;text-align:center;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;outline:none" onblur="upd(\''+dept+'\',\''+id+'\',\'progress\',Math.min(100,Math.max(0,parseInt(this.value)||0)));renderDept(\''+dept+'\')" onkeydown="if(event.key===\'Enter\')this.blur()" ></div></td>'+'<td><input type="date" value="'+(t.dueDate||'')+'" style="width:118px;font-size:10px;font-family:DM Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:3px 5px;outline:none" onchange="upd(\''+dept+'\',\''+id+'\',\'dueDate\',this.value)" ></td>'+'<td style="min-width:100px"><input class="ie" style="width:100px;font-size:11px" value="'+esc(t.notes||'')+'" placeholder="Notes…" onblur="upd(\''+dept+'\',\''+id+'\',\'notes\',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()" ></td>'+'<td><button class="del" onclick="del(\''+dept+'\',\''+id+'\')" >×</button></td>'+'</tr>';}
+function buildDeptCharts(dept){const s=stats(dept);mkChart('dc-s',{type:'doughnut',data:{labels:['Not Started','In Progress','Blocked','Under Review','Done'],datasets:[{data:[s.ns,s.ip,s.bl,s.ur,s.dn],backgroundColor:['rgba(100,100,122,.6)','rgba(108,99,255,.8)','rgba(255,107,107,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],borderWidth:0,hoverOffset:5}]},options:Object.assign({},NO,{cutout:'58%'})});mkChart('dc-p',{type:'bar',data:{labels:['Critical','High','Medium','Low'],datasets:[{data:[s.critical,s.high,s.medium,s.low],backgroundColor:['rgba(255,68,68,.8)','rgba(255,140,66,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],borderRadius:4}]},options:Object.assign({},CO,{plugins:Object.assign({},CO.plugins,{legend:{display:false}})})});const pv=data[dept].map(t=>t.progress||0);const avg=pv.length?Math.round(pv.reduce((a,b)=>a+b,0)/pv.length):0;const gc=mkChart('dc-g',{type:'doughnut',data:{labels:['Done','Remaining'],datasets:[{data:[avg,100-avg],backgroundColor:['rgba(108,99,255,.9)','rgba(37,37,51,.5)'],borderWidth:0}]},options:Object.assign({},NO,{cutout:'70%',plugins:Object.assign({},NO.plugins,{legend:{display:false},tooltip:{enabled:false}})})});if(gc){const origDraw=gc.draw.bind(gc);gc.draw=function(){origDraw();const ctx=gc.ctx,ca=gc.chartArea;if(!ca)return;const cx=(ca.left+ca.right)/2,cy=(ca.top+ca.bottom)/2;ctx.save();ctx.fillStyle='#e4e4f0';ctx.font='bold 22px Syne,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(avg+'%',cx,cy-3);ctx.fillStyle='#64647a';ctx.font='9px DM Mono,monospace';ctx.fillText('avg progress',cx,cy+13);ctx.restore();};gc.draw();}}
+function toast(msg,type){const el=document.getElementById('toast');el.textContent=msg;el.className='toast'+(type?' '+type:'');el.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>el.style.display='none',2800);}
+init();updCnts();render();document.getElementById('ts').textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+</script>
+</body>
+</html>
