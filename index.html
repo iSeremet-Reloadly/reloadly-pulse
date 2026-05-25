@@ -283,13 +283,13 @@ function init(){
   applyStoredTheme();
   var saved=localStorage.getItem('rl_user_email');
   var profile=saved?USER_REGISTRY[saved]:null;
-  if(profile){
+  if(profile&&hasPassword(saved)){
     currentUser={email:saved,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin};
     loadData();
   }else{
     localStorage.removeItem('rl_user_email');
-    document.getElementById('gate').style.display='flex';
-    setTimeout(function(){document.getElementById('gate-email').focus();},100);
+    var g=document.getElementById('gate');if(g)g.style.display='flex';
+    setTimeout(function(){var el=document.getElementById('gate-email');if(el)el.focus();},100);
   }
 }
 function loadData(){
@@ -532,6 +532,7 @@ function render(){
   else renderDept(view);
 }
 function go(v){
+  if(!data||!currentUser)return;
   view=v;fStatus='All';fSearch='';
   document.querySelectorAll('.ni').forEach(function(e){e.classList.remove('active');});
   var el=document.getElementById('nav-'+v);if(el)el.classList.add('active');
