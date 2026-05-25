@@ -407,8 +407,8 @@ function getUpcoming(){
   var now=new Date();now.setHours(0,0,0,0);
   var all=[];DEPTS.forEach(function(d){data[d].forEach(function(t){all.push(Object.assign({},t,{dept:d}));});});
   return all.filter(function(t){
-    if(!t.dueDate||t.status==='Done')return false;
-    var due=new Date(t.dueDate);due.setHours(0,0,0,0);
+    if(!t.due||t.status==='Done')return false;
+    var due=new Date(t.due);due.setHours(0,0,0,0);
     var diff=Math.round((due-now)/864e5);
     return diff>=0&&diff<=3;
   }).sort(function(a,b){return new Date(a.dueDate)-new Date(b.dueDate);});
@@ -425,7 +425,7 @@ function checkReminders(){
   var dk=now.toISOString().slice(0,10);
   var fired={};try{fired=JSON.parse(localStorage.getItem('rl_nr_'+dk)||'{}');}catch(e){}
   getUpcoming().forEach(function(t){
-    var due=new Date(t.dueDate);due.setHours(0,0,0,0);
+    var due=new Date(t.due);due.setHours(0,0,0,0);
     var diff=Math.round((due-now)/864e5);
     var fk=t.id+'_d'+diff;
     if(fired[fk])return;
@@ -566,7 +566,7 @@ function renderReminders(){
     var now2=new Date();now2.setHours(0,0,0,0);
     h+='<div id="rlist" class="remind-panel"><div class="remind-panel-t">'+upcoming.length+' task'+(upcoming.length>1?'s':'')+' coming up</div><div class="remind-panel-s">Click a task to jump to its department</div>';
     upcoming.forEach(function(t){
-      var due=new Date(t.dueDate);due.setHours(0,0,0,0);
+      var due=new Date(t.due);due.setHours(0,0,0,0);
       var diff=Math.round((due-now2)/864e5);
       var dl=daysLabel(diff);
       h+='<div class="remind-row" data-dept="'+t.dept+'">'
@@ -590,7 +590,7 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Summary');
   DEPTS.forEach(function(dept){
     var rows=[['ID','Task','Assignee','Priority','Status','Progress%','Due','Start','Notes','Updated']];
-    sorted(data[dept]).forEach(function(t){rows.push([t.id,t.name,t.assignee||'',t.priority,t.status,t.progress||0,t.dueDate||'',t.startDate||'',t.notes||'',t.lastUpdated||'']);});
+    sorted(data[dept]).forEach(function(t){rows.push([t.id,t.name,t.assignee||'',t.priority,t.status,t.progress||0,t.due||'',t.startDate||'',t.notes||'',t.lastUpdated||'']);});
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),dept);
   });
   var lr=[['Timestamp','User','Action','Tag']];
@@ -607,8 +607,8 @@ function renderDash(){
   var bl=all.filter(function(t){return t.status==='Blocked';}).length;
   var crit=all.filter(function(t){return t.priority==='Critical'&&t.status!=='Done';});
   var dueList=all.filter(function(t){
-    if(!t.dueDate||t.status==='Done')return false;
-    var d=Math.ceil((new Date(t.dueDate)-new Date())/864e5);
+    if(!t.due||t.status==='Done')return false;
+    var d=Math.ceil((new Date(t.due)-new Date())/864e5);
     return d>=0&&d<=7;
   }).sort(function(a,b){return new Date(a.dueDate)-new Date(b.dueDate);});
   var today=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -649,7 +649,7 @@ function renderDash(){
         +'<td class="tid">'+t.id+'</td><td>'+esc(t.name)+'</td>'
         +'<td>'+bpill(t.dept)+'</td><td>'+esc(t.assignee)+'</td>'
         +'<td>'+spill(t.status)+'</td>'
-        +'<td style="font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut)">'+(t.dueDate||'&mdash;')+'</td></tr>';
+        +'<td style="font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut)">'+(t.due||'&mdash;')+'</td></tr>';
     });
     h+='</tbody></table></div>';
   }
@@ -657,14 +657,14 @@ function renderDash(){
     h+='<div class="sh"><div><div class="sh-t">Due This Week</div><div class="sh-s">'+dueList.length+' tasks</div></div></div>'
       +'<div id="due-tbl" class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>PRIORITY</th><th>STATUS</th><th>DUE</th></tr></thead><tbody>';
     dueList.forEach(function(t){
-      var diff=Math.ceil((new Date(t.dueDate)-new Date())/864e5);
+      var diff=Math.ceil((new Date(t.due)-new Date())/864e5);
       var col=diff<=1?'var(--red)':diff<=3?'var(--yel)':'var(--mut)';
       h+='<tr class="clickrow" data-go="'+t.dept+'">'
         +'<td class="tid">'+t.id+'</td><td>'+esc(t.name)+'</td>'
         +'<td style="font-size:10px;color:var(--mut)">'+t.dept+'</td>'
         +'<td>'+(t.priority?bpill(t.priority):'&mdash;')+'</td>'
         +'<td>'+spill(t.status)+'</td>'
-        +'<td style="font-family:Roboto Mono,monospace;font-size:10px;color:'+col+'">'+t.dueDate+' ('+diff+'d)</td></tr>';
+        +'<td style="font-family:Roboto Mono,monospace;font-size:10px;color:'+col+'">'+t.due+' ('+diff+'d)</td></tr>';
     });
     h+='</tbody></table></div>';
   }
@@ -763,7 +763,7 @@ function renderDept(dept){
         +'<td><select class="isel" style="min-width:100px" data-dept="'+dept+'" data-id="'+id+'" data-field="status">'+STATUSES.map(function(ss){return '<option'+(t.status===ss?' selected':'')+'>'+ss+'</option>';}).join('')+'</select></td>'
         +'<td><div style="display:flex;align-items:center;gap:5px"><div class="pw"><div class="pf" style="width:'+pr+'%"></div></div>'
         +'<input type="number" min="0" max="100" value="'+pr+'" style="width:34px;padding:1px 3px;font-size:10px;font-family:Roboto Mono,monospace;text-align:center;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="progress" class="prog-inp"></div></td>'
-        +'<td><input type="date" value="'+(t.dueDate||'')+'" style="width:118px;font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:3px 5px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="dueDate" class="date-inp"></td>'
+        +'<td><input type="date" value="'+(t.due||'')+'" style="width:118px;font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:3px 5px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="dueDate" class="date-inp"></td>'
         +'<td><input class="ie" style="width:100px;font-size:11px" value="'+esc(t.notes||'')+'" placeholder="Notes..." data-dept="'+dept+'" data-id="'+id+'" data-field="notes"></td>'
         +'<td><button class="del" data-dept="'+dept+'" data-id="'+id+'">&#215;</button></td></tr>';
     });
