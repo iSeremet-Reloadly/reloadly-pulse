@@ -153,6 +153,7 @@ tbody tr:hover .del{opacity:1}
 .notif-btn{font-family:'Roboto Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer}
 .notif-btn:hover{background:rgba(108,99,255,.1)}
 .ni.locked{opacity:.3;cursor:default;pointer-events:none}
+.sc.sal::before{background:#2778c4}
 .theme-toggle{font-family:'Roboto Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);cursor:pointer;transition:.2s;display:flex;align-items:center;gap:5px}
 .theme-toggle:hover{border-color:var(--acc);color:var(--acc)}
 body,[data-theme="light"] input,[data-theme="light"] select{transition:background .25s,color .25s}
@@ -187,6 +188,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-Operations" onclick="go('Operations')"><div class="ni-l"><div class="dd" style="background:var(--grn)"></div>Operations</div><div class="cnt" id="c-Operations">0</div></div>
     <div class="ni" id="nav-Finance" onclick="go('Finance')"><div class="ni-l"><div class="dd" style="background:var(--yel)"></div>Finance</div><div class="cnt" id="c-Finance">0</div></div>
     <div class="ni" id="nav-Engineering" onclick="go('Engineering')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Engineering</div><div class="cnt" id="c-Engineering">0</div></div>
+    <div class="ni" id="nav-Sales" onclick="go('Sales')"><div class="ni-l"><div class="dd" style="background:#2778c4"></div>Sales</div><div class="cnt" id="c-Sales">0</div></div>
     <div style="flex:1"></div>
     <div class="sb-lbl">TOOLS</div>
     <div class="ni" id="nav-reminders" onclick="go('reminders')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Reminders</div><div class="cnt" id="c-reminders"></div></div>
@@ -210,7 +212,14 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 <div id="toast" style="display:none" class="toast"></div>
 
 <script>
-var DEPTS=['Management','Operations','Finance','Engineering'];
+var DEPTS=['Management','Operations','Finance','Engineering','Sales'];
+  if(data.Sales.length===0){data.Sales=[
+    {id:'SAL-001',name:'Q2 Pipeline review',status:'In Progress',priority:'High',progress:40,due:'2026-06-10',assignee:'Enrique Hirlemann',lastUpdated:new Date().toISOString()},
+    {id:'SAL-002',name:'Enterprise deal — follow up',status:'Not Started',priority:'Critical',progress:0,due:'2026-06-03',assignee:'Enrique Hirlemann',lastUpdated:new Date().toISOString()},
+    {id:'SAL-003',name:'Update CRM with May contacts',status:'Not Started',priority:'Medium',progress:0,due:'2026-06-15',assignee:'',lastUpdated:new Date().toISOString()},
+    {id:'SAL-004',name:'Prepare Series B investor deck',status:'In Progress',priority:'High',progress:25,due:'2026-06-20',assignee:'Enrique Hirlemann',lastUpdated:new Date().toISOString()},
+    {id:'SAL-005',name:'Partner commission reconciliation',status:'Not Started',priority:'Low',progress:0,due:'2026-06-30',assignee:'',lastUpdated:new Date().toISOString()}
+  ];}
 // ── Password Auth ────────────────────────────────────────────────────────
 async function sha256(str){
   const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
@@ -235,7 +244,8 @@ var USER_REGISTRY={
   'dbassey@reloadly.com':   {name:'David Bassey',     role:'Operations Manager',dept:'Operations',  canExport:false, canViewAll:false}
 };
 var currentUser=null;
-var CFG={Management:{p:'MGT',col:'#7700ff',cls:'mgt'},Operations:{p:'OPS',col:'#09faa3',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'}};
+var CFG={Management:{p:'MGT',col:'#7700ff',cls:'mgt'},Operations:{p:'OPS',col:'#09faa3',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'},
+  Sales:{p:'SAL',col:'#2778c4',cls:'sal'}};
 var STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
 var PRIORITIES=['Critical','High','Medium','Low'];
 var SPC={'Not Started':'ns','In Progress':'ip','Blocked':'bl','Under Review':'ur','Done':'dn'};
