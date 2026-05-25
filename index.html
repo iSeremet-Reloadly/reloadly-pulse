@@ -153,6 +153,7 @@ tbody tr:hover .del{opacity:1}
 .notif-btn{font-family:'Roboto Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer}
 .notif-btn:hover{background:rgba(108,99,255,.1)}
 .ni.locked{opacity:.3;cursor:default;pointer-events:none}
+.ni.admin-ni{border-left-color:rgba(108,99,255,.4)}
 </style>
 </head>
 <body>
@@ -180,6 +181,7 @@ tbody tr:hover .del{opacity:1}
     <div class="sb-lbl">TOOLS</div>
     <div class="ni" id="nav-reminders" onclick="go('reminders')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Reminders</div><div class="cnt" id="c-reminders"></div></div>
     <div class="ni" id="nav-log" onclick="go('log')"><div class="ni-l"><div class="dd" style="background:var(--mut)"></div>Activity Log</div><div class="cnt" id="c-log">0</div></div>
+    <div class="ni admin-ni" id="nav-admin" onclick="go('admin')" style="display:none"><div class="ni-l"><div class="dd" style="background:var(--acc)"></div>User Management</div></div>
   </div>
   <div class="main" id="main"></div>
 </div>
@@ -199,15 +201,89 @@ tbody tr:hover .del{opacity:1}
 var DEPTS=['Management','Operations','Finance','Engineering'];
 // User Registry
 var USER_REGISTRY={
-  'mfrancis@reloadly.com':  {name:'Michel Francis',   role:'CEO',               dept:'Management',  canExport:true,  canViewAll:true},
-  'dlubovci@reloadly.com':  {name:'Dren Lubovci',     role:'COO',               dept:'Management',  canExport:true,  canViewAll:true},
+  'mfrancis@reloadly.com':  {name:'Michel Francis',   role:'CEO',               dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true},
+  'dlubovci@reloadly.com':  {name:'Dren Lubovci',     role:'COO',               dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true},
   'ehirlemann@reloadly.com':{name:'Enrique Hirlemann',role:'CRO',              dept:'Management',  canExport:false, canViewAll:true},
   'aberisha@reloadly.com':  {name:'Alketa Berisha',   role:'Head of Finance',   dept:'Finance',     canExport:false, canViewAll:false},
   'epiard@reloadly.com':    {name:'Emmanuel Piard',   role:'CTO',               dept:'Engineering', canExport:false, canViewAll:true},
-  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',  role:'Senior Engineer',   dept:'Engineering', canExport:false, canViewAll:false},
+  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',  role:'Senior Engineer',   dept:'Engineering', canExport:false, canViewAll:false, isAdmin:true},
   'ipaez@reloadly.com':     {name:'Irene Paez',       role:'Head of Operations',dept:'Operations',  canExport:false, canViewAll:false},
   'dbassey@reloadly.com':   {name:'David Bassey',     role:'Operations Manager',dept:'Operations',  canExport:false, canViewAll:false}
 };
+// Pending users — admins can approve these
+var PENDING_USERS={};
+
+// Admin functions
+function isAdmin(){return currentUser&&currentUser.isAdmin;}
+
+function renderAdmin(){
+  var regs=Object.entries(USER_REGISTRY);
+  var pend=Object.entries(PENDING_USERS);
+  var h2='<div class="ptitle">User Management</div>'
+    +'<div class="psub">Active accounts &middot; only admins can see this</div>';
+
+  // Active users table
+  h2+='<div class="tw" style="margin-bottom:20px"><table><thead><tr>'
+    +'<th>EMAIL</th><th>NAME</th><th>ROLE</th><th>DEPT</th><th>EXPORT</th><th>VIEW ALL</th><th>ADMIN</th>'
+    +'</tr></thead><tbody>';
+  regs.forEach(function(kv){
+    var e=kv[0],u=kv[1];
+    var isYou=currentUser&&currentUser.email===e;
+    h2+='<tr'+(isYou?' style="background:rgba(108,99,255,.08)"':'')+'>'
+      +'<td class="tid">'+e+(isYou?' <span class="badge Medium">you</span>':'')+'</td>'
+      +'<td>'+u.name+'</td>'
+      +'<td><span class="badge High">'+u.role+'</span></td>'
+      +'<td>'+u.dept+'</td>'
+      +'<td style="text-align:center">'+(u.canExport?'<span style="color:var(--grn)">&#10003;</span>':'<span style="color:var(--mut)">&#8722;</span>')+'</td>'
+      +'<td style="text-align:center">'+(u.canViewAll?'<span style="color:var(--grn)">&#10003;</span>':'<span style="color:var(--mut)">&#8722;</span>')+'</td>'
+      +'<td style="text-align:center">'+(u.isAdmin?'<span style="color:var(--acc)">&#10003;</span>':'<span style="color:var(--mut)">&#8722;</span>')+'</td>'
+      +'</tr>';
+  });
+  h2+='</tbody></table></div>';
+
+  // Add new user form
+  h2+='<div class="sh"><div><div class="sh-t">Add User</div><div class="sh-s">New user will be able to sign in immediately</div></div></div>';
+  h2+='<div class="atb" style="grid-template-columns:1.4fr 1fr 1fr 1fr 1fr auto">'
+    +'<div class="fld"><label>EMAIL</label><input id="nu-email" placeholder="name@reloadly.com"></div>'
+    +'<div class="fld"><label>NAME</label><input id="nu-name" placeholder="Full name"></div>'
+    +'<div class="fld"><label>ROLE</label><input id="nu-role" placeholder="e.g. Account Manager"></div>'
+    +'<div class="fld"><label>DEPARTMENT</label><select id="nu-dept">'
+    +DEPTS.map(function(d){return '<option>'+d+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="fld"><label>PERMISSIONS</label><select id="nu-perm">'
+    +'<option value="dept">Dept only</option>'
+    +'<option value="all">View all depts</option>'
+    +'<option value="export">View all + Export</option>'
+    +'</select></div>'
+    +'<button class="add-btn" id="add-user-btn">+ ADD</button>'
+    +'</div>';
+
+  document.getElementById('main').innerHTML=h2;
+
+  // Wire add user button
+  var addBtn=document.getElementById('add-user-btn');
+  if(addBtn)addBtn.addEventListener('click',function(){
+    var email=document.getElementById('nu-email').value.trim().toLowerCase();
+    var name=document.getElementById('nu-name').value.trim();
+    var role=document.getElementById('nu-role').value.trim();
+    var dept=document.getElementById('nu-dept').value;
+    var perm=document.getElementById('nu-perm').value;
+    if(!email||!name||!role){toast('Email, name and role are required','err');return;}
+    if(!email.endsWith('@reloadly.com')){toast('Must be a @reloadly.com address','err');return;}
+    if(USER_REGISTRY[email]){toast('User already exists','err');return;}
+    USER_REGISTRY[email]={
+      name:name,role:role,dept:dept,
+      canExport:perm==='export',
+      canViewAll:perm!=='dept',
+      isAdmin:false
+    };
+    logEntry('Admin added user: '+email+' ('+role+')','add');
+    autoSave();
+    toast(name+' added successfully','ok');
+    renderAdmin();
+  });
+}
+
 var currentUser=null;
 var CFG={Management:{p:'MGT',col:'#6c63ff',cls:'mgt'},Operations:{p:'OPS',col:'#4ade80',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'}};
 var STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
@@ -289,6 +365,8 @@ function renderUserPill(){
   lbl.parentNode.insertBefore(pill,lbl);
   var expBtn=document.getElementById('export-btn');
   if(expBtn)expBtn.style.display=currentUser.canExport?'flex':'none';
+  var adminNav=document.getElementById('nav-admin');
+  if(adminNav)adminNav.style.display=isAdmin()?'flex':'none';
 }
 function signOut(){
   if(!confirm('Sign out?'))return;
@@ -418,6 +496,7 @@ function render(){
   if(view==='dashboard')renderDash();
   else if(view==='log')renderLog();
   else if(view==='reminders')renderReminders();
+  else if(view==='admin'){if(isAdmin())renderAdmin();else renderDash();}
   else renderDept(view);
 }
 function go(v){
