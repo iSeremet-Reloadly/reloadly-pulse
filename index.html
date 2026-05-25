@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <style>
-:root{--bg:#09090e;--surf:#111118;--surf2:#18181f;--brd:#252533;--acc:#6c63ff;--grn:#4ade80;--red:#ff6b6b;--yel:#fbbf24;--txt:#e4e4f0;--mut:#64647a;}
+:root{--bg:#01112e;--surf:#132747;--surf2:#223451;--brd:#37455c;--acc:#09faa3;--acc2:#7700ff;--grn:#09faa3;--grn2:#70fdca;--red:#f27474;--yel:#ffc107;--txt:#e1e4ea;--mut:#717784;--txt-inv:#01112e;}[data-theme="light"]{--bg:#f4f4f4;--surf:#ffffff;--surf2:#ebeef1;--brd:#e1e4ea;--acc:#7700ff;--acc2:#09faa3;--grn:#0a8f5e;--grn2:#09faa3;--red:#e12416;--yel:#c98a00;--txt:#01112e;--mut:#525866;--txt-inv:#ffffff;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--txt);font-family:'Lexend',sans-serif;min-height:100vh}
 .hdr{height:56px;background:var(--surf);border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:200}
@@ -153,6 +153,14 @@ tbody tr:hover .del{opacity:1}
 .notif-btn{font-family:'Roboto Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer}
 .notif-btn:hover{background:rgba(108,99,255,.1)}
 .ni.locked{opacity:.3;cursor:default;pointer-events:none}
+.theme-toggle{font-family:'Roboto Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);cursor:pointer;transition:.2s;display:flex;align-items:center;gap:5px}
+.theme-toggle:hover{border-color:var(--acc);color:var(--acc)}
+body,[data-theme="light"] input,[data-theme="light"] select{transition:background .25s,color .25s}
+[data-theme="light"] input,[data-theme="light"] select{color:var(--txt);background:var(--surf2)}
+[data-theme="light"] .add-btn{background:var(--acc)}
+[data-theme="light"] .ni.active{border-left-color:var(--acc)}
+[data-theme="light"] .pf{background:var(--acc)}
+[data-theme="light"] .hex{box-shadow:0 0 12px rgba(119,0,255,.3)}
 </style>
 </head>
 <body>
@@ -163,6 +171,7 @@ tbody tr:hover .del{opacity:1}
     <span class="as-dot" id="as-dot"></span>
     <span id="as-lbl" style="font-family:'Roboto Mono',monospace;font-size:9px;color:var(--mut)"></span>
     <button class="hbtn xl" id="export-btn" onclick="exportExcel()" style="display:none">&#11015; EXPORT XLS</button>
+    <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark">🌙 DARK</button>
     <button class="hbtn" id="bell-btn" onclick="go('reminders')" style="position:relative">&#128276;<span id="remind-hdr-cnt" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:8px;min-width:14px;height:14px;border-radius:7px;line-height:14px;text-align:center;padding:0 2px"></span></button>
     <button class="hbtn" onclick="go('log')">&#128203; LOG</button>
   </div>
@@ -210,7 +219,7 @@ var USER_REGISTRY={
   'dbassey@reloadly.com':   {name:'David Bassey',     role:'Operations Manager',dept:'Operations',  canExport:false, canViewAll:false}
 };
 var currentUser=null;
-var CFG={Management:{p:'MGT',col:'#6c63ff',cls:'mgt'},Operations:{p:'OPS',col:'#4ade80',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'}};
+var CFG={Management:{p:'MGT',col:'#7700ff',cls:'mgt'},Operations:{p:'OPS',col:'#09faa3',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'}};
 var STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
 var PRIORITIES=['Critical','High','Medium','Low'];
 var SPC={'Not Started':'ns','In Progress':'ip','Blocked':'bl','Under Review':'ur','Done':'dn'};
@@ -245,6 +254,7 @@ var actLog=[];
 var view='dashboard',fStatus='All',fSearch='',charts={},toastT,asTimer;
 
 function init(){
+  applyStoredTheme();
   var saved=localStorage.getItem('rl_user_email');
   var profile=saved?USER_REGISTRY[saved]:null;
   if(profile){
@@ -416,6 +426,8 @@ function updCnts(){
     if(hdr){if(uc.length){hdr.style.display='inline-block';hdr.textContent=uc.length;}else hdr.style.display='none';}
   }catch(e){}
 }
+function toggleTheme(){var isDark=document.documentElement.getAttribute('data-theme')!=='light';document.documentElement.setAttribute('data-theme',isDark?'light':'dark');var btn=document.getElementById('theme-btn');if(btn)btn.textContent=isDark?'☀️ LIGHT':'🌙 DARK';localStorage.setItem('rl_theme',isDark?'light':'dark');}
+function applyStoredTheme(){var t=localStorage.getItem('rl_theme')||'dark';document.documentElement.setAttribute('data-theme',t);setTimeout(function(){var btn=document.getElementById('theme-btn');if(btn)btn.textContent=t==='light'?'☀️ LIGHT':'🌙 DARK';},50);}
 function isAdmin(){return currentUser&&currentUser.isAdmin===true;}
 function renderAdmin(){
   if(!isAdmin()){renderDash();return;}
