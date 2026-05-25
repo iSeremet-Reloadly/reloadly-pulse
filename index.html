@@ -200,12 +200,12 @@ tbody tr:hover .del{opacity:1}
 var DEPTS=['Management','Operations','Finance','Engineering'];
 // User Registry
 var USER_REGISTRY={
-  'mfrancis@reloadly.com':  {name:'Michel Francis',   role:'CEO',               dept:'Management',  canExport:true,  canViewAll:true},
-  'dlubovci@reloadly.com':  {name:'Dren Lubovci',     role:'COO',               dept:'Management',  canExport:true,  canViewAll:true},
+  'mfrancis@reloadly.com':  {name:'Michel Francis',   role:'CEO',               dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true},
+  'dlubovci@reloadly.com':  {name:'Dren Lubovci',     role:'COO',               dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true},
   'ehirlemann@reloadly.com':{name:'Enrique Hirlemann',role:'CRO',              dept:'Management',  canExport:false, canViewAll:true},
   'aberisha@reloadly.com':  {name:'Alketa Berisha',   role:'Head of Finance',   dept:'Finance',     canExport:false, canViewAll:false},
   'epiard@reloadly.com':    {name:'Emmanuel Piard',   role:'CTO',               dept:'Engineering', canExport:false, canViewAll:true},
-  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',  role:'Senior Engineer',   dept:'Engineering', canExport:false, canViewAll:false},
+  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',  role:'Senior Engineer',   dept:'Engineering', canExport:false, canViewAll:false, isAdmin:true},
   'ipaez@reloadly.com':     {name:'Irene Paez',       role:'Head of Operations',dept:'Operations',  canExport:false, canViewAll:false},
   'dbassey@reloadly.com':   {name:'David Bassey',     role:'Operations Manager',dept:'Operations',  canExport:false, canViewAll:false}
 };
