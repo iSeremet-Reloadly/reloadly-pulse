@@ -20,13 +20,8 @@ body{background:var(--bg);color:var(--txt);font-family:'Lexend',sans-serif;min-h
 .ts{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--mut)}
 .hbtn{font-family:'Roboto Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--brd);background:transparent;color:var(--mut);cursor:pointer;display:flex;align-items:center;gap:5px;transition:.2s;white-space:nowrap}
 .hbtn:hover{border-color:var(--acc);color:var(--acc)}
-.hbtn.ok{border-color:var(--grn);color:var(--grn)}
-.hbtn.warn{border-color:var(--yel);color:var(--yel)}
 .hbtn.xl{border-color:rgba(74,222,128,.4);color:var(--grn)}
 .hbtn.xl:hover{border-color:var(--grn);background:rgba(74,222,128,.08)}
-.hdot{width:5px;height:5px;border-radius:50%;background:currentColor}
-.pulse{animation:p 1.2s infinite}
-@keyframes p{0%,100%{opacity:1}50%{opacity:.15}}
 .wrap{display:flex;height:calc(100vh - 56px)}
 .sb{width:200px;min-width:200px;background:var(--surf);border-right:1px solid var(--brd);padding:16px 0;overflow-y:auto;display:flex;flex-direction:column}
 .sb-lbl{font-family:'Roboto Mono',monospace;font-size:9px;color:var(--mut);letter-spacing:.14em;padding:0 18px;margin-bottom:4px;margin-top:14px}
@@ -128,6 +123,7 @@ tbody tr:hover .del{opacity:1}
 .log-tag.edit{background:rgba(251,191,36,.15);color:var(--yel)}
 .log-tag.del{background:rgba(255,107,107,.15);color:var(--red)}
 .log-tag.done{background:rgba(74,222,128,.15);color:var(--grn)}
+.log-empty{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--mut);text-align:center;padding:20px}
 .gate-overlay{position:fixed;inset:0;background:rgba(9,9,14,.92);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center}
 .gate-box{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:36px 40px;width:380px;text-align:center}
 .gate-hex{width:36px;height:36px;background:var(--acc);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);margin:0 auto 16px}
@@ -156,7 +152,6 @@ tbody tr:hover .del{opacity:1}
 .notif-bar{display:flex;align-items:center;gap:8px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.2);border-radius:8px;padding:8px 12px;margin-bottom:16px;font-family:'Roboto Mono',monospace;font-size:10px;color:var(--mut)}
 .notif-btn{font-family:'Roboto Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer}
 .notif-btn:hover{background:rgba(108,99,255,.1)}
-.log-empty{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--mut);text-align:center;padding:20px}
 </style>
 </head>
 <body>
@@ -166,9 +161,9 @@ tbody tr:hover .del{opacity:1}
     <div class="ts" id="ts"></div>
     <span class="as-dot" id="as-dot"></span>
     <span id="as-lbl" style="font-family:'Roboto Mono',monospace;font-size:9px;color:var(--mut)"></span>
-    <button class="hbtn xl" id="export-btn" onclick="exportExcel()" style="display:none">⬇ EXPORT XLS</button>
-    <button class="hbtn" onclick="go('reminders')" style="position:relative">🔔<span id="remind-hdr-cnt" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:8px;min-width:14px;height:14px;border-radius:7px;line-height:14px;text-align:center"></span></button>
-    <button class="hbtn" onclick="go('log')">📋 LOG</button>
+    <button class="hbtn xl" id="export-btn" onclick="exportExcel()" style="display:none">&#11015; EXPORT XLS</button>
+    <button class="hbtn" id="bell-btn" onclick="go('reminders')" style="position:relative">&#128276;<span id="remind-hdr-cnt" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:8px;min-width:14px;height:14px;border-radius:7px;line-height:14px;text-align:center;padding:0 2px"></span></button>
+    <button class="hbtn" onclick="go('log')">&#128203; LOG</button>
   </div>
 </div>
 <div class="wrap">
@@ -198,55 +193,528 @@ tbody tr:hover .del{opacity:1}
   </div>
 </div>
 <div id="toast" style="display:none" class="toast"></div>
+
 <script>
-const DEPTS=['Management','Operations','Finance','Engineering'];
-const EXPORT_EMAILS_MAP={'dlubovci@reloadly.com':'Dren Lubovci','mfrancis@reloadly.com':'Michel Francis','ehirlemann@reloadly.com':'Enrique Hirlemann','epiard@reloadly.com':'Emmanuel Piard'};
-const EXPORT_EMAILS=Object.keys(EXPORT_EMAILS_MAP);
-let currentUser=null;
-const CFG={Management:{p:'MGT',col:'#6c63ff',cls:'mgt'},Operations:{p:'OPS',col:'#4ade80',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'}};
-const STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
-const PRIORITIES=['Critical','High','Medium','Low'];
-const SPC={'Not Started':'ns','In Progress':'ip','Blocked':'bl','Under Review':'ur','Done':'dn'};
-const SEED={Management:[{id:'MGT-001',name:'Series B prep - investor deck',assignee:'Michel Francis',priority:'High',status:'In Progress',dueDate:'2026-06-15',startDate:'2026-05-01',progress:30,notes:'Needs financial model update'},{id:'MGT-002',name:'Q2 OKR review session',assignee:'Dren',priority:'High',status:'Not Started',dueDate:'2026-05-30',startDate:'2026-05-22',progress:0,notes:''},{id:'MGT-003',name:'Board report - May 2026',assignee:'Michel Francis',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-20',progress:40,notes:''},{id:'MGT-004',name:'Leadership offsite follow-ups',assignee:'Dren',priority:'Medium',status:'In Progress',dueDate:'2026-05-25',startDate:'2026-05-18',progress:60,notes:''},{id:'MGT-005',name:'Company health dashboard update',assignee:'Dren',priority:'Medium',status:'In Progress',dueDate:'2026-05-27',startDate:'2026-05-22',progress:20,notes:''}],Operations:[{id:'OPS-001',name:'Swype - Bluebanc wind-down completion',assignee:'Dren',priority:'Critical',status:'In Progress',dueDate:'2026-05-31',startDate:'2026-05-01',progress:70,notes:'Decline fee dispute outstanding'},{id:'OPS-002',name:'KYB enforcement - Persona backlog',assignee:'Irene Paez',priority:'High',status:'In Progress',dueDate:'2026-05-29',startDate:'2026-05-15',progress:50,notes:''},{id:'OPS-003',name:'Partner onboarding form - Tally.so',assignee:'Irene Paez',priority:'Medium',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-10',progress:80,notes:''},{id:'OPS-004',name:'Rebtel route failure review',assignee:'David Bassey',priority:'Medium',status:'Under Review',dueDate:'2026-05-26',startDate:'2026-05-20',progress:90,notes:'93% overall success rate'},{id:'OPS-005',name:'Swype card customer support SLA',assignee:'David Bassey',priority:'Medium',status:'Not Started',dueDate:'2026-06-10',startDate:'2026-06-01',progress:0,notes:''}],Finance:[{id:'FIN-001',name:'Gross margin run rate analysis',assignee:'Alketa Berisha',priority:'Critical',status:'In Progress',dueDate:'2026-05-30',startDate:'2026-05-15',progress:45,notes:'Target $10M ARR'},{id:'FIN-002',name:'Series B financial model',assignee:'Alketa Berisha',priority:'High',status:'In Progress',dueDate:'2026-06-15',startDate:'2026-05-20',progress:25,notes:'Investor-ready format required'},{id:'FIN-003',name:'Bluebanc decline fee dispute',assignee:'Dren',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-10',progress:60,notes:''},{id:'FIN-004',name:'NRR tracking setup',assignee:'Alketa Berisha',priority:'High',status:'Not Started',dueDate:'2026-06-20',startDate:'2026-06-01',progress:0,notes:'Most critical missing metric'},{id:'FIN-005',name:'Interchange revenue reconciliation',assignee:'Alketa Berisha',priority:'Medium',status:'Not Started',dueDate:'2026-06-30',startDate:'2026-06-10',progress:0,notes:'Swype Cards breakage + interchange'}],Engineering:[{id:'ENG-001',name:'API uptime dashboard',assignee:'Samuel Nnabugwu',priority:'High',status:'In Progress',dueDate:'2026-05-30',startDate:'2026-05-18',progress:55,notes:''},{id:'ENG-002',name:'Persona KYB webhook integration',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-15',progress:65,notes:''},{id:'ENG-003',name:'Lithic card API integration - POC',assignee:'Emmanuel Piard',priority:'High',status:'Not Started',dueDate:'2026-06-10',startDate:'2026-06-01',progress:0,notes:'Pending Lithic contract sign-off'},{id:'ENG-004',name:'Rebtel route failure alerts',assignee:'Emmanuel Piard',priority:'Medium',status:'Under Review',dueDate:'2026-05-26',startDate:'2026-05-20',progress:90,notes:''},{id:'ENG-005',name:'Swype card status webhook',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',dueDate:'2026-05-31',startDate:'2026-05-22',progress:35,notes:''},{id:'ENG-006',name:'Rate limiter improvements',assignee:'Samuel Nnabugwu',priority:'Medium',status:'Not Started',dueDate:'2026-06-15',startDate:'2026-06-01',progress:0,notes:''}]};
-let data={Management:[],Operations:[],Finance:[],Engineering:[]};let actLog=[];let view='dashboard',fStatus='All',fSearch='',charts={},toastT,asTimer;
-function init(){const saved=localStorage.getItem('rl_user_email');if(saved&&saved.endsWith('@reloadly.com')){const kn=EXPORT_EMAILS_MAP[saved];const name=kn||saved.split('@')[0].split('.').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');currentUser={email:saved,name};loadData();}else{document.getElementById('gate').style.display='flex';setTimeout(function(){document.getElementById('gate-email').focus();},100);}}
-function loadData(){const s=localStorage.getItem('rl_tasks_v4');if(s){try{data=JSON.parse(s);}catch(e){data=JSON.parse(JSON.stringify(SEED));}}else{data=JSON.parse(JSON.stringify(SEED));}const l=localStorage.getItem('rl_log_v1');if(l){try{actLog=JSON.parse(l);}catch(e){actLog=[];}}autoSave();updCnts();render();document.getElementById('ts').textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'});renderUserPill();checkReminders();if(!window._ri)window._ri=setInterval(checkReminders,3600000);}
-function gateLogin(){const email=document.getElementById('gate-email').value.trim().toLowerCase();const errEl=document.getElementById('gate-err');if(!email.endsWith('@reloadly.com')){errEl.textContent='Access restricted to @reloadly.com accounts.';return;}errEl.textContent='';const kn=EXPORT_EMAILS_MAP[email];const name=kn||email.split('@')[0].split('.').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');currentUser={email,name};localStorage.setItem('rl_user_email',email);document.getElementById('gate').style.display='none';loadData();logEntry('Signed in','edit');autoSave();}
-function renderUserPill(){const ex=document.getElementById('user-pill-el');if(ex)ex.remove();if(!currentUser)return;const lbl=document.getElementById('as-lbl');if(!lbl)return;const pill=document.createElement('span');pill.id='user-pill-el';pill.className='user-pill';pill.title='Click to sign out';pill.textContent=currentUser.name;pill.onclick=signOut;lbl.parentNode.insertBefore(pill,lbl);const expBtn=document.getElementById('export-btn');if(expBtn)expBtn.style.display=EXPORT_EMAILS.includes(currentUser.email)?'flex':'none';}
-function signOut(){if(!confirm('Sign out?'))return;localStorage.removeItem('rl_user_email');currentUser=null;const expBtn=document.getElementById('export-btn');if(expBtn)expBtn.style.display='none';document.getElementById('gate').style.display='flex';setTimeout(function(){document.getElementById('gate-email').focus();},100);}
-function autoSave(){localStorage.setItem('rl_tasks_v4',JSON.stringify(data));localStorage.setItem('rl_log_v1',JSON.stringify(actLog.slice(-200)));updCnts();const dot=document.getElementById('as-dot'),lbl=document.getElementById('as-lbl');if(dot){dot.classList.add('show');lbl.textContent='saved';}clearTimeout(asTimer);asTimer=setTimeout(function(){if(dot){dot.classList.remove('show');lbl.textContent='';}},1800);}
-function logEntry(msg,tag){actLog.unshift({ts:new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}),msg,tag,user:currentUser?currentUser.name:''});if(actLog.length>200)actLog.pop();const el=document.getElementById('c-log');if(el)el.textContent=actLog.length;}
-function nextId(dept){const p=CFG[dept].p,nums=data[dept].map(function(t){return parseInt(t.id.replace(p+'-',''))||0;}),max=nums.length?Math.max.apply(null,nums):0;return p+'-'+String(max+1).padStart(3,'0');}
-function addTask(dept){const name=document.getElementById('nn').value.trim();if(!name){toast('Task name required','err');return;}const t={id:nextId(dept),name,assignee:document.getElementById('na').value.trim()||'Unassigned',priority:document.getElementById('np').value,status:'Not Started',dueDate:document.getElementById('nd').value,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',lastUpdated:new Date().toISOString().split('T')[0]};data[dept].unshift(t);logEntry('Created '+t.id+' in '+dept,'add');autoSave();render();toast(t.id+' created','ok');document.getElementById('nn').value='';document.getElementById('na').value='';}
-function upd(dept,id,field,val){const t=data[dept].find(function(x){return x.id===id;});if(!t)return;const old=t[field];t[field]=val;t.lastUpdated=new Date().toISOString().split('T')[0];if(field==='status'){logEntry(id+': status to '+val+(old?' (was '+old+')':''),val==='Done'?'done':'edit');if(val==='Done')t.progress=100;}else if(field==='priority'){logEntry(id+': priority to '+val,'edit');}else if(field==='progress'&&val!==old){logEntry(id+': progress '+val+'%','edit');}autoSave();if(['status','priority'].includes(field))render();}
-function del(dept,id){if(!confirm('Delete '+id+'?'))return;const t=data[dept].find(function(x){return x.id===id;});logEntry('Deleted '+id+(t?' '+t.name:''),'del');data[dept]=data[dept].filter(function(t){return t.id!==id;});autoSave();render();toast('Deleted','ok');}
-function stats(dept){const l=data[dept];return{total:l.length,ns:l.filter(function(t){return t.status==='Not Started';}).length,ip:l.filter(function(t){return t.status==='In Progress';}).length,bl:l.filter(function(t){return t.status==='Blocked';}).length,ur:l.filter(function(t){return t.status==='Under Review';}).length,dn:l.filter(function(t){return t.status==='Done';}).length,critical:l.filter(function(t){return t.priority==='Critical';}).length,high:l.filter(function(t){return t.priority==='High';}).length,medium:l.filter(function(t){return t.priority==='Medium';}).length,low:l.filter(function(t){return t.priority==='Low';}).length};}
-function sortedTasks(list){return list.filter(function(t){return t.status!=='Done';}).concat(list.filter(function(t){return t.status==='Done';}));}
-function getUpcoming(){const now=new Date();now.setHours(0,0,0,0);const all=DEPTS.reduce(function(a,d){return a.concat(data[d].map(function(t){return Object.assign({},t,{dept:d});}));},[]);return all.filter(function(t){if(!t.dueDate||t.status==='Done')return false;const due=new Date(t.dueDate);due.setHours(0,0,0,0);const diff=Math.round((due-now)/864e5);return diff>=0&&diff<=3;}).sort(function(a,b){return new Date(a.dueDate)-new Date(b.dueDate);});}
-function daysLabel(diff){if(diff===0)return{label:'DUE TODAY',cls:'d0'};if(diff===1)return{label:'1 DAY LEFT',cls:'d1'};if(diff===2)return{label:'2 DAYS LEFT',cls:'d2'};return{label:'3 DAYS LEFT',cls:'d3'};}
-function checkReminders(){if(Notification.permission!=='granted')return;const now=new Date();now.setHours(0,0,0,0);const dk=now.toISOString().slice(0,10);var fired={};try{fired=JSON.parse(localStorage.getItem('rl_nr_'+dk)||'{}');}catch(e){}getUpcoming().forEach(function(t){const due=new Date(t.dueDate);due.setHours(0,0,0,0);const diff=Math.round((due-now)/864e5);const fk=t.id+'_d'+diff;if(fired[fk])return;const lbl=daysLabel(diff).label;const n=new Notification('Reloadly Task Reminder',{body:lbl+': '+t.name+' | '+t.dept+' - '+(t.assignee||'Unassigned'),tag:fk,requireInteraction:diff===0});n.onclick=function(){window.focus();go(t.dept);n.close();};fired[fk]=true;});localStorage.setItem('rl_nr_'+dk,JSON.stringify(fired));Object.keys(localStorage).filter(function(k){return k.startsWith('rl_nr_')&&k!=='rl_nr_'+dk;}).forEach(function(k){localStorage.removeItem(k);});}
-function requestNotifPerms(){Notification.requestPermission().then(function(p){if(p==='granted'){toast('Notifications enabled','ok');checkReminders();if(view==='reminders')renderReminders();}else toast('Notifications blocked','err');});}
-function renderReminders(){const upcoming=getUpcoming();const np=Notification.permission;var nb='';if(np==='default'){nb='<div class="notif-bar">Enable browser notifications for reminders. <button class="notif-btn" onclick="requestNotifPerms()">Enable</button></div>';}else if(np==='denied'){nb='<div class="notif-bar" style="border-color:rgba(255,107,107,.3)">Notifications blocked in browser settings.</div>';}else{nb='<div class="notif-bar" style="border-color:rgba(74,222,128,.3);color:var(--grn)">Browser notifications active</div>';}var h='<div class="ptitle">Reminders</div><div class="psub">Tasks due within the next 3 days</div>'+nb;if(!upcoming.length){h+='<div class="remind-panel" style="border-color:rgba(74,222,128,.3)"><div class="remind-panel-t" style="color:var(--grn)">All clear</div><div class="remind-panel-s">No tasks due in the next 3 days.</div></div>';}else{const now2=new Date();now2.setHours(0,0,0,0);h+='<div class="remind-panel"><div class="remind-panel-t">'+upcoming.length+' task'+(upcoming.length>1?'s':'')+' coming up</div><div class="remind-panel-s">Click any task to go to that department</div>';upcoming.forEach(function(t){const due=new Date(t.dueDate);due.setHours(0,0,0,0);const diff=Math.round((due-now2)/864e5);const dl=daysLabel(diff);h+='<div class="remind-row" onclick="go(\''+t.dept+'\')"><span class="remind-chip '+dl.cls+'">'+dl.label+'</span><div class="remind-info"><div class="remind-name">'+esc(t.name)+'</div><div class="remind-meta">'+t.id+' - '+t.dept+' - '+esc(t.assignee||'Unassigned')+'</div></div><span class="badge '+t.priority+'">'+t.priority+'</span></div>';});h+='</div>';}document.getElementById('main').innerHTML=h;}
-function updCnts(){DEPTS.forEach(function(d){var el=document.getElementById('c-'+d);if(el)el.textContent=data[d].length;});var lel=document.getElementById('c-log');if(lel)lel.textContent=actLog.length;try{var uc=getUpcoming();var rel=document.getElementById('c-reminders');if(rel)rel.textContent=uc.length||'';var hdr=document.getElementById('remind-hdr-cnt');if(hdr){if(uc.length){hdr.style.display='inline-block';hdr.textContent=uc.length;}else hdr.style.display='none';}}catch(e){}}
-function render(){if(view==='dashboard')renderDash();else if(view==='log')renderLog();else if(view==='reminders')renderReminders();else renderDept(view);}
-function go(v){view=v;fStatus='All';fSearch='';document.querySelectorAll('.ni').forEach(function(e){e.classList.remove('active');});var el=document.getElementById('nav-'+v);if(el)el.classList.add('active');Object.values(charts).forEach(function(c){try{c.destroy();}catch(e){}});charts={};render();}
+var DEPTS=['Management','Operations','Finance','Engineering'];
+var EXPORT_EMAILS_MAP={'dlubovci@reloadly.com':'Dren Lubovci','mfrancis@reloadly.com':'Michel Francis','ehirlemann@reloadly.com':'Enrique Hirlemann','epiard@reloadly.com':'Emmanuel Piard'};
+var EXPORT_EMAILS=Object.keys(EXPORT_EMAILS_MAP);
+var currentUser=null;
+var CFG={Management:{p:'MGT',col:'#6c63ff',cls:'mgt'},Operations:{p:'OPS',col:'#4ade80',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'}};
+var STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
+var PRIORITIES=['Critical','High','Medium','Low'];
+var SPC={'Not Started':'ns','In Progress':'ip','Blocked':'bl','Under Review':'ur','Done':'dn'};
+var SEED={Management:[
+  {id:'MGT-001',name:'Series B prep - investor deck',assignee:'Michel Francis',priority:'High',status:'In Progress',dueDate:'2026-06-15',startDate:'2026-05-01',progress:30,notes:'Needs financial model update'},
+  {id:'MGT-002',name:'Q2 OKR review session',assignee:'Dren',priority:'High',status:'Not Started',dueDate:'2026-05-30',startDate:'2026-05-22',progress:0,notes:''},
+  {id:'MGT-003',name:'Board report - May 2026',assignee:'Michel Francis',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-20',progress:40,notes:''},
+  {id:'MGT-004',name:'Leadership offsite follow-ups',assignee:'Dren',priority:'Medium',status:'In Progress',dueDate:'2026-05-25',startDate:'2026-05-18',progress:60,notes:''},
+  {id:'MGT-005',name:'Company health dashboard update',assignee:'Dren',priority:'Medium',status:'In Progress',dueDate:'2026-05-27',startDate:'2026-05-22',progress:20,notes:''}
+],Operations:[
+  {id:'OPS-001',name:'Swype - Bluebanc wind-down completion',assignee:'Dren',priority:'Critical',status:'In Progress',dueDate:'2026-05-31',startDate:'2026-05-01',progress:70,notes:'Decline fee dispute outstanding'},
+  {id:'OPS-002',name:'KYB enforcement - Persona backlog',assignee:'Irene Paez',priority:'High',status:'In Progress',dueDate:'2026-05-29',startDate:'2026-05-15',progress:50,notes:''},
+  {id:'OPS-003',name:'Partner onboarding form - Tally.so',assignee:'Irene Paez',priority:'Medium',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-10',progress:80,notes:''},
+  {id:'OPS-004',name:'Rebtel route failure review',assignee:'David Bassey',priority:'Medium',status:'Under Review',dueDate:'2026-05-26',startDate:'2026-05-20',progress:90,notes:'93% overall success rate'},
+  {id:'OPS-005',name:'Swype card customer support SLA',assignee:'David Bassey',priority:'Medium',status:'Not Started',dueDate:'2026-06-10',startDate:'2026-06-01',progress:0,notes:''}
+],Finance:[
+  {id:'FIN-001',name:'Gross margin run rate analysis',assignee:'Alketa Berisha',priority:'Critical',status:'In Progress',dueDate:'2026-05-30',startDate:'2026-05-15',progress:45,notes:'Target $10M ARR'},
+  {id:'FIN-002',name:'Series B financial model',assignee:'Alketa Berisha',priority:'High',status:'In Progress',dueDate:'2026-06-15',startDate:'2026-05-20',progress:25,notes:'Investor-ready format required'},
+  {id:'FIN-003',name:'Bluebanc decline fee dispute',assignee:'Dren',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-10',progress:60,notes:''},
+  {id:'FIN-004',name:'NRR tracking setup',assignee:'Alketa Berisha',priority:'High',status:'Not Started',dueDate:'2026-06-20',startDate:'2026-06-01',progress:0,notes:'Most critical missing Series B metric'},
+  {id:'FIN-005',name:'Interchange revenue reconciliation',assignee:'Alketa Berisha',priority:'Medium',status:'Not Started',dueDate:'2026-06-30',startDate:'2026-06-10',progress:0,notes:'Swype Cards breakage + interchange'}
+],Engineering:[
+  {id:'ENG-001',name:'API uptime dashboard',assignee:'Samuel Nnabugwu',priority:'High',status:'In Progress',dueDate:'2026-05-30',startDate:'2026-05-18',progress:55,notes:''},
+  {id:'ENG-002',name:'Persona KYB webhook integration',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-15',progress:65,notes:''},
+  {id:'ENG-003',name:'Lithic card API integration - POC',assignee:'Emmanuel Piard',priority:'High',status:'Not Started',dueDate:'2026-06-10',startDate:'2026-06-01',progress:0,notes:'Pending Lithic contract sign-off'},
+  {id:'ENG-004',name:'Rebtel route failure alerts',assignee:'Emmanuel Piard',priority:'Medium',status:'Under Review',dueDate:'2026-05-26',startDate:'2026-05-20',progress:90,notes:''},
+  {id:'ENG-005',name:'Swype card status webhook',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',dueDate:'2026-05-31',startDate:'2026-05-22',progress:35,notes:''},
+  {id:'ENG-006',name:'Rate limiter improvements',assignee:'Samuel Nnabugwu',priority:'Medium',status:'Not Started',dueDate:'2026-06-15',startDate:'2026-06-01',progress:0,notes:''}
+]};
+var data={Management:[],Operations:[],Finance:[],Engineering:[]};
+var actLog=[];
+var view='dashboard',fStatus='All',fSearch='',charts={},toastT,asTimer;
+
+function init(){
+  var saved=localStorage.getItem('rl_user_email');
+  if(saved&&saved.endsWith('@reloadly.com')){
+    var kn=EXPORT_EMAILS_MAP[saved];
+    var name=kn||saved.split('@')[0].split('.').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');
+    currentUser={email:saved,name:name};loadData();
+  }else{
+    document.getElementById('gate').style.display='flex';
+    setTimeout(function(){document.getElementById('gate-email').focus();},100);
+  }
+}
+function loadData(){
+  var s=localStorage.getItem('rl_tasks_v4');
+  if(s){try{data=JSON.parse(s);}catch(e){data=JSON.parse(JSON.stringify(SEED));}}else{data=JSON.parse(JSON.stringify(SEED));}
+  var l=localStorage.getItem('rl_log_v1');
+  if(l){try{actLog=JSON.parse(l);}catch(e){actLog=[];}}
+  autoSave();updCnts();render();
+  document.getElementById('ts').textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  renderUserPill();checkReminders();
+  if(!window._ri)window._ri=setInterval(checkReminders,3600000);
+}
+function gateLogin(){
+  var email=document.getElementById('gate-email').value.trim().toLowerCase();
+  var errEl=document.getElementById('gate-err');
+  if(!email.endsWith('@reloadly.com')){errEl.textContent='Access restricted to @reloadly.com accounts.';return;}
+  errEl.textContent='';
+  var kn=EXPORT_EMAILS_MAP[email];
+  var name=kn||email.split('@')[0].split('.').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');
+  currentUser={email:email,name:name};
+  localStorage.setItem('rl_user_email',email);
+  document.getElementById('gate').style.display='none';
+  loadData();logEntry('Signed in','edit');autoSave();
+}
+function renderUserPill(){
+  var ex=document.getElementById('user-pill-el');if(ex)ex.remove();
+  if(!currentUser)return;
+  var lbl=document.getElementById('as-lbl');if(!lbl)return;
+  var pill=document.createElement('span');
+  pill.id='user-pill-el';pill.className='user-pill';pill.title='Click to sign out';
+  pill.textContent=currentUser.name;pill.onclick=signOut;
+  lbl.parentNode.insertBefore(pill,lbl);
+  var expBtn=document.getElementById('export-btn');
+  if(expBtn)expBtn.style.display=EXPORT_EMAILS.indexOf(currentUser.email)>-1?'flex':'none';
+}
+function signOut(){
+  if(!confirm('Sign out?'))return;
+  localStorage.removeItem('rl_user_email');currentUser=null;
+  var expBtn=document.getElementById('export-btn');if(expBtn)expBtn.style.display='none';
+  document.getElementById('gate').style.display='flex';
+  setTimeout(function(){document.getElementById('gate-email').focus();},100);
+}
+function autoSave(){
+  localStorage.setItem('rl_tasks_v4',JSON.stringify(data));
+  localStorage.setItem('rl_log_v1',JSON.stringify(actLog.slice(-200)));
+  updCnts();
+  var dot=document.getElementById('as-dot'),lbl=document.getElementById('as-lbl');
+  if(dot){dot.classList.add('show');lbl.textContent='saved';}
+  clearTimeout(asTimer);
+  asTimer=setTimeout(function(){if(dot){dot.classList.remove('show');lbl.textContent='';}},1800);
+}
+function logEntry(msg,tag){
+  actLog.unshift({ts:new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}),msg:msg,tag:tag,user:currentUser?currentUser.name:''});
+  if(actLog.length>200)actLog.pop();
+  var el=document.getElementById('c-log');if(el)el.textContent=actLog.length;
+}
+function nextId(dept){
+  var p=CFG[dept].p;
+  var nums=data[dept].map(function(t){return parseInt(t.id.replace(p+'-',''))||0;});
+  var max=nums.length?Math.max.apply(null,nums):0;
+  return p+'-'+String(max+1).padStart(3,'0');
+}
+function addTask(dept){
+  var name=document.getElementById('nn').value.trim();
+  if(!name){toast('Task name required','err');return;}
+  var t={id:nextId(dept),name:name,assignee:document.getElementById('na').value.trim()||'Unassigned',priority:document.getElementById('np').value,status:'Not Started',dueDate:document.getElementById('nd').value,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',lastUpdated:new Date().toISOString().split('T')[0]};
+  data[dept].unshift(t);logEntry('Created '+t.id+' in '+dept,'add');
+  autoSave();render();toast(t.id+' created','ok');
+  document.getElementById('nn').value='';document.getElementById('na').value='';
+}
+function upd(dept,id,field,val){
+  var t=data[dept].filter(function(x){return x.id===id;})[0];if(!t)return;
+  var old=t[field];t[field]=val;t.lastUpdated=new Date().toISOString().split('T')[0];
+  if(field==='status'){logEntry(id+' status to '+val+(old?' (was '+old+')':''),val==='Done'?'done':'edit');if(val==='Done')t.progress=100;}
+  else if(field==='priority'){logEntry(id+' priority to '+val,'edit');}
+  else if(field==='progress'&&val!==old){logEntry(id+' progress '+val+'%','edit');}
+  autoSave();if(field==='status'||field==='priority')render();
+}
+function del(dept,id){
+  if(!confirm('Delete '+id+'?'))return;
+  var t=data[dept].filter(function(x){return x.id===id;})[0];
+  logEntry('Deleted '+id+(t?' '+t.name:''),'del');
+  data[dept]=data[dept].filter(function(t){return t.id!==id;});
+  autoSave();render();toast('Deleted','ok');
+}
+function stats(dept){
+  var l=data[dept];
+  return{total:l.length,
+    ns:l.filter(function(t){return t.status==='Not Started';}).length,
+    ip:l.filter(function(t){return t.status==='In Progress';}).length,
+    bl:l.filter(function(t){return t.status==='Blocked';}).length,
+    ur:l.filter(function(t){return t.status==='Under Review';}).length,
+    dn:l.filter(function(t){return t.status==='Done';}).length,
+    critical:l.filter(function(t){return t.priority==='Critical';}).length,
+    high:l.filter(function(t){return t.priority==='High';}).length,
+    medium:l.filter(function(t){return t.priority==='Medium';}).length,
+    low:l.filter(function(t){return t.priority==='Low';}).length};
+}
+function sorted(list){
+  return list.filter(function(t){return t.status!=='Done';}).concat(list.filter(function(t){return t.status==='Done';}));
+}
+function getUpcoming(){
+  var now=new Date();now.setHours(0,0,0,0);
+  var all=[];DEPTS.forEach(function(d){data[d].forEach(function(t){all.push(Object.assign({},t,{dept:d}));});});
+  return all.filter(function(t){
+    if(!t.dueDate||t.status==='Done')return false;
+    var due=new Date(t.dueDate);due.setHours(0,0,0,0);
+    var diff=Math.round((due-now)/864e5);
+    return diff>=0&&diff<=3;
+  }).sort(function(a,b){return new Date(a.dueDate)-new Date(b.dueDate);});
+}
+function daysLabel(diff){
+  if(diff===0)return{label:'DUE TODAY',cls:'d0'};
+  if(diff===1)return{label:'1 DAY LEFT',cls:'d1'};
+  if(diff===2)return{label:'2 DAYS LEFT',cls:'d2'};
+  return{label:'3 DAYS LEFT',cls:'d3'};
+}
+function checkReminders(){
+  if(Notification.permission!=='granted')return;
+  var now=new Date();now.setHours(0,0,0,0);
+  var dk=now.toISOString().slice(0,10);
+  var fired={};try{fired=JSON.parse(localStorage.getItem('rl_nr_'+dk)||'{}');}catch(e){}
+  getUpcoming().forEach(function(t){
+    var due=new Date(t.dueDate);due.setHours(0,0,0,0);
+    var diff=Math.round((due-now)/864e5);
+    var fk=t.id+'_d'+diff;
+    if(fired[fk])return;
+    var lbl=daysLabel(diff).label;
+    var n=new Notification('Reloadly Task Reminder',{
+      body:lbl+': '+t.name+' ('+t.dept+')',
+      tag:fk,requireInteraction:diff===0
+    });
+    n.onclick=function(){window.focus();go(t.dept);n.close();};
+    fired[fk]=true;
+  });
+  localStorage.setItem('rl_nr_'+dk,JSON.stringify(fired));
+  Object.keys(localStorage).forEach(function(k){if(k.startsWith('rl_nr_')&&k!=='rl_nr_'+dk)localStorage.removeItem(k);});
+}
+function requestNotifPerms(){
+  Notification.requestPermission().then(function(p){
+    if(p==='granted'){toast('Notifications enabled','ok');checkReminders();if(view==='reminders')renderReminders();}
+    else toast('Notifications blocked','err');
+  });
+}
+function updCnts(){
+  DEPTS.forEach(function(d){var el=document.getElementById('c-'+d);if(el)el.textContent=data[d].length;});
+  var lel=document.getElementById('c-log');if(lel)lel.textContent=actLog.length;
+  try{
+    var uc=getUpcoming();
+    var rel=document.getElementById('c-reminders');if(rel)rel.textContent=uc.length||'';
+    var hdr=document.getElementById('remind-hdr-cnt');
+    if(hdr){if(uc.length){hdr.style.display='inline-block';hdr.textContent=uc.length;}else hdr.style.display='none';}
+  }catch(e){}
+}
+function render(){
+  if(view==='dashboard')renderDash();
+  else if(view==='log')renderLog();
+  else if(view==='reminders')renderReminders();
+  else renderDept(view);
+}
+function go(v){
+  view=v;fStatus='All';fSearch='';
+  document.querySelectorAll('.ni').forEach(function(e){e.classList.remove('active');});
+  var el=document.getElementById('nav-'+v);if(el)el.classList.add('active');
+  Object.values(charts).forEach(function(c){try{c.destroy();}catch(e){}});
+  charts={};render();
+}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function spill(s){return '<span class="sp '+(SPC[s]||'ns')+'"><span class="sdot"></span>'+s+'</span>';}
 function bpill(p){return '<span class="badge '+p+'">'+p+'</span>';}
-function mkChart(id,cfg){var el=document.getElementById(id);if(!el)return null;var ctx=el.getContext('2d');if(charts[id])charts[id].destroy();charts[id]=new Chart(ctx,cfg);return charts[id];}
-var CO={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#64647a',font:{size:9},boxWidth:8}},tooltip:{backgroundColor:'#18181f',borderColor:'#252533',borderWidth:1,titleColor:'#e4e4f0',bodyColor:'#64647a'}},scales:{x:{ticks:{color:'#64647a',font:{size:9}},grid:{color:'rgba(37,37,51,.4)'}},y:{ticks:{color:'#64647a',font:{size:9}},grid:{color:'rgba(37,37,51,.4)'}}}};
-var NO={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#64647a',font:{size:9},boxWidth:8}},tooltip:{backgroundColor:'#18181f',borderColor:'#252533',borderWidth:1,titleColor:'#e4e4f0',bodyColor:'#64647a'}}};
-function exportExcel(){if(typeof XLSX==='undefined'){toast('XLSX not loaded','err');return;}if(!currentUser||!EXPORT_EMAILS.includes(currentUser.email)){toast('Export restricted','err');return;}var wb=XLSX.utils.book_new();var sum=[['Department','Total','Not Started','In Progress','Blocked','Under Review','Done','%']];DEPTS.forEach(function(d){var s=stats(d);sum.push([d,s.total,s.ns,s.ip,s.bl,s.ur,s.dn,s.total?Math.round(s.dn/s.total*100)+'%':'0%']);});var ws0=XLSX.utils.aoa_to_sheet(sum);XLSX.utils.book_append_sheet(wb,ws0,'Summary');DEPTS.forEach(function(dept){var rows=[['ID','Task','Assignee','Priority','Status','Progress%','Due','Start','Notes','Updated']];sortedTasks(data[dept]).forEach(function(t){rows.push([t.id,t.name,t.assignee||'',t.priority,t.status,t.progress||0,t.dueDate||'',t.startDate||'',t.notes||'',t.lastUpdated||'']);});var ws=XLSX.utils.aoa_to_sheet(rows);XLSX.utils.book_append_sheet(wb,ws,dept);});var lr=[['Timestamp','User','Action','Tag']];actLog.forEach(function(e){lr.push([e.ts,e.user||'',e.msg,e.tag]);});var wsl=XLSX.utils.aoa_to_sheet(lr);XLSX.utils.book_append_sheet(wb,wsl,'Activity Log');XLSX.writeFile(wb,'Reloadly_Tasks_'+new Date().toISOString().slice(0,10)+'.xlsx');logEntry('Excel exported by '+currentUser.name+' <'+currentUser.email+'>','edit');autoSave();toast('Excel downloaded','ok');}
-function renderDash(){var all=DEPTS.reduce(function(a,d){return a.concat(data[d].map(function(t){return Object.assign({},t,{dept:d});}));},[]);var tot=all.length,dn=all.filter(function(t){return t.status==='Done';}).length,ip=all.filter(function(t){return t.status==='In Progress';}).length,bl=all.filter(function(t){return t.status==='Blocked';}).length;var crit=all.filter(function(t){return t.priority==='Critical'&&t.status!=='Done';});var dueList=all.filter(function(t){if(!t.dueDate||t.status==='Done')return false;var d=Math.ceil((new Date(t.dueDate)-new Date())/864e5);return d>=0&&d<=7;}).sort(function(a,b){return new Date(a.dueDate)-new Date(b.dueDate);});var today=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});var cards=DEPTS.map(function(dept){var s=stats(dept),c=CFG[dept],pct=s.total?Math.round(s.dn/s.total*100):0;return '<div class="sc '+c.cls+'" onclick="go(\''+dept+'\')"><div class="sc-lbl">'+dept.toUpperCase()+'</div><div class="sc-num" style="color:'+c.col+'">'+s.total+'</div><div class="sc-sub">'+pct+'% done - '+s.bl+' blocked</div><div class="sc-bar"><div style="width:'+(s.total?s.dn/s.total*100:0)+'%;background:var(--grn)"></div><div style="width:'+(s.total?s.ip/s.total*100:0)+'%;background:var(--acc)"></div><div style="width:'+(s.total?s.ur/s.total*100:0)+'%;background:var(--yel)"></div><div style="width:'+(s.total?s.bl/s.total*100:0)+'%;background:var(--red)"></div></div><div style="margin-top:8px;display:flex;gap:8px"><span style="font-size:9px;color:var(--mut)">'+s.ns+' pending</span><span style="font-size:9px;color:var(--acc)">'+s.ip+' active</span><span style="font-size:9px;color:var(--grn)">'+s.dn+' done</span></div></div>';}).join('');var h='<div class="ptitle">Dashboard</div><div class="psub">'+today+'</div><div class="ov-row"><div class="ov-card"><div class="ov-l">TOTAL TASKS</div><div class="ov-n">'+tot+'</div><div class="ov-s">across 4 departments</div></div><div class="ov-card" style="border-color:rgba(74,222,128,.3)"><div class="ov-l">COMPLETED</div><div class="ov-n" style="color:var(--grn)">'+dn+'</div><div class="ov-s">'+(tot?Math.round(dn/tot*100):0)+'% done</div></div><div class="ov-card" style="border-color:rgba(255,107,107,.3)"><div class="ov-l">BLOCKED</div><div class="ov-n" style="color:var(--red)">'+bl+'</div><div class="ov-s">'+ip+' active</div></div></div><div class="sc-grid">'+cards+'</div><div class="charts-grid"><div class="cc"><div class="cc-t">Status by Dept</div><div class="cc-s">Stacked</div><div class="cw"><canvas id="ch-s"></canvas></div></div><div class="cc"><div class="cc-t">Priority</div><div class="cc-s">Distribution</div><div class="cw"><canvas id="ch-p"></canvas></div></div><div class="cc"><div class="cc-t">Completion</div><div class="cc-s">% done per dept</div><div class="cw"><canvas id="ch-c"></canvas></div></div><div class="cc"><div class="cc-t">Active vs Blocked</div><div class="cc-s">In Progress vs Blocked</div><div class="cw"><canvas id="ch-ab"></canvas></div></div></div>';if(crit.length)h+='<div class="sh"><div><div class="sh-t">Critical Tasks</div><div class="sh-s">'+crit.length+' needing attention</div></div></div><div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>ASSIGNEE</th><th>STATUS</th><th>DUE</th></tr></thead><tbody>'+crit.map(function(t){return '<tr onclick="go(\''+t.dept+'\')" style="cursor:pointer"><td class="tid">'+t.id+'</td><td>'+esc(t.name)+'</td><td>'+bpill(t.dept)+'</td><td>'+esc(t.assignee)+'</td><td>'+spill(t.status)+'</td><td style="font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut)">'+(t.dueDate||'-')+'</td></tr>';}).join('')+'</tbody></table></div>';if(dueList.length)h+='<div class="sh"><div><div class="sh-t">Due This Week</div><div class="sh-s">'+dueList.length+' tasks</div></div></div><div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>PRIORITY</th><th>STATUS</th><th>DUE</th></tr></thead><tbody>'+dueList.map(function(t){var diff=Math.ceil((new Date(t.dueDate)-new Date())/864e5);return '<tr onclick="go(\''+t.dept+'\')" style="cursor:pointer"><td class="tid">'+t.id+'</td><td>'+esc(t.name)+'</td><td style="font-size:10px;color:var(--mut)">'+t.dept+'</td><td>'+(t.priority?bpill(t.priority):'-')+'</td><td>'+spill(t.status)+'</td><td style="font-family:Roboto Mono,monospace;font-size:10px;color:'+(diff<=1?'var(--red)':diff<=3?'var(--yel)':'var(--mut)')+'">'+t.dueDate+' ('+diff+'d)</td></tr>';}).join('')+'</tbody></table></div>';if(!tot)h+='<div class="empty">No tasks yet.</div>';document.getElementById('main').innerHTML=h;setTimeout(buildDashCharts,60);}
-function buildDashCharts(){var st=Object.assign({},CO,{scales:{x:Object.assign({},CO.scales.x,{stacked:true}),y:Object.assign({},CO.scales.y,{stacked:true})}});mkChart('ch-s',{type:'bar',data:{labels:DEPTS.map(function(d){return d.substring(0,3).toUpperCase();}),datasets:[{label:'Done',data:DEPTS.map(function(d){return stats(d).dn;}),backgroundColor:'rgba(74,222,128,.75)',borderRadius:2},{label:'In Progress',data:DEPTS.map(function(d){return stats(d).ip;}),backgroundColor:'rgba(108,99,255,.75)',borderRadius:2},{label:'Under Review',data:DEPTS.map(function(d){return stats(d).ur;}),backgroundColor:'rgba(251,191,36,.75)',borderRadius:2},{label:'Blocked',data:DEPTS.map(function(d){return stats(d).bl;}),backgroundColor:'rgba(255,107,107,.75)',borderRadius:2},{label:'Not Started',data:DEPTS.map(function(d){return stats(d).ns;}),backgroundColor:'rgba(100,100,122,.4)',borderRadius:2}]},options:st});var af=DEPTS.reduce(function(a,d){return a.concat(data[d]);},[]);mkChart('ch-p',{type:'doughnut',data:{labels:['Critical','High','Medium','Low'],datasets:[{data:[af.filter(function(t){return t.priority==='Critical';}).length,af.filter(function(t){return t.priority==='High';}).length,af.filter(function(t){return t.priority==='Medium';}).length,af.filter(function(t){return t.priority==='Low';}).length],backgroundColor:['rgba(255,68,68,.8)','rgba(255,140,66,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],borderWidth:0,hoverOffset:5}]},options:Object.assign({},NO,{cutout:'62%'})});mkChart('ch-c',{type:'bar',data:{labels:DEPTS.map(function(d){return d.substring(0,3).toUpperCase();}),datasets:[{label:'% Done',data:DEPTS.map(function(d){var s=stats(d);return s.total?Math.round(s.dn/s.total*100):0;}),backgroundColor:DEPTS.map(function(d){return CFG[d].col+'bb';}),borderRadius:4}]},options:Object.assign({},CO,{plugins:Object.assign({},CO.plugins,{legend:{display:false}}),scales:{x:CO.scales.x,y:Object.assign({},CO.scales.y,{max:100,ticks:Object.assign({},CO.scales.y.ticks,{callback:function(v){return v+'%';}})})}})});mkChart('ch-ab',{type:'bar',data:{labels:DEPTS.map(function(d){return d.substring(0,3).toUpperCase();}),datasets:[{label:'In Progress',data:DEPTS.map(function(d){return stats(d).ip;}),backgroundColor:'rgba(108,99,255,.75)',borderRadius:2},{label:'Blocked',data:DEPTS.map(function(d){return stats(d).bl;}),backgroundColor:'rgba(255,107,107,.75)',borderRadius:2}]},options:CO});}
-function renderLog(){var h='<div class="ptitle">Activity Log</div><div class="psub">'+actLog.length+' events</div>';if(actLog.length){h+='<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="hbtn" id="clr-log-btn">Clear Log</button></div><div class="log-panel"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:13px;font-weight:700">Recent Activity</div><div style="font-family:Roboto Mono,monospace;font-size:9px;color:var(--mut)">Newest first</div></div>';h+=actLog.map(function(e){return '<div class="log-entry"><span class="log-time">'+e.ts+'</span><span style="font-family:Roboto Mono,monospace;font-size:9px;color:var(--acc);min-width:100px;white-space:nowrap;padding-top:1px">'+(e.user||'')+'</span><span class="log-msg">'+esc(e.msg)+'<span class="log-tag '+e.tag+'">'+e.tag+'</span></span></div>';}).join('');h+='</div>';}else{h+='<div class="log-panel"><div class="log-empty">No activity yet.</div></div>';}document.getElementById('main').innerHTML=h;}
-function clearLog(){actLog=[];autoSave();render();toast('Log cleared','ok');}
-function renderDept(dept){var c=CFG[dept],s=stats(dept),sorted=sortedTasks(data[dept]);var fil=sorted.filter(function(t){return(fStatus==='All'||t.status===fStatus)&&(!fSearch||[t.name,t.id,t.assignee||''].join(' ').toLowerCase().includes(fSearch.toLowerCase()));});var h='<div class="ptitle" style="color:'+c.col+'">'+dept+'</div><div class="psub">'+data[dept].length+' tasks - '+s.dn+' done - '+s.ip+' in progress - '+s.bl+' blocked</div><div class="dept-charts"><div class="cc"><div class="cc-t">Status</div><div class="cc-s">'+dept+'</div><div class="cw"><canvas id="dc-s"></canvas></div></div><div class="cc"><div class="cc-t">Priority</div><div class="cc-s">'+dept+'</div><div class="cw"><canvas id="dc-p"></canvas></div></div><div class="cc"><div class="cc-t">Avg Progress</div><div class="cc-s">gauge</div><div class="cw"><canvas id="dc-g"></canvas></div></div></div><div class="atb"><div class="fld"><label>TASK NAME</label><input id="nn" placeholder="Describe the task..." onkeydown="if(event.key==='Enter')addTask(''+dept+'')"></div><div class="fld"><label>ASSIGNEE</label><input id="na" placeholder="Name..."></div><div class="fld"><label>PRIORITY</label><select id="np">'+PRIORITIES.map(function(p){return '<option>'+p+'</option>';}).join('')+'</select></div><div class="fld"><label>DUE DATE</label><input id="nd" type="date"></div><button class="add-btn" onclick="addTask(''+dept+'')">+ ADD</button></div><div class="fb"><input class="si" placeholder="Search..." oninput="fSearch=this.value;renderDept(''+dept+'')" value="'+esc(fSearch)+'">'+['All'].concat(STATUSES).map(function(st){return '<button class="fc '+(fStatus===st?'active':'')+'" onclick="fStatus=''+st+'';renderDept(''+dept+'')" >'+st+'</button>';}).join('')+'</div>';if(!fil.length){h+='<div class="tw"><div class="empty">'+(data[dept].length===0?'No tasks yet.':'Nothing matches.')+'</div></div>';}else{var af=fil.filter(function(t){return t.status!=='Done';}),df=fil.filter(function(t){return t.status==='Done';});h+='<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>ASSIGNEE</th><th>PRIORITY</th><th>STATUS</th><th>PROG</th><th>DUE</th><th>NOTES</th><th></th></tr></thead><tbody>'+af.map(function(t){return trow(dept,t,false);}).join('');if(df.length)h+='<tr class="done-divider"><td colspan="9">COMPLETED ('+df.length+')</td></tr>';h+=df.map(function(t){return trow(dept,t,true);}).join('')+'</tbody></table></div>';}document.getElementById('main').innerHTML=h;setTimeout(function(){buildDeptCharts(dept);},60);}
-function trow(dept,t,isDone){var pr=t.progress||0,id=t.id;return '<tr class="'+(isDone?'done-row':'')+'"><td class="tid">'+id+(isDone?' done':'')+'</td><td style="min-width:160px;max-width:260px"><input class="ie" value="'+esc(t.name)+'" onblur="if(this.value.trim())upd(''+dept+'',''+id+'','name',this.value.trim())" onkeydown="if(event.key==='Enter')this.blur()"></td><td style="min-width:90px"><input class="ie" style="width:90px" value="'+esc(t.assignee||'')+'" onblur="upd(''+dept+'',''+id+'','assignee',this.value.trim())" onkeydown="if(event.key==='Enter')this.blur()"></td><td><select class="isel" onchange="upd(''+dept+'',''+id+'','priority',this.value)">'+PRIORITIES.map(function(p){return '<option'+(t.priority===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select></td><td><select class="isel" style="min-width:100px" onchange="upd(''+dept+'',''+id+'','status',this.value)">'+STATUSES.map(function(ss){return '<option'+(t.status===ss?' selected':'')+'>'+ss+'</option>';}).join('')+'</select></td><td><div style="display:flex;align-items:center;gap:5px"><div class="pw"><div class="pf" style="width:'+pr+'%"></div></div><input type="number" min="0" max="100" value="'+pr+'" style="width:34px;padding:1px 3px;font-size:10px;font-family:Roboto Mono,monospace;text-align:center;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;outline:none" onblur="upd(''+dept+'',''+id+'','progress',Math.min(100,Math.max(0,parseInt(this.value)||0)));renderDept(''+dept+'')" onkeydown="if(event.key==='Enter')this.blur()"></div></td><td><input type="date" value="'+(t.dueDate||'')+'" style="width:118px;font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:3px 5px;outline:none" onchange="upd(''+dept+'',''+id+'','dueDate',this.value)"></td><td style="min-width:100px"><input class="ie" style="width:100px;font-size:11px" value="'+esc(t.notes||'')+'" placeholder="Notes..." onblur="upd(''+dept+'',''+id+'','notes',this.value)" onkeydown="if(event.key==='Enter')this.blur()"></td><td><button class="del" onclick="del(''+dept+'',''+id+'')">x</button></td></tr>';}
-function buildDeptCharts(dept){var s=stats(dept);mkChart('dc-s',{type:'doughnut',data:{labels:['Not Started','In Progress','Blocked','Under Review','Done'],datasets:[{data:[s.ns,s.ip,s.bl,s.ur,s.dn],backgroundColor:['rgba(100,100,122,.6)','rgba(108,99,255,.8)','rgba(255,107,107,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],borderWidth:0,hoverOffset:5}]},options:Object.assign({},NO,{cutout:'58%'})});mkChart('dc-p',{type:'bar',data:{labels:['Critical','High','Medium','Low'],datasets:[{data:[s.critical,s.high,s.medium,s.low],backgroundColor:['rgba(255,68,68,.8)','rgba(255,140,66,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],borderRadius:4}]},options:Object.assign({},CO,{plugins:Object.assign({},CO.plugins,{legend:{display:false}})})});var pv=data[dept].map(function(t){return t.progress||0;}),avg=pv.length?Math.round(pv.reduce(function(a,b){return a+b;},0)/pv.length):0;var gc=mkChart('dc-g',{type:'doughnut',data:{labels:['Done','Remaining'],datasets:[{data:[avg,100-avg],backgroundColor:['rgba(108,99,255,.9)','rgba(37,37,51,.5)'],borderWidth:0}]},options:Object.assign({},NO,{cutout:'70%',plugins:Object.assign({},NO.plugins,{legend:{display:false},tooltip:{enabled:false}})})});if(gc){var origDraw=gc.draw.bind(gc);gc.draw=function(){origDraw();var ctx=gc.ctx,ca=gc.chartArea;if(!ca)return;var cx=(ca.left+ca.right)/2,cy=(ca.top+ca.bottom)/2;ctx.save();ctx.fillStyle='#e4e4f0';ctx.font='bold 22px Lexend,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(avg+'%',cx,cy-3);ctx.fillStyle='#64647a';ctx.font='9px Roboto Mono,monospace';ctx.fillText('avg',cx,cy+13);ctx.restore();};gc.draw();}}
-function toast(msg,type){var el=document.getElementById('toast');el.textContent=msg;el.className='toast'+(type?' '+type:'');el.style.display='block';clearTimeout(toastT);toastT=setTimeout(function(){el.style.display='none';},2800);}
-init();
+function mkChart(id,cfg){
+  var el=document.getElementById(id);if(!el)return null;
+  var ctx=el.getContext('2d');
+  if(charts[id])charts[id].destroy();
+  charts[id]=new Chart(ctx,cfg);return charts[id];
+}
+var CO={responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{labels:{color:'#64647a',font:{size:9},boxWidth:8}},tooltip:{backgroundColor:'#18181f',borderColor:'#252533',borderWidth:1,titleColor:'#e4e4f0',bodyColor:'#64647a'}},
+  scales:{x:{ticks:{color:'#64647a',font:{size:9}},grid:{color:'rgba(37,37,51,.4)'}},y:{ticks:{color:'#64647a',font:{size:9}},grid:{color:'rgba(37,37,51,.4)'}}}};
+var NO={responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{labels:{color:'#64647a',font:{size:9},boxWidth:8}},tooltip:{backgroundColor:'#18181f',borderColor:'#252533',borderWidth:1,titleColor:'#e4e4f0',bodyColor:'#64647a'}}};
 
+function renderReminders(){
+  var upcoming=getUpcoming(),np=Notification.permission,nb='';
+  if(np==='default')nb='<div class="notif-bar">Enable browser notifications for reminders. <button class="notif-btn" onclick="requestNotifPerms()">Enable</button></div>';
+  else if(np==='denied')nb='<div class="notif-bar" style="border-color:rgba(255,107,107,.3)">Notifications blocked in settings.</div>';
+  else nb='<div class="notif-bar" style="border-color:rgba(74,222,128,.3);color:var(--grn)">Notifications active</div>';
+  var h='<div class="ptitle">Reminders</div><div class="psub">Tasks due within the next 3 days</div>'+nb;
+  if(!upcoming.length){
+    h+='<div class="remind-panel" style="border-color:rgba(74,222,128,.3)"><div class="remind-panel-t" style="color:var(--grn)">All clear</div><div class="remind-panel-s">No tasks due in the next 3 days.</div></div>';
+  }else{
+    var now2=new Date();now2.setHours(0,0,0,0);
+    h+='<div id="rlist" class="remind-panel"><div class="remind-panel-t">'+upcoming.length+' task'+(upcoming.length>1?'s':'')+' coming up</div><div class="remind-panel-s">Click a task to jump to its department</div>';
+    upcoming.forEach(function(t){
+      var due=new Date(t.dueDate);due.setHours(0,0,0,0);
+      var diff=Math.round((due-now2)/864e5);
+      var dl=daysLabel(diff);
+      h+='<div class="remind-row" data-dept="'+t.dept+'">'
+        +'<span class="remind-chip '+dl.cls+'">'+dl.label+'</span>'
+        +'<div class="remind-info"><div class="remind-name">'+esc(t.name)+'</div>'
+        +'<div class="remind-meta">'+t.id+' &middot; '+t.dept+' &middot; '+esc(t.assignee||'Unassigned')+'</div></div>'
+        +'<span class="badge '+t.priority+'">'+t.priority+'</span></div>';
+    });
+    h+='</div>';
+  }
+  document.getElementById('main').innerHTML=h;
+  var rl=document.getElementById('rlist');
+  if(rl)rl.addEventListener('click',function(e){var r=e.target.closest('[data-dept]');if(r)go(r.getAttribute('data-dept'));});
+}
+function exportExcel(){
+  if(typeof XLSX==='undefined'){toast('XLSX not loaded','err');return;}
+  if(!currentUser||EXPORT_EMAILS.indexOf(currentUser.email)<0){toast('Export restricted','err');return;}
+  var wb=XLSX.utils.book_new();
+  var sum=[['Department','Total','Not Started','In Progress','Blocked','Under Review','Done','%']];
+  DEPTS.forEach(function(d){var s=stats(d);sum.push([d,s.total,s.ns,s.ip,s.bl,s.ur,s.dn,s.total?Math.round(s.dn/s.total*100)+'%':'0%']);});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Summary');
+  DEPTS.forEach(function(dept){
+    var rows=[['ID','Task','Assignee','Priority','Status','Progress%','Due','Start','Notes','Updated']];
+    sorted(data[dept]).forEach(function(t){rows.push([t.id,t.name,t.assignee||'',t.priority,t.status,t.progress||0,t.dueDate||'',t.startDate||'',t.notes||'',t.lastUpdated||'']);});
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),dept);
+  });
+  var lr=[['Timestamp','User','Action','Tag']];
+  actLog.forEach(function(e){lr.push([e.ts,e.user||'',e.msg,e.tag]);});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(lr),'Activity Log');
+  XLSX.writeFile(wb,'Reloadly_Tasks_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  logEntry('Excel exported by '+currentUser.name+' <'+currentUser.email+'>','edit');
+  autoSave();toast('Excel downloaded','ok');
+}
+function renderDash(){
+  var all=[];DEPTS.forEach(function(d){data[d].forEach(function(t){all.push(Object.assign({},t,{dept:d}));});});
+  var tot=all.length,dn=all.filter(function(t){return t.status==='Done';}).length;
+  var ip=all.filter(function(t){return t.status==='In Progress';}).length;
+  var bl=all.filter(function(t){return t.status==='Blocked';}).length;
+  var crit=all.filter(function(t){return t.priority==='Critical'&&t.status!=='Done';});
+  var dueList=all.filter(function(t){
+    if(!t.dueDate||t.status==='Done')return false;
+    var d=Math.ceil((new Date(t.dueDate)-new Date())/864e5);
+    return d>=0&&d<=7;
+  }).sort(function(a,b){return new Date(a.dueDate)-new Date(b.dueDate);});
+  var today=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  var cards='';
+  DEPTS.forEach(function(dept){
+    var s=stats(dept),c=CFG[dept],pct=s.total?Math.round(s.dn/s.total*100):0;
+    cards+='<div class="sc '+c.cls+'" data-go="'+dept+'">'
+      +'<div class="sc-lbl">'+dept.toUpperCase()+'</div>'
+      +'<div class="sc-num" style="color:'+c.col+'">'+s.total+'</div>'
+      +'<div class="sc-sub">'+pct+'% done &middot; '+s.bl+' blocked</div>'
+      +'<div class="sc-bar"><div style="width:'+(s.total?s.dn/s.total*100:0)+'%;background:var(--grn)"></div>'
+      +'<div style="width:'+(s.total?s.ip/s.total*100:0)+'%;background:var(--acc)"></div>'
+      +'<div style="width:'+(s.total?s.ur/s.total*100:0)+'%;background:var(--yel)"></div>'
+      +'<div style="width:'+(s.total?s.bl/s.total*100:0)+'%;background:var(--red)"></div></div>'
+      +'<div style="margin-top:8px;display:flex;gap:8px">'
+      +'<span style="font-size:9px;color:var(--mut)">'+s.ns+' pending</span>'
+      +'<span style="font-size:9px;color:var(--acc)">'+s.ip+' active</span>'
+      +'<span style="font-size:9px;color:var(--grn)">'+s.dn+' done</span></div></div>';
+  });
+  var h='<div class="ptitle">Dashboard</div><div class="psub">'+today+'</div>'
+    +'<div class="ov-row">'
+    +'<div class="ov-card"><div class="ov-l">TOTAL TASKS</div><div class="ov-n">'+tot+'</div><div class="ov-s">across 4 departments</div></div>'
+    +'<div class="ov-card" style="border-color:rgba(74,222,128,.3)"><div class="ov-l">COMPLETED</div><div class="ov-n" style="color:var(--grn)">'+dn+'</div><div class="ov-s">'+(tot?Math.round(dn/tot*100):0)+'% done</div></div>'
+    +'<div class="ov-card" style="border-color:rgba(255,107,107,.3)"><div class="ov-l">BLOCKED</div><div class="ov-n" style="color:var(--red)">'+bl+'</div><div class="ov-s">'+ip+' active</div></div>'
+    +'</div>'
+    +'<div id="sc-grid" class="sc-grid">'+cards+'</div>'
+    +'<div class="charts-grid">'
+    +'<div class="cc"><div class="cc-t">Status by Department</div><div class="cc-s">All statuses stacked</div><div class="cw"><canvas id="ch-s"></canvas></div></div>'
+    +'<div class="cc"><div class="cc-t">Priority Distribution</div><div class="cc-s">Across all tasks</div><div class="cw"><canvas id="ch-p"></canvas></div></div>'
+    +'<div class="cc"><div class="cc-t">Completion Rate</div><div class="cc-s">% done per dept</div><div class="cw"><canvas id="ch-c"></canvas></div></div>'
+    +'<div class="cc"><div class="cc-t">Active vs Blocked</div><div class="cc-s">In Progress vs Blocked</div><div class="cw"><canvas id="ch-ab"></canvas></div></div>'
+    +'</div>';
+  if(crit.length){
+    h+='<div class="sh"><div><div class="sh-t">Critical Tasks</div><div class="sh-s">'+crit.length+' needing attention</div></div></div>'
+      +'<div id="crit-tbl" class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>ASSIGNEE</th><th>STATUS</th><th>DUE</th></tr></thead><tbody>';
+    crit.forEach(function(t){
+      h+='<tr class="clickrow" data-go="'+t.dept+'">'
+        +'<td class="tid">'+t.id+'</td><td>'+esc(t.name)+'</td>'
+        +'<td>'+bpill(t.dept)+'</td><td>'+esc(t.assignee)+'</td>'
+        +'<td>'+spill(t.status)+'</td>'
+        +'<td style="font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut)">'+(t.dueDate||'&mdash;')+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  if(dueList.length){
+    h+='<div class="sh"><div><div class="sh-t">Due This Week</div><div class="sh-s">'+dueList.length+' tasks</div></div></div>'
+      +'<div id="due-tbl" class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>PRIORITY</th><th>STATUS</th><th>DUE</th></tr></thead><tbody>';
+    dueList.forEach(function(t){
+      var diff=Math.ceil((new Date(t.dueDate)-new Date())/864e5);
+      var col=diff<=1?'var(--red)':diff<=3?'var(--yel)':'var(--mut)';
+      h+='<tr class="clickrow" data-go="'+t.dept+'">'
+        +'<td class="tid">'+t.id+'</td><td>'+esc(t.name)+'</td>'
+        +'<td style="font-size:10px;color:var(--mut)">'+t.dept+'</td>'
+        +'<td>'+(t.priority?bpill(t.priority):'&mdash;')+'</td>'
+        +'<td>'+spill(t.status)+'</td>'
+        +'<td style="font-family:Roboto Mono,monospace;font-size:10px;color:'+col+'">'+t.dueDate+' ('+diff+'d)</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  if(!tot)h+='<div class="empty">No tasks yet. Click a department to get started.</div>';
+  document.getElementById('main').innerHTML=h;
+  // Event delegation for clickable rows and cards (no inline onclick)
+  document.getElementById('main').addEventListener('click',function(e){
+    var r=e.target.closest('[data-go]');if(r)go(r.getAttribute('data-go'));
+  });
+  setTimeout(buildDashCharts,60);
+}
+function buildDashCharts(){
+  var st=Object.assign({},CO,{scales:{x:Object.assign({},CO.scales.x,{stacked:true}),y:Object.assign({},CO.scales.y,{stacked:true})}});
+  mkChart('ch-s',{type:'bar',data:{labels:DEPTS.map(function(d){return d.substring(0,3).toUpperCase();}),datasets:[
+    {label:'Done',data:DEPTS.map(function(d){return stats(d).dn;}),backgroundColor:'rgba(74,222,128,.75)',borderRadius:2},
+    {label:'In Progress',data:DEPTS.map(function(d){return stats(d).ip;}),backgroundColor:'rgba(108,99,255,.75)',borderRadius:2},
+    {label:'Under Review',data:DEPTS.map(function(d){return stats(d).ur;}),backgroundColor:'rgba(251,191,36,.75)',borderRadius:2},
+    {label:'Blocked',data:DEPTS.map(function(d){return stats(d).bl;}),backgroundColor:'rgba(255,107,107,.75)',borderRadius:2},
+    {label:'Not Started',data:DEPTS.map(function(d){return stats(d).ns;}),backgroundColor:'rgba(100,100,122,.4)',borderRadius:2}
+  ]},options:st});
+  var af=[];DEPTS.forEach(function(d){data[d].forEach(function(t){af.push(t);});});
+  mkChart('ch-p',{type:'doughnut',data:{labels:['Critical','High','Medium','Low'],datasets:[{
+    data:[af.filter(function(t){return t.priority==='Critical';}).length,af.filter(function(t){return t.priority==='High';}).length,af.filter(function(t){return t.priority==='Medium';}).length,af.filter(function(t){return t.priority==='Low';}).length],
+    backgroundColor:['rgba(255,68,68,.8)','rgba(255,140,66,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],borderWidth:0,hoverOffset:5
+  }]},options:Object.assign({},NO,{cutout:'62%'})});
+  mkChart('ch-c',{type:'bar',data:{labels:DEPTS.map(function(d){return d.substring(0,3).toUpperCase();}),datasets:[{
+    label:'% Done',data:DEPTS.map(function(d){var s=stats(d);return s.total?Math.round(s.dn/s.total*100):0;}),
+    backgroundColor:DEPTS.map(function(d){return CFG[d].col+'bb';}),borderRadius:4
+  }]},options:Object.assign({},CO,{plugins:Object.assign({},CO.plugins,{legend:{display:false}}),scales:{x:CO.scales.x,y:Object.assign({},CO.scales.y,{max:100,ticks:Object.assign({},CO.scales.y.ticks,{callback:function(v){return v+'%';}})})}})}); 
+  mkChart('ch-ab',{type:'bar',data:{labels:DEPTS.map(function(d){return d.substring(0,3).toUpperCase();}),datasets:[
+    {label:'In Progress',data:DEPTS.map(function(d){return stats(d).ip;}),backgroundColor:'rgba(108,99,255,.75)',borderRadius:2},
+    {label:'Blocked',data:DEPTS.map(function(d){return stats(d).bl;}),backgroundColor:'rgba(255,107,107,.75)',borderRadius:2}
+  ]},options:CO});
+}
+function renderLog(){
+  var h='<div class="ptitle">Activity Log</div><div class="psub">'+actLog.length+' events &middot; auto-saved</div>';
+  if(actLog.length){
+    h+='<div style="display:flex;justify-content:flex-end;margin-bottom:12px">'
+      +'<button class="hbtn" id="clear-log-btn">&#128465; Clear Log</button></div>';
+    h+='<div class="log-panel"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+      +'<div style="font-size:13px;font-weight:700">Recent Activity</div>'
+      +'<div style="font-family:Roboto Mono,monospace;font-size:9px;color:var(--mut)">Newest first</div></div>';
+    actLog.forEach(function(e){
+      h+='<div class="log-entry">'
+        +'<span class="log-time">'+e.ts+'</span>'
+        +'<span style="font-family:Roboto Mono,monospace;font-size:9px;color:var(--acc);min-width:100px;white-space:nowrap;padding-top:1px">'+(e.user||'')+'</span>'
+        +'<span class="log-msg">'+esc(e.msg)+'<span class="log-tag '+e.tag+'">'+e.tag+'</span></span>'
+        +'</div>';
+    });
+    h+='</div>';
+  }else{
+    h+='<div class="log-panel"><div class="log-empty">No activity yet.</div></div>';
+  }
+  document.getElementById('main').innerHTML=h;
+  var clb=document.getElementById('clear-log-btn');
+  if(clb)clb.addEventListener('click',function(){if(confirm('Clear log?'))clearLog();});
+}
+function clearLog(){actLog=[];autoSave();render();toast('Log cleared','ok');}
+function renderDept(dept){
+  var c=CFG[dept],s=stats(dept),srt=sorted(data[dept]);
+  var fil=srt.filter(function(t){
+    return(fStatus==='All'||t.status===fStatus)&&(!fSearch||[t.name,t.id,t.assignee||''].join(' ').toLowerCase().indexOf(fSearch.toLowerCase())>-1);
+  });
+  var h='<div class="ptitle" style="color:'+c.col+'">'+dept+'</div>'
+    +'<div class="psub">'+data[dept].length+' tasks &middot; '+s.dn+' done &middot; '+s.ip+' active &middot; '+s.bl+' blocked</div>'
+    +'<div class="dept-charts">'
+    +'<div class="cc"><div class="cc-t">Status</div><div class="cc-s">'+dept+'</div><div class="cw"><canvas id="dc-s"></canvas></div></div>'
+    +'<div class="cc"><div class="cc-t">Priority</div><div class="cc-s">'+dept+'</div><div class="cw"><canvas id="dc-p"></canvas></div></div>'
+    +'<div class="cc"><div class="cc-t">Avg Progress</div><div class="cc-s">Completion gauge</div><div class="cw"><canvas id="dc-g"></canvas></div></div>'
+    +'</div>'
+    +'<div class="atb">'
+    +'<div class="fld"><label>TASK NAME</label><input id="nn" placeholder="Describe the task..."></div>'
+    +'<div class="fld"><label>ASSIGNEE</label><input id="na" placeholder="Name..."></div>'
+    +'<div class="fld"><label>PRIORITY</label><select id="np">'+PRIORITIES.map(function(p){return '<option>'+p+'</option>';}).join('')+'</select></div>'
+    +'<div class="fld"><label>DUE DATE</label><input id="nd" type="date"></div>'
+    +'<button class="add-btn" id="add-task-btn">+ ADD</button>'
+    +'</div>'
+    +'<div class="fb">'
+    +'<input class="si" id="search-box" placeholder="Search..." value="'+esc(fSearch)+'">'
+    +['All'].concat(STATUSES).map(function(st){return '<button class="fc '+(fStatus===st?'active':'')+'" data-filter="'+st+'">'+st+'</button>';}).join('')
+    +'</div>';
+  if(!fil.length){
+    h+='<div class="tw"><div class="empty">'+(data[dept].length===0?'No tasks yet.':'Nothing matches.')+'</div></div>';
+  }else{
+    var af=fil.filter(function(t){return t.status!=='Done';});
+    var df=fil.filter(function(t){return t.status==='Done';});
+    h+='<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>ASSIGNEE</th><th>PRIORITY</th><th>STATUS</th><th>PROG</th><th>DUE</th><th>NOTES</th><th></th></tr></thead><tbody id="tbody">';
+    af.concat(df.length?[{_divider:true,count:df.length}]:[]).concat(df).forEach(function(t){
+      if(t._divider){h+='<tr class="done-divider"><td colspan="9">&#10003; COMPLETED ('+t.count+')</td></tr>';return;}
+      var pr=t.progress||0,id=t.id,isDone=t.status==='Done';
+      h+='<tr class="'+(isDone?'done-row':'')+'">'
+        +'<td class="tid">'+id+(isDone?' &#10003;':'')+'</td>'
+        +'<td style="min-width:160px;max-width:260px"><input class="ie" value="'+esc(t.name)+'" data-dept="'+dept+'" data-id="'+id+'" data-field="name"></td>'
+        +'<td><input class="ie" style="width:90px" value="'+esc(t.assignee||'')+'" data-dept="'+dept+'" data-id="'+id+'" data-field="assignee"></td>'
+        +'<td><select class="isel" data-dept="'+dept+'" data-id="'+id+'" data-field="priority">'+PRIORITIES.map(function(p){return '<option'+(t.priority===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select></td>'
+        +'<td><select class="isel" style="min-width:100px" data-dept="'+dept+'" data-id="'+id+'" data-field="status">'+STATUSES.map(function(ss){return '<option'+(t.status===ss?' selected':'')+'>'+ss+'</option>';}).join('')+'</select></td>'
+        +'<td><div style="display:flex;align-items:center;gap:5px"><div class="pw"><div class="pf" style="width:'+pr+'%"></div></div>'
+        +'<input type="number" min="0" max="100" value="'+pr+'" style="width:34px;padding:1px 3px;font-size:10px;font-family:Roboto Mono,monospace;text-align:center;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="progress" class="prog-inp"></div></td>'
+        +'<td><input type="date" value="'+(t.dueDate||'')+'" style="width:118px;font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:3px 5px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="dueDate" class="date-inp"></td>'
+        +'<td><input class="ie" style="width:100px;font-size:11px" value="'+esc(t.notes||'')+'" placeholder="Notes..." data-dept="'+dept+'" data-id="'+id+'" data-field="notes"></td>'
+        +'<td><button class="del" data-dept="'+dept+'" data-id="'+id+'">&#215;</button></td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  document.getElementById('main').innerHTML=h;
+  // Wire up events via delegation (ZERO inline onclick/onblur/onchange)
+  var main=document.getElementById('main');
+  var nn=document.getElementById('nn');
+  if(nn)nn.addEventListener('keydown',function(e){if(e.key==='Enter')addTask(dept);});
+  var ab=document.getElementById('add-task-btn');
+  if(ab)ab.addEventListener('click',function(){addTask(dept);});
+  var sb=document.getElementById('search-box');
+  if(sb)sb.addEventListener('input',function(){fSearch=this.value;renderDept(dept);});
+  main.addEventListener('click',function(e){
+    var fb=e.target.closest('[data-filter]');
+    if(fb){fStatus=fb.getAttribute('data-filter');renderDept(dept);return;}
+    var dl=e.target.closest('.del[data-id]');
+    if(dl){del(dl.getAttribute('data-dept'),dl.getAttribute('data-id'));return;}
+  });
+  main.addEventListener('change',function(e){
+    var el=e.target;
+    if(el.dataset.field&&el.dataset.dept&&el.dataset.id){
+      var val=el.value.trim!==undefined?el.value.trim():el.value;
+      if(el.dataset.field==='progress'){val=Math.min(100,Math.max(0,parseInt(val)||0));renderDept(dept);return;}
+      upd(el.dataset.dept,el.dataset.id,el.dataset.field,val);
+    }
+  });
+  main.addEventListener('blur',function(e){
+    var el=e.target;
+    if(el.classList.contains('ie')&&el.dataset.field&&el.dataset.dept&&el.dataset.id){
+      if(el.value.trim())upd(el.dataset.dept,el.dataset.id,el.dataset.field,el.value.trim());
+    }
+    if(el.classList.contains('prog-inp')&&el.dataset.dept&&el.dataset.id){
+      var v=Math.min(100,Math.max(0,parseInt(el.value)||0));
+      upd(el.dataset.dept,el.dataset.id,'progress',v);renderDept(dept);
+    }
+    if(el.classList.contains('date-inp')&&el.dataset.dept&&el.dataset.id){
+      upd(el.dataset.dept,el.dataset.id,'dueDate',el.value);
+    }
+  },true);
+  setTimeout(function(){buildDeptCharts(dept);},60);
+}
+function buildDeptCharts(dept){
+  var s=stats(dept);
+  mkChart('dc-s',{type:'doughnut',data:{labels:['Not Started','In Progress','Blocked','Under Review','Done'],datasets:[{
+    data:[s.ns,s.ip,s.bl,s.ur,s.dn],
+    backgroundColor:['rgba(100,100,122,.6)','rgba(108,99,255,.8)','rgba(255,107,107,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],
+    borderWidth:0,hoverOffset:5
+  }]},options:Object.assign({},NO,{cutout:'58%'})});
+  mkChart('dc-p',{type:'bar',data:{labels:['Critical','High','Medium','Low'],datasets:[{
+    data:[s.critical,s.high,s.medium,s.low],
+    backgroundColor:['rgba(255,68,68,.8)','rgba(255,140,66,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],borderRadius:4
+  }]},options:Object.assign({},CO,{plugins:Object.assign({},CO.plugins,{legend:{display:false}})})});
+  var pv=data[dept].map(function(t){return t.progress||0;});
+  var avg=pv.length?Math.round(pv.reduce(function(a,b){return a+b;},0)/pv.length):0;
+  var gc=mkChart('dc-g',{type:'doughnut',data:{labels:['Done','Remaining'],datasets:[{
+    data:[avg,100-avg],backgroundColor:['rgba(108,99,255,.9)','rgba(37,37,51,.5)'],borderWidth:0
+  }]},options:Object.assign({},NO,{cutout:'70%',plugins:Object.assign({},NO.plugins,{legend:{display:false},tooltip:{enabled:false}})})});
+  if(gc){
+    var origDraw=gc.draw.bind(gc);
+    gc.draw=function(){
+      origDraw();
+      var ctx=gc.ctx,ca=gc.chartArea;if(!ca)return;
+      var cx=(ca.left+ca.right)/2,cy=(ca.top+ca.bottom)/2;
+      ctx.save();
+      ctx.fillStyle='#e4e4f0';ctx.font='bold 22px Lexend,sans-serif';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(avg+'%',cx,cy-3);
+      ctx.fillStyle='#64647a';ctx.font='9px Roboto Mono,monospace';
+      ctx.fillText('avg progress',cx,cy+13);
+      ctx.restore();
+    };gc.draw();
+  }
+}
+function toast(msg,type){
+  var el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast'+(type?' '+type:'');el.style.display='block';
+  clearTimeout(toastT);toastT=setTimeout(function(){el.style.display='none';},2800);
+}
+init();
 </script>
 </body>
 </html>
