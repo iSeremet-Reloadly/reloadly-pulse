@@ -804,7 +804,6 @@ function buildDeptCharts(dept){
     borderWidth:0,hoverOffset:5
   }]},options:Object.assign({},NO,{cutout:'58%'})});
   mkChart('dc-p',{type:'bar',data:{labels:['Critical','High','Medium','Low'],datasets:[{
-Add SHA-256 password auth with set/verify/change password    backgroundColor:['rgba(255,68,68,.8)','rgba(255,140,66,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],borderRadius:4
   }]},options:Object.assign({},CO,{plugins:Object.assign({},CO.plugins,{legend:{display:false}})})});
   var pv=data[dept].map(function(t){return t.progress||0;});
   var avg=pv.length?Math.round(pv.reduce(function(a,b){return a+b;},0)/pv.length):0;
