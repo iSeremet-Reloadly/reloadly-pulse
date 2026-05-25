@@ -411,7 +411,7 @@ function getUpcoming(){
     var due=new Date(t.due);due.setHours(0,0,0,0);
     var diff=Math.round((due-now)/864e5);
     return diff>=0&&diff<=3;
-  }).sort(function(a,b){return new Date(a.dueDate)-new Date(b.dueDate);});
+  }).sort(function(a,b){return new Date(a.due)-new Date(b.due);});
 }
 function daysLabel(diff){
   if(diff===0)return{label:'DUE TODAY',cls:'d0'};
@@ -610,7 +610,7 @@ function renderDash(){
     if(!t.due||t.status==='Done')return false;
     var d=Math.ceil((new Date(t.due)-new Date())/864e5);
     return d>=0&&d<=7;
-  }).sort(function(a,b){return new Date(a.dueDate)-new Date(b.dueDate);});
+  }).sort(function(a,b){return new Date(a.due)-new Date(b.due);});
   var today=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   var cards='';
   DEPTS.forEach(function(dept){
@@ -763,7 +763,7 @@ function renderDept(dept){
         +'<td><select class="isel" style="min-width:100px" data-dept="'+dept+'" data-id="'+id+'" data-field="status">'+STATUSES.map(function(ss){return '<option'+(t.status===ss?' selected':'')+'>'+ss+'</option>';}).join('')+'</select></td>'
         +'<td><div style="display:flex;align-items:center;gap:5px"><div class="pw"><div class="pf" style="width:'+pr+'%"></div></div>'
         +'<input type="number" min="0" max="100" value="'+pr+'" style="width:34px;padding:1px 3px;font-size:10px;font-family:Roboto Mono,monospace;text-align:center;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="progress" class="prog-inp"></div></td>'
-        +'<td><input type="date" value="'+(t.due||'')+'" style="width:118px;font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:3px 5px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="dueDate" class="date-inp"></td>'
+        +'<td><input type="date" value="'+(t.due||'')+'" style="width:118px;font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:3px 5px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="due" class="date-inp"></td>'
         +'<td><input class="ie" style="width:100px;font-size:11px" value="'+esc(t.notes||'')+'" placeholder="Notes..." data-dept="'+dept+'" data-id="'+id+'" data-field="notes"></td>'
         +'<td><button class="del" data-dept="'+dept+'" data-id="'+id+'">&#215;</button></td></tr>';
     });
@@ -802,7 +802,7 @@ function renderDept(dept){
       upd(el.dataset.dept,el.dataset.id,'progress',v);renderDept(dept);
     }
     if(el.classList.contains('date-inp')&&el.dataset.dept&&el.dataset.id){
-      upd(el.dataset.dept,el.dataset.id,'dueDate',el.value);
+      upd(el.dataset.dept,el.dataset.id,'due',el.value);
     }
   },true);
   setTimeout(function(){buildDeptCharts(dept);},60);
