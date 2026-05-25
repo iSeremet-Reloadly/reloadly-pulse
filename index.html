@@ -161,6 +161,8 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 [data-theme="light"] .ni.active{border-left-color:var(--acc)}
 [data-theme="light"] .pf{background:var(--acc)}
 [data-theme="light"] .hex{box-shadow:0 0 12px rgba(119,0,255,.3)}
+#gate-pwd{margin-top:-4px}
+.gate-input+.gate-input{margin-top:0}
 </style>
 </head>
 <body>
@@ -198,8 +200,10 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="gate-hex"></div>
     <div class="gate-title">Reloadly Task Manager</div>
     <div class="gate-sub">Sign in with your Reloadly email</div>
-    <input class="gate-input" id="gate-email" type="email" placeholder="name@reloadly.com" onkeydown="if(event.key==='Enter')gateLogin()">
-    <button class="gate-btn" onclick="gateLogin()">Access Dashboard</button>
+    <input class="gate-input" id="gate-email" type="email" placeholder="name@reloadly.com" onkeydown="if(event.key==='Enter')document.getElementById('gate-pwd').focus()">
+    <input class="gate-input" id="gate-pwd" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')gateLogin()" style="margin-bottom:12px">
+    <button class="gate-btn" id="gate-submit-btn" onclick="gateLogin()">Sign In</button>
+    <div style="margin-top:10px;font-family:'Roboto Mono',monospace;font-size:9px;color:var(--mut)">First time? Contact your admin to set your password.</div>
     <div class="gate-err" id="gate-err"></div>
   </div>
 </div>
@@ -207,6 +211,18 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 
 <script>
 var DEPTS=['Management','Operations','Finance','Engineering'];
+// ── Password Auth ────────────────────────────────────────────────────────
+async function sha256(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function hashPwd(email,pwd){return sha256(email.toLowerCase()+'::'+pwd);}
+function getPwdStore(){try{return JSON.parse(localStorage.getItem('rl_pwd_store')||'{}');}catch(e){return {};}}
+function setPwdStore(store){localStorage.setItem('rl_pwd_store',JSON.stringify(store));}
+async function verifyPassword(email,pwd){var store=getPwdStore(),hash=store[email.toLowerCase()];if(!hash)return false;var attempt=await hashPwd(email,pwd);return attempt===hash;}
+async function setPassword(email,pwd){var store=getPwdStore();store[email.toLowerCase()]=await hashPwd(email,pwd);setPwdStore(store);}
+function hasPassword(email){return !!getPwdStore()[email.toLowerCase()];}
+
 // User Registry
 var USER_REGISTRY={
   'mfrancis@reloadly.com':  {name:'Michel Francis',   role:'CEO',               dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true},
@@ -280,14 +296,23 @@ function loadData(){
 }
 function gateLogin(){
   var email=document.getElementById('gate-email').value.trim().toLowerCase();
+  var pwd=document.getElementById('gate-pwd').value;
   var errEl=document.getElementById('gate-err');
+  var btn=document.getElementById('gate-submit-btn');
   var profile=USER_REGISTRY[email];
   if(!profile){errEl.textContent='Access denied. Contact your administrator.';return;}
+  if(!hasPassword(email)){errEl.textContent='No password set. Ask an admin to set your password.';return;}
+  if(!pwd){errEl.textContent='Please enter your password.';return;}
   errEl.textContent='';
-  currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin};
-  localStorage.setItem('rl_user_email',email);
-  document.getElementById('gate').style.display='none';
-  loadData();logEntry('Signed in as '+profile.role,'edit');autoSave();
+  btn.textContent='Signing in…';btn.disabled=true;
+  verifyPassword(email,pwd).then(function(ok){
+    btn.textContent='Sign In';btn.disabled=false;
+    if(!ok){errEl.textContent='Incorrect password. Try again.';document.getElementById('gate-pwd').value='';return;}
+    currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin};
+    localStorage.setItem('rl_user_email',email);
+    document.getElementById('gate').style.display='none';
+    loadData();logEntry('Signed in as '+profile.role,'edit');autoSave();
+  });
 }
 function renderUserPill(){
   var ex=document.getElementById('user-pill-el');if(ex)ex.remove();
@@ -437,9 +462,56 @@ function renderAdmin(){
     html+='<tr'+(you?' style="background:rgba(108,99,255,.08)"':'')+'><td class="tid">'+e+(you?' <span class="badge Medium">you</span>':'')+'</td><td>'+u.name+'</td><td><span class="badge High">'+u.role+'</span></td><td>'+u.dept+'</td><td style="text-align:center">'+(u.canExport?'<span style="color:var(--grn)">&#10003;</span>':'<span style="color:var(--mut)">&minus;</span>')+'</td><td style="text-align:center">'+(u.canViewAll?'<span style="color:var(--grn)">&#10003;</span>':'<span style="color:var(--mut)">&minus;</span>')+'</td><td style="text-align:center">'+(u.isAdmin?'<span style="color:var(--acc)">&#10003;</span>':'<span style="color:var(--mut)">&minus;</span>')+'</td></tr>';
   });
   html+='</tbody></table></div><div class="sh"><div><div class="sh-t">Add User</div><div class="sh-s">New user can sign in immediately</div></div></div><div class="atb" style="grid-template-columns:1.5fr 1fr 1fr 1fr 1fr auto"><div class="fld"><label>EMAIL</label><input id="nu-email" placeholder="name@reloadly.com"></div><div class="fld"><label>NAME</label><input id="nu-name" placeholder="Full name"></div><div class="fld"><label>ROLE</label><input id="nu-role" placeholder="e.g. Account Manager"></div><div class="fld"><label>DEPARTMENT</label><select id="nu-dept">'+DEPTS.map(function(d){return '<option>'+d+'</option>';}).join('')+'</select></div><div class="fld"><label>ACCESS</label><select id="nu-perm"><option value="dept">Dept only</option><option value="all">All depts</option><option value="export">All + Export</option></select></div><button class="add-btn" id="au-btn">+ ADD</button></div>';
+  // Change own password section
+  html+='<div class="sh" style="margin-top:20px"><div><div class="sh-t">Change My Password</div><div class="sh-s">Update your own login password</div></div></div>'
+    +'<div class="atb" style="grid-template-columns:1fr 1fr auto">'
+    +'<div class="fld"><label>NEW PASSWORD</label><input id="my-pwd" type="password" placeholder="New password (min 8 chars)"></div>'
+    +'<div class="fld"><label>CONFIRM</label><input id="my-pwd2" type="password" placeholder="Confirm new password"></div>'
+    +'<button class="add-btn" id="my-pwd-btn">UPDATE</button>'
+    +'</div>';
   document.getElementById('main').innerHTML=html;
+  var mpBtn=document.getElementById('my-pwd-btn');
+  if(mpBtn)mpBtn.addEventListener('click',function(){
+    var p1=(document.getElementById('my-pwd')||{}).value||'';
+    var p2=(document.getElementById('my-pwd2')||{}).value||'';
+    if(!p1){toast('Enter a new password','err');return;}
+    if(p1.length<8){toast('Minimum 8 characters','err');return;}
+    if(p1!==p2){toast('Passwords do not match','err');return;}
+    setPassword(currentUser.email,p1).then(function(){
+      toast('Password updated ✓','ok');
+      logEntry('Changed own password','edit');
+      autoSave();
+      document.getElementById('my-pwd').value='';
+      document.getElementById('my-pwd2').value='';
+    });
+  });
+  // Set Password button delegation
+  var tbl=document.querySelector('.tw table tbody');
+  if(tbl)tbl.addEventListener('click',function(ev){
+    var setBtn=ev.target.closest('[data-set-pwd]');
+    if(!setBtn)return;
+    var targetEmail=setBtn.getAttribute('data-set-pwd');
+    var newPwd=prompt('Set new password for '+targetEmail+'\n(minimum 8 characters):');
+    if(!newPwd)return;
+    if(newPwd.length<8){toast('Password must be at least 8 characters','err');return;}
+    setPassword(targetEmail,newPwd).then(function(){
+      toast('Password set for '+targetEmail,'ok');
+      logEntry('Admin set password for: '+targetEmail,'edit');
+      autoSave();renderAdmin();
+    });
+  });
   var btn=document.getElementById('au-btn');
-  if(btn)btn.addEventListener('click',function(){var email=(document.getElementById('nu-email').value||'').trim().toLowerCase(),name=(document.getElementById('nu-name').value||'').trim(),role=(document.getElementById('nu-role').value||'').trim(),dept=document.getElementById('nu-dept').value,perm=document.getElementById('nu-perm').value;if(!email||!name||!role){toast('Email, name and role required','err');return;}if(!email.endsWith('@reloadly.com')){toast('Must be @reloadly.com','err');return;}if(USER_REGISTRY[email]){toast('User already exists','err');return;}USER_REGISTRY[email]={name:name,role:role,dept:dept,canExport:perm==='export',canViewAll:perm!=='dept',isAdmin:false};logEntry('Added user: '+email+' ('+role+')','add');autoSave();toast(name+' added','ok');renderAdmin();});
+  if(btn)btn.addEventListener('click',function(){var email=(document.getElementById('nu-email').value||'').trim().toLowerCase(),name=(document.getElementById('nu-name').value||'').trim(),role=(document.getElementById('nu-role').value||'').trim(),dept=document.getElementById('nu-dept').value,perm=document.getElementById('nu-perm').value;if(!email||!name||!role){toast('Email, name and role required','err');return;}if(!email.endsWith('@reloadly.com')){toast('Must be @reloadly.com','err');return;}if(USER_REGISTRY[email]){toast('User already exists','err');return;}
+      var pwd=(document.getElementById('nu-pwd')||{}).value||'';
+      var pwd2=(document.getElementById('nu-pwd2')||{}).value||'';
+      if(!pwd){toast('Password is required','err');return;}
+      if(pwd!==pwd2){toast('Passwords do not match','err');return;}
+      if(pwd.length<8){toast('Password must be at least 8 characters','err');return;}
+      USER_REGISTRY[email]={name:name,role:role,dept:dept,canExport:perm==='export',canViewAll:perm!=='dept',isAdmin:false};
+      setPassword(email,pwd).then(function(){
+        logEntry('Admin added user: '+email+' ('+role+')','add');
+        autoSave();toast(name+' added successfully','ok');renderAdmin();
+      });});
 }
 
 function render(){
@@ -732,8 +804,7 @@ function buildDeptCharts(dept){
     borderWidth:0,hoverOffset:5
   }]},options:Object.assign({},NO,{cutout:'58%'})});
   mkChart('dc-p',{type:'bar',data:{labels:['Critical','High','Medium','Low'],datasets:[{
-    data:[s.critical,s.high,s.medium,s.low],
-    backgroundColor:['rgba(255,68,68,.8)','rgba(255,140,66,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],borderRadius:4
+Add SHA-256 password auth with set/verify/change password    backgroundColor:['rgba(255,68,68,.8)','rgba(255,140,66,.8)','rgba(251,191,36,.8)','rgba(74,222,128,.8)'],borderRadius:4
   }]},options:Object.assign({},CO,{plugins:Object.assign({},CO.plugins,{legend:{display:false}})})});
   var pv=data[dept].map(function(t){return t.progress||0;});
   var avg=pv.length?Math.round(pv.reduce(function(a,b){return a+b;},0)/pv.length):0;
