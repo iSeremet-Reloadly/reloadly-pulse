@@ -152,6 +152,7 @@ tbody tr:hover .del{opacity:1}
 .notif-bar{display:flex;align-items:center;gap:8px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.2);border-radius:8px;padding:8px 12px;margin-bottom:16px;font-family:'Roboto Mono',monospace;font-size:10px;color:var(--mut)}
 .notif-btn{font-family:'Roboto Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer}
 .notif-btn:hover{background:rgba(108,99,255,.1)}
+.ni.locked{opacity:.3;cursor:default;pointer-events:none}
 </style>
 </head>
 <body>
@@ -186,8 +187,8 @@ tbody tr:hover .del{opacity:1}
   <div class="gate-box">
     <div class="gate-hex"></div>
     <div class="gate-title">Reloadly Task Manager</div>
-    <div class="gate-sub">Enter your @reloadly.com email to access</div>
-    <input class="gate-input" id="gate-email" type="email" placeholder="you@reloadly.com" onkeydown="if(event.key==='Enter')gateLogin()">
+    <div class="gate-sub">Sign in with your Reloadly email</div>
+    <input class="gate-input" id="gate-email" type="email" placeholder="name@reloadly.com" onkeydown="if(event.key==='Enter')gateLogin()">
     <button class="gate-btn" onclick="gateLogin()">Access Dashboard</button>
     <div class="gate-err" id="gate-err"></div>
   </div>
@@ -196,8 +197,17 @@ tbody tr:hover .del{opacity:1}
 
 <script>
 var DEPTS=['Management','Operations','Finance','Engineering'];
-var EXPORT_EMAILS_MAP={'dlubovci@reloadly.com':'Dren Lubovci','mfrancis@reloadly.com':'Michel Francis','ehirlemann@reloadly.com':'Enrique Hirlemann','epiard@reloadly.com':'Emmanuel Piard'};
-var EXPORT_EMAILS=Object.keys(EXPORT_EMAILS_MAP);
+// User Registry
+var USER_REGISTRY={
+  'mfrancis@reloadly.com':  {name:'Michel Francis',   role:'CEO',               dept:'Management',  canExport:true,  canViewAll:true},
+  'dlubovci@reloadly.com':  {name:'Dren Lubovci',     role:'COO',               dept:'Management',  canExport:true,  canViewAll:true},
+  'ehirlemann@reloadly.com':{name:'Enrique Hirlemann',role:'CRO',              dept:'Management',  canExport:false, canViewAll:true},
+  'aberisha@reloadly.com':  {name:'Alketa Berisha',   role:'Head of Finance',   dept:'Finance',     canExport:false, canViewAll:false},
+  'epiard@reloadly.com':    {name:'Emmanuel Piard',   role:'CTO',               dept:'Engineering', canExport:false, canViewAll:true},
+  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',  role:'Senior Engineer',   dept:'Engineering', canExport:false, canViewAll:false},
+  'ipaez@reloadly.com':     {name:'Irene Paez',       role:'Head of Operations',dept:'Operations',  canExport:false, canViewAll:false},
+  'dbassey@reloadly.com':   {name:'David Bassey',     role:'Operations Manager',dept:'Operations',  canExport:false, canViewAll:false}
+};
 var currentUser=null;
 var CFG={Management:{p:'MGT',col:'#6c63ff',cls:'mgt'},Operations:{p:'OPS',col:'#4ade80',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'}};
 var STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
@@ -235,11 +245,12 @@ var view='dashboard',fStatus='All',fSearch='',charts={},toastT,asTimer;
 
 function init(){
   var saved=localStorage.getItem('rl_user_email');
-  if(saved&&saved.endsWith('@reloadly.com')){
-    var kn=EXPORT_EMAILS_MAP[saved];
-    var name=kn||saved.split('@')[0].split('.').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');
-    currentUser={email:saved,name:name};loadData();
+  var profile=saved?USER_REGISTRY[saved]:null;
+  if(profile){
+    currentUser={email:saved,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll};
+    loadData();
   }else{
+    localStorage.removeItem('rl_user_email');
     document.getElementById('gate').style.display='flex';
     setTimeout(function(){document.getElementById('gate-email').focus();},100);
   }
@@ -249,7 +260,9 @@ function loadData(){
   if(s){try{data=JSON.parse(s);}catch(e){data=JSON.parse(JSON.stringify(SEED));}}else{data=JSON.parse(JSON.stringify(SEED));}
   var l=localStorage.getItem('rl_log_v1');
   if(l){try{actLog=JSON.parse(l);}catch(e){actLog=[];}}
-  autoSave();updCnts();render();
+  autoSave();updCnts();
+  if(currentUser&&!currentUser.canViewAll){view=currentUser.dept;}
+  render();
   document.getElementById('ts').textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'});
   renderUserPill();checkReminders();
   if(!window._ri)window._ri=setInterval(checkReminders,3600000);
@@ -257,25 +270,25 @@ function loadData(){
 function gateLogin(){
   var email=document.getElementById('gate-email').value.trim().toLowerCase();
   var errEl=document.getElementById('gate-err');
-  if(!email.endsWith('@reloadly.com')){errEl.textContent='Access restricted to @reloadly.com accounts.';return;}
+  var profile=USER_REGISTRY[email];
+  if(!profile){errEl.textContent='Access denied. Contact your administrator.';return;}
   errEl.textContent='';
-  var kn=EXPORT_EMAILS_MAP[email];
-  var name=kn||email.split('@')[0].split('.').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');
-  currentUser={email:email,name:name};
+  currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll};
   localStorage.setItem('rl_user_email',email);
   document.getElementById('gate').style.display='none';
-  loadData();logEntry('Signed in','edit');autoSave();
+  loadData();logEntry('Signed in as '+profile.role,'edit');autoSave();
 }
 function renderUserPill(){
   var ex=document.getElementById('user-pill-el');if(ex)ex.remove();
   if(!currentUser)return;
   var lbl=document.getElementById('as-lbl');if(!lbl)return;
   var pill=document.createElement('span');
-  pill.id='user-pill-el';pill.className='user-pill';pill.title='Click to sign out';
-  pill.textContent=currentUser.name;pill.onclick=signOut;
+  pill.id='user-pill-el';pill.className='user-pill';
+  pill.title=currentUser.role+' · '+currentUser.dept+' · Click to sign out';
+  pill.textContent=currentUser.name+' ('+currentUser.role+')';pill.onclick=signOut;
   lbl.parentNode.insertBefore(pill,lbl);
   var expBtn=document.getElementById('export-btn');
-  if(expBtn)expBtn.style.display=EXPORT_EMAILS.indexOf(currentUser.email)>-1?'flex':'none';
+  if(expBtn)expBtn.style.display=currentUser.canExport?'flex':'none';
 }
 function signOut(){
   if(!confirm('Sign out?'))return;
@@ -387,7 +400,12 @@ function requestNotifPerms(){
   });
 }
 function updCnts(){
-  DEPTS.forEach(function(d){var el=document.getElementById('c-'+d);if(el)el.textContent=data[d].length;});
+  DEPTS.forEach(function(d){
+    var el=document.getElementById('c-'+d);if(el)el.textContent=data[d].length;
+    var nav=document.getElementById('nav-'+d);
+    if(nav&&currentUser&&!currentUser.canViewAll&&currentUser.dept!==d)nav.classList.add('locked');
+    else if(nav)nav.classList.remove('locked');
+  });
   var lel=document.getElementById('c-log');if(lel)lel.textContent=actLog.length;
   try{
     var uc=getUpcoming();
