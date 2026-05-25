@@ -250,30 +250,30 @@ var STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
 var PRIORITIES=['Critical','High','Medium','Low'];
 var SPC={'Not Started':'ns','In Progress':'ip','Blocked':'bl','Under Review':'ur','Done':'dn'};
 var SEED={Management:[
-  {id:'MGT-001',name:'Series B prep - investor deck',assignee:'Michel Francis',priority:'High',status:'In Progress',dueDate:'2026-06-15',startDate:'2026-05-01',progress:30,notes:'Needs financial model update'},
-  {id:'MGT-002',name:'Q2 OKR review session',assignee:'Dren',priority:'High',status:'Not Started',dueDate:'2026-05-30',startDate:'2026-05-22',progress:0,notes:''},
-  {id:'MGT-003',name:'Board report - May 2026',assignee:'Michel Francis',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-20',progress:40,notes:''},
-  {id:'MGT-004',name:'Leadership offsite follow-ups',assignee:'Dren',priority:'Medium',status:'In Progress',dueDate:'2026-05-25',startDate:'2026-05-18',progress:60,notes:''},
-  {id:'MGT-005',name:'Company health dashboard update',assignee:'Dren',priority:'Medium',status:'In Progress',dueDate:'2026-05-27',startDate:'2026-05-22',progress:20,notes:''}
+  {id:'MGT-001',name:'Series B prep - investor deck',assignee:'Michel Francis',priority:'High',status:'In Progress',due:'2026-06-15',startDate:'2026-05-01',progress:30,notes:'Needs financial model update'},
+  {id:'MGT-002',name:'Q2 OKR review session',assignee:'Dren',priority:'High',status:'Not Started',due:'2026-05-30',startDate:'2026-05-22',progress:0,notes:''},
+  {id:'MGT-003',name:'Board report - May 2026',assignee:'Michel Francis',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-20',progress:40,notes:''},
+  {id:'MGT-004',name:'Leadership offsite follow-ups',assignee:'Dren',priority:'Medium',status:'In Progress',due:'2026-05-25',startDate:'2026-05-18',progress:60,notes:''},
+  {id:'MGT-005',name:'Company health dashboard update',assignee:'Dren',priority:'Medium',status:'In Progress',due:'2026-05-27',startDate:'2026-05-22',progress:20,notes:''}
 ],Operations:[
-  {id:'OPS-001',name:'Swype - Bluebanc wind-down completion',assignee:'Dren',priority:'Critical',status:'In Progress',dueDate:'2026-05-31',startDate:'2026-05-01',progress:70,notes:'Decline fee dispute outstanding'},
-  {id:'OPS-002',name:'KYB enforcement - Persona backlog',assignee:'Irene Paez',priority:'High',status:'In Progress',dueDate:'2026-05-29',startDate:'2026-05-15',progress:50,notes:''},
-  {id:'OPS-003',name:'Partner onboarding form - Tally.so',assignee:'Irene Paez',priority:'Medium',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-10',progress:80,notes:''},
-  {id:'OPS-004',name:'Rebtel route failure review',assignee:'David Bassey',priority:'Medium',status:'Under Review',dueDate:'2026-05-26',startDate:'2026-05-20',progress:90,notes:'93% overall success rate'},
-  {id:'OPS-005',name:'Swype card customer support SLA',assignee:'David Bassey',priority:'Medium',status:'Not Started',dueDate:'2026-06-10',startDate:'2026-06-01',progress:0,notes:''}
+  {id:'OPS-001',name:'Swype - Bluebanc wind-down completion',assignee:'Dren',priority:'Critical',status:'In Progress',due:'2026-05-31',startDate:'2026-05-01',progress:70,notes:'Decline fee dispute outstanding'},
+  {id:'OPS-002',name:'KYB enforcement - Persona backlog',assignee:'Irene Paez',priority:'High',status:'In Progress',due:'2026-05-29',startDate:'2026-05-15',progress:50,notes:''},
+  {id:'OPS-003',name:'Partner onboarding form - Tally.so',assignee:'Irene Paez',priority:'Medium',status:'In Progress',due:'2026-05-28',startDate:'2026-05-10',progress:80,notes:''},
+  {id:'OPS-004',name:'Rebtel route failure review',assignee:'David Bassey',priority:'Medium',status:'Under Review',due:'2026-05-26',startDate:'2026-05-20',progress:90,notes:'93% overall success rate'},
+  {id:'OPS-005',name:'Swype card customer support SLA',assignee:'David Bassey',priority:'Medium',status:'Not Started',due:'2026-06-10',startDate:'2026-06-01',progress:0,notes:''}
 ],Finance:[
-  {id:'FIN-001',name:'Gross margin run rate analysis',assignee:'Alketa Berisha',priority:'Critical',status:'In Progress',dueDate:'2026-05-30',startDate:'2026-05-15',progress:45,notes:'Target $10M ARR'},
-  {id:'FIN-002',name:'Series B financial model',assignee:'Alketa Berisha',priority:'High',status:'In Progress',dueDate:'2026-06-15',startDate:'2026-05-20',progress:25,notes:'Investor-ready format required'},
-  {id:'FIN-003',name:'Bluebanc decline fee dispute',assignee:'Dren',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-10',progress:60,notes:''},
-  {id:'FIN-004',name:'NRR tracking setup',assignee:'Alketa Berisha',priority:'High',status:'Not Started',dueDate:'2026-06-20',startDate:'2026-06-01',progress:0,notes:'Most critical missing Series B metric'},
-  {id:'FIN-005',name:'Interchange revenue reconciliation',assignee:'Alketa Berisha',priority:'Medium',status:'Not Started',dueDate:'2026-06-30',startDate:'2026-06-10',progress:0,notes:'Swype Cards breakage + interchange'}
+  {id:'FIN-001',name:'Gross margin run rate analysis',assignee:'Alketa Berisha',priority:'Critical',status:'In Progress',due:'2026-05-30',startDate:'2026-05-15',progress:45,notes:'Target $10M ARR'},
+  {id:'FIN-002',name:'Series B financial model',assignee:'Alketa Berisha',priority:'High',status:'In Progress',due:'2026-06-15',startDate:'2026-05-20',progress:25,notes:'Investor-ready format required'},
+  {id:'FIN-003',name:'Bluebanc decline fee dispute',assignee:'Dren',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-10',progress:60,notes:''},
+  {id:'FIN-004',name:'NRR tracking setup',assignee:'Alketa Berisha',priority:'High',status:'Not Started',due:'2026-06-20',startDate:'2026-06-01',progress:0,notes:'Most critical missing Series B metric'},
+  {id:'FIN-005',name:'Interchange revenue reconciliation',assignee:'Alketa Berisha',priority:'Medium',status:'Not Started',due:'2026-06-30',startDate:'2026-06-10',progress:0,notes:'Swype Cards breakage + interchange'}
 ],Engineering:[
-  {id:'ENG-001',name:'API uptime dashboard',assignee:'Samuel Nnabugwu',priority:'High',status:'In Progress',dueDate:'2026-05-30',startDate:'2026-05-18',progress:55,notes:''},
-  {id:'ENG-002',name:'Persona KYB webhook integration',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',dueDate:'2026-05-28',startDate:'2026-05-15',progress:65,notes:''},
-  {id:'ENG-003',name:'Lithic card API integration - POC',assignee:'Emmanuel Piard',priority:'High',status:'Not Started',dueDate:'2026-06-10',startDate:'2026-06-01',progress:0,notes:'Pending Lithic contract sign-off'},
-  {id:'ENG-004',name:'Rebtel route failure alerts',assignee:'Emmanuel Piard',priority:'Medium',status:'Under Review',dueDate:'2026-05-26',startDate:'2026-05-20',progress:90,notes:''},
-  {id:'ENG-005',name:'Swype card status webhook',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',dueDate:'2026-05-31',startDate:'2026-05-22',progress:35,notes:''},
-  {id:'ENG-006',name:'Rate limiter improvements',assignee:'Samuel Nnabugwu',priority:'Medium',status:'Not Started',dueDate:'2026-06-15',startDate:'2026-06-01',progress:0,notes:''}
+  {id:'ENG-001',name:'API uptime dashboard',assignee:'Samuel Nnabugwu',priority:'High',status:'In Progress',due:'2026-05-30',startDate:'2026-05-18',progress:55,notes:''},
+  {id:'ENG-002',name:'Persona KYB webhook integration',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-15',progress:65,notes:''},
+  {id:'ENG-003',name:'Lithic card API integration - POC',assignee:'Emmanuel Piard',priority:'High',status:'Not Started',due:'2026-06-10',startDate:'2026-06-01',progress:0,notes:'Pending Lithic contract sign-off'},
+  {id:'ENG-004',name:'Rebtel route failure alerts',assignee:'Emmanuel Piard',priority:'Medium',status:'Under Review',due:'2026-05-26',startDate:'2026-05-20',progress:90,notes:''},
+  {id:'ENG-005',name:'Swype card status webhook',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',due:'2026-05-31',startDate:'2026-05-22',progress:35,notes:''},
+  {id:'ENG-006',name:'Rate limiter improvements',assignee:'Samuel Nnabugwu',priority:'Medium',status:'Not Started',due:'2026-06-15',startDate:'2026-06-01',progress:0,notes:''}
 ]};
 var data={Management:[],Operations:[],Finance:[],Engineering:[]};
 var actLog=[];
@@ -367,7 +367,7 @@ function nextId(dept){
 function addTask(dept){
   var name=document.getElementById('nn').value.trim();
   if(!name){toast('Task name required','err');return;}
-  var t={id:nextId(dept),name:name,assignee:document.getElementById('na').value.trim()||'Unassigned',priority:document.getElementById('np').value,status:'Not Started',dueDate:document.getElementById('nd').value,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',lastUpdated:new Date().toISOString().split('T')[0]};
+  var t={id:nextId(dept),name:name,assignee:document.getElementById('na').value.trim()||'Unassigned',priority:document.getElementById('np').value,status:'Not Started',due:document.getElementById('nd').value,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',lastUpdated:new Date().toISOString().split('T')[0]};
   data[dept].unshift(t);logEntry('Created '+t.id+' in '+dept,'add');
   autoSave();render();toast(t.id+' created','ok');
   document.getElementById('nn').value='';document.getElementById('na').value='';
