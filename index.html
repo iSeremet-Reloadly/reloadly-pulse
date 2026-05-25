@@ -13,7 +13,7 @@
 body{background:var(--bg);color:var(--txt);font-family:'Lexend',sans-serif;min-height:100vh}
 .hdr{height:56px;background:var(--surf);border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:200}
 .logo{display:flex;align-items:center;gap:10px}
-.hex{width:26px;height:26px;background:var(--acc);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);flex-shrink:0}
+
 .logo-t{font-size:13px;font-weight:800;letter-spacing:.06em}
 .logo-s{font-family:'Roboto Mono',monospace;font-size:9px;color:var(--mut);letter-spacing:.1em}
 .hdr-r{display:flex;gap:8px;align-items:center}
@@ -126,7 +126,7 @@ tbody tr:hover .del{opacity:1}
 .log-empty{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--mut);text-align:center;padding:20px}
 .gate-overlay{position:fixed;inset:0;background:rgba(9,9,14,.92);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center}
 .gate-box{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:36px 40px;width:380px;text-align:center}
-.gate-hex{width:36px;height:36px;background:var(--acc);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);margin:0 auto 16px}
+
 .gate-title{font-size:18px;font-weight:800;margin-bottom:4px}
 .gate-sub{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--mut);margin-bottom:24px}
 .gate-input{width:100%;margin-bottom:12px;text-align:center}
@@ -167,7 +167,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 </head>
 <body>
 <div class="hdr">
-  <div class="logo"><div class="hex"></div><div><div class="logo-t">RELOADLY</div><div class="logo-s">TASK MANAGER</div></div></div>
+  <div class="logo"><div><div class="logo-t">RELOADLY</div><div class="logo-s">TASK MANAGER</div></div></div>
   <div class="hdr-r">
     <div class="ts" id="ts"></div>
     <span class="as-dot" id="as-dot"></span>
@@ -197,7 +197,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 </div>
 <div class="gate-overlay" id="gate" style="display:none">
   <div class="gate-box">
-    <div class="gate-hex"></div>
+    
     <div class="gate-title">Reloadly Task Manager</div>
     <div class="gate-sub">Sign in with your Reloadly email</div>
     <input class="gate-input" id="gate-email" type="email" placeholder="name@reloadly.com" onkeydown="if(event.key==='Enter')document.getElementById('gate-pwd').focus()">
