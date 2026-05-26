@@ -239,6 +239,7 @@ async function setPassword(email,pwd){var store=getPwdStore();store[email.toLowe
 function hasPassword(email){return !!getPwdStore()[email.toLowerCase()];}
 
 function assigneeOptions(selected){
+  if(!window.USER_REGISTRY)return'<option value="">-- Unassigned --</option>';
   var names=Object.values(USER_REGISTRY).map(function(u){return u.name;}).sort();
   var opts='<option value="">-- Unassigned --</option>';
   names.forEach(function(n){
