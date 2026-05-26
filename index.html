@@ -271,7 +271,7 @@ function renderMyTasks(){
     all.forEach(function(t){
       var cfg2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};
       var overdue=t.due&&new Date(t.due)<new Date()&&t.status!=='Done';
-      html+='<tr onclick="go(''+t.dept+'')" style="cursor:pointer" title="Go to '+t.dept+'">'
+      html+='<tr onclick="go(this.dataset.dept)" data-dept='+t.dept+' style="cursor:pointer" title="Go to '+t.dept+'">'
         +'<td class="tid">'+t.id+'</td>'
         +'<td><strong>'+esc(t.name)+'</strong></td>'
         +'<td><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+cfg2.col+'22;color:'+cfg2.col+';border:1px solid '+cfg2.col+'44">'+cfg2.p+'</span></td>'
