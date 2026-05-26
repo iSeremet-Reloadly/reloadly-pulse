@@ -937,8 +937,9 @@ function renderDept(dept){
         +'<td><input class="ie" style="width:90px" value="'+esc(t.assignee||'')+'" data-dept="'+dept+'" data-id="'+id+'" data-field="assignee"></td>'
         +'<td><select class="isel" data-dept="'+dept+'" data-id="'+id+'" data-field="priority">'+PRIORITIES.map(function(p){return '<option'+(t.priority===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select></td>'
         +'<td><select class="isel" style="min-width:100px" data-dept="'+dept+'" data-id="'+id+'" data-field="status">'+STATUSES.map(function(ss){return '<option'+(t.status===ss?' selected':'')+'>'+ss+'</option>';}).join('')+'</select></td>'
-        +'<td><div style="display:flex;align-items:center;gap:5px"><div class="pw"><div class="pf" style="width:'+pr+'%"></div></div>'
-        +'<input type="number" min="0" max="100" value="'+pr+'" style="width:34px;padding:1px 3px;font-size:10px;font-family:Roboto Mono,monospace;text-align:center;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="progress" class="prog-inp"></div></td>'
+        +'<td><div style="display:flex;align-items:center;gap:6px"><div class="pw" id="pb-'+id+'"><div class="pf" style="width:'+pr+'%" id="pf-'+id+'"></div></div>'
+        +'<input type="number" min="0" max="100" value="'+pr+'" style="width:46px;padding:2px 4px;font-size:11px;font-family:Roboto Mono,monospace;text-align:center;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="progress" class="prog-inp" title="Type 0-100 and press Enter">'
+        +'<span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">%</span></div></td>'
         +'<td><input type="date" value="'+(t.due||'')+'" style="width:118px;font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:3px 5px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="due" class="date-inp"></td>'
         +'<td><input class="ie" style="width:100px;font-size:11px" value="'+esc(t.notes||'')+'" placeholder="Notes..." data-dept="'+dept+'" data-id="'+id+'" data-field="notes"></td>'
         +'<td><button class="del" data-dept="'+dept+'" data-id="'+id+'">&#215;</button></td></tr>';
@@ -960,6 +961,16 @@ function renderDept(dept){
     var dl=e.target.closest('.del[data-id]');
     if(dl){del(dl.getAttribute('data-dept'),dl.getAttribute('data-id'));return;}
   });
+  main.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&e.target.classList.contains('prog-inp')){
+      var el=e.target;
+      var v=Math.min(100,Math.max(0,parseInt(el.value)||0));
+      el.value=v;
+      upd(el.dataset.dept,el.dataset.id,'progress',v);
+      renderDept(el.dataset.dept||dept);
+      e.preventDefault();
+    }
+  });
   main.addEventListener('change',function(e){
     var el=e.target;
     if(el.dataset.field&&el.dataset.dept&&el.dataset.id){
@@ -968,10 +979,25 @@ function renderDept(dept){
       upd(el.dataset.dept,el.dataset.id,el.dataset.field,val);
     }
   });
+  main.addEventListener('input',function(e){
+    var el=e.target;
+    if(el.classList.contains('prog-inp')){
+      var liveVal=Math.min(100,Math.max(0,parseInt(el.value)||0));
+      var pfEl=document.getElementById('pf-'+el.dataset.id);
+      if(pfEl)pfEl.style.width=liveVal+'%';
+    }
+  },true);
   main.addEventListener('blur',function(e){
     var el=e.target;
     if(el.classList.contains('ie')&&el.dataset.field&&el.dataset.dept&&el.dataset.id){
       if(el.value.trim())upd(el.dataset.dept,el.dataset.id,el.dataset.field,el.value.trim());
+    }
+    // Live bar preview on input
+    if(el.classList.contains('prog-inp')&&el.dataset.dept&&el.dataset.id&&ev.type==='input'){
+      var liveVal=Math.min(100,Math.max(0,parseInt(el.value)||0));
+      var pfEl=document.getElementById('pf-'+el.dataset.id);
+      if(pfEl)pfEl.style.width=liveVal+'%';
+      return;
     }
     if(el.classList.contains('prog-inp')&&el.dataset.dept&&el.dataset.id){
       var v=Math.min(100,Math.max(0,parseInt(el.value)||0));
