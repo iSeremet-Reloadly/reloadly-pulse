@@ -231,14 +231,29 @@ function hasPassword(email){return !!getPwdStore()[email.toLowerCase()];}
 
 // User Registry
 var USER_REGISTRY={
-  'mfrancis@reloadly.com':  {name:'Michel Francis',   role:'CEO',               dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true},
-  'dlubovci@reloadly.com':  {name:'Dren Lubovci',     role:'COO',               dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true},
-  'ehirlemann@reloadly.com':{name:'Enrique Hirlemann',role:'CRO',              dept:'Management',  canExport:false, canViewAll:true},
-  'aberisha@reloadly.com':  {name:'Alketa Berisha',   role:'Head of Finance',   dept:'Finance',     canExport:false, canViewAll:false},
-  'epiard@reloadly.com':    {name:'Emmanuel Piard',   role:'CTO',               dept:'Engineering', canExport:false, canViewAll:true},
-  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',  role:'Senior Engineer',   dept:'Engineering', canExport:false, canViewAll:false, isAdmin:true},
-  'ipaez@reloadly.com':     {name:'Irene Paez',       role:'Head of Operations',dept:'Operations',  canExport:false, canViewAll:false},
-  'dbassey@reloadly.com':   {name:'David Bassey',     role:'Operations Manager',dept:'Operations',  canExport:false, canViewAll:false}
+  'dlubovci@reloadly.com':  {name:'Dren Lubovci',        role:'COO',                        dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true},
+  'mfrancis@reloadly.com':  {name:'Michel Francis',       role:'CEO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true},
+  'ehirlemann@reloadly.com':{name:'Enrique Hirlemann',    role:'CRO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true},
+  'epiard@reloadly.com':    {name:'Emmanuel Piard',       role:'CTO',                        dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true},
+  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',      role:'Product Manager',            dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true},
+  'sgonzalez@reloadly.com': {name:'Sergio Sanchez',       role:'Head of Engineering',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
+  'echibueze@reloadly.com': {name:'Chibueze Eziokwubundu',role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
+  'dcamacho@reloadly.com':  {name:'Daniel Camacho',       role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
+  'mzakari@reloadly.com':   {name:'Salim Zakari',         role:'Front-end Developer',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
+  'iseremet@reloadly.com':  {name:'Johnny Seremet',       role:'Front-end Manager',          dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
+  'aberisha@reloadly.com':  {name:'Alketa Berisha',       role:'AR/AP/Recons',               dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false},
+  'dperrin@reloadly.com':   {name:'Damian Perrin',        role:'Head of Finance',            dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false},
+  'ipaez@reloadly.com':     {name:'Irene Paez',           role:'Technical Support Manager',  dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'gkrasniqi@reloadly.com': {name:'Gramos Krasniqi',      role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'nperfetto@reloadly.com': {name:'Nicolas Perfetto',     role:'Technical Support Lead',     dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'dbassey@reloadly.com':   {name:'David Bassey',         role:'Pricing / Provisioning',     dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'hriconlla@reloadly.com': {name:'Hermes',               role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'mmontoya@reloadly.com':  {name:'Max Montoya',          role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'jcmartinez@reloadly.com':{name:'Julio Martinez',       role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'srascon@reloadly.com':   {name:'Sophia Rascon',        role:'Onboarding & Implementation',dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false},
+  'nstephan@reloadly.com':  {name:'Nick Stephan',         role:'Sales',                      dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false},
+  'mpatterson@reloadly.com':{name:'Monty Patterson',      role:'Marketing',                  dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false},
+  'fguibert@reloadly.com':  {name:'Florencia Guibert',    role:'Marketing Analyst',          dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false}
 };
 var currentUser=null;
 var CFG={Management:{p:'MGT',col:'#7700ff',cls:'mgt'},Operations:{p:'OPS',col:'#09faa3',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'},
