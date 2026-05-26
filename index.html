@@ -210,10 +210,16 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="gate-title">Reloadly Task Manager</div>
     <div class="gate-sub">Sign in with your Reloadly email</div>
     <input class="gate-input" id="gate-email" type="email" placeholder="name@reloadly.com" onkeydown="if(event.key==='Enter')document.getElementById('gate-pwd').focus()">
-    <input class="gate-input" id="gate-pwd" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')gateLogin()" style="margin-bottom:12px">
+    <span id="gate-pwd-row"><input class="gate-input" id="gate-pwd" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')gateLogin()" style="margin-bottom:12px"></span>
     <button class="gate-btn" id="gate-submit-btn" onclick="gateLogin()">Sign In</button>
     <div style="margin-top:10px;font-family:'Roboto Mono',monospace;font-size:9px;color:var(--mut)">First time? Contact your admin to set your password.</div>
     <div class="gate-err" id="gate-err"></div>
+    <div id="gate-setup" style="display:none;margin-top:8px">
+      <div style="font-size:11px;color:var(--mut);font-family:'Roboto Mono',monospace;margin-bottom:12px">First time signing in as <strong id="gate-setup-email" style="color:var(--txt)"></strong>.<br>Please set your password to continue.</div>
+      <input class="gate-input" id="gate-new-pwd" type="password" placeholder="Choose a password (min 8 chars)" style="margin-bottom:6px">
+      <input class="gate-input" id="gate-new-pwd2" type="password" placeholder="Confirm password" onkeydown="if(event.key==='Enter')gateSetupPwd()" style="margin-bottom:12px">
+      <button class="gate-btn" onclick="gateSetupPwd()">Set Password & Sign In</button>
+    </div>
   </div>
 </div>
 <div id="toast" style="display:none" class="toast"></div>
@@ -377,6 +383,24 @@ function loadData(){
   renderUserPill();checkReminders();
   if(!window._ri)window._ri=setInterval(checkReminders,3600000);
 }
+function gateSetupPwd(){
+  var email=window._setupEmail;
+  var p1=(document.getElementById('gate-new-pwd')||{}).value||'';
+  var p2=(document.getElementById('gate-new-pwd2')||{}).value||'';
+  var errEl=document.getElementById('gate-err');
+  if(!p1||p1.length<8){errEl.textContent='Password must be at least 8 characters.';return;}
+  if(p1!==p2){errEl.textContent='Passwords do not match.';return;}
+  errEl.textContent='';
+  var btn=document.querySelector('#gate-setup .gate-btn');
+  btn.textContent='Setting up…';btn.disabled=true;
+  setPassword(email,p1).then(function(){
+    var profile=USER_REGISTRY[email];
+    window.currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin};
+    localStorage.setItem('rl_user_email',email);
+    document.getElementById('gate').style.display='none';
+    loadData();logEntry('First sign-in: password set by '+profile.name,'edit');autoSave();
+  });
+}
 function gateLogin(){
   var email=document.getElementById('gate-email').value.trim().toLowerCase();
   var pwd=document.getElementById('gate-pwd').value;
@@ -384,7 +408,15 @@ function gateLogin(){
   var btn=document.getElementById('gate-submit-btn');
   var profile=USER_REGISTRY[email];
   if(!profile){errEl.textContent='Access denied. Contact your administrator.';return;}
-  if(!hasPassword(email)){errEl.textContent='No password set. Ask an admin to set your password.';return;}
+  if(!hasPassword(email)){
+        // Show self-service password setup
+        document.getElementById('gate-pwd-row').style.display='none';
+        document.getElementById('gate-submit-btn').style.display='none';
+        document.getElementById('gate-setup').style.display='block';
+        document.getElementById('gate-setup-email').textContent=email;
+        window._setupEmail=email;
+        return;
+      }
   if(!pwd){errEl.textContent='Please enter your password.';return;}
   errEl.textContent='';
   btn.textContent='Signing in…';btn.disabled=true;
