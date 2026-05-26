@@ -459,9 +459,19 @@ function addTask(dept){
 function upd(dept,id,field,val){
   var t=data[dept].filter(function(x){return x.id===id;})[0];if(!t)return;
   var old=t[field];t[field]=val;t.lastUpdated=new Date().toISOString().split('T')[0];
-  if(field==='status'){logEntry(id+' status to '+val+(old?' (was '+old+')':''),val==='Done'?'done':'edit');if(val==='Done')t.progress=100;}
+  if(field==='status'){
+        logEntry(id+' status to '+val+(old?' (was '+old+')':''),val==='Done'?'done':'edit');
+        if(val==='Done'&&t.progress!==100){t.progress=100;}
+      if(val==='Done')t.progress=100;}
   else if(field==='priority'){logEntry(id+' priority to '+val,'edit');}
-  else if(field==='progress'&&val!==old){logEntry(id+' progress '+val+'%','edit');}
+  else if(field==='progress'&&val!==old){
+        logEntry(id+' progress '+val+'%','edit');
+        if(val===100&&t.status!=='Done'){
+          t.status='Done';
+          t.lastUpdated=new Date().toISOString().split('T')[0];
+          logEntry(id+' auto-completed (100%)','done');
+        }
+      }
   autoSave();if(field==='status'||field==='priority')render();
 }
 function del(dept,id){
