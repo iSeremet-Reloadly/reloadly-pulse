@@ -220,6 +220,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 
 <script>
 var DEPTS=['Management','Operations','Finance','Engineering','Sales'];
+var ARCHIVED_USERS=JSON.parse(localStorage.getItem('rl_archived')||'[]');
 // ── Password Auth ────────────────────────────────────────────────────────
 async function sha256(str){
   const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
@@ -551,20 +552,122 @@ function applyStoredTheme(){var t=localStorage.getItem('rl_theme')||'dark';docum
 function isAdmin(){return currentUser&&currentUser.isAdmin===true;}
 function renderAdmin(){
   if(!isAdmin()){renderDash();return;}
+  // Reload archived list from storage
+  window.ARCHIVED_USERS=JSON.parse(localStorage.getItem('rl_archived')||'[]');
   var entries=Object.entries(USER_REGISTRY);
-  var html='<div class="ptitle">User Management</div><div class="psub">'+entries.length+' registered users · only admins can see this</div><div class="tw" style="margin-bottom:20px"><table><thead><tr><th>EMAIL</th><th>NAME</th><th>ROLE</th><th>DEPT</th><th>EXPORT</th><th>VIEW ALL</th><th>ADMIN</th></tr></thead><tbody>';
-  entries.forEach(function(kv){var e=kv[0],u=kv[1],you=currentUser&&currentUser.email===e;
-    html+='<tr'+(you?' style="background:rgba(108,99,255,.08)"':'')+'><td class="tid">'+e+(you?' <span class="badge Medium">you</span>':'')+'</td><td>'+u.name+'</td><td><span class="badge High">'+u.role+'</span></td><td>'+u.dept+'</td><td style="text-align:center">'+(u.canExport?'<span style="color:var(--grn)">&#10003;</span>':'<span style="color:var(--mut)">&minus;</span>')+'</td><td style="text-align:center">'+(u.canViewAll?'<span style="color:var(--grn)">&#10003;</span>':'<span style="color:var(--mut)">&minus;</span>')+'</td><td style="text-align:center">'+(u.isAdmin?'<span style="color:var(--acc)">&#10003;</span>':'<span style="color:var(--mut)">&minus;</span>')+'</td></tr>';
+  var html='<div class="ptitle">User Management</div><div class="psub">'+entries.length+' registered users &middot; only admins can see this</div>';
+  html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME</th><th>ROLE</th><th>DEPT</th><th>EXPORT</th><th>VIEW ALL</th><th>ADMIN</th><th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
+  entries.forEach(function(kv){
+    var e=kv[0],u=kv[1],you=currentUser&&currentUser.email===e;
+    var archived=ARCHIVED_USERS.indexOf(e)>-1;
+    var rowStyle=archived?'opacity:.45;background:rgba(255,100,100,.06)':you?'background:rgba(108,99,255,.08)':'';
+    html+='<tr style="'+rowStyle+'">';
+    html+='<td class="tid">'+e+(you?' <span class="badge Medium">you</span>':'')+(archived?' <span class="badge Critical">archived</span>':'')+'</td>';
+    // Editable name
+    html+='<td><input class="ie" style="width:120px" data-upd-email="'+e+'" data-upd-field="name" value="'+esc(u.name||'')+'"></td>';
+    // Editable role
+    html+='<td><input class="ie" style="width:120px" data-upd-email="'+e+'" data-upd-field="role" value="'+esc(u.role||'')+'"></td>';
+    // Editable dept
+    html+='<td><select class="ie" data-upd-email="'+e+'" data-upd-field="dept">';
+    DEPTS.forEach(function(d){html+='<option'+(u.dept===d?' selected':'')+'>'+d+'</option>';});
+    html+='</select></td>';
+    // Toggles: Export, ViewAll, Admin
+    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canExport"'+(u.canExport?' checked':'')+' title="Export access"></td>';
+    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canViewAll"'+(u.canViewAll?' checked':'')+' title="View all departments"></td>';
+    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="isAdmin"'+(u.isAdmin?' checked':'')+' title="Admin access"></td>';
+    // Password status
+    html+='<td style="text-align:center">'+(hasPassword(e)?'<span style="color:var(--grn)">✓</span>':'<span style="color:var(--red)">&ndash;</span>')+'</td>';
+    // Actions: Set Password + Archive/Restore
+    html+='<td style="white-space:nowrap;display:flex;gap:6px">';
+    html+='<button class="hbtn" style="font-size:10px;padding:4px 8px" data-set-pwd="'+e+'">Set Pwd</button>';
+    if(!archived){
+      html+='<button class="hbtn" style="font-size:10px;padding:4px 8px;border-color:var(--red);color:var(--red)" data-archive="'+e+'"'+(you?' disabled title="Cannot archive yourself"':'')+'>Archive</button>';
+    } else {
+      html+='<button class="hbtn" style="font-size:10px;padding:4px 8px;border-color:var(--grn);color:var(--grn)" data-restore="'+e+'">Restore</button>';
+    }
+    html+='</td>';
+    html+='</tr>';
   });
-  html+='</tbody></table></div><div class="sh"><div><div class="sh-t">Add User</div><div class="sh-s">New user can sign in immediately</div></div></div><div class="atb" style="grid-template-columns:1.5fr 1fr 1fr 1fr 1fr auto"><div class="fld"><label>EMAIL</label><input id="nu-email" placeholder="name@reloadly.com"></div><div class="fld"><label>NAME</label><input id="nu-name" placeholder="Full name"></div><div class="fld"><label>ROLE</label><input id="nu-role" placeholder="e.g. Account Manager"></div><div class="fld"><label>DEPARTMENT</label><select id="nu-dept">'+DEPTS.map(function(d){return '<option>'+d+'</option>';}).join('')+'</select></div><div class="fld"><label>ACCESS</label><select id="nu-perm"><option value="dept">Dept only</option><option value="all">All depts</option><option value="export">All + Export</option></select></div><button class="add-btn" id="au-btn">+ ADD</button></div>';
-  // Change own password section
-  html+='<div class="sh" style="margin-top:20px"><div><div class="sh-t">Change My Password</div><div class="sh-s">Update your own login password</div></div></div>'
-    +'<div class="atb" style="grid-template-columns:1fr 1fr auto">'
-    +'<div class="fld"><label>NEW PASSWORD</label><input id="my-pwd" type="password" placeholder="New password (min 8 chars)"></div>'
-    +'<div class="fld"><label>CONFIRM</label><input id="my-pwd2" type="password" placeholder="Confirm new password"></div>'
-    +'<button class="add-btn" id="my-pwd-btn">UPDATE</button>'
-    +'</div>';
+  html+='</tbody></table></div>';
+  // Add User
+  html+='<div class="sh"><div><div class="sh-t">Add User</div><div class="sh-s">New user can sign in immediately</div></div>';
+  html+='<div class="atb" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr auto">';
+  html+='<div class="fld"><label>EMAIL</label><input id="nu-email" placeholder="name@reloadly.com"></div>';
+  html+='<div class="fld"><label>NAME</label><input id="nu-name" placeholder="Full name"></div>';
+  html+='<div class="fld"><label>ROLE</label><input id="nu-role" placeholder="e.g. Account Manager"></div>';
+  html+='<div class="fld"><label>DEPARTMENT</label><select id="nu-dept">';
+  DEPTS.forEach(function(d){html+='<option>'+d+'</option>';});
+  html+='</select></div>';
+  html+='<div class="fld"><label>ACCESS</label><select id="nu-perm"><option value="view">View only</option><option value="export">Export</option><option value="admin">Admin</option></select></div>';
+  html+='<button class="add-btn" id="au-btn">+ ADD</button>';
+  html+='</div></div>';
+  // Change own password
+  html+='<div class="sh" style="margin-top:20px"><div><div class="sh-t">Change My Password</div><div class="sh-s">Update your own login password</div></div>';
+  html+='<div class="atb" style="grid-template-columns:1fr 1fr auto">';
+  html+='<div class="fld"><label>NEW PASSWORD</label><input id="my-pwd" type="password" placeholder="New password (min 8 chars)"></div>';
+  html+='<div class="fld"><label>CONFIRM</label><input id="my-pwd2" type="password" placeholder="Confirm new password"></div>';
+  html+='<button class="add-btn" id="my-pwd-btn">UPDATE</button>';
+  html+='</div></div>';
   document.getElementById('main').innerHTML=html;
+
+  // ── Wire up inline field edits (name, role, dept, checkboxes) ─────────────
+  document.getElementById('main').addEventListener('change',function(ev){
+    var el=ev.target;
+    var email=el.getAttribute('data-upd-email');
+    var field=el.getAttribute('data-upd-field');
+    if(!email||!field)return;
+    if(!USER_REGISTRY[email])return;
+    if(el.type==='checkbox'){
+      USER_REGISTRY[email][field]=el.checked;
+      // Sync currentUser if editing self
+      if(currentUser&&currentUser.email===email)currentUser[field]=el.checked;
+    } else {
+      USER_REGISTRY[email][field]=el.value.trim();
+      if(currentUser&&currentUser.email===email)currentUser[field]=el.value.trim();
+    }
+    logEntry('Admin updated '+email+': '+field,'edit');
+    autoSave();
+    toast('Saved ✓','ok');
+  });
+
+  // ── Wire up Set Password ───────────────────────────────────────────────────
+  document.getElementById('main').addEventListener('click',function(ev){
+    var setBtn=ev.target.closest('[data-set-pwd]');
+    if(setBtn){
+      var targetEmail=setBtn.getAttribute('data-set-pwd');
+      var newPwd=prompt('Set password for '+targetEmail+'\n(min 8 characters):');
+      if(!newPwd)return;
+      if(newPwd.length<8){toast('Min 8 characters','err');return;}
+      setPassword(targetEmail,newPwd).then(function(){
+        toast('Password set ✓','ok');
+        logEntry('Admin set password for: '+targetEmail,'edit');
+        autoSave();renderAdmin();
+      });
+      return;
+    }
+    // ── Archive ──────────────────────────────────────────────────────────────
+    var archBtn=ev.target.closest('[data-archive]');
+    if(archBtn&&!archBtn.disabled){
+      var em=archBtn.getAttribute('data-archive');
+      if(!confirm('Archive '+USER_REGISTRY[em].name+'?\nThey will no longer be able to sign in.'))return;
+      if(ARCHIVED_USERS.indexOf(em)<0)ARCHIVED_USERS.push(em);
+      localStorage.setItem('rl_archived',JSON.stringify(ARCHIVED_USERS));
+      logEntry('Admin archived user: '+em,'edit');
+      autoSave();toast(USER_REGISTRY[em].name+' archived','ok');renderAdmin();
+      return;
+    }
+    // ── Restore ───────────────────────────────────────────────────────────────
+    var restBtn=ev.target.closest('[data-restore]');
+    if(restBtn){
+      var em=restBtn.getAttribute('data-restore');
+      ARCHIVED_USERS=ARCHIVED_USERS.filter(function(x){return x!==em;});
+      localStorage.setItem('rl_archived',JSON.stringify(ARCHIVED_USERS));
+      logEntry('Admin restored user: '+em,'edit');
+      autoSave();toast(USER_REGISTRY[em].name+' restored','ok');renderAdmin();
+    }
+  });
+
+  // ── Change own password ───────────────────────────────────────────────────
   var mpBtn=document.getElementById('my-pwd-btn');
   if(mpBtn)mpBtn.addEventListener('click',function(){
     var p1=(document.getElementById('my-pwd')||{}).value||'';
@@ -580,35 +683,22 @@ function renderAdmin(){
       document.getElementById('my-pwd2').value='';
     });
   });
-  // Set Password button delegation
-  var tbl=document.querySelector('.tw table tbody');
-  if(tbl)tbl.addEventListener('click',function(ev){
-    var setBtn=ev.target.closest('[data-set-pwd]');
-    if(!setBtn)return;
-    var targetEmail=setBtn.getAttribute('data-set-pwd');
-    var newPwd=prompt('Set new password for '+targetEmail+'\n(minimum 8 characters):');
-    if(!newPwd)return;
-    if(newPwd.length<8){toast('Password must be at least 8 characters','err');return;}
-    setPassword(targetEmail,newPwd).then(function(){
-      toast('Password set for '+targetEmail,'ok');
-      logEntry('Admin set password for: '+targetEmail,'edit');
-      autoSave();renderAdmin();
-    });
-  });
-  var btn=document.getElementById('au-btn');
-  if(btn)btn.addEventListener('click',function(){var email=(document.getElementById('nu-email').value||'').trim().toLowerCase(),name=(document.getElementById('nu-name').value||'').trim(),role=(document.getElementById('nu-role').value||'').trim(),dept=document.getElementById('nu-dept').value,perm=document.getElementById('nu-perm').value;if(!email||!name||!role){toast('Email, name and role required','err');return;}if(!email.endsWith('@reloadly.com')){toast('Must be @reloadly.com','err');return;}if(USER_REGISTRY[email]){toast('User already exists','err');return;}
-      var pwd=(document.getElementById('nu-pwd')||{}).value||'';
-      var pwd2=(document.getElementById('nu-pwd2')||{}).value||'';
-      if(!pwd){toast('Password is required','err');return;}
-      if(pwd!==pwd2){toast('Passwords do not match','err');return;}
-      if(pwd.length<8){toast('Password must be at least 8 characters','err');return;}
-      USER_REGISTRY[email]={name:name,role:role,dept:dept,canExport:perm==='export',canViewAll:perm!=='dept',isAdmin:false};
-      setPassword(email,pwd).then(function(){
-        logEntry('Admin added user: '+email+' ('+role+')','add');
-        autoSave();toast(name+' added successfully','ok');renderAdmin();
-      });});
-}
 
+  // ── Add User ──────────────────────────────────────────────────────────────
+  var btn=document.getElementById('au-btn');
+  if(btn)btn.addEventListener('click',function(){
+    var email=(document.getElementById('nu-email').value||'').toLowerCase().trim();
+    var name=(document.getElementById('nu-name').value||'').trim();
+    var role=(document.getElementById('nu-role').value||'').trim();
+    var dept=(document.getElementById('nu-dept').value||'Management');
+    var perm=(document.getElementById('nu-perm').value||'view');
+    if(!email||!name){toast('Email and name required','err');return;}
+    if(USER_REGISTRY[email]){toast('Email already registered','err');return;}
+    USER_REGISTRY[email]={name:name,role:role,dept:dept,canExport:perm==='export'||perm==='admin',canViewAll:true,isAdmin:perm==='admin'};
+    logEntry('Admin added user: '+email+' ('+role+')','add');
+    autoSave();toast(name+' added','ok');renderAdmin();
+  });
+}
 function render(){
   if(view==='dashboard')renderDash();
   else if(view==='log')renderLog();
