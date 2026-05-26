@@ -451,7 +451,7 @@ function nextId(dept){
 function addTask(dept){
   var name=document.getElementById('nn').value.trim();
   if(!name){toast('Task name required','err');return;}
-  var t={id:nextId(dept),name:name,assignee:document.getElementById('na').value||'',priority:document.getElementById('np').value,status:'Not Started',due:document.getElementById('nd').value,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',lastUpdated:new Date().toISOString().split('T')[0]};
+  var t={id:nextId(dept),name:name,assignee:document.getElementById('na').value||'',priority:document.getElementById('np').value,status:'Not Started',createdAt:new Date().toISOString(),due:document.getElementById('nd').value,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',lastUpdated:new Date().toISOString().split('T')[0]};
   data[dept].unshift(t);logEntry('Created '+t.id+' in '+dept,'add');
   autoSave();render();toast(t.id+' created','ok');
   document.getElementById('nn').value='';document.getElementById('na').selectedIndex=0;
@@ -461,13 +461,14 @@ function upd(dept,id,field,val){
   var old=t[field];t[field]=val;t.lastUpdated=new Date().toISOString().split('T')[0];
   if(field==='status'){
         logEntry(id+' status to '+val+(old?' (was '+old+')':''),val==='Done'?'done':'edit');
-        if(val==='Done'&&t.progress!==100){t.progress=100;}
-      if(val==='Done')t.progress=100;}
+        if(val==='Done'){if(t.progress!==100)t.progress=100;if(!t.completedAt)t.completedAt=new Date().toISOString();}
+        else{t.completedAt=null;}}
   else if(field==='priority'){logEntry(id+' priority to '+val,'edit');}
   else if(field==='progress'&&val!==old){
         logEntry(id+' progress '+val+'%','edit');
         if(val===100&&t.status!=='Done'){
           t.status='Done';
+          t.completedAt=t.completedAt||new Date().toISOString();
           t.lastUpdated=new Date().toISOString().split('T')[0];
           logEntry(id+' auto-completed (100%)','done');
         }
@@ -909,6 +910,7 @@ function renderLog(){
   if(clb)clb.addEventListener('click',function(){if(confirm('Clear log?'))clearLog();});
 }
 function clearLog(){actLog=[];autoSave();render();toast('Log cleared','ok');}
+function timeDiff(from,to){if(!from)return'—';var ms=(to?new Date(to):new Date())-new Date(from);if(ms<0)ms=0;var m=Math.floor(ms/60000),hh=Math.floor(m/60),d=Math.floor(hh/24);if(d>=2)return d+' days';if(d===1){var rh=hh%24;return '1 day'+(rh?' '+rh+'h':'');}if(hh>=1)return hh+'h '+(m%60)+'m';if(m>=1)return m+' min';return '<1 min';}
 function renderDept(dept){
   var c=CFG[dept],s=stats(dept),srt=sorted(data[dept]);
   var fil=srt.filter(function(t){
@@ -937,9 +939,9 @@ function renderDept(dept){
   }else{
     var af=fil.filter(function(t){return t.status!=='Done';});
     var df=fil.filter(function(t){return t.status==='Done';});
-    h+='<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>ASSIGNEE</th><th>PRIORITY</th><th>STATUS</th><th>PROG</th><th>DUE</th><th>NOTES</th><th></th></tr></thead><tbody id="tbody">';
+    h+='<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>ASSIGNEE</th><th>PRIORITY</th><th>STATUS</th><th>PROG</th><th>DUE</th><th>NOTES</th>'+(isAdmin()?'<th style="color:var(--acc2)" title="Admin only">⏱ DONE IN</th>':'')+'<th></th></tr></thead><tbody id="tbody">';
     af.concat(df.length?[{_divider:true,count:df.length}]:[]).concat(df).forEach(function(t){
-      if(t._divider){h+='<tr class="done-divider"><td colspan="9">&#10003; COMPLETED ('+t.count+')</td></tr>';return;}
+      if(t._divider){h+='<tr class="done-divider"><td colspan="'+(isAdmin()?10:9)+'">&#10003; COMPLETED ('+t.count+')</td></tr>';return;}
       var pr=t.progress||0,id=t.id,isDone=t.status==='Done';
       h+='<tr class="'+(isDone?'done-row':'')+'">'
         +'<td class="tid">'+id+(isDone?' &#10003;':'')+'</td>'
@@ -952,7 +954,8 @@ function renderDept(dept){
         +'<span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">%</span></div></td>'
         +'<td><input type="date" value="'+(t.due||'')+'" style="width:118px;font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:3px 5px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="due" class="date-inp"></td>'
         +'<td><input class="ie" style="width:100px;font-size:11px" value="'+esc(t.notes||'')+'" placeholder="Notes..." data-dept="'+dept+'" data-id="'+id+'" data-field="notes"></td>'
-        +'<td><button class="del" data-dept="'+dept+'" data-id="'+id+'">&#215;</button></td></tr>';
+        +(isAdmin()?(function(){var cs='font-size:10px;font-family:Roboto Mono,monospace;white-space:nowrap;text-align:center;';var tt='Created: '+(t.createdAt?t.createdAt.slice(0,10):'?')+(t.completedAt?' | Done: '+t.completedAt.slice(0,10):'');if(t.status==='Done'&&t.completedAt&&t.createdAt)return '<td style="'+cs+'color:var(--grn)" title="'+tt+'">'+timeDiff(t.createdAt,t.completedAt)+'</td>';if(t.createdAt)return '<td style="'+cs+'color:var(--mut)" title="'+tt+'">⏳ '+timeDiff(t.createdAt,null)+'</td>';return '<td style="'+cs+'color:var(--mut)">—</td>';})():'')
++'<td><button class="del" data-dept="'+dept+'" data-id="'+id+'">&#215;</button></td></tr>';
     });
     h+='</tbody></table></div>';
   }
