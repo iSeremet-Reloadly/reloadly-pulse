@@ -301,6 +301,8 @@ function loadData(){
   if(s){try{data=JSON.parse(s);}catch(e){data=JSON.parse(JSON.stringify(SEED));}}else{data=JSON.parse(JSON.stringify(SEED));}
   var l=localStorage.getItem('rl_log_v1');
   if(l){try{actLog=JSON.parse(l);}catch(e){actLog=[];}}
+  // Migrate old dueDate field
+  DEPTS.forEach(function(d){if(data[d])data[d]=data[d].map(function(t){if(t.dueDate&&!t.due){t.due=t.dueDate;delete t.dueDate;}if(!t.due)t.due='';return t;});});
   autoSave();updCnts();
   if(currentUser&&!currentUser.canViewAll){view=currentUser.dept;}
   render();
@@ -412,10 +414,12 @@ function getUpcoming(){
   var all=[];DEPTS.forEach(function(d){data[d].forEach(function(t){all.push(Object.assign({},t,{dept:d}));});});
   return all.filter(function(t){
     if(!t.due||t.status==='Done')return false;
-    var due=new Date(t.due);due.setHours(0,0,0,0);
+    if(!t.due)return;
+    var due=new Date(t.due);if(isNaN(due.getTime()))return;
+    due.setHours(0,0,0,0);
     var diff=Math.round((due-now)/864e5);
     return diff>=0&&diff<=3;
-  }).sort(function(a,b){return new Date(a.due)-new Date(b.due);});
+  }).sort(function(a,b){var da=new Date(a.due||0),db=new Date(b.due||0);return da-db;});
 }
 function daysLabel(diff){
   if(diff===0)return{label:'DUE TODAY',cls:'d0'};
