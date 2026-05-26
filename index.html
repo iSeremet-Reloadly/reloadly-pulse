@@ -1,4 +1,4 @@
-<!-- v703eba4 -->
+<!-- v36b9f4c -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -157,7 +157,6 @@ tbody tr:hover .del{opacity:1}
 .notif-btn{font-family:'Roboto Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer}
 .notif-btn:hover{background:rgba(108,99,255,.1)}
 .ni.locked{opacity:.3;cursor:default;pointer-events:none}
-.ni[id="nav-mytasks"]{border-left-color:rgba(119,0,255,.4)}
 .sc.sal::before{background:#2778c4}
 .theme-toggle{font-family:'Roboto Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);cursor:pointer;transition:.2s;display:flex;align-items:center;gap:5px}
 .theme-toggle:hover{border-color:var(--acc);color:var(--acc)}
@@ -214,12 +213,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <button class="gate-btn" id="gate-submit-btn" onclick="gateLogin()">Sign In</button>
     <div style="margin-top:10px;font-family:'Roboto Mono',monospace;font-size:9px;color:var(--mut)">First time? Contact your admin to set your password.</div>
     <div class="gate-err" id="gate-err"></div>
-    <div id="gate-setup" style="display:none;margin-top:8px">
-      <div style="font-size:11px;color:var(--mut);font-family:'Roboto Mono',monospace;margin-bottom:12px">First time signing in as <strong id="gate-setup-email" style="color:var(--txt)"></strong>.<br>Please set your password to continue.</div>
-      <input class="gate-input" id="gate-new-pwd" type="password" placeholder="Choose a password (min 8 chars)" style="margin-bottom:6px">
-      <input class="gate-input" id="gate-new-pwd2" type="password" placeholder="Confirm password" onkeydown="if(event.key==='Enter')gateSetupPwd()" style="margin-bottom:12px">
-      <button class="gate-btn" onclick="gateSetupPwd()">Set Password & Sign In</button>
-    </div>
+    <div id="gate-setup" style="display:none;margin-top:8px"><div style="font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:12px">First time signing in as <strong id="gate-setup-email" style="color:var(--txt)"></strong>.<br>Set a password to continue.</div><input class="gate-input" id="gate-new-pwd" type="password" placeholder="Choose a password (min 8 chars)" style="margin-bottom:6px"><input class="gate-input" id="gate-new-pwd2" type="password" placeholder="Confirm password" onkeydown="if(event.key==='Enter')gateSetupPwd()" style="margin-bottom:12px"><button class="gate-btn" onclick="gateSetupPwd()">Set Password &amp; Sign In</button></div>
   </div>
 </div>
 <div id="toast" style="display:none" class="toast"></div>
@@ -242,25 +236,82 @@ function assigneeOptions(selected){
   if(!window.USER_REGISTRY)return'<option value="">-- Unassigned --</option>';
   var names=Object.values(USER_REGISTRY).map(function(u){return u.name;}).sort();
   var opts='<option value="">-- Unassigned --</option>';
-  names.forEach(function(n){
-    opts+='<option value="'+n+'"'+(n===(selected||'')?'  selected':'')+'>'+n+'</option>';
-  });
+  names.forEach(function(n){opts+='<option value="'+n+'"'+(n===(selected||'')?'  selected':'')+'>'+n+'</option>';});
   return opts;
 }
+
+// User Registry
+var USER_REGISTRY={
+  'dlubovci@reloadly.com':  {name:'Dren Lubovci',        role:'COO',                        dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true},
+  'mfrancis@reloadly.com':  {name:'Michel Francis',       role:'CEO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true},
+  'ehirlemann@reloadly.com':{name:'Enrique Hirlemann',    role:'CRO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true},
+  'epiard@reloadly.com':    {name:'Emmanuel Piard',       role:'CTO',                        dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true},
+  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',      role:'Product Manager',            dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true},
+  'sgonzalez@reloadly.com': {name:'Sergio Sanchez',       role:'Head of Engineering',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
+  'echibueze@reloadly.com': {name:'Chibueze Eziokwubundu',role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
+  'dcamacho@reloadly.com':  {name:'Daniel Camacho',       role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
+  'mzakari@reloadly.com':   {name:'Salim Zakari',         role:'Front-end Developer',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
+  'iseremet@reloadly.com':  {name:'Johnny Seremet',       role:'Front-end Manager',          dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
+  'aberisha@reloadly.com':  {name:'Alketa Berisha',       role:'AR/AP/Recons',               dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false},
+  'dperrin@reloadly.com':   {name:'Damian Perrin',        role:'Head of Finance',            dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false},
+  'ipaez@reloadly.com':     {name:'Irene Paez',           role:'Technical Support Manager',  dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'gkrasniqi@reloadly.com': {name:'Gramos Krasniqi',      role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'nperfetto@reloadly.com': {name:'Nicolas Perfetto',     role:'Technical Support Lead',     dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'dbassey@reloadly.com':   {name:'David Bassey',         role:'Pricing / Provisioning',     dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'hriconlla@reloadly.com': {name:'Hermes',               role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'mmontoya@reloadly.com':  {name:'Max Montoya',          role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'jcmartinez@reloadly.com':{name:'Julio Martinez',       role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
+  'srascon@reloadly.com':   {name:'Sophia Rascon',        role:'Onboarding & Implementation',dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false},
+  'nstephan@reloadly.com':  {name:'Nick Stephan',         role:'Sales',                      dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false},
+  'mpatterson@reloadly.com':{name:'Monty Patterson',      role:'Marketing',                  dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false},
+  'fguibert@reloadly.com':  {name:'Florencia Guibert',    role:'Marketing Analyst',          dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false}
+};
+var currentUser=null;
+var CFG={Management:{p:'MGT',col:'#7700ff',cls:'mgt'},Operations:{p:'OPS',col:'#09faa3',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'},
+  Sales:{p:'SAL',col:'#2778c4',cls:'sal'}};
+var STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
+var PRIORITIES=['Critical','High','Medium','Low'];
+var SPC={'Not Started':'ns','In Progress':'ip','Blocked':'bl','Under Review':'ur','Done':'dn'};
+var SEED={Management:[
+  {id:'MGT-001',name:'Series B prep - investor deck',assignee:'Michel Francis',priority:'High',status:'In Progress',due:'2026-06-15',startDate:'2026-05-01',progress:30,notes:'Needs financial model update'},
+  {id:'MGT-002',name:'Q2 OKR review session',assignee:'Dren',priority:'High',status:'Not Started',due:'2026-05-30',startDate:'2026-05-22',progress:0,notes:''},
+  {id:'MGT-003',name:'Board report - May 2026',assignee:'Michel Francis',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-20',progress:40,notes:''},
+  {id:'MGT-004',name:'Leadership offsite follow-ups',assignee:'Dren',priority:'Medium',status:'In Progress',due:'2026-05-25',startDate:'2026-05-18',progress:60,notes:''},
+  {id:'MGT-005',name:'Company health dashboard update',assignee:'Dren',priority:'Medium',status:'In Progress',due:'2026-05-27',startDate:'2026-05-22',progress:20,notes:''}
+],Operations:[
+  {id:'OPS-001',name:'Swype - Bluebanc wind-down completion',assignee:'Dren',priority:'Critical',status:'In Progress',due:'2026-05-31',startDate:'2026-05-01',progress:70,notes:'Decline fee dispute outstanding'},
+  {id:'OPS-002',name:'KYB enforcement - Persona backlog',assignee:'Irene Paez',priority:'High',status:'In Progress',due:'2026-05-29',startDate:'2026-05-15',progress:50,notes:''},
+  {id:'OPS-003',name:'Partner onboarding form - Tally.so',assignee:'Irene Paez',priority:'Medium',status:'In Progress',due:'2026-05-28',startDate:'2026-05-10',progress:80,notes:''},
+  {id:'OPS-004',name:'Rebtel route failure review',assignee:'David Bassey',priority:'Medium',status:'Under Review',due:'2026-05-26',startDate:'2026-05-20',progress:90,notes:'93% overall success rate'},
+  {id:'OPS-005',name:'Swype card customer support SLA',assignee:'David Bassey',priority:'Medium',status:'Not Started',due:'2026-06-10',startDate:'2026-06-01',progress:0,notes:''}
+],Finance:[
+  {id:'FIN-001',name:'Gross margin run rate analysis',assignee:'Alketa Berisha',priority:'Critical',status:'In Progress',due:'2026-05-30',startDate:'2026-05-15',progress:45,notes:'Target $10M ARR'},
+  {id:'FIN-002',name:'Series B financial model',assignee:'Alketa Berisha',priority:'High',status:'In Progress',due:'2026-06-15',startDate:'2026-05-20',progress:25,notes:'Investor-ready format required'},
+  {id:'FIN-003',name:'Bluebanc decline fee dispute',assignee:'Dren',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-10',progress:60,notes:''},
+  {id:'FIN-004',name:'NRR tracking setup',assignee:'Alketa Berisha',priority:'High',status:'Not Started',due:'2026-06-20',startDate:'2026-06-01',progress:0,notes:'Most critical missing Series B metric'},
+  {id:'FIN-005',name:'Interchange revenue reconciliation',assignee:'Alketa Berisha',priority:'Medium',status:'Not Started',due:'2026-06-30',startDate:'2026-06-10',progress:0,notes:'Swype Cards breakage + interchange'}
+],Engineering:[
+  {id:'ENG-001',name:'API uptime dashboard',assignee:'Samuel Nnabugwu',priority:'High',status:'In Progress',due:'2026-05-30',startDate:'2026-05-18',progress:55,notes:''},
+  {id:'ENG-002',name:'Persona KYB webhook integration',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-15',progress:65,notes:''},
+  {id:'ENG-003',name:'Lithic card API integration - POC',assignee:'Emmanuel Piard',priority:'High',status:'Not Started',due:'2026-06-10',startDate:'2026-06-01',progress:0,notes:'Pending Lithic contract sign-off'},
+  {id:'ENG-004',name:'Rebtel route failure alerts',assignee:'Emmanuel Piard',priority:'Medium',status:'Under Review',due:'2026-05-26',startDate:'2026-05-20',progress:90,notes:''},
+  {id:'ENG-005',name:'Swype card status webhook',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',due:'2026-05-31',startDate:'2026-05-22',progress:35,notes:''},
+  {id:'ENG-006',name:'Rate limiter improvements',assignee:'Samuel Nnabugwu',priority:'Medium',status:'Not Started',due:'2026-06-15',startDate:'2026-06-01',progress:0,notes:''}
+]};
+var data={Management:[],Operations:[],Finance:[],Engineering:[]};
+var actLog=[];
+var view='dashboard',fStatus='All',fSearch='',charts={},toastT,asTimer;
 
 function renderMyTasks(){
   if(!currentUser||!data)return;
   var myName=currentUser.name;
   var all=[];
-  DEPTS.forEach(function(d){
-    (data[d]||[]).forEach(function(t){
-      if((t.assignee||'').trim()===myName)all.push(Object.assign({},t,{dept:d}));
-    });
-  });
+  var myCount=currentUser?DEPTS.reduce(function(acc,d){return acc+(data[d]||[]).filter(function(t){return(t.assignee||'').trim()===currentUser.name&&t.status!=='Done';}).length;},0):0;
+  var mc=document.getElementById('c-mytasks');if(mc)mc.textContent=myCount||'';
+  DEPTS.forEach(function(d){(data[d]||[]).forEach(function(t){if((t.assignee||'').trim()===myName)all.push(Object.assign({},t,{dept:d}));});});
   all.sort(function(a,b){return new Date(a.due||0)-new Date(b.due||0);});
   var done=all.filter(function(t){return t.status==='Done';}).length;
-  var el=document.getElementById('main');
-  if(!el)return;
+  var el=document.getElementById('main');if(!el)return;
   var h2='<div class="ptitle">My Tasks</div>';
   h2+='<div class="psub">'+all.length+' task'+(all.length!==1?'s':'')+' assigned to you · '+done+' done</div>';
   if(!all.length){h2+='<div style="color:var(--mut);margin-top:32px;text-align:center;font-size:11px">No tasks assigned to you yet.</div>';el.innerHTML=h2;return;}
@@ -270,7 +321,7 @@ function renderMyTasks(){
     var ov=t.due&&new Date(t.due)<new Date()&&t.status!=='Done';
     var sc=t.status==='Done'?'dn':t.status==='Blocked'?'bl':t.status==='In Progress'?'ip':'ns';
     var pct=t.progress||0;
-    h2+='<tr onclick="go(this.getAttribute(\'data-dept\'))" data-dept="'+t.dept+'" style="cursor:pointer">';
+    h2+='<tr onclick="go(this.dataset.dept)" data-dept="'+t.dept+'" style="cursor:pointer">';
     h2+='<td class="tid">'+t.id+'</td>';
     h2+='<td><strong>'+esc(t.name)+'</strong></td>';
     h2+='<td><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+c.col+'22;color:'+c.col+'">'+c.p+'</span></td>';
@@ -327,16 +378,15 @@ function gateSetupPwd(){
   if(!p1||p1.length<8){errEl.textContent='Password must be at least 8 characters.';return;}
   if(p1!==p2){errEl.textContent='Passwords do not match.';return;}
   errEl.textContent='';
-  var btn=document.querySelector('#gate-setup .gate-btn');
-  btn.textContent='Setting up…';btn.disabled=true;
   setPassword(email,p1).then(function(){
     var profile=USER_REGISTRY[email];
     window.currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin};
     localStorage.setItem('rl_user_email',email);
     document.getElementById('gate').style.display='none';
-    loadData();logEntry('First sign-in: password set by '+profile.name,'edit');autoSave();
+    loadData();logEntry('First sign-in by '+profile.name,'edit');autoSave();
   });
 }
+
 function gateLogin(){
   var email=document.getElementById('gate-email').value.trim().toLowerCase();
   var pwd=document.getElementById('gate-pwd').value;
@@ -344,15 +394,7 @@ function gateLogin(){
   var btn=document.getElementById('gate-submit-btn');
   var profile=USER_REGISTRY[email];
   if(!profile){errEl.textContent='Access denied. Contact your administrator.';return;}
-  if(!hasPassword(email)){
-        // Show self-service password setup
-        document.getElementById('gate-pwd-row').style.display='none';
-        document.getElementById('gate-submit-btn').style.display='none';
-        document.getElementById('gate-setup').style.display='block';
-        document.getElementById('gate-setup-email').textContent=email;
-        window._setupEmail=email;
-        return;
-      }
+  if(!hasPassword(email)){var gs=document.getElementById('gate-setup');var gr=document.getElementById('gate-pwd-row');var gb=document.getElementById('gate-submit-btn');if(gs)gs.style.display='block';if(gr)gr.style.display='none';if(gb)gb.style.display='none';document.getElementById('gate-setup-email').textContent=email;window._setupEmail=email;return;}
   if(!pwd){errEl.textContent='Please enter your password.';return;}
   errEl.textContent='';
   btn.textContent='Signing in…';btn.disabled=true;
@@ -802,7 +844,7 @@ function renderDept(dept){
       h+='<tr class="'+(isDone?'done-row':'')+'">'
         +'<td class="tid">'+id+(isDone?' &#10003;':'')+'</td>'
         +'<td style="min-width:160px;max-width:260px"><input class="ie" value="'+esc(t.name)+'" data-dept="'+dept+'" data-id="'+id+'" data-field="name"></td>'
-        +'<td><select class="ie" style="width:130px" data-dept="'+dept+'" data-id="'+id+'" data-field="assignee">'+assigneeOptions(t.assignee||'')+'</select></td>'
+        +'<td><input class="ie" style="width:90px" value="'+esc(t.assignee||'')+'" data-dept="'+dept+'" data-id="'+id+'" data-field="assignee"></td>'
         +'<td><select class="isel" data-dept="'+dept+'" data-id="'+id+'" data-field="priority">'+PRIORITIES.map(function(p){return '<option'+(t.priority===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select></td>'
         +'<td><select class="isel" style="min-width:100px" data-dept="'+dept+'" data-id="'+id+'" data-field="status">'+STATUSES.map(function(ss){return '<option'+(t.status===ss?' selected':'')+'>'+ss+'</option>';}).join('')+'</select></td>'
         +'<td><div style="display:flex;align-items:center;gap:5px"><div class="pw"><div class="pf" style="width:'+pr+'%"></div></div>'
