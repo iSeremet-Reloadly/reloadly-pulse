@@ -923,74 +923,8 @@ function renderLog(){
 }
 function clearLog(){actLog=[];autoSave();render();toast('Log cleared','ok');}
 
-function renderOKR(){
-  if(!currentUser)return;
-  var cycleStart=new Date(OKR_DATA.startDate),cycleEnd=new Date(OKR_DATA.endDate),today=new Date();
-  var elapsed=Math.max(0,Math.min(OKR_DATA.totalDays,Math.floor((today-cycleStart)/86400000)));
-  var timePct=Math.round(elapsed/OKR_DATA.totalDays*100);
-  var deptFilter=localStorage.getItem('rl_okr_dept')||'Company';
-  var deptTotals={};
-  Object.keys(OKR_DATA.depts).forEach(function(d){var objs=OKR_DATA.depts[d].objectives;deptTotals[d]=Math.round(objs.reduce(function(s,o){return s+o.progress;},0)/Math.max(1,objs.length));});
-  var h='<div class="ptitle">OKR Tracker <span style="font-size:11px;font-weight:400;color:var(--mut);font-family:Roboto Mono,monospace">Q2 2026 · Apr 26 – Jun 30</span></div>';
-  h+='<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">';
-  h+='<div style="flex:1;min-width:130px;background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:14px 18px"><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:4px">DAYS ELAPSED</div><div style="font-size:22px;font-weight:700">'+elapsed+'<span style="font-size:12px;color:var(--mut)">/'+OKR_DATA.totalDays+'</span></div><div style="margin-top:6px;height:4px;background:var(--surf2);border-radius:2px"><div style="width:'+timePct+'%;height:100%;background:var(--acc);border-radius:2px"></div></div><div style="font-size:9px;color:var(--mut);margin-top:3px;font-family:Roboto Mono,monospace">'+timePct+'% of cycle</div></div>';
-  Object.keys(OKR_DATA.depts).forEach(function(d){var col=OKR_DATA.depts[d].color,pct=deptTotals[d],active=d===deptFilter;h+='<div style="flex:1;min-width:110px;background:var(--surf);border:1px solid '+(active?col:'var(--brd)')+';border-radius:10px;padding:14px 18px;cursor:pointer;'+(active?'background:var(--surf2);':'')+'" onclick="localStorage.setItem('rl_okr_dept',''+d+'');renderOKR()">';h+='<div style="font-size:9px;color:'+col+';font-family:Roboto Mono,monospace;font-weight:700;margin-bottom:4px">'+OKR_DATA.depts[d].icon+' '+d.toUpperCase()+'</div>';h+='<div style="font-size:22px;font-weight:700">'+pct+'<span style="font-size:12px">%</span></div>';h+='<div style="margin-top:6px;height:4px;background:var(--surf2);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+col+';border-radius:2px"></div></div>';h+='<div style="font-size:9px;color:var(--mut);margin-top:3px;font-family:Roboto Mono,monospace">overall</div></div>';});
-  h+='</div>';
-  var dept=OKR_DATA.depts[deptFilter],deptCol=dept.color;
-  h+='<div style="font-size:11px;font-weight:700;color:'+deptCol+';font-family:Roboto Mono,monospace;letter-spacing:.1em;margin-bottom:12px">'+dept.icon+' '+deptFilter.toUpperCase()+' OBJECTIVES — Q2 2026</div>';
-  dept.objectives.forEach(function(obj){
-    h+='<div style="background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px 20px;margin-bottom:16px">';
-    h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px"><div style="flex:1"><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:3px">'+obj.id+'</div><div style="font-size:14px;font-weight:700">'+obj.title+'</div></div>';
-    h+='<div style="margin-left:20px;text-align:right"><div style="font-size:28px;font-weight:800;color:'+deptCol+'">'+obj.progress+'<span style="font-size:14px">%</span></div><div style="width:80px;height:6px;background:var(--surf2);border-radius:3px;margin-top:4px"><div style="width:'+obj.progress+'%;height:100%;background:'+deptCol+';border-radius:3px"></div></div></div></div>';
-    h+='<div style="display:flex;flex-direction:column;gap:8px">';
-    obj.krs.forEach(function(kr){
-      var conf=kr.confidence||'Not started';
-      var confColor=conf==='On track'?'var(--grn)':conf==='At Risk'?'var(--yel)':conf==='Off Track'?'var(--red)':'var(--mut)';
-      var lc=(OKR_LINKS[kr.id]||[]).length;
-      h+='<div style="background:var(--surf2);border-radius:6px;padding:12px 14px">';
-      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="flex:1"><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:2px">'+kr.id+'</div><div style="font-size:12px;color:var(--txt)">'+kr.title+'</div></div>';
-      h+='<div style="margin-left:16px;display:flex;align-items:center;gap:10px;flex-shrink:0"><span style="font-size:10px;color:'+confColor+';font-family:Roboto Mono,monospace">'+conf+'</span><div style="font-size:18px;font-weight:700">'+kr.progress+'<span style="font-size:10px;color:var(--mut)">%</span></div></div></div>';
-      h+='<div style="height:4px;background:var(--bg);border-radius:2px;margin-bottom:6px"><div style="width:'+kr.progress+'%;height:100%;background:'+deptCol+';border-radius:2px"></div></div>';
-      h+='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">'+(kr.owner?'👤 '+kr.owner:'')+'</div>';
-      h+='<div style="display:flex;align-items:center;gap:8px">'+(lc>0?'<span style="font-size:10px;color:var(--acc);font-family:Roboto Mono,monospace;cursor:pointer" onclick="showOKRLinkedTasks(''+kr.id+'')">🔗 '+lc+' task'+(lc>1?'s':'')+'</span>':'')+' <button class="hbtn" style="font-size:9px;padding:3px 8px" onclick="openLinkTaskModal(''+kr.id+'',''+kr.title.replace(/'/g,"\'").replace(/"/g,"&quot;")+'')">+ Link Task</button></div></div>';
-      h+='</div>';
-    });
-    h+='</div></div>';
-  });
-  document.getElementById('main').innerHTML=h;
-}
-function openLinkTaskModal(krId,krTitle){
-  var allTasks=[];DEPTS.forEach(function(d){(data[d]||[]).forEach(function(t){allTasks.push(Object.assign({},t,{dept:d}));});});
-  var linked=OKR_LINKS[krId]||[];
-  var m=document.createElement('div');m.id='okr-modal';m.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
-  var b='<div style="background:var(--surf);border-radius:10px;padding:24px;width:560px;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)">';
-  b+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px"><div><div style="font-size:13px;font-weight:700">Link Tasks to KR</div><div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">'+krId+' · '+krTitle.slice(0,55)+(krTitle.length>55?'…':'')+'</div></div><button onclick="document.getElementById('okr-modal').remove()" style="background:none;border:none;font-size:18px;color:var(--mut);cursor:pointer">×</button></div>';
-  b+='<div style="overflow-y:auto;flex:1">';
-  if(!allTasks.length){b+='<div style="color:var(--mut);font-size:12px;text-align:center;padding:20px">No tasks yet. Create tasks in departments first.</div>';}
-  else{b+='<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="color:var(--mut);font-family:Roboto Mono,monospace;font-size:9px"><th style="text-align:left;padding:6px 8px">ID</th><th style="text-align:left;padding:6px 8px">TASK</th><th style="text-align:left;padding:6px 8px">DEPT</th><th style="text-align:left;padding:6px 8px">STATUS</th><th style="text-align:center;padding:6px 8px">LINK</th></tr></thead><tbody>';
-  allTasks.forEach(function(t){var isLinked=linked.indexOf(t.id)>-1,cfg2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};b+='<tr style="border-bottom:1px solid var(--brd)"><td style="padding:6px 8px;font-family:Roboto Mono,monospace;color:var(--mut)">'+t.id+'</td><td style="padding:6px 8px">'+t.name+'</td><td style="padding:6px 8px"><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+cfg2.col+'22;color:'+cfg2.col+'">'+cfg2.p+'</span></td><td style="padding:6px 8px;color:var(--mut)">'+t.status+'</td><td style="padding:6px 8px;text-align:center"><input type="checkbox" data-task-id="'+t.id+'" '+(isLinked?'checked':'')+' style="cursor:pointer;width:14px;height:14px"></td></tr>';});
-  b+='</tbody></table>';}
-  b+='</div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button class="hbtn" onclick="document.getElementById('okr-modal').remove()">Cancel</button><button class="hbtn xl" onclick="saveLinkTaskModal(''+krId+'')">Save Links</button></div></div>';
-  m.innerHTML=b;document.body.appendChild(m);
-}
-function saveLinkTaskModal(krId){
-  var m=document.getElementById('okr-modal');if(!m)return;
-  var checked=Array.from(m.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.getAttribute('data-task-id');});
-  OKR_LINKS[krId]=checked;localStorage.setItem('rl_okr_links',JSON.stringify(OKR_LINKS));
-  m.remove();logEntry('Updated OKR links for '+krId,'edit');autoSave();renderOKR();
-}
-function showOKRLinkedTasks(krId){
-  var links=OKR_LINKS[krId]||[];if(!links.length)return;
-  var allTasks=[];DEPTS.forEach(function(d){(data[d]||[]).forEach(function(t){allTasks.push(Object.assign({},t,{dept:d}));});});
-  var linked=allTasks.filter(function(t){return links.indexOf(t.id)>-1;});
-  var m=document.createElement('div');m.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
-  var b='<div style="background:var(--surf);border-radius:10px;padding:24px;width:500px;max-height:60vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div style="font-size:13px;font-weight:700">Linked Tasks · '+krId+'</div><button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;font-size:18px;color:var(--mut);cursor:pointer">×</button></div><div style="overflow-y:auto;flex:1">';
-  linked.forEach(function(t){var cfg2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'},stCls=t.status==='Done'?'dn':t.status==='Blocked'?'bl':t.status==='In Progress'?'ip':'ns';b+='<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd);cursor:pointer" onclick="this.closest('div[style*=fixed]').remove();go(''+t.dept+'')" title="Go to '+t.dept+'"><span style="font-family:Roboto Mono,monospace;font-size:9px;color:var(--mut);width:56px;flex-shrink:0">'+t.id+'</span><span style="flex:1;font-size:12px">'+t.name+'</span><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+cfg2.col+'22;color:'+cfg2.col+'">'+cfg2.p+'</span><span class="sp '+stCls+'" style="font-size:9px">'+t.status+'</span></div>';});
-  b+='</div></div>';m.innerHTML=b;document.body.appendChild(m);
-}
-
-
 function setOKRDept(d){localStorage.setItem('rl_okr_dept',d);renderOKR();}
+function okrModalClose(){var m=document.getElementById('okr-modal');if(m)m.remove();}
 function renderOKR(){
   if(!currentUser)return;
   var start=new Date(OKR_DATA.startDate),today=new Date();
@@ -1009,7 +943,7 @@ function renderOKR(){
   row.appendChild(daysCard);
   Object.keys(OKR_DATA.depts).forEach(function(d){
     var dept=OKR_DATA.depts[d];
-    var pct=Math.round(dept.objectives.reduce(function(s,o){return s+o.progress;},0)/Math.max(1,dept.objectives.length));
+    var pct=Math.round(dept.objectives.reduce(function(s2,o){return s2+o.progress;},0)/Math.max(1,dept.objectives.length));
     var active=d===sel;
     var card=document.createElement('div');
     card.style.cssText='flex:1;min-width:110px;background:var(--surf);border:1px solid '+(active?dept.color:'var(--brd)')+';border-radius:10px;padding:14px 18px;cursor:pointer'+(active?';background:var(--surf2)':'');
@@ -1052,30 +986,32 @@ function renderOKR(){
 function openLinkTaskModal(krId,krTitle){
   var allTasks=[];DEPTS.forEach(function(d){(data[d]||[]).forEach(function(t){allTasks.push(Object.assign({},t,{dept:d}));});});
   var linked=OKR_LINKS[krId]||[];
-  var overlay=document.createElement('div');overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var overlay=document.createElement('div');overlay.id='okr-modal';
+  overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
   overlay.onclick=function(ev){if(ev.target===overlay)overlay.remove();};
   var box=document.createElement('div');box.style.cssText='background:var(--surf);border-radius:10px;padding:24px;width:560px;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)';
   var hdrDiv=document.createElement('div');hdrDiv.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px';
   var hdrText=document.createElement('div');hdrText.innerHTML='<div style="font-size:13px;font-weight:700">Link Tasks to KR</div><div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">'+krId+' · '+(krTitle.length>55?krTitle.slice(0,55)+'…':krTitle)+'</div>';
-  var closeBtn=document.createElement('button');closeBtn.innerHTML='×';closeBtn.style.cssText='background:none;border:none;font-size:18px;color:var(--mut);cursor:pointer';closeBtn.onclick=function(){overlay.remove();};
+  var closeBtn=document.createElement('button');closeBtn.innerHTML='×';closeBtn.style.cssText='background:none;border:none;font-size:18px;color:var(--mut);cursor:pointer';closeBtn.onclick=okrModalClose;
   hdrDiv.appendChild(hdrText);hdrDiv.appendChild(closeBtn);box.appendChild(hdrDiv);
   var listDiv=document.createElement('div');listDiv.style.cssText='overflow-y:auto;flex:1';
-  if(!allTasks.length){listDiv.innerHTML='<div style="color:var(--mut);font-size:12px;text-align:center;padding:20px">No tasks yet. Create tasks in departments first.</div>';}
+  if(!allTasks.length){listDiv.innerHTML='<div style="color:var(--mut);font-size:12px;text-align:center;padding:20px">No tasks yet.</div>';}
   else{var tbl=document.createElement('table');tbl.style.cssText='width:100%;border-collapse:collapse;font-size:11px';tbl.innerHTML='<thead><tr style="color:var(--mut);font-family:Roboto Mono,monospace;font-size:9px"><th style="text-align:left;padding:6px 8px">ID</th><th style="text-align:left;padding:6px 8px">TASK</th><th style="text-align:left;padding:6px 8px">DEPT</th><th style="text-align:left;padding:6px 8px">STATUS</th><th style="text-align:center;padding:6px 8px">LINK</th></tr></thead><tbody></tbody>';
   var tbody=tbl.querySelector('tbody');
-  allTasks.forEach(function(t){var isLinked=linked.indexOf(t.id)>-1,cfg2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};var tr=document.createElement('tr');tr.style.cssText='border-bottom:1px solid var(--brd)';tr.innerHTML='<td style="padding:6px 8px;font-family:Roboto Mono,monospace;color:var(--mut)">'+t.id+'</td><td style="padding:6px 8px">'+t.name+'</td><td style="padding:6px 8px"><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+cfg2.col+'22;color:'+cfg2.col+'">'+cfg2.p+'</span></td><td style="padding:6px 8px;color:var(--mut)">'+t.status+'</td><td style="padding:6px 8px;text-align:center"><input type="checkbox" data-task-id="'+t.id+'" '+(isLinked?'checked':'')+' style="cursor:pointer;width:14px;height:14px"></td>';tbody.appendChild(tr);});
-  listDiv.appendChild(tbl);}
+  allTasks.forEach(function(t){var isLinked=linked.indexOf(t.id)>-1,cfg2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};var tr=document.createElement('tr');tr.style.cssText='border-bottom:1px solid var(--brd)';tr.innerHTML='<td style="padding:6px 8px;font-family:Roboto Mono,monospace;color:var(--mut)">'+t.id+'</td><td style="padding:6px 8px">'+t.name+'</td><td style="padding:6px 8px"><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+cfg2.col+'22;color:'+cfg2.col+'">'+cfg2.p+'</span></td><td style="padding:6px 8px;color:var(--mut)">'+t.status+'</td><td style="padding:6px 8px;text-align:center"><input type="checkbox" '+(isLinked?'checked':'')+' style="cursor:pointer;width:14px;height:14px"></td>';tr.querySelector('input').dataset.taskId=t.id;tbody.appendChild(tr);});listDiv.appendChild(tbl);}
   box.appendChild(listDiv);
-  var footer=document.createElement('div');footer.style.cssText='display:flex;justify-content:flex-end;gap:8px;margin-top:16px';
-  var cancelBtn=document.createElement('button');cancelBtn.className='hbtn';cancelBtn.textContent='Cancel';cancelBtn.onclick=function(){overlay.remove();};
-  var saveBtn=document.createElement('button');saveBtn.className='hbtn xl';saveBtn.textContent='Save Links';saveBtn.onclick=function(){var checked=Array.from(box.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.getAttribute('data-task-id');});OKR_LINKS[krId]=checked;localStorage.setItem('rl_okr_links',JSON.stringify(OKR_LINKS));overlay.remove();logEntry('Updated OKR links for '+krId,'edit');autoSave();renderOKR();};
-  footer.appendChild(cancelBtn);footer.appendChild(saveBtn);box.appendChild(footer);overlay.appendChild(box);document.body.appendChild(overlay);
+  var ftDiv=document.createElement('div');ftDiv.style.cssText='display:flex;justify-content:flex-end;gap:8px;margin-top:16px';
+  var cancelBtn=document.createElement('button');cancelBtn.className='hbtn';cancelBtn.textContent='Cancel';cancelBtn.onclick=okrModalClose;
+  var saveBtn=document.createElement('button');saveBtn.className='hbtn xl';saveBtn.textContent='Save Links';
+  saveBtn.onclick=function(){var checked=Array.from(box.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.dataset.taskId;});OKR_LINKS[krId]=checked;localStorage.setItem('rl_okr_links',JSON.stringify(OKR_LINKS));okrModalClose();logEntry('Updated OKR links for '+krId,'edit');autoSave();renderOKR();};
+  ftDiv.appendChild(cancelBtn);ftDiv.appendChild(saveBtn);box.appendChild(ftDiv);overlay.appendChild(box);document.body.appendChild(overlay);
 }
 function showOKRLinkedTasks(krId){
   var links=OKR_LINKS[krId]||[];if(!links.length)return;
   var allTasks=[];DEPTS.forEach(function(d){(data[d]||[]).forEach(function(t){allTasks.push(Object.assign({},t,{dept:d}));});});
   var linked=allTasks.filter(function(t){return links.indexOf(t.id)>-1;});
-  var overlay=document.createElement('div');overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
   overlay.onclick=function(ev){if(ev.target===overlay)overlay.remove();};
   var box=document.createElement('div');box.style.cssText='background:var(--surf);border-radius:10px;padding:24px;width:500px;max-height:60vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)';
   var hdr=document.createElement('div');hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px';
@@ -1083,10 +1019,14 @@ function showOKRLinkedTasks(krId){
   var closeBtn=document.createElement('button');closeBtn.innerHTML='×';closeBtn.style.cssText='background:none;border:none;font-size:18px;color:var(--mut);cursor:pointer';closeBtn.onclick=function(){overlay.remove();};
   hdr.appendChild(closeBtn);box.appendChild(hdr);
   var list=document.createElement('div');list.style.cssText='overflow-y:auto;flex:1';
-  linked.forEach(function(t){var cfg2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};var stCls=t.status==='Done'?'dn':t.status==='Blocked'?'bl':t.status==='In Progress'?'ip':'ns';var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd);cursor:pointer';row.innerHTML='<span style="font-family:Roboto Mono,monospace;font-size:9px;color:var(--mut);width:56px;flex-shrink:0">'+t.id+'</span><span style="flex:1;font-size:12px">'+t.name+'</span><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+cfg2.col+'22;color:'+cfg2.col+'">'+cfg2.p+'</span><span class="sp '+stCls+'" style="font-size:9px">'+t.status+'</span>';row.onclick=(function(dept){return function(){overlay.remove();go(dept);};})(t.dept);list.appendChild(row);});
+  linked.forEach(function(t){
+    var cfg2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};var stCls=t.status==='Done'?'dn':t.status==='Blocked'?'bl':t.status==='In Progress'?'ip':'ns';
+    var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd);cursor:pointer';
+    row.innerHTML='<span style="font-family:Roboto Mono,monospace;font-size:9px;color:var(--mut);width:56px;flex-shrink:0">'+t.id+'</span><span style="flex:1;font-size:12px">'+t.name+'</span><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+cfg2.col+'22;color:'+cfg2.col+'">'+cfg2.p+'</span><span class="sp '+stCls+'" style="font-size:9px">'+t.status+'</span>';
+    row.onclick=(function(dept){return function(){overlay.remove();go(dept);};})(t.dept);list.appendChild(row);
+  });
   box.appendChild(list);overlay.appendChild(box);document.body.appendChild(overlay);
 }
-
 function timeDiff(from,to){if(!from)return'—';var ms=(to?new Date(to):new Date())-new Date(from);if(ms<0)ms=0;var m=Math.floor(ms/60000),hh=Math.floor(m/60),d=Math.floor(hh/24);if(d>=2)return d+' days';if(d===1){var rh=hh%24;return '1 day'+(rh?' '+rh+'h':'');}if(hh>=1)return hh+'h '+(m%60)+'m';if(m>=1)return m+' min';return '<1 min';}
 function renderDept(dept){
   var c=CFG[dept],s=stats(dept),srt=sorted(data[dept]);
