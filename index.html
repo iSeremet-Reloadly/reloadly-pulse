@@ -157,6 +157,7 @@ tbody tr:hover .del{opacity:1}
 .notif-btn{font-family:'Roboto Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer}
 .notif-btn:hover{background:rgba(108,99,255,.1)}
 .ni.locked{opacity:.3;cursor:default;pointer-events:none}
+.ni[id="nav-mytasks"]{border-left-color:rgba(119,0,255,.4)}
 .sc.sal::before{background:#2778c4}
 .theme-toggle{font-family:'Roboto Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);cursor:pointer;transition:.2s;display:flex;align-items:center;gap:5px}
 .theme-toggle:hover{border-color:var(--acc);color:var(--acc)}
@@ -194,6 +195,8 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-Engineering" onclick="go('Engineering')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Engineering</div><div class="cnt" id="c-Engineering">0</div></div>
     <div class="ni" id="nav-Sales" onclick="go('Sales')"><div class="ni-l"><div class="dd" style="background:#2778c4"></div>Sales</div><div class="cnt" id="c-Sales">0</div></div>
     <div style="flex:1"></div>
+    <div class="sb-lbl">MY WORKSPACE</div>
+    <div class="ni" id="nav-mytasks" onclick="go('mytasks')"><div class="ni-l"><div class="dd" style="background:var(--acc2)"></div>My Tasks</div><div class="cnt" id="c-mytasks"></div></div>
     <div class="sb-lbl">TOOLS</div>
     <div class="ni" id="nav-reminders" onclick="go('reminders')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Reminders</div><div class="cnt" id="c-reminders"></div></div>
     <div class="ni" id="nav-log" onclick="go('log')"><div class="ni-l"><div class="dd" style="background:var(--mut)"></div>Activity Log</div><div class="cnt" id="c-log">0</div></div>
@@ -228,6 +231,54 @@ function setPwdStore(store){localStorage.setItem('rl_pwd_store',JSON.stringify(s
 async function verifyPassword(email,pwd){var store=getPwdStore(),hash=store[email.toLowerCase()];if(!hash)return false;var attempt=await hashPwd(email,pwd);return attempt===hash;}
 async function setPassword(email,pwd){var store=getPwdStore();store[email.toLowerCase()]=await hashPwd(email,pwd);setPwdStore(store);}
 function hasPassword(email){return !!getPwdStore()[email.toLowerCase()];}
+
+function assigneeOptions(selected){
+  var names=Object.values(USER_REGISTRY).map(function(u){return u.name;}).sort();
+  var opts='<option value="">-- Unassigned --</option>';
+  names.forEach(function(n){
+    opts+='<option value="'+n+'"'+(n===(selected||'')?'  selected':'')+'>'+n+'</option>';
+  });
+  return opts;
+}
+
+function renderMyTasks(){
+  if(!currentUser||!data)return;
+  var myName=currentUser.name;
+  var all=[];
+  var myCount=currentUser?DEPTS.reduce(function(acc,d){return acc+(data[d]||[]).filter(function(t){return(t.assignee||'').trim()===currentUser.name&&t.status!=='Done';}).length;},0):0;
+  var mc=document.getElementById('c-mytasks');if(mc)mc.textContent=myCount||'';
+  DEPTS.forEach(function(d){
+    (data[d]||[]).forEach(function(t){
+      if((t.assignee||'').trim()===myName)all.push(Object.assign({},t,{dept:d}));
+    });
+  });
+  all.sort(function(a,b){return new Date(a.due||0)-new Date(b.due||0);});
+  var done=all.filter(function(t){return t.status==='Done';}).length;
+  var html='<div class="ptitle">My Tasks</div>'
+    +'<div class="psub">'+all.length+' task'+(all.length!==1?'s':'')+' assigned to you · '+done+' done</div>';
+  if(!all.length){
+    html+='<div style="color:var(--mut);margin-top:32px;text-align:center;font-family:'Roboto Mono',monospace;font-size:11px">No tasks assigned to you yet.</div>';
+  } else {
+    html+='<div class="tw"><table><thead><tr>'
+      +'<th>ID</th><th>TASK</th><th>DEPT</th><th>STATUS</th><th>PRIORITY</th><th>DUE</th><th>PROGRESS</th>'
+      +'</tr></thead><tbody>';
+    all.forEach(function(t){
+      var cfg2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};
+      var overdue=t.due&&new Date(t.due)<new Date()&&t.status!=='Done';
+      html+='<tr onclick="go(''+t.dept+'')" style="cursor:pointer" title="Go to '+t.dept+'">'
+        +'<td class="tid">'+t.id+'</td>'
+        +'<td><strong>'+esc(t.name)+'</strong></td>'
+        +'<td><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+cfg2.col+'22;color:'+cfg2.col+';border:1px solid '+cfg2.col+'44">'+cfg2.p+'</span></td>'
+        +'<td><span class="sp '+(t.status==='Done'?'dn':t.status==='Blocked'?'bl':t.status==='In Progress'?'ip':'ns')+'">'+t.status+'</span></td>'
+        +'<td><span class="badge '+t.priority+'">'+t.priority+'</span></td>'
+        +'<td style="'+(overdue?'color:var(--red);font-weight:600':'')+'">'+( t.due?t.due.slice(0,10):'—')+'</td>'
+        +'<td><div style="display:flex;align-items:center;gap:6px"><div style="width:70px;height:5px;background:var(--surf2);border-radius:3px"><div style="width:'+(t.progress||0)+'%;height:100%;background:var(--acc);border-radius:3px"></div></div><span style="font-size:9px;color:var(--mut)">'+(t.progress||0)+'%</span></div></td>'
+        +'</tr>';
+    });
+    html+='</tbody></table></div>';
+  }
+  document.getElementById('main').innerHTML=html;
+}
 
 // User Registry
 var USER_REGISTRY={
@@ -389,10 +440,10 @@ function nextId(dept){
 function addTask(dept){
   var name=document.getElementById('nn').value.trim();
   if(!name){toast('Task name required','err');return;}
-  var t={id:nextId(dept),name:name,assignee:document.getElementById('na').value.trim()||'Unassigned',priority:document.getElementById('np').value,status:'Not Started',due:document.getElementById('nd').value,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',lastUpdated:new Date().toISOString().split('T')[0]};
+  var t={id:nextId(dept),name:name,assignee:document.getElementById('na').value||'',priority:document.getElementById('np').value,status:'Not Started',due:document.getElementById('nd').value,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',lastUpdated:new Date().toISOString().split('T')[0]};
   data[dept].unshift(t);logEntry('Created '+t.id+' in '+dept,'add');
   autoSave();render();toast(t.id+' created','ok');
-  document.getElementById('nn').value='';document.getElementById('na').value='';
+  document.getElementById('nn').value='';document.getElementById('na').selectedIndex=0;
 }
 function upd(dept,id,field,val){
   var t=data[dept].filter(function(x){return x.id===id;})[0];if(!t)return;
@@ -553,6 +604,7 @@ function render(){
   else if(view==='log')renderLog();
   else if(view==='reminders')renderReminders();
   else if(view==='admin')renderAdmin();
+  else if(view==='mytasks')renderMyTasks();
   else renderDept(view);
 }
 function go(v){
@@ -761,7 +813,7 @@ function renderDept(dept){
     +'</div>'
     +'<div class="atb">'
     +'<div class="fld"><label>TASK NAME</label><input id="nn" placeholder="Describe the task..."></div>'
-    +'<div class="fld"><label>ASSIGNEE</label><input id="na" placeholder="Name..."></div>'
+    +'<div class="fld"><label>ASSIGNEE</label><select id="na">'+assigneeOptions(currentUser?currentUser.name:'')+'</select></div>'
     +'<div class="fld"><label>PRIORITY</label><select id="np">'+PRIORITIES.map(function(p){return '<option>'+p+'</option>';}).join('')+'</select></div>'
     +'<div class="fld"><label>DUE DATE</label><input id="nd" type="date"></div>'
     +'<button class="add-btn" id="add-task-btn">+ ADD</button>'
@@ -782,7 +834,7 @@ function renderDept(dept){
       h+='<tr class="'+(isDone?'done-row':'')+'">'
         +'<td class="tid">'+id+(isDone?' &#10003;':'')+'</td>'
         +'<td style="min-width:160px;max-width:260px"><input class="ie" value="'+esc(t.name)+'" data-dept="'+dept+'" data-id="'+id+'" data-field="name"></td>'
-        +'<td><input class="ie" style="width:90px" value="'+esc(t.assignee||'')+'" data-dept="'+dept+'" data-id="'+id+'" data-field="assignee"></td>'
+        +'<td><select class="ie" style="width:130px" data-dept="'+dept+'" data-id="'+id+'" data-field="assignee">'+assigneeOptions(t.assignee||'')+'</select></td>'
         +'<td><select class="isel" data-dept="'+dept+'" data-id="'+id+'" data-field="priority">'+PRIORITIES.map(function(p){return '<option'+(t.priority===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select></td>'
         +'<td><select class="isel" style="min-width:100px" data-dept="'+dept+'" data-id="'+id+'" data-field="status">'+STATUSES.map(function(ss){return '<option'+(t.status===ss?' selected':'')+'>'+ss+'</option>';}).join('')+'</select></td>'
         +'<td><div style="display:flex;align-items:center;gap:5px"><div class="pw"><div class="pf" style="width:'+pr+'%"></div></div>'
