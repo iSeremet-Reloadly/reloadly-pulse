@@ -251,8 +251,6 @@ function renderMyTasks(){
   if(!currentUser||!data)return;
   var myName=currentUser.name;
   var all=[];
-  var myCount=currentUser?DEPTS.reduce(function(acc,d){return acc+(data[d]||[]).filter(function(t){return(t.assignee||'').trim()===currentUser.name&&t.status!=='Done';}).length;},0):0;
-  var mc=document.getElementById('c-mytasks');if(mc)mc.textContent=myCount||'';
   DEPTS.forEach(function(d){
     (data[d]||[]).forEach(function(t){
       if((t.assignee||'').trim()===myName)all.push(Object.assign({},t,{dept:d}));
@@ -260,93 +258,30 @@ function renderMyTasks(){
   });
   all.sort(function(a,b){return new Date(a.due||0)-new Date(b.due||0);});
   var done=all.filter(function(t){return t.status==='Done';}).length;
-  var html='<div class="ptitle">My Tasks</div>'
-    +'<div class="psub">'+all.length+' task'+(all.length!==1?'s':'')+' assigned to you · '+done+' done</div>';
-  if(!all.length){
-    html+='<div style="color:var(--mut);margin-top:32px;text-align:center;font-family:'Roboto Mono',monospace;font-size:11px">No tasks assigned to you yet.</div>';
-  } else {
-    html+='<div class="tw"><table><thead><tr>'
-      +'<th>ID</th><th>TASK</th><th>DEPT</th><th>STATUS</th><th>PRIORITY</th><th>DUE</th><th>PROGRESS</th>'
-      +'</tr></thead><tbody>';
-    all.forEach(function(t){
-      var cfg2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};
-      var overdue=t.due&&new Date(t.due)<new Date()&&t.status!=='Done';
-      html+='<tr onclick="go(this.dataset.dept)" data-dept='+t.dept+' style="cursor:pointer" title="Go to '+t.dept+'">'
-        +'<td class="tid">'+t.id+'</td>'
-        +'<td><strong>'+esc(t.name)+'</strong></td>'
-        +'<td><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+cfg2.col+'22;color:'+cfg2.col+';border:1px solid '+cfg2.col+'44">'+cfg2.p+'</span></td>'
-        +'<td><span class="sp '+(t.status==='Done'?'dn':t.status==='Blocked'?'bl':t.status==='In Progress'?'ip':'ns')+'">'+t.status+'</span></td>'
-        +'<td><span class="badge '+t.priority+'">'+t.priority+'</span></td>'
-        +'<td style="'+(overdue?'color:var(--red);font-weight:600':'')+'">'+( t.due?t.due.slice(0,10):'—')+'</td>'
-        +'<td><div style="display:flex;align-items:center;gap:6px"><div style="width:70px;height:5px;background:var(--surf2);border-radius:3px"><div style="width:'+(t.progress||0)+'%;height:100%;background:var(--acc);border-radius:3px"></div></div><span style="font-size:9px;color:var(--mut)">'+(t.progress||0)+'%</span></div></td>'
-        +'</tr>';
-    });
-    html+='</tbody></table></div>';
-  }
-  document.getElementById('main').innerHTML=html;
+  var el=document.getElementById('main');
+  if(!el)return;
+  var h2='<div class="ptitle">My Tasks</div>';
+  h2+='<div class="psub">'+all.length+' task'+(all.length!==1?'s':'')+' assigned to you · '+done+' done</div>';
+  if(!all.length){h2+='<div style="color:var(--mut);margin-top:32px;text-align:center;font-size:11px">No tasks assigned to you yet.</div>';el.innerHTML=h2;return;}
+  h2+='<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>STATUS</th><th>PRIORITY</th><th>DUE</th><th>PROGRESS</th></tr></thead><tbody>';
+  all.forEach(function(t){
+    var c=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};
+    var ov=t.due&&new Date(t.due)<new Date()&&t.status!=='Done';
+    var sc=t.status==='Done'?'dn':t.status==='Blocked'?'bl':t.status==='In Progress'?'ip':'ns';
+    var pct=t.progress||0;
+    h2+='<tr onclick="go(this.getAttribute(\'data-dept\'))" data-dept="'+t.dept+'" style="cursor:pointer">';
+    h2+='<td class="tid">'+t.id+'</td>';
+    h2+='<td><strong>'+esc(t.name)+'</strong></td>';
+    h2+='<td><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+c.col+'22;color:'+c.col+'">'+c.p+'</span></td>';
+    h2+='<td><span class="sp '+sc+'">'+t.status+'</span></td>';
+    h2+='<td><span class="badge '+t.priority+'">'+t.priority+'</span></td>';
+    h2+='<td style="'+(ov?'color:var(--red);font-weight:600':'')+'">'+(t.due?t.due.slice(0,10):'&mdash;')+'</td>';
+    h2+='<td><div style="display:flex;align-items:center;gap:6px"><div style="width:70px;height:5px;background:var(--surf2);border-radius:3px"><div style="width:'+pct+'%;height:100%;background:var(--acc);border-radius:3px"></div></div><span style="font-size:9px;color:var(--mut)">'+pct+'%</span></div></td>';
+    h2+='</tr>';
+  });
+  h2+='</tbody></table></div>';
+  el.innerHTML=h2;
 }
-
-// User Registry
-var USER_REGISTRY={
-  'dlubovci@reloadly.com':  {name:'Dren Lubovci',        role:'COO',                        dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true},
-  'mfrancis@reloadly.com':  {name:'Michel Francis',       role:'CEO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true},
-  'ehirlemann@reloadly.com':{name:'Enrique Hirlemann',    role:'CRO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true},
-  'epiard@reloadly.com':    {name:'Emmanuel Piard',       role:'CTO',                        dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true},
-  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',      role:'Product Manager',            dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true},
-  'sgonzalez@reloadly.com': {name:'Sergio Sanchez',       role:'Head of Engineering',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
-  'echibueze@reloadly.com': {name:'Chibueze Eziokwubundu',role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
-  'dcamacho@reloadly.com':  {name:'Daniel Camacho',       role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
-  'mzakari@reloadly.com':   {name:'Salim Zakari',         role:'Front-end Developer',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
-  'iseremet@reloadly.com':  {name:'Johnny Seremet',       role:'Front-end Manager',          dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false},
-  'aberisha@reloadly.com':  {name:'Alketa Berisha',       role:'AR/AP/Recons',               dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false},
-  'dperrin@reloadly.com':   {name:'Damian Perrin',        role:'Head of Finance',            dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false},
-  'ipaez@reloadly.com':     {name:'Irene Paez',           role:'Technical Support Manager',  dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
-  'gkrasniqi@reloadly.com': {name:'Gramos Krasniqi',      role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
-  'nperfetto@reloadly.com': {name:'Nicolas Perfetto',     role:'Technical Support Lead',     dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
-  'dbassey@reloadly.com':   {name:'David Bassey',         role:'Pricing / Provisioning',     dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
-  'hriconlla@reloadly.com': {name:'Hermes',               role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
-  'mmontoya@reloadly.com':  {name:'Max Montoya',          role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
-  'jcmartinez@reloadly.com':{name:'Julio Martinez',       role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false},
-  'srascon@reloadly.com':   {name:'Sophia Rascon',        role:'Onboarding & Implementation',dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false},
-  'nstephan@reloadly.com':  {name:'Nick Stephan',         role:'Sales',                      dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false},
-  'mpatterson@reloadly.com':{name:'Monty Patterson',      role:'Marketing',                  dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false},
-  'fguibert@reloadly.com':  {name:'Florencia Guibert',    role:'Marketing Analyst',          dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false}
-};
-var currentUser=null;
-var CFG={Management:{p:'MGT',col:'#7700ff',cls:'mgt'},Operations:{p:'OPS',col:'#09faa3',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'},
-  Sales:{p:'SAL',col:'#2778c4',cls:'sal'}};
-var STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
-var PRIORITIES=['Critical','High','Medium','Low'];
-var SPC={'Not Started':'ns','In Progress':'ip','Blocked':'bl','Under Review':'ur','Done':'dn'};
-var SEED={Management:[
-  {id:'MGT-001',name:'Series B prep - investor deck',assignee:'Michel Francis',priority:'High',status:'In Progress',due:'2026-06-15',startDate:'2026-05-01',progress:30,notes:'Needs financial model update'},
-  {id:'MGT-002',name:'Q2 OKR review session',assignee:'Dren',priority:'High',status:'Not Started',due:'2026-05-30',startDate:'2026-05-22',progress:0,notes:''},
-  {id:'MGT-003',name:'Board report - May 2026',assignee:'Michel Francis',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-20',progress:40,notes:''},
-  {id:'MGT-004',name:'Leadership offsite follow-ups',assignee:'Dren',priority:'Medium',status:'In Progress',due:'2026-05-25',startDate:'2026-05-18',progress:60,notes:''},
-  {id:'MGT-005',name:'Company health dashboard update',assignee:'Dren',priority:'Medium',status:'In Progress',due:'2026-05-27',startDate:'2026-05-22',progress:20,notes:''}
-],Operations:[
-  {id:'OPS-001',name:'Swype - Bluebanc wind-down completion',assignee:'Dren',priority:'Critical',status:'In Progress',due:'2026-05-31',startDate:'2026-05-01',progress:70,notes:'Decline fee dispute outstanding'},
-  {id:'OPS-002',name:'KYB enforcement - Persona backlog',assignee:'Irene Paez',priority:'High',status:'In Progress',due:'2026-05-29',startDate:'2026-05-15',progress:50,notes:''},
-  {id:'OPS-003',name:'Partner onboarding form - Tally.so',assignee:'Irene Paez',priority:'Medium',status:'In Progress',due:'2026-05-28',startDate:'2026-05-10',progress:80,notes:''},
-  {id:'OPS-004',name:'Rebtel route failure review',assignee:'David Bassey',priority:'Medium',status:'Under Review',due:'2026-05-26',startDate:'2026-05-20',progress:90,notes:'93% overall success rate'},
-  {id:'OPS-005',name:'Swype card customer support SLA',assignee:'David Bassey',priority:'Medium',status:'Not Started',due:'2026-06-10',startDate:'2026-06-01',progress:0,notes:''}
-],Finance:[
-  {id:'FIN-001',name:'Gross margin run rate analysis',assignee:'Alketa Berisha',priority:'Critical',status:'In Progress',due:'2026-05-30',startDate:'2026-05-15',progress:45,notes:'Target $10M ARR'},
-  {id:'FIN-002',name:'Series B financial model',assignee:'Alketa Berisha',priority:'High',status:'In Progress',due:'2026-06-15',startDate:'2026-05-20',progress:25,notes:'Investor-ready format required'},
-  {id:'FIN-003',name:'Bluebanc decline fee dispute',assignee:'Dren',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-10',progress:60,notes:''},
-  {id:'FIN-004',name:'NRR tracking setup',assignee:'Alketa Berisha',priority:'High',status:'Not Started',due:'2026-06-20',startDate:'2026-06-01',progress:0,notes:'Most critical missing Series B metric'},
-  {id:'FIN-005',name:'Interchange revenue reconciliation',assignee:'Alketa Berisha',priority:'Medium',status:'Not Started',due:'2026-06-30',startDate:'2026-06-10',progress:0,notes:'Swype Cards breakage + interchange'}
-],Engineering:[
-  {id:'ENG-001',name:'API uptime dashboard',assignee:'Samuel Nnabugwu',priority:'High',status:'In Progress',due:'2026-05-30',startDate:'2026-05-18',progress:55,notes:''},
-  {id:'ENG-002',name:'Persona KYB webhook integration',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-15',progress:65,notes:''},
-  {id:'ENG-003',name:'Lithic card API integration - POC',assignee:'Emmanuel Piard',priority:'High',status:'Not Started',due:'2026-06-10',startDate:'2026-06-01',progress:0,notes:'Pending Lithic contract sign-off'},
-  {id:'ENG-004',name:'Rebtel route failure alerts',assignee:'Emmanuel Piard',priority:'Medium',status:'Under Review',due:'2026-05-26',startDate:'2026-05-20',progress:90,notes:''},
-  {id:'ENG-005',name:'Swype card status webhook',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',due:'2026-05-31',startDate:'2026-05-22',progress:35,notes:''},
-  {id:'ENG-006',name:'Rate limiter improvements',assignee:'Samuel Nnabugwu',priority:'Medium',status:'Not Started',due:'2026-06-15',startDate:'2026-06-01',progress:0,notes:''}
-]};
-var data={Management:[],Operations:[],Finance:[],Engineering:[]};
-var actLog=[];
-var view='dashboard',fStatus='All',fSearch='',charts={},toastT,asTimer;
 
 function init(){
   applyStoredTheme();
