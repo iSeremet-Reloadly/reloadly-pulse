@@ -199,6 +199,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="sb-lbl">MY WORKSPACE</div>
     <div class="ni" id="nav-mytasks" onclick="go('mytasks')"><div class="ni-l"><div class="dd" style="background:var(--acc2)"></div>My Tasks</div><div class="cnt" id="c-mytasks"></div></div>
     <div class="sb-lbl">TOOLS</div>
+    <div class="ni" id="nav-perf" onclick="go('perf')"><div class="ni-l"><div class="dd" style="background:#8b5cf6"></div>Performance</div></div>
     <div class="ni" id="nav-reminders" onclick="go('reminders')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Reminders</div><div class="cnt" id="c-reminders"></div></div>
     <div class="ni" id="nav-log" onclick="go('log')"><div class="ni-l"><div class="dd" style="background:var(--mut)"></div>Activity Log</div><div class="cnt" id="c-log">0</div></div>
     <div class="ni" id="nav-admin" onclick="go('admin')" style="display:none"><div class="ni-l"><div class="dd" style="background:var(--acc)"></div>User Management</div></div>
@@ -739,7 +740,7 @@ function render(){
   else if(view==='admin')renderAdmin();
   else if(view==='mytasks')renderMyTasks();
   else if(view==='okr')renderOKR();
-  else if(view==='okr')renderOKR();
+  else if(view==='perf')renderPerf();
   else renderDept(view);
 }
 function go(v){
@@ -1080,6 +1081,258 @@ function showOKRLinkedTasks(krId){
   var hdr=document.createElement('div');hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px';hdr.innerHTML='<div style="font-size:13px;font-weight:700">Linked Tasks · '+krId+'</div>';var cb2=document.createElement('button');cb2.innerHTML='×';cb2.style.cssText='background:none;border:none;font-size:18px;color:var(--mut);cursor:pointer';cb2.onclick=function(){overlay.remove();};hdr.appendChild(cb2);box.appendChild(hdr);
   var list=document.createElement('div');list.style.cssText='overflow-y:auto;flex:1';linked.forEach(function(t){var c2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};var sc=t.status==='Done'?'dn':t.status==='Blocked'?'bl':t.status==='In Progress'?'ip':'ns';var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd);cursor:pointer';row.innerHTML='<span style="font-family:Roboto Mono,monospace;font-size:9px;color:var(--mut);width:56px;flex-shrink:0">'+t.id+'</span><span style="flex:1;font-size:12px">'+t.name+'</span><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+c2.col+'22;color:'+c2.col+'">'+c2.p+'</span><span class="sp '+sc+'" style="font-size:9px">'+t.status+'</span>';row.onclick=(function(dept){return function(){overlay.remove();go(dept);};})(t.dept);list.appendChild(row);});
   box.appendChild(list);overlay.appendChild(box);document.body.appendChild(overlay);
+}
+
+
+function loadPerfData(){try{return JSON.parse(localStorage.getItem('rl_perf')||'{"reviews":{},"feedback":[],"cycles":[]}');}catch(e){return{reviews:{},feedback:[],cycles:[]};}}
+function savePerfData(d){localStorage.setItem('rl_perf',JSON.stringify(d));}
+function computeMetrics(email){
+  var allTasks=[];DEPTS.forEach(function(d){(data[d]||[]).forEach(function(t){allTasks.push(Object.assign({},t,{dept:d}));});});
+  var mine=allTasks.filter(function(t){var a=(t.assignee||'').toLowerCase(),u=USER_REGISTRY[email];if(!u)return false;return a===u.name.toLowerCase()||a===email.toLowerCase()||a===u.name.split(' ')[0].toLowerCase();});
+  var total=mine.length,done=mine.filter(function(t){return t.status==='Done';}).length,blocked=mine.filter(function(t){return t.status==='Blocked';}).length;
+  var overdue=mine.filter(function(t){return!t.due||t.status==='Done'?false:new Date(t.due)<new Date();}).length;
+  var inProgress=mine.filter(function(t){return t.status==='In Progress';}).length;
+  var avgProg=total>0?Math.round(mine.reduce(function(s,t){return s+(t.progress||0);},0)/total):0;
+  var okrLinks2=JSON.parse(localStorage.getItem('rl_okr_links')||'{}');
+  var myIds=mine.map(function(t){return t.id;});
+  var okrCount=Object.keys(okrLinks2).filter(function(k){return(okrLinks2[k]||[]).some(function(id){return myIds.indexOf(id)>-1;});}).length;
+  var doneRate=total>0?done/total:0;
+  var bs=0;if(overdue>2)bs+=30;if(blocked>1)bs+=20;if(doneRate<0.3&&total>3)bs+=30;if(inProgress/Math.max(1,total)>0.6)bs+=20;
+  var br=bs>60?'High':bs>30?'Medium':'Low';
+  var ct=mine.filter(function(t){return t.status==='Done'&&t.createdAt&&t.completedAt;});
+  var acd=ct.length>0?Math.round(ct.reduce(function(s,t){return s+(new Date(t.completedAt)-new Date(t.createdAt))/86400000;},0)/ct.length):0;
+  return{total:total,done:done,blocked:blocked,overdue:overdue,inProgress:inProgress,avgProgress:avgProg,okrContributions:okrCount,doneRate:Math.round(doneRate*100),burnoutRisk:br,burnoutScore:bs,avgCompletionDays:acd,tasks:mine};
+}
+function computeTeamHealth(){
+  return Object.keys(USER_REGISTRY).filter(function(e){return ARCHIVED_USERS.indexOf(e)<0;}).map(function(email){var u=USER_REGISTRY[email],m=computeMetrics(email);return{email:email,name:u.name,role:u.role,dept:u.dept,metrics:m};});
+}
+function renderPerf(){
+  if(!currentUser)return;
+  var main=document.getElementById('main');if(!main)return;
+  var pd=loadPerfData(),isAd=isAdmin(),view=localStorage.getItem('rl_perf_view')||'overview';
+  var wrap=document.createElement('div');
+  var hdr=document.createElement('div');hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px';
+  var ttl=document.createElement('div');ttl.innerHTML='<div class="ptitle">Performance</div><div class="psub">Evidence-based reviews · '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</div>';
+  var tabs=document.createElement('div');tabs.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+  [{k:'overview',lbl:'Overview'},{k:'team',lbl:'Team Health',a:true},{k:'reviews',lbl:'Reviews'},{k:'feedback',lbl:'Feedback'},{k:'my',lbl:'My Profile'}].forEach(function(td){
+    if(td.a&&!isAd)return;
+    var btn=document.createElement('button');btn.className='hbtn';
+    btn.style.cssText='font-size:10px;padding:5px 14px'+(view===td.k?';border-color:var(--acc);color:var(--acc);font-weight:700':'');
+    btn.textContent=td.lbl;btn.onclick=(function(k){return function(){localStorage.setItem('rl_perf_view',k);renderPerf();};})(td.k);tabs.appendChild(btn);
+  });
+  hdr.appendChild(ttl);hdr.appendChild(tabs);wrap.appendChild(hdr);
+  if(view==='overview')renderPerfOverview(wrap);
+  else if(view==='team'&&isAd)renderPerfTeam(wrap);
+  else if(view==='reviews')renderPerfReviews(wrap,pd);
+  else if(view==='feedback')renderPerfFeedback(wrap,pd);
+  else if(view==='my')renderPerfMyProfile(wrap,pd);
+  main.innerHTML='';main.appendChild(wrap);
+}
+function renderPerfOverview(wrap){
+  var me=currentUser.email,m=computeMetrics(me),u=USER_REGISTRY[me]||{};
+  var cards=document.createElement('div');cards.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px';
+  function mkC(val,lbl,sub,col){var c=document.createElement('div');c.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:16px 18px';c.innerHTML='<div style="font-size:26px;font-weight:800;color:'+col+'">'+val+'</div><div style="font-size:11px;font-weight:700;margin-top:2px">'+lbl+'</div><div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">'+sub+'</div>';return c;}
+  var brCol=m.burnoutRisk==='High'?'var(--red)':m.burnoutRisk==='Medium'?'var(--yel)':'var(--grn)';
+  cards.appendChild(mkC(m.done,'Completed',m.total+' assigned','var(--grn)'));
+  cards.appendChild(mkC(m.doneRate+'%','Completion Rate',m.inProgress+' in progress','var(--acc)'));
+  cards.appendChild(mkC(m.okrContributions,'OKR Links','KRs contributed to','var(--acc2)'));
+  cards.appendChild(mkC(m.overdue,'Overdue',m.blocked+' blocked','var(--red)'));
+  cards.appendChild(mkC(m.burnoutRisk,'Burnout Risk','workload pattern',brCol));
+  wrap.appendChild(cards);
+  var cols=document.createElement('div');cols.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px';
+  var tb=document.createElement('div');tb.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px';
+  tb.innerHTML='<div style="font-size:12px;font-weight:700;margin-bottom:14px">Task Breakdown</div>';
+  [{lbl:'Done',count:m.done,col:'var(--grn)'},{lbl:'In Progress',count:m.inProgress,col:'var(--acc)'},{lbl:'Blocked',count:m.blocked,col:'var(--red)'},{lbl:'Overdue',count:m.overdue,col:'var(--yel)'}].forEach(function(st){
+    var pct=m.total>0?Math.round(st.count/m.total*100):0;var row=document.createElement('div');row.style.cssText='margin-bottom:10px';
+    row.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px">'+st.lbl+'</span><span style="font-size:11px;font-family:Roboto Mono,monospace;color:var(--mut)">'+st.count+' / '+pct+'%</span></div><div style="height:6px;background:var(--surf2);border-radius:3px"><div style="width:'+pct+'%;height:100%;background:'+st.col+';border-radius:3px"></div></div>';tb.appendChild(row);
+  });
+  cols.appendChild(tb);
+  var ra=document.createElement('div');ra.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px';
+  ra.innerHTML='<div style="font-size:12px;font-weight:700;margin-bottom:14px">Recent Completed</div>';
+  var doneTasks=m.tasks.filter(function(t){return t.status==='Done';}).slice(-5).reverse();
+  if(!doneTasks.length)ra.innerHTML+='<div style="font-size:11px;color:var(--mut)">No completed tasks yet.</div>';
+  doneTasks.forEach(function(t){var cfg=CFG[t.dept]||{col:'#888',p:t.dept.slice(0,3)};var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--brd)';row.innerHTML='<span style="font-size:9px;font-family:Roboto Mono,monospace;color:var(--mut);width:54px;flex-shrink:0">'+t.id+'</span><span style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+t.name+'</span><span style="font-size:9px;padding:2px 5px;border-radius:3px;background:'+cfg.col+'22;color:'+cfg.col+'">'+cfg.p+'</span>';ra.appendChild(row);});
+  cols.appendChild(ra);wrap.appendChild(cols);
+  // Feedback sender
+  var fb=document.createElement('div');fb.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px;margin-bottom:16px';
+  fb.innerHTML='<div style="font-size:12px;font-weight:700;margin-bottom:12px">Give Feedback</div>';
+  var fbRow=document.createElement('div');fbRow.style.cssText='display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap';
+  var fbType=document.createElement('select');fbType.style.cssText='font-size:11px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;padding:6px 10px';
+  ['Praise','Coaching','Recognition','Milestone'].forEach(function(o){var op=document.createElement('option');op.textContent=o;op.value=o;fbType.appendChild(op);});
+  var fbTarget=document.createElement('select');fbTarget.style.cssText='font-size:11px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;padding:6px 10px;min-width:140px';
+  Object.keys(USER_REGISTRY).filter(function(e){return ARCHIVED_USERS.indexOf(e)<0&&e!==me;}).forEach(function(email){var op=document.createElement('option');op.value=email;op.textContent=USER_REGISTRY[email].name;fbTarget.appendChild(op);});
+  var fbText=document.createElement('input');fbText.placeholder='Write your feedback...';fbText.style.cssText='flex:1;min-width:180px;padding:6px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:11px';
+  var fbBtn=document.createElement('button');fbBtn.className='hbtn xl';fbBtn.textContent='Send';fbBtn.style.cssText='font-size:11px;padding:6px 14px';
+  fbBtn.onclick=function(){if(!fbText.value.trim()){toast('Write something','err');return;}var pd2=loadPerfData();pd2.feedback.push({id:Date.now(),from:me,to:fbTarget.value,type:fbType.value,text:fbText.value.trim(),ts:new Date().toISOString()});savePerfData(pd2);fbText.value='';toast('Feedback sent','ok');renderPerf();};
+  fbRow.appendChild(fbType);fbRow.appendChild(fbTarget);fbRow.appendChild(fbText);fbRow.appendChild(fbBtn);fb.appendChild(fbRow);wrap.appendChild(fb);
+  // Received
+  var pd=loadPerfData(),incoming=pd.feedback.filter(function(f){return f.to===me;});
+  if(incoming.length>0){var ifb=document.createElement('div');ifb.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px';ifb.innerHTML='<div style="font-size:12px;font-weight:700;margin-bottom:12px">Received Feedback</div>';incoming.slice(-5).reverse().forEach(function(f){var fc=document.createElement('div');fc.style.cssText='padding:10px 12px;background:var(--surf2);border-radius:8px;margin-bottom:8px';var tc=f.type==='Praise'?'var(--grn)':f.type==='Coaching'?'var(--yel)':f.type==='Recognition'?'var(--acc)':'var(--acc2)';var fu=USER_REGISTRY[f.from]||{name:f.from};fc.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:9px;padding:2px 8px;background:'+tc+'22;color:'+tc+';border-radius:20px;font-weight:700">'+f.type+'</span><span style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">from '+fu.name+' · '+new Date(f.ts).toLocaleDateString()+'</span></div><div style="font-size:12px">'+f.text+'</div>';ifb.appendChild(fc);});wrap.appendChild(ifb);}
+}
+function renderPerfTeam(wrap){
+  var team=computeTeamHealth();
+  team.sort(function(a,b){var o={High:0,Medium:1,Low:2};return(o[a.metrics.burnoutRisk]||2)-(o[b.metrics.burnoutRisk]||2);});
+  var high=team.filter(function(p){return p.metrics.burnoutRisk==='High';}).length;
+  var med=team.filter(function(p){return p.metrics.burnoutRisk==='Medium';}).length;
+  var totalOD=team.reduce(function(s,p){return s+p.metrics.overdue;},0);
+  var avgD=Math.round(team.reduce(function(s,p){return s+p.metrics.doneRate;},0)/Math.max(1,team.length));
+  var sc=document.createElement('div');sc.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px';
+  function mSC(v,l,col){var c=document.createElement('div');c.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:14px;text-align:center';c.innerHTML='<div style="font-size:30px;font-weight:800;color:'+col+'">'+v+'</div><div style="font-size:11px;color:var(--mut);margin-top:4px">'+l+'</div>';return c;}
+  sc.appendChild(mSC(high,'High Risk','var(--red)'));sc.appendChild(mSC(med,'Medium Risk','var(--yel)'));sc.appendChild(mSC(totalOD,'Total Overdue','var(--yel)'));sc.appendChild(mSC(avgD+'%','Avg Completion','var(--grn)'));sc.appendChild(mSC(team.length,'Team Members','var(--acc)'));wrap.appendChild(sc);
+  var tbl=document.createElement('div');tbl.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden';
+  var th=document.createElement('div');th.style.cssText='display:grid;grid-template-columns:2fr 1fr 70px 70px 70px 70px 90px;gap:0;padding:10px 16px;background:var(--surf2);font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;letter-spacing:.05em';
+  th.innerHTML='<div>PERSON</div><div>DEPT</div><div style="text-align:center">DONE</div><div style="text-align:center">OVERDUE</div><div style="text-align:center">OKR</div><div style="text-align:center">RATE%</div><div style="text-align:center">RISK</div>';tbl.appendChild(th);
+  team.forEach(function(p,idx){
+    var row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:2fr 1fr 70px 70px 70px 70px 90px;gap:0;padding:10px 16px;border-top:1px solid var(--brd);cursor:pointer;align-items:center'+(idx%2===0?'':';background:rgba(255,255,255,.02)');
+    row.onmouseenter=function(){this.style.background='rgba(108,99,255,.06)';};row.onmouseleave=function(){this.style.background=idx%2===0?'':'rgba(255,255,255,.02)';};
+    row.onclick=function(){perfShowPersonModal(p.email);};
+    var dc=CFG[p.dept]||{col:'#888'};var rc=p.metrics.burnoutRisk==='High'?'var(--red)':p.metrics.burnoutRisk==='Medium'?'var(--yel)':'var(--grn)';
+    row.innerHTML='<div><div style="font-size:12px;font-weight:600">'+p.name+'</div><div style="font-size:10px;color:var(--mut)">'+p.role+'</div></div><div><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+dc.col+'22;color:'+dc.col+'">'+p.dept+'</span></div><div style="text-align:center;font-size:13px;color:var(--grn);font-weight:700">'+p.metrics.done+'</div><div style="text-align:center;font-size:13px;color:'+(p.metrics.overdue>0?'var(--red)':'var(--mut)')+';font-weight:700">'+p.metrics.overdue+'</div><div style="text-align:center;font-size:13px;color:var(--acc2);font-weight:700">'+p.metrics.okrContributions+'</div><div style="text-align:center;font-size:13px;font-weight:700">'+p.metrics.doneRate+'%</div><div style="text-align:center"><span style="font-size:9px;padding:2px 8px;border-radius:20px;font-weight:700;background:'+rc+'22;color:'+rc+'">'+p.metrics.burnoutRisk+'</span></div>';
+    tbl.appendChild(row);
+  });wrap.appendChild(tbl);
+}
+function perfShowPersonModal(email){
+  var ex=document.getElementById('perf-modal');if(ex)ex.remove();
+  var u=USER_REGISTRY[email];if(!u)return;var m=computeMetrics(email);
+  var ov=document.createElement('div');ov.id='perf-modal';ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';ov.onclick=function(ev){if(ev.target===ov)ov.remove();};
+  var box=document.createElement('div');box.style.cssText='background:var(--surf);border-radius:12px;padding:28px;width:620px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.5)';
+  var dc=CFG[u.dept]||{col:'#888'};var rc=m.burnoutRisk==='High'?'var(--red)':m.burnoutRisk==='Medium'?'var(--yel)':'var(--grn)';
+  box.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:20px"><div><div style="font-size:18px;font-weight:800">'+u.name+'</div><div style="font-size:11px;color:var(--mut);margin-top:3px">'+u.role+' · <span style="color:'+dc.col+'">'+u.dept+'</span></div><div style="font-size:10px;color:var(--mut);margin-top:2px;font-family:Roboto Mono,monospace">'+email+'</div></div><button id="pmc" style="background:none;border:none;font-size:20px;color:var(--mut);cursor:pointer">×</button></div>';
+  box.querySelector('#pmc').onclick=function(){ov.remove();};
+  var st=document.createElement('div');st.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px';
+  [{v:m.done,l:'DONE',c:'var(--grn)'},{v:m.doneRate+'%',l:'RATE',c:'var(--acc)'},{v:m.overdue,l:'OVERDUE',c:m.overdue>0?'var(--red)':'var(--mut)'},{v:m.burnoutRisk,l:'RISK',c:rc}].forEach(function(s2){var c=document.createElement('div');c.style.cssText='background:var(--surf2);border-radius:8px;padding:12px;text-align:center';c.innerHTML='<div style="font-size:22px;font-weight:800;color:'+s2.c+'">'+s2.v+'</div><div style="font-size:9px;color:var(--mut);margin-top:2px;font-family:Roboto Mono,monospace">'+s2.l+'</div>';st.appendChild(c);});box.appendChild(st);
+  var tl=document.createElement('div');tl.style.cssText='font-size:11px;font-weight:700;margin-bottom:10px;color:var(--mut);font-family:Roboto Mono,monospace';tl.textContent='ASSIGNED TASKS ('+m.total+')';box.appendChild(tl);
+  m.tasks.forEach(function(t){var tr=document.createElement('div');tr.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--brd)';var sc=t.status==='Done'?'var(--grn)':t.status==='Blocked'?'var(--red)':t.status==='In Progress'?'var(--acc)':'var(--mut)';var c2=CFG[t.dept]||{col:'#888',p:t.dept.slice(0,3)};tr.innerHTML='<span style="font-size:9px;font-family:Roboto Mono,monospace;color:var(--mut);width:60px;flex-shrink:0">'+t.id+'</span><span style="flex:1;font-size:11px">'+t.name+'</span><span style="font-size:9px;color:'+sc+'">'+t.status+'</span><span style="font-size:9px;padding:2px 4px;background:'+c2.col+'22;color:'+c2.col+';border-radius:3px">'+c2.p+'</span>';box.appendChild(tr);});
+  if(!m.tasks.length){var nt=document.createElement('div');nt.style.cssText='font-size:11px;color:var(--mut);padding:8px 0';nt.textContent='No tasks assigned.';box.appendChild(nt);}
+  ov.appendChild(box);document.body.appendChild(ov);
+}
+function renderPerfReviews(wrap,pd){
+  var isAd=isAdmin(),me=currentUser.email;
+  var bar=document.createElement('div');bar.style.cssText='display:flex;gap:10px;margin-bottom:20px;align-items:center';
+  if(isAd){var nb=document.createElement('button');nb.className='hbtn xl';nb.style.cssText='font-size:11px;padding:7px 16px;border-color:var(--acc);color:var(--acc)';nb.textContent='+ Start Review';nb.onclick=function(){perfNewReviewModal(pd);};bar.appendChild(nb);}
+  var sb=document.createElement('button');sb.className='hbtn';sb.style.cssText='font-size:11px;padding:7px 14px';sb.textContent='My Self-Review';sb.onclick=function(){perfSelfReviewModal(me,pd);};bar.appendChild(sb);wrap.appendChild(bar);
+  var reviews=Object.values(pd.reviews||{});
+  if(!reviews.length){var emp=document.createElement('div');emp.style.cssText='text-align:center;padding:60px 20px;color:var(--mut);background:var(--surf);border:1px solid var(--brd);border-radius:10px';emp.innerHTML='<div style="font-size:36px;margin-bottom:12px">📊</div><div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--txt)">No reviews yet</div><div style="font-size:12px">'+(isAd?'Start a review cycle to begin tracking.':'Your manager will start a review cycle.')+'</div>';wrap.appendChild(emp);return;}
+  reviews.sort(function(a,b){return new Date(b.createdAt)-new Date(a.createdAt);});
+  reviews.forEach(function(r){
+    var c=document.createElement('div');c.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px 20px;margin-bottom:12px;cursor:pointer';
+    c.onmouseenter=function(){this.style.borderColor='var(--acc)';};c.onmouseleave=function(){this.style.borderColor='var(--brd)';};
+    var sc=r.status==='Complete'?'var(--grn)':r.status==='In Progress'?'var(--acc)':'var(--mut)';
+    var ti={'Quarterly':'📅','Annual':'📆','Semi-Annual':'🗓','Probation':'🔍','Promotion Review':'⭐'};
+    var ru=USER_REGISTRY[r.reviewee]||{name:r.reviewee,role:''};
+    c.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:14px;font-weight:700">'+(ti[r.type]||'📋')+' '+r.title+'</div><div style="font-size:10px;color:var(--mut);margin-top:3px;font-family:Roboto Mono,monospace">'+r.type+' · '+quarterLabel(r.cycle)+' · '+ru.name+'</div><div style="font-size:10px;color:var(--mut);margin-top:2px">'+new Date(r.createdAt).toLocaleDateString()+'</div></div><span style="font-size:10px;padding:3px 10px;border-radius:20px;font-weight:700;background:'+sc+'22;color:'+sc+'">'+r.status+'</span></div>';
+    c.onclick=function(){perfOpenReview(r.id,loadPerfData());};wrap.appendChild(c);
+  });
+}
+function perfNewReviewModal(pd){
+  var ex=document.getElementById('perf-modal');if(ex)ex.remove();
+  var ov=document.createElement('div');ov.id='perf-modal';ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';ov.onclick=function(ev){if(ev.target===ov)ov.remove();};
+  var box=document.createElement('div');box.style.cssText='background:var(--surf);border-radius:12px;padding:28px;width:500px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.5)';
+  box.innerHTML='<div style="font-size:16px;font-weight:800;margin-bottom:20px">Start Review Cycle</div>';
+  var frm=document.createElement('div');frm.style.cssText='display:flex;flex-direction:column;gap:14px';
+  function mF(lbl,el){var w=document.createElement('div');w.innerHTML='<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:5px">'+lbl+'</div>';w.appendChild(el);return w;}
+  function mSel(opts){var s=document.createElement('select');s.style.cssText='width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px';opts.forEach(function(o){var op=document.createElement('option');op.textContent=typeof o==='string'?o:o.lbl;op.value=typeof o==='string'?o:o.val;s.appendChild(op);});return s;}
+  var ti=document.createElement('input');ti.placeholder='e.g. Q2 2026 Quarterly Review';ti.style.cssText='width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;box-sizing:border-box';frm.appendChild(mF('TITLE',ti));
+  var st=mSel(['Quarterly','Semi-Annual','Annual','Probation','Promotion Review']);frm.appendChild(mF('TYPE',st));
+  var sc=mSel(generateQuarterList().map(function(k){return{lbl:quarterLabel(k)+(k===getCurrentQuarter()?' ◆':''),val:k};}));sc.value=getCurrentQuarter();frm.appendChild(mF('CYCLE',sc));
+  var sre=mSel(Object.keys(USER_REGISTRY).filter(function(e){return ARCHIVED_USERS.indexOf(e)<0;}).map(function(e){return{lbl:USER_REGISTRY[e].name+' ('+USER_REGISTRY[e].role+')',val:e};}));frm.appendChild(mF('REVIEWEE',sre));
+  var btns=document.createElement('div');btns.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:6px';
+  var can=document.createElement('button');can.className='hbtn';can.textContent='Cancel';can.onclick=function(){ov.remove();};
+  var cre=document.createElement('button');cre.className='hbtn xl';cre.style.cssText='border-color:var(--acc);color:var(--acc)';cre.textContent='Create';
+  cre.onclick=function(){if(!ti.value.trim()){toast('Add a title','err');return;}var id='rev_'+Date.now(),pd2=loadPerfData(),m=computeMetrics(sre.value);pd2.reviews[id]={id:id,title:ti.value.trim(),type:st.value,cycle:sc.value,reviewee:sre.value,reviewer:currentUser.email,status:'In Progress',createdAt:new Date().toISOString(),sections:{self:{text:'',submitted:false},manager:{text:'',submitted:false},peers:[],kpis:{taskTotal:m.total,taskDone:m.done,doneRate:m.doneRate,overdue:m.overdue,okrLinks:m.okrContributions,burnoutRisk:m.burnoutRisk,avgProgress:m.avgProgress},wins:'',growthAreas:'',coachingNotes:'',developmentPlan:'',actionItems:[],aiSummary:''}};savePerfData(pd2);ov.remove();toast('Review created','ok');localStorage.setItem('rl_perf_view','reviews');renderPerf();setTimeout(function(){perfOpenReview(id,loadPerfData());},200);};
+  btns.appendChild(can);btns.appendChild(cre);frm.appendChild(btns);box.appendChild(frm);ov.appendChild(box);document.body.appendChild(ov);
+}
+function perfOpenReview(id,pd){
+  var r=pd.reviews[id];if(!r)return;
+  var ex=document.getElementById('perf-modal');if(ex)ex.remove();
+  var ov=document.createElement('div');ov.id='perf-modal';ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';ov.onclick=function(ev){if(ev.target===ov)ov.remove();};
+  var box=document.createElement('div');box.style.cssText='background:var(--surf);border-radius:12px;padding:28px;width:700px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.5)';
+  var u=USER_REGISTRY[r.reviewee]||{name:r.reviewee};var m=r.sections.kpis||{};var isAd=isAdmin();var iRee=currentUser.email===r.reviewee;var iRer=currentUser.email===r.reviewer||isAd;
+  var sc=r.status==='Complete'?'var(--grn)':'var(--acc)';
+  box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px"><div><div style="font-size:16px;font-weight:800">'+r.title+'</div><div style="font-size:11px;color:var(--mut);margin-top:4px">'+r.type+' · '+quarterLabel(r.cycle)+' · '+u.name+'</div></div><div style="display:flex;gap:8px;align-items:center"><span style="font-size:10px;padding:3px 10px;border-radius:20px;background:'+sc+'22;color:'+sc+';font-weight:700">'+r.status+'</span><button id="prc" style="background:none;border:none;font-size:20px;color:var(--mut);cursor:pointer">×</button></div></div>';
+  box.querySelector('#prc').onclick=function(){ov.remove();};
+  // KPIs
+  var kc=document.createElement('div');kc.style.cssText='background:var(--surf2);border-radius:8px;padding:14px 16px;margin-bottom:20px';kc.innerHTML='<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;margin-bottom:10px">AUTO-PULLED PERFORMANCE DATA</div>';
+  var kg=document.createElement('div');kg.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:8px';
+  [{lbl:'Tasks Done',val:(m.taskDone||0)+'/'+(m.taskTotal||0),col:'var(--grn)'},{lbl:'Completion',val:(m.doneRate||0)+'%',col:'var(--acc)'},{lbl:'OKR Links',val:m.okrLinks||0,col:'var(--acc2)'},{lbl:'Overdue',val:m.overdue||0,col:(m.overdue||0)>0?'var(--red)':'var(--mut)'},{lbl:'Avg Progress',val:(m.avgProgress||0)+'%',col:'var(--txt)'},{lbl:'Burnout Risk',val:m.burnoutRisk||'Low',col:m.burnoutRisk==='High'?'var(--red)':m.burnoutRisk==='Medium'?'var(--yel)':'var(--grn)'}].forEach(function(k){var ki=document.createElement('div');ki.style.cssText='text-align:center;padding:8px';ki.innerHTML='<div style="font-size:18px;font-weight:800;color:'+k.col+'">'+k.val+'</div><div style="font-size:9px;color:var(--mut);margin-top:2px;font-family:Roboto Mono,monospace">'+k.lbl+'</div>';kg.appendChild(ki);});kc.appendChild(kg);box.appendChild(kc);
+  // Sections
+  function mTA(val,ph,onSave){var ta=document.createElement('textarea');ta.value=val;ta.placeholder=ph;ta.rows=4;ta.style.cssText='width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:8px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box';ta.onblur=function(){onSave(this.value.trim());};return ta;}
+  function mSec(ttl2,el){var s=document.createElement('div');s.style.cssText='margin-bottom:20px';var l=document.createElement('div');l.style.cssText='font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:8px';l.textContent=ttl2;s.appendChild(l);s.appendChild(el);return s;}
+  if(iRee||isAd)box.appendChild(mSec('SELF REVIEW',mTA(r.sections.self.text,'Reflect on your achievements, challenges, and goals...',function(v){var pd2=loadPerfData();if(!pd2.reviews[id])return;pd2.reviews[id].sections.self.text=v;pd2.reviews[id].sections.self.submitted=!!v;savePerfData(pd2);})));
+  if(iRer)box.appendChild(mSec('MANAGER FEEDBACK',mTA(r.sections.manager.text,'Structured feedback on performance and development...',function(v){var pd2=loadPerfData();if(!pd2.reviews[id])return;pd2.reviews[id].sections.manager.text=v;pd2.reviews[id].sections.manager.submitted=!!v;savePerfData(pd2);})));
+  else if(r.sections.manager.text){var mf=document.createElement('div');mf.style.cssText='background:var(--surf2);border-radius:8px;padding:12px;font-size:12px;white-space:pre-wrap';mf.textContent=r.sections.manager.text;box.appendChild(mSec('MANAGER FEEDBACK',mf));}
+  [{k:'wins',t:'WINS & HIGHLIGHTS',p:'Document key achievements and impact...'},{k:'growthAreas',t:'GROWTH AREAS',p:'Areas for development and improvement...'},{k:'coachingNotes',t:'COACHING NOTES',p:'Coaching points and support needed...'},{k:'developmentPlan',t:'DEVELOPMENT PLAN',p:'Concrete steps and learning goals...'}].forEach(function(sec){if(!iRer&&!iRee)return;box.appendChild(mSec(sec.t,mTA(r.sections[sec.k]||'',sec.p,function(k){return function(v){var pd2=loadPerfData();if(!pd2.reviews[id])return;pd2.reviews[id].sections[k]=v;savePerfData(pd2);};}(sec.k))));});
+  // Action items
+  var ai=document.createElement('div');ai.style.cssText='background:var(--surf2);border-radius:8px;padding:14px;margin-bottom:20px';ai.innerHTML='<div style="font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:10px">ACTION ITEMS</div>';
+  var ail=document.createElement('div');ail.style.cssText='display:flex;flex-direction:column;gap:6px;margin-bottom:10px';
+  (r.sections.actionItems||[]).forEach(function(item,idx){var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--surf);border-radius:6px';var cb=document.createElement('input');cb.type='checkbox';cb.checked=item.done;cb.style.cssText='cursor:pointer';cb.onchange=(function(i){return function(){var pd2=loadPerfData();if(!pd2.reviews[id])return;pd2.reviews[id].sections.actionItems[i].done=this.checked;savePerfData(pd2);};})(idx);var lbl=document.createElement('span');lbl.style.cssText='flex:1;font-size:11px'+(item.done?';text-decoration:line-through;color:var(--mut)':'');lbl.textContent=item.text;var del=document.createElement('button');del.style.cssText='background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0';del.textContent='×';del.onclick=(function(i){return function(){var pd2=loadPerfData();if(!pd2.reviews[id])return;pd2.reviews[id].sections.actionItems.splice(i,1);savePerfData(pd2);perfOpenReview(id,loadPerfData());};})(idx);row.appendChild(cb);row.appendChild(lbl);if(iRer||iRee)row.appendChild(del);ail.appendChild(row);});ai.appendChild(ail);
+  if(iRer||iRee){var air=document.createElement('div');air.style.cssText='display:flex;gap:8px';var ain=document.createElement('input');ain.placeholder='Add action item...';ain.style.cssText='flex:1;padding:6px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:11px';var aib=document.createElement('button');aib.className='hbtn';aib.textContent='Add';aib.style.cssText='font-size:10px;padding:5px 12px';aib.onclick=function(){if(!ain.value.trim())return;var pd2=loadPerfData();if(!pd2.reviews[id])return;pd2.reviews[id].sections.actionItems.push({text:ain.value.trim(),done:false,addedAt:new Date().toISOString()});savePerfData(pd2);ain.value='';perfOpenReview(id,loadPerfData());};ain.onkeydown=function(e){if(e.key==='Enter')aib.click();};air.appendChild(ain);air.appendChild(aib);ai.appendChild(air);}box.appendChild(ai);
+  // AI Summary
+  var ais=document.createElement('div');ais.style.cssText='background:linear-gradient(135deg,rgba(108,99,255,.08),rgba(99,102,241,.04));border:1px solid var(--acc);border-radius:10px;padding:16px;margin-bottom:20px';
+  var ash=document.createElement('div');ash.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px';ash.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--acc);font-family:Roboto Mono,monospace">✨ AI-ASSISTED REVIEW SUMMARY</div>';
+  var agb=document.createElement('button');agb.className='hbtn';agb.style.cssText='font-size:10px;padding:4px 12px;border-color:var(--acc);color:var(--acc)';agb.textContent=r.sections.aiSummary?'Regenerate':'Generate';
+  var asc=document.createElement('div');asc.style.cssText='font-size:12px;color:'+(r.sections.aiSummary?'var(--txt)':'var(--mut)')+';white-space:pre-wrap;line-height:1.6';asc.textContent=r.sections.aiSummary||'Click Generate to create an AI-assisted review summary based on task data and feedback.';
+  agb.onclick=function(){agb.textContent='Generating...';agb.disabled=true;asc.style.color='var(--mut)';asc.textContent='Analysing performance data...';
+    var ctx='Performance review for '+u.name+' ('+((USER_REGISTRY[r.reviewee]||{}).role||'')+', '+((USER_REGISTRY[r.reviewee]||{}).dept||'')+')
+Review period: '+quarterLabel(r.cycle)+' | Type: '+r.type+'
+
+METRICS:
+- Tasks: '+m.taskDone+'/'+m.taskTotal+' done ('+m.doneRate+'% completion rate)
+- Overdue: '+m.overdue+' | OKR contributions: '+(m.okrLinks||0)+'
+- Avg progress: '+(m.avgProgress||0)+'% | Burnout risk: '+(m.burnoutRisk||'Low')+'
+
+'+(r.sections.self.text?'SELF REVIEW:
+'+r.sections.self.text+'
+
+':'')+(r.sections.manager.text?'MANAGER FEEDBACK:
+'+r.sections.manager.text+'
+
+':'')+(r.sections.wins?'WINS:
+'+r.sections.wins+'
+
+':'')+(r.sections.growthAreas?'GROWTH AREAS:
+'+r.sections.growthAreas+'
+
+':'');
+    fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:'Write a concise, evidence-based performance review summary (3-4 paragraphs) based on:
+
+'+ctx+'
+
+Be specific, constructive, and forward-looking. Avoid generic HR language.'}]})}).then(function(res){return res.json();}).then(function(d){var s2=d.content&&d.content[0]?d.content[0].text:'Error generating.';var pd2=loadPerfData();if(pd2.reviews[id]){pd2.reviews[id].sections.aiSummary=s2;savePerfData(pd2);}asc.style.color='var(--txt)';asc.textContent=s2;agb.textContent='Regenerate';agb.disabled=false;}).catch(function(){asc.style.color='var(--red)';asc.textContent='Error. Check connection.';agb.textContent='Retry';agb.disabled=false;});};
+  ash.appendChild(agb);ais.appendChild(ash);ais.appendChild(asc);box.appendChild(ais);
+  // Bottom bar
+  if(isAd||iRer){var bb=document.createElement('div');bb.style.cssText='display:flex;gap:10px;justify-content:flex-end;padding-top:16px;border-top:1px solid var(--brd)';if(r.status!=='Complete'){var cb2=document.createElement('button');cb2.className='hbtn xl';cb2.style.cssText='border-color:var(--grn);color:var(--grn);font-size:11px';cb2.textContent='Mark Complete';cb2.onclick=function(){var pd2=loadPerfData();if(!pd2.reviews[id])return;pd2.reviews[id].status='Complete';savePerfData(pd2);ov.remove();toast('Review completed','ok');renderPerf();};bb.appendChild(cb2);}var db=document.createElement('button');db.className='hbtn';db.style.cssText='border-color:var(--red);color:var(--red);font-size:11px';db.textContent='Delete';db.onclick=function(){if(!confirm('Delete this review?'))return;var pd2=loadPerfData();delete pd2.reviews[id];savePerfData(pd2);ov.remove();renderPerf();};bb.appendChild(db);box.appendChild(bb);}
+  ov.appendChild(box);document.body.appendChild(ov);
+}
+function perfSelfReviewModal(email,pd){var ex=Object.values(pd.reviews||{}).find(function(r){return r.reviewee===email&&r.status==='In Progress';});if(ex)perfOpenReview(ex.id,pd);else toast('No active review. Ask your manager to start one.','err');}
+function renderPerfFeedback(wrap,pd){
+  var me=currentUser.email,isAd=isAdmin(),all=pd.feedback||[];
+  var rec=all.filter(function(f){return f.to===me;}),giv=all.filter(function(f){return f.from===me;});
+  var cols=document.createElement('div');cols.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:16px';
+  function mkFL(title,items,empty){var col=document.createElement('div');col.innerHTML='<div style="font-size:12px;font-weight:700;margin-bottom:12px">'+title+' <span style="font-size:10px;color:var(--mut);font-weight:400">('+items.length+')</span></div>';if(!items.length){col.innerHTML+='<div style="font-size:11px;color:var(--mut);padding:12px;background:var(--surf2);border-radius:8px">'+empty+'</div>';return col;}items.slice().reverse().forEach(function(f){var c=document.createElement('div');c.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:12px;margin-bottom:8px';var tc=f.type==='Praise'?'var(--grn)':f.type==='Coaching'?'var(--yel)':f.type==='Recognition'?'var(--acc)':'var(--acc2)';var other=USER_REGISTRY[f.from===me?f.to:f.from]||{name:f.from===me?f.to:f.from};c.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:9px;padding:2px 8px;border-radius:20px;font-weight:700;background:'+tc+'22;color:'+tc+'">'+f.type+'</span><span style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+(f.from===me?'to ':'from ')+other.name+' · '+new Date(f.ts).toLocaleDateString()+'</span></div><div style="font-size:12px;line-height:1.5">'+f.text+'</div>';col.appendChild(c);});return col;}
+  cols.appendChild(mkFL('Received',rec,'No feedback received yet.'));cols.appendChild(mkFL('Given',giv,"You haven't given any feedback yet."));wrap.appendChild(cols);
+  if(isAd&&all.length>0){var as2=document.createElement('div');as2.style.cssText='margin-top:20px';as2.innerHTML='<div style="font-size:12px;font-weight:700;margin-bottom:12px;color:var(--mut)">All Team Feedback (Admin)</div>';all.slice().reverse().forEach(function(f){var c=document.createElement('div');c.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px';var tc=f.type==='Praise'?'var(--grn)':f.type==='Coaching'?'var(--yel)':f.type==='Recognition'?'var(--acc)':'var(--acc2)';var fu=USER_REGISTRY[f.from]||{name:f.from},tu=USER_REGISTRY[f.to]||{name:f.to};c.innerHTML='<span style="font-size:9px;padding:2px 8px;border-radius:20px;font-weight:700;background:'+tc+'22;color:'+tc+';flex-shrink:0">'+f.type+'</span><span style="font-size:10px;color:var(--mut);flex-shrink:0">'+fu.name+' → '+tu.name+'</span><span style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+f.text+'</span><span style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;flex-shrink:0">'+new Date(f.ts).toLocaleDateString()+'</span>';as2.appendChild(c);});wrap.appendChild(as2);}
+}
+function renderPerfMyProfile(wrap,pd){
+  var me=currentUser.email,u=USER_REGISTRY[me]||{},m=computeMetrics(me);
+  var myRev=Object.values(pd.reviews||{}).filter(function(r){return r.reviewee===me;});
+  var dc=CFG[u.dept]||{col:'#888'};
+  // Profile card
+  var ph=document.createElement('div');ph.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:24px;margin-bottom:20px;display:flex;align-items:flex-start;gap:20px';
+  var av=document.createElement('div');av.style.cssText='width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--acc2));display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:white;flex-shrink:0';av.textContent=u.name?u.name.split(' ').map(function(p){return p[0];}).join('').slice(0,2):'?';
+  var pi=document.createElement('div');pi.style.cssText='flex:1';pi.innerHTML='<div style="font-size:18px;font-weight:800">'+u.name+'</div><div style="font-size:12px;color:var(--mut);margin-top:3px">'+u.role+'</div><div style="margin-top:6px"><span style="font-size:10px;padding:3px 10px;border-radius:20px;background:'+dc.col+'22;color:'+dc.col+';font-weight:700">'+u.dept+'</span></div><div style="font-size:10px;color:var(--mut);margin-top:6px;font-family:Roboto Mono,monospace">'+me+'</div>';
+  var ps=document.createElement('div');ps.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-left:auto;margin-top:4px';
+  [{v:m.done,l:'DONE',c:'var(--grn)'},{v:m.doneRate+'%',l:'RATE',c:'var(--acc)'},{v:m.okrContributions,l:'OKR',c:'var(--acc2)'},{v:myRev.length,l:'REVIEWS',c:'var(--mut)'}].forEach(function(s){var sc=document.createElement('div');sc.style.cssText='text-align:center';sc.innerHTML='<div style="font-size:20px;font-weight:800;color:'+s.c+'">'+s.v+'</div><div style="font-size:9px;color:var(--mut);margin-top:1px;font-family:Roboto Mono,monospace">'+s.l+'</div>';ps.appendChild(sc);});
+  pi.appendChild(ps);ph.appendChild(av);ph.appendChild(pi);wrap.appendChild(ph);
+  // Review history
+  var rh=document.createElement('div');rh.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px;margin-bottom:16px';
+  rh.innerHTML='<div style="font-size:12px;font-weight:700;margin-bottom:12px">Review History</div>';
+  if(!myRev.length)rh.innerHTML+='<div style="font-size:11px;color:var(--mut)">No reviews yet.</div>';
+  myRev.sort(function(a,b){return new Date(b.createdAt)-new Date(a.createdAt);}).forEach(function(r){var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--brd);cursor:pointer';row.onmouseenter=function(){this.style.color='var(--acc)';};row.onmouseleave=function(){this.style.color='';};var sc=r.status==='Complete'?'var(--grn)':'var(--acc)';row.innerHTML='<div style="flex:1"><div style="font-size:12px;font-weight:600">'+r.title+'</div><div style="font-size:10px;color:var(--mut)">'+r.type+' · '+quarterLabel(r.cycle)+'</div></div><span style="font-size:9px;padding:2px 8px;border-radius:20px;background:'+sc+'22;color:'+sc+';font-weight:700">'+r.status+'</span>';row.onclick=function(){perfOpenReview(r.id,loadPerfData());};rh.appendChild(row);});wrap.appendChild(rh);
+  // Competencies
+  var cs=document.createElement('div');cs.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px';
+  cs.innerHTML='<div style="font-size:12px;font-weight:700;margin-bottom:14px">Competency Dashboard</div>';
+  [{n:'Execution',d:'Task completion & delivery quality',s:m.doneRate},{n:'OKR Alignment',d:'Contribution to company key results',s:Math.min(100,m.okrContributions*20)},{n:'Reliability',d:'Low overdue rate & consistent delivery',s:Math.max(0,100-m.overdue*15)},{n:'Momentum',d:'Average task progress across active work',s:m.avgProgress}].forEach(function(c){var col=c.s>=70?'var(--grn)':c.s>=40?'var(--yel)':'var(--red)';var cr=document.createElement('div');cr.style.cssText='margin-bottom:14px';cr.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:5px"><div><span style="font-size:12px;font-weight:600">'+c.n+'</span><span style="font-size:10px;color:var(--mut);margin-left:8px">'+c.d+'</span></div><span style="font-size:13px;font-weight:700;color:'+col+'">'+c.s+'%</span></div><div style="height:8px;background:var(--surf2);border-radius:4px"><div style="width:'+c.s+'%;height:100%;background:'+col+';border-radius:4px;transition:.5s"></div></div>';cs.appendChild(cr);});wrap.appendChild(cs);
 }
 
 function timeDiff(from,to){if(!from)return'—';var ms=(to?new Date(to):new Date())-new Date(from);if(ms<0)ms=0;var m=Math.floor(ms/60000),hh=Math.floor(m/60),d=Math.floor(hh/24);if(d>=2)return d+' days';if(d===1){var rh=hh%24;return '1 day'+(rh?' '+rh+'h':'');}if(hh>=1)return hh+'h '+(m%60)+'m';if(m>=1)return m+' min';return '<1 min';}
