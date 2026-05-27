@@ -169,10 +169,9 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 #gate-pwd{margin-top:-4px}
 .gate-input+.gate-input{margin-top:0}
 
-.th-info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;background:rgba(108,99,255,.25);color:var(--acc);font-size:9px;font-weight:700;cursor:pointer;margin-left:4px;vertical-align:middle;line-height:1;font-family:sans-serif;position:relative;flex-shrink:0}
-.th-info:hover .th-tip{display:block}
-.th-tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--surf);border:1px solid var(--acc);border-radius:8px;padding:8px 10px;width:180px;font-size:10px;color:var(--txt);font-family:inherit;font-weight:400;line-height:1.5;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.4);text-align:left;letter-spacing:0;pointer-events:none}
-.th-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--acc)}
+.th-info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;background:rgba(108,99,255,.25);color:var(--acc);font-size:9px;font-weight:700;cursor:default;margin-left:4px;vertical-align:middle;line-height:1;font-family:sans-serif;flex-shrink:0}
+#th-tooltip{position:fixed;background:var(--surf);border:1px solid var(--acc);border-radius:8px;padding:10px 12px;max-width:210px;font-size:11px;color:var(--txt);line-height:1.6;z-index:99999;box-shadow:0 8px 28px rgba(0,0,0,.45);pointer-events:none;display:none}
+#th-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--acc)}
 </style>
 </head>
 <body>
@@ -1199,7 +1198,7 @@ function renderPerfTeam(wrap){
   sc.appendChild(mSC(high,'High Risk','var(--red)'));sc.appendChild(mSC(med,'Medium Risk','var(--yel)'));sc.appendChild(mSC(totalOD,'Total Overdue','var(--yel)'));sc.appendChild(mSC(avgD+'%','Avg Completion','var(--grn)'));sc.appendChild(mSC(team.length,'Team Members','var(--acc)'));wrap.appendChild(sc);
   var tbl=document.createElement('div');tbl.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden';
   var th=document.createElement('div');th.style.cssText='display:grid;grid-template-columns:2fr 1fr 70px 70px 70px 70px 90px;gap:0;padding:10px 16px;background:var(--surf2);font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;letter-spacing:.05em';
-  th.innerHTML='<div>PERSON</div><div>DEPT</div><div style="text-align:center" style="display:flex;align-items:center;justify-content:center;gap:0"><span>DONE</span><span class="th-info">i<span class="th-tip">Tasks completed in the current period. Higher is better — shows delivery and execution.</span></span></div><div style="text-align:center" style="display:flex;align-items:center;justify-content:center;gap:0"><span>OVERDUE</span><span class="th-info">i<span class="th-tip">Tasks past their due date that are still open. Any number above 0 needs attention.</span></span></div><div style="text-align:center" style="display:flex;align-items:center;justify-content:center;gap:0"><span>OKR</span><span class="th-info">i<span class="th-tip">Number of OKR key results this person has tasks linked to. Indicates strategic contribution.</span></span></div><div style="text-align:center" style="display:flex;align-items:center;justify-content:center;gap:0"><span>RATE%</span><span class="th-info">i<span class="th-tip">Completion rate: tasks done ÷ total assigned × 100. Target is 70%+ for healthy execution.</span></span></div><div style="text-align:center" style="display:flex;align-items:center;justify-content:center;gap:0"><span>RISK</span><span class="th-info">i<span class="th-tip">Burnout risk score based on overdue rate, blocked tasks, and workload spread. Low / Medium / High.</span></span></div>';tbl.appendChild(th);
+  th.innerHTML='<div>PERSON</div><div>DEPT</div><div style="text-align:center" style="display:flex;align-items:center;justify-content:center;gap:0"><span>DONE</span><span class="th-info" data-tip="Tasks completed in the current period. Higher is better — shows delivery and execution.">i</span></div><div style="text-align:center" style="display:flex;align-items:center;justify-content:center;gap:0"><span>OVERDUE</span><span class="th-info" data-tip="Tasks past their due date that are still open. Any number above 0 needs attention.">i</span></div><div style="text-align:center" style="display:flex;align-items:center;justify-content:center;gap:0"><span>OKR</span><span class="th-info" data-tip="Number of OKR key results this person has tasks linked to. Indicates strategic contribution.">i</span></div><div style="text-align:center" style="display:flex;align-items:center;justify-content:center;gap:0"><span>RATE%</span><span class="th-info" data-tip="Completion rate: tasks done ÷ total assigned × 100. Target is 70%+ for healthy execution.">i</span></div><div style="text-align:center" style="display:flex;align-items:center;justify-content:center;gap:0"><span>RISK</span><span class="th-info" data-tip="Burnout risk score based on overdue rate, blocked tasks, and workload spread. Low / Medium / High.">i</span></div>';tbl.appendChild(th);
   team.forEach(function(p,idx){
     var row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:2fr 1fr 70px 70px 70px 70px 90px;gap:0;padding:10px 16px;border-top:1px solid var(--brd);cursor:pointer;align-items:center'+(idx%2===0?'':';background:rgba(255,255,255,.02)');
     row.onmouseenter=function(){this.style.background='rgba(108,99,255,.06)';};row.onmouseleave=function(){this.style.background=idx%2===0?'':'rgba(255,255,255,.02)';};
@@ -1571,6 +1570,22 @@ function toast(msg,type){
   el.textContent=msg;el.className='toast'+(type?' '+type:'');el.style.display='block';
   clearTimeout(toastT);toastT=setTimeout(function(){el.style.display='none';},2800);
 }
+// th-info global tooltip
+(function(){
+  var tip=document.createElement('div');tip.id='th-tooltip';document.body.appendChild(tip);
+  document.addEventListener('mouseover',function(e){
+    var el=e.target.closest?e.target.closest('.th-info'):null;if(!el)return;
+    var txt=el.getAttribute('data-tip');if(!txt)return;
+    tip.textContent=txt;tip.style.display='block';
+    var r=el.getBoundingClientRect();
+    tip.style.top=(r.top-8)+'px';
+    tip.style.left=(r.left+r.width/2)+'px';
+    tip.style.transform='translateX(-50%) translateY(-100%)';
+    requestAnimationFrame(function(){var tr=tip.getBoundingClientRect();if(tr.left<8){tip.style.left='8px';tip.style.transform='translateY(-100%)';}if(tr.right>window.innerWidth-8){tip.style.left=(window.innerWidth-tr.width-8)+'px';tip.style.transform='translateY(-100%)';};});
+  });
+  document.addEventListener('mouseout',function(e){if(e.target.closest&&e.target.closest('.th-info'))tip.style.display='none';});
+})();
+
 init();
 </script>
 </body>
