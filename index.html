@@ -1273,28 +1273,13 @@ function perfOpenReview(id,pd){
   var agb=document.createElement('button');agb.className='hbtn';agb.style.cssText='font-size:10px;padding:4px 12px;border-color:var(--acc);color:var(--acc)';agb.textContent=r.sections.aiSummary?'Regenerate':'Generate';
   var asc=document.createElement('div');asc.style.cssText='font-size:12px;color:'+(r.sections.aiSummary?'var(--txt)':'var(--mut)')+';white-space:pre-wrap;line-height:1.6';asc.textContent=r.sections.aiSummary||'Click Generate to create an AI-assisted review summary based on task data and feedback.';
   agb.onclick=function(){agb.textContent='Generating...';agb.disabled=true;asc.style.color='var(--mut)';asc.textContent='Analysing performance data...';
-    var ctx='Performance review for '+u.name+' ('+((USER_REGISTRY[r.reviewee]||{}).role||'')+', '+((USER_REGISTRY[r.reviewee]||{}).dept||'')+')
-Review period: '+quarterLabel(r.cycle)+' | Type: '+r.type+'
-
-METRICS:
-- Tasks: '+m.taskDone+'/'+m.taskTotal+' done ('+m.doneRate+'% completion rate)
-- Overdue: '+m.overdue+' | OKR contributions: '+(m.okrLinks||0)+'
-- Avg progress: '+(m.avgProgress||0)+'% | Burnout risk: '+(m.burnoutRisk||'Low')+'
-
-'+(r.sections.self.text?'SELF REVIEW:
-'+r.sections.self.text+'
-
-':'')+(r.sections.manager.text?'MANAGER FEEDBACK:
-'+r.sections.manager.text+'
-
-':'')+(r.sections.wins?'WINS:
-'+r.sections.wins+'
-
-':'')+(r.sections.growthAreas?'GROWTH AREAS:
-'+r.sections.growthAreas+'
-
-':'');
-    fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:'Write a concise, evidence-based performance review summary (3-4 paragraphs) based on:
+    var ctx='Performance review for '+u.name+' ('+((USER_REGISTRY[r.reviewee]||{}).role||'')+', '+((USER_REGISTRY[r.reviewee]||{}).dept||'')+')\nReview period: '+quarterLabel(r.cycle)+' | Type: '+r.type+'\n
+METRICS:\n- Tasks: '+m.taskDone+'/'+m.taskTotal+' done ('+m.doneRate+'% completion rate)\n- Overdue: '+m.overdue+' | OKR contributions: '+(m.okrLinks||0)+'\n- Avg progress: '+(m.avgProgress||0)+'% | Burnout risk: '+(m.burnoutRisk||'Low')+'\n
+'+(r.sections.self.text?'SELF REVIEW:\n'+r.sections.self.text+'\n
+':'')+(r.sections.manager.text?'MANAGER FEEDBACK:\n'+r.sections.manager.text+'\n
+':'')+(r.sections.wins?'WINS:\n'+r.sections.wins+'\n
+':'')+(r.sections.growthAreas?'GROWTH AREAS:\n'+r.sections.growthAreas+'\n
+':'');\n    fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:'Write a concise, evidence-based performance review summary (3-4 paragraphs) based on:
 
 '+ctx+'
 
