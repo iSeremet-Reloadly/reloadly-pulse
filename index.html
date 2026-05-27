@@ -284,30 +284,30 @@ var STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
 var PRIORITIES=['Critical','High','Medium','Low'];
 var SPC={'Not Started':'ns','In Progress':'ip','Blocked':'bl','Under Review':'ur','Done':'dn'};
 var SEED={Management:[
-  {id:'MGT-001',name:'Series B prep - investor deck',assignee:'Michel Francis',priority:'High',status:'In Progress',due:'2026-06-15',startDate:'2026-05-01',progress:30,notes:'Needs financial model update'},
-  {id:'MGT-002',name:'Q2 OKR review session',assignee:'Dren',priority:'High',status:'Not Started',due:'2026-05-30',startDate:'2026-05-22',progress:0,notes:''},
-  {id:'MGT-003',name:'Board report - May 2026',assignee:'Michel Francis',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-20',progress:40,notes:''},
-  {id:'MGT-004',name:'Leadership offsite follow-ups',assignee:'Dren',priority:'Medium',status:'In Progress',due:'2026-05-25',startDate:'2026-05-18',progress:60,notes:''},
-  {id:'MGT-005',name:'Company health dashboard update',assignee:'Dren',priority:'Medium',status:'In Progress',due:'2026-05-27',startDate:'2026-05-22',progress:20,notes:''}
+  {createdAt:'2026-05-01T09:00:00.000Z',id:'MGT-001',name:'Series B prep - investor deck',assignee:'Michel Francis',priority:'High',status:'In Progress',due:'2026-06-15',startDate:'2026-05-01',progress:30,notes:'Needs financial model update'},
+  {createdAt:'2026-05-22T09:00:00.000Z',id:'MGT-002',name:'Q2 OKR review session',assignee:'Dren',priority:'High',status:'Not Started',due:'2026-05-30',startDate:'2026-05-22',progress:0,notes:''},
+  {createdAt:'2026-05-20T09:00:00.000Z',id:'MGT-003',name:'Board report - May 2026',assignee:'Michel Francis',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-20',progress:40,notes:''},
+  {createdAt:'2026-05-18T09:00:00.000Z',id:'MGT-004',name:'Leadership offsite follow-ups',assignee:'Dren',priority:'Medium',status:'In Progress',due:'2026-05-25',startDate:'2026-05-18',progress:60,notes:''},
+  {createdAt:'2026-05-22T09:00:00.000Z',id:'MGT-005',name:'Company health dashboard update',assignee:'Dren',priority:'Medium',status:'In Progress',due:'2026-05-27',startDate:'2026-05-22',progress:20,notes:''}
 ],Operations:[
-  {id:'OPS-001',name:'Swype - Bluebanc wind-down completion',assignee:'Dren',priority:'Critical',status:'In Progress',due:'2026-05-31',startDate:'2026-05-01',progress:70,notes:'Decline fee dispute outstanding'},
-  {id:'OPS-002',name:'KYB enforcement - Persona backlog',assignee:'Irene Paez',priority:'High',status:'In Progress',due:'2026-05-29',startDate:'2026-05-15',progress:50,notes:''},
-  {id:'OPS-003',name:'Partner onboarding form - Tally.so',assignee:'Irene Paez',priority:'Medium',status:'In Progress',due:'2026-05-28',startDate:'2026-05-10',progress:80,notes:''},
-  {id:'OPS-004',name:'Rebtel route failure review',assignee:'David Bassey',priority:'Medium',status:'Under Review',due:'2026-05-26',startDate:'2026-05-20',progress:90,notes:'93% overall success rate'},
-  {id:'OPS-005',name:'Swype card customer support SLA',assignee:'David Bassey',priority:'Medium',status:'Not Started',due:'2026-06-10',startDate:'2026-06-01',progress:0,notes:''}
+  {createdAt:'2026-05-01T09:00:00.000Z',id:'OPS-001',name:'Swype - Bluebanc wind-down completion',assignee:'Dren',priority:'Critical',status:'In Progress',due:'2026-05-31',startDate:'2026-05-01',progress:70,notes:'Decline fee dispute outstanding'},
+  {createdAt:'2026-05-15T09:00:00.000Z',id:'OPS-002',name:'KYB enforcement - Persona backlog',assignee:'Irene Paez',priority:'High',status:'In Progress',due:'2026-05-29',startDate:'2026-05-15',progress:50,notes:''},
+  {createdAt:'2026-05-10T09:00:00.000Z',id:'OPS-003',name:'Partner onboarding form - Tally.so',assignee:'Irene Paez',priority:'Medium',status:'In Progress',due:'2026-05-28',startDate:'2026-05-10',progress:80,notes:''},
+  {createdAt:'2026-05-20T09:00:00.000Z',id:'OPS-004',name:'Rebtel route failure review',assignee:'David Bassey',priority:'Medium',status:'Under Review',due:'2026-05-26',startDate:'2026-05-20',progress:90,notes:'93% overall success rate'},
+  {createdAt:'2026-06-01T09:00:00.000Z',id:'OPS-005',name:'Swype card customer support SLA',assignee:'David Bassey',priority:'Medium',status:'Not Started',due:'2026-06-10',startDate:'2026-06-01',progress:0,notes:''}
 ],Finance:[
-  {id:'FIN-001',name:'Gross margin run rate analysis',assignee:'Alketa Berisha',priority:'Critical',status:'In Progress',due:'2026-05-30',startDate:'2026-05-15',progress:45,notes:'Target $10M ARR'},
-  {id:'FIN-002',name:'Series B financial model',assignee:'Alketa Berisha',priority:'High',status:'In Progress',due:'2026-06-15',startDate:'2026-05-20',progress:25,notes:'Investor-ready format required'},
-  {id:'FIN-003',name:'Bluebanc decline fee dispute',assignee:'Dren',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-10',progress:60,notes:''},
-  {id:'FIN-004',name:'NRR tracking setup',assignee:'Alketa Berisha',priority:'High',status:'Not Started',due:'2026-06-20',startDate:'2026-06-01',progress:0,notes:'Most critical missing Series B metric'},
-  {id:'FIN-005',name:'Interchange revenue reconciliation',assignee:'Alketa Berisha',priority:'Medium',status:'Not Started',due:'2026-06-30',startDate:'2026-06-10',progress:0,notes:'Swype Cards breakage + interchange'}
+  {createdAt:'2026-05-15T09:00:00.000Z',id:'FIN-001',name:'Gross margin run rate analysis',assignee:'Alketa Berisha',priority:'Critical',status:'In Progress',due:'2026-05-30',startDate:'2026-05-15',progress:45,notes:'Target $10M ARR'},
+  {createdAt:'2026-05-20T09:00:00.000Z',id:'FIN-002',name:'Series B financial model',assignee:'Alketa Berisha',priority:'High',status:'In Progress',due:'2026-06-15',startDate:'2026-05-20',progress:25,notes:'Investor-ready format required'},
+  {createdAt:'2026-05-10T09:00:00.000Z',id:'FIN-003',name:'Bluebanc decline fee dispute',assignee:'Dren',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-10',progress:60,notes:''},
+  {createdAt:'2026-06-01T09:00:00.000Z',id:'FIN-004',name:'NRR tracking setup',assignee:'Alketa Berisha',priority:'High',status:'Not Started',due:'2026-06-20',startDate:'2026-06-01',progress:0,notes:'Most critical missing Series B metric'},
+  {createdAt:'2026-06-10T09:00:00.000Z',id:'FIN-005',name:'Interchange revenue reconciliation',assignee:'Alketa Berisha',priority:'Medium',status:'Not Started',due:'2026-06-30',startDate:'2026-06-10',progress:0,notes:'Swype Cards breakage + interchange'}
 ],Engineering:[
-  {id:'ENG-001',name:'API uptime dashboard',assignee:'Samuel Nnabugwu',priority:'High',status:'In Progress',due:'2026-05-30',startDate:'2026-05-18',progress:55,notes:''},
-  {id:'ENG-002',name:'Persona KYB webhook integration',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-15',progress:65,notes:''},
-  {id:'ENG-003',name:'Lithic card API integration - POC',assignee:'Emmanuel Piard',priority:'High',status:'Not Started',due:'2026-06-10',startDate:'2026-06-01',progress:0,notes:'Pending Lithic contract sign-off'},
-  {id:'ENG-004',name:'Rebtel route failure alerts',assignee:'Emmanuel Piard',priority:'Medium',status:'Under Review',due:'2026-05-26',startDate:'2026-05-20',progress:90,notes:''},
-  {id:'ENG-005',name:'Swype card status webhook',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',due:'2026-05-31',startDate:'2026-05-22',progress:35,notes:''},
-  {id:'ENG-006',name:'Rate limiter improvements',assignee:'Samuel Nnabugwu',priority:'Medium',status:'Not Started',due:'2026-06-15',startDate:'2026-06-01',progress:0,notes:''}
+  {createdAt:'2026-05-18T09:00:00.000Z',id:'ENG-001',name:'API uptime dashboard',assignee:'Samuel Nnabugwu',priority:'High',status:'In Progress',due:'2026-05-30',startDate:'2026-05-18',progress:55,notes:''},
+  {createdAt:'2026-05-15T09:00:00.000Z',id:'ENG-002',name:'Persona KYB webhook integration',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',due:'2026-05-28',startDate:'2026-05-15',progress:65,notes:''},
+  {createdAt:'2026-06-01T09:00:00.000Z',id:'ENG-003',name:'Lithic card API integration - POC',assignee:'Emmanuel Piard',priority:'High',status:'Not Started',due:'2026-06-10',startDate:'2026-06-01',progress:0,notes:'Pending Lithic contract sign-off'},
+  {createdAt:'2026-05-20T09:00:00.000Z',id:'ENG-004',name:'Rebtel route failure alerts',assignee:'Emmanuel Piard',priority:'Medium',status:'Under Review',due:'2026-05-26',startDate:'2026-05-20',progress:90,notes:''},
+  {createdAt:'2026-05-22T09:00:00.000Z',id:'ENG-005',name:'Swype card status webhook',assignee:'Emmanuel Piard',priority:'High',status:'In Progress',due:'2026-05-31',startDate:'2026-05-22',progress:35,notes:''},
+  {createdAt:'2026-06-01T09:00:00.000Z',id:'ENG-006',name:'Rate limiter improvements',assignee:'Samuel Nnabugwu',priority:'Medium',status:'Not Started',due:'2026-06-15',startDate:'2026-06-01',progress:0,notes:''}
 ]};
 var data={Management:[],Operations:[],Finance:[],Engineering:[]};
 var actLog=[];
@@ -368,11 +368,11 @@ function loadData(){
   DEPTS.forEach(function(d){if(data[d])data[d]=data[d].map(function(t){if(t.dueDate&&!t.due){t.due=t.dueDate;delete t.dueDate;}if(!t.due)t.due='';return t;});});
   // Seed Sales if empty
   if(!data.Sales||data.Sales.length===0){data.Sales=[
-    {id:'SAL-001',name:'Q2 Pipeline review',status:'In Progress',priority:'High',progress:40,due:'2026-06-10',assignee:'Enrique Hirlemann',lastUpdated:new Date().toISOString()},
-    {id:'SAL-002',name:'Enterprise deal — follow up',status:'Not Started',priority:'Critical',progress:0,due:'2026-06-03',assignee:'Enrique Hirlemann',lastUpdated:new Date().toISOString()},
-    {id:'SAL-003',name:'Update CRM with May contacts',status:'Not Started',priority:'Medium',progress:0,due:'2026-06-15',assignee:'',lastUpdated:new Date().toISOString()},
-    {id:'SAL-004',name:'Series B investor deck prep',status:'In Progress',priority:'High',progress:25,due:'2026-06-20',assignee:'Enrique Hirlemann',lastUpdated:new Date().toISOString()},
-    {id:'SAL-005',name:'Partner commission reconciliation',status:'Not Started',priority:'Low',progress:0,due:'2026-06-30',assignee:'',lastUpdated:new Date().toISOString()}
+    {createdAt:'2026-05-01T09:00:00.000Z',id:'SAL-001',name:'Q2 Pipeline review',status:'In Progress',priority:'High',progress:40,due:'2026-06-10',assignee:'Enrique Hirlemann',lastUpdated:new Date().toISOString()},
+    {createdAt:'2026-05-01T09:00:00.000Z',id:'SAL-002',name:'Enterprise deal — follow up',status:'Not Started',priority:'Critical',progress:0,due:'2026-06-03',assignee:'Enrique Hirlemann',lastUpdated:new Date().toISOString()},
+    {createdAt:'2026-05-01T09:00:00.000Z',id:'SAL-003',name:'Update CRM with May contacts',status:'Not Started',priority:'Medium',progress:0,due:'2026-06-15',assignee:'',lastUpdated:new Date().toISOString()},
+    {createdAt:'2026-05-01T09:00:00.000Z',id:'SAL-004',name:'Series B investor deck prep',status:'In Progress',priority:'High',progress:25,due:'2026-06-20',assignee:'Enrique Hirlemann',lastUpdated:new Date().toISOString()},
+    {createdAt:'2026-05-01T09:00:00.000Z',id:'SAL-005',name:'Partner commission reconciliation',status:'Not Started',priority:'Low',progress:0,due:'2026-06-30',assignee:'',lastUpdated:new Date().toISOString()}
   ];}
   autoSave();updCnts();
   if(currentUser&&!currentUser.canViewAll){view=currentUser.dept;}
@@ -977,7 +977,37 @@ function renderOKR(){
       var btns=document.createElement('div');btns.style.cssText='display:flex;align-items:center;gap:8px';
       if(lc>0){var showSp=document.createElement('span');showSp.style.cssText='font-size:10px;color:var(--acc);cursor:pointer;font-family:Roboto Mono,monospace';showSp.textContent='[linked] '+lc+' task'+(lc>1?'s':'');showSp.onclick=(function(kid){return function(){showOKRLinkedTasks(kid);};})(kr.id);btns.appendChild(showSp);}
       var linkBtn=document.createElement('button');linkBtn.className='hbtn';linkBtn.style.cssText='font-size:9px;padding:3px 8px';linkBtn.textContent='+ Link Task';linkBtn.onclick=(function(kid,ktitle){return function(){openLinkTaskModal(kid,ktitle);};})(kr.id,kr.title);btns.appendChild(linkBtn);
-      footer.appendChild(btns);krDiv.appendChild(footer);krsDiv.appendChild(krDiv);
+      footer.appendChild(btns);krDiv.appendChild(footer);
+      if(isAdmin()){
+        var editBar=document.createElement('div');
+        editBar.style.cssText='display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd)';
+        var progLbl=document.createElement('span');progLbl.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace';progLbl.textContent='Progress:';
+        editBar.appendChild(progLbl);
+        var progInp=document.createElement('input');
+        progInp.type='number';progInp.min='0';progInp.max='100';progInp.value=kr.progress;
+        progInp.style.cssText='width:52px;padding:2px 4px;font-size:10px;font-family:Roboto Mono,monospace;text-align:center;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px';
+        progInp.onchange=(function(krObj,dObj){return function(){
+          var v=Math.min(100,Math.max(0,parseInt(this.value)||0));
+          this.value=v;krObj.progress=v;
+          var parentObj=dObj.objectives.find(function(o){return o.krs.some(function(k){return k.id===krObj.id;});});
+          if(parentObj)parentObj.progress=Math.round(parentObj.krs.reduce(function(s,k){return s+k.progress;},0)/Math.max(1,parentObj.krs.length));
+          renderOKR();
+        };})(kr,deptObj);
+        editBar.appendChild(progInp);
+        var pctS=document.createElement('span');pctS.style.cssText='font-size:9px;color:var(--mut)';pctS.textContent='%';
+        editBar.appendChild(pctS);
+        var spacer=document.createElement('div');spacer.style.cssText='flex:1';editBar.appendChild(spacer);
+        var confLbl=document.createElement('span');confLbl.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace';confLbl.textContent='Confidence:';
+        editBar.appendChild(confLbl);
+        var confSel=document.createElement('select');
+        confSel.style.cssText='font-size:9px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:2px 4px';
+        ['On track','At Risk','Off Track','Not started','Completed'].forEach(function(opt){
+          var o=document.createElement('option');o.value=opt;o.textContent=opt;if(opt===kr.confidence)o.selected=true;confSel.appendChild(o);
+        });
+        confSel.onchange=(function(krObj){return function(){krObj.confidence=this.value;renderOKR();};})(kr);
+        editBar.appendChild(confSel);krDiv.appendChild(editBar);
+      }
+      krsDiv.appendChild(krDiv);
     });
     objDiv.appendChild(krsDiv);wrap.appendChild(objDiv);
   });
