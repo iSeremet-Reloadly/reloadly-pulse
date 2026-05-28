@@ -250,6 +250,44 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .strat-act .hbtn{font-size:10px;padding:5px 10px}
 .strat-tab{display:inline-block;padding:6px 12px;font-size:10px;border-radius:6px;cursor:pointer;font-family:Roboto Mono,monospace;font-weight:700;letter-spacing:.5px;color:var(--mut);border:1px solid var(--brd);background:var(--surf2);margin-right:6px}
 .strat-tab.active{background:var(--acc);color:#fff;border-color:var(--acc)}
+/* ── Strategy User Guide modal ───────────────────────────────────────── */
+.strat-guide-ov{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9500;display:none;align-items:center;justify-content:center;padding:24px}
+.strat-guide-ov.open{display:flex}
+.strat-guide-box{background:var(--surf);border:1px solid var(--brd);border-radius:14px;width:100%;max-width:1100px;max-height:90vh;display:grid;grid-template-columns:220px 1fr;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+@media (max-width:900px){.strat-guide-box{grid-template-columns:1fr}.strat-guide-toc{display:none}}
+.strat-guide-toc{background:var(--surf2);border-right:1px solid var(--brd);padding:20px 14px;overflow-y:auto}
+.strat-guide-toc-h{font-size:10px;font-weight:800;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:1px;margin-bottom:12px}
+.strat-guide-toc a{display:block;padding:6px 10px;border-radius:6px;font-size:11px;color:var(--mut);text-decoration:none;margin-bottom:2px;font-family:Roboto Mono,monospace;cursor:pointer;border:1px solid transparent}
+.strat-guide-toc a:hover{background:var(--surf);color:var(--txt)}
+.strat-guide-toc a.active{background:var(--acc);color:#fff;border-color:var(--acc)}
+.strat-guide-content{padding:28px 36px;overflow-y:auto;line-height:1.55;font-size:13px;color:var(--txt)}
+.strat-guide-close{position:absolute;top:18px;right:22px;background:var(--surf2);border:1px solid var(--brd);color:var(--mut);width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center}
+.strat-guide-close:hover{color:var(--txt);background:var(--bg)}
+.strat-guide-h1{font-size:22px;font-weight:800;letter-spacing:-.4px;margin:0 0 4px 0;color:var(--txt)}
+.strat-guide-sub{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:24px;padding-bottom:14px;border-bottom:1px solid var(--brd)}
+.strat-guide-section{margin-bottom:30px;scroll-margin-top:20px}
+.strat-guide-section h2{font-size:14px;font-weight:800;color:var(--acc);font-family:Roboto Mono,monospace;letter-spacing:.5px;margin:0 0 10px 0;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--brd)}
+.strat-guide-section h3{font-size:12px;font-weight:700;color:var(--txt);font-family:Roboto Mono,monospace;margin:14px 0 6px 0;letter-spacing:.3px}
+.strat-guide-section p{margin:0 0 10px 0;color:var(--txt)}
+.strat-guide-section ul{margin:6px 0 12px 0;padding-left:22px}
+.strat-guide-section li{margin-bottom:5px;color:var(--txt)}
+.strat-guide-section table{width:100%;border-collapse:collapse;margin:10px 0 14px 0;font-size:12px}
+.strat-guide-section th{text-align:left;padding:7px 10px;font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.5px;background:var(--surf2);border-bottom:1px solid var(--brd)}
+.strat-guide-section td{padding:8px 10px;border-bottom:1px solid var(--brd);vertical-align:top;color:var(--txt)}
+.strat-guide-section td:first-child{white-space:nowrap;font-family:Roboto Mono,monospace;font-size:11px}
+.strat-guide-section code{background:var(--surf2);padding:1px 6px;border-radius:4px;font-family:Roboto Mono,monospace;font-size:11px;color:var(--acc)}
+.strat-guide-section .ex{background:var(--surf2);border-left:3px solid var(--acc);border-radius:6px;padding:10px 14px;margin:8px 0;font-size:12px}
+.strat-guide-section .ex-h{font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.5px;margin-bottom:6px}
+.strat-guide-section .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0}
+.strat-guide-section .pill-row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.strat-guide-section .tip{background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:12px;color:var(--txt)}
+.strat-guide-section .warn{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:12px;color:var(--txt)}
+.strat-guide-section .step{display:flex;gap:12px;margin:8px 0;align-items:flex-start}
+.strat-guide-section .step-n{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;font-family:Roboto Mono,monospace}
+.strat-guide-section .step-b{flex:1;font-size:12px;line-height:1.5}
+.strat-guide-btn{background:var(--surf2);border:1px solid var(--brd);color:var(--acc);padding:5px 11px;border-radius:6px;font-size:10px;font-weight:700;font-family:Roboto Mono,monospace;cursor:pointer;letter-spacing:.5px}
+.strat-guide-btn:hover{background:var(--acc);color:#fff;border-color:var(--acc)}
+
 
 </style>
 </head>
@@ -2266,6 +2304,9 @@ NS.renderStrategy=function(){
   var ca=document.createElement('button');ca.className='hbtn';ca.textContent='Collapse';ca.style.cssText='font-size:10px;padding:5px 10px';
   ca.onclick=function(){setState({expanded:{}});NS.renderStrategy();};
   fbar.appendChild(ca);
+  var ug=document.createElement('button');ug.className='strat-guide-btn';ug.innerHTML='📖 User Guide';ug.style.cssText='margin-left:auto';
+  ug.onclick=function(){NS.openUserGuide();};
+  fbar.appendChild(ug);
   wrap.appendChild(fbar);
 
   // Layout: tree + side
@@ -2614,6 +2655,272 @@ function scoreBlock(label,val,cls,explain){
     +'<div class="strat-score-explain" style="margin-top:6px">'+explain+'</div>';
   return d;
 }
+
+
+// ── User Guide modal ──────────────────────────────────────────────────
+NS.openUserGuide=function(){
+  var ov=document.getElementById('strat-guide-overlay');
+  if(!ov){
+    ov=document.createElement('div');ov.id='strat-guide-overlay';ov.className='strat-guide-ov';
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML='';
+  var box=document.createElement('div');box.className='strat-guide-box';box.style.position='relative';
+
+  var closeBtn=document.createElement('button');closeBtn.className='strat-guide-close';closeBtn.innerHTML='×';
+  closeBtn.onclick=function(){ov.classList.remove('open');};
+  box.appendChild(closeBtn);
+
+  // TOC
+  var toc=document.createElement('div');toc.className='strat-guide-toc';
+  var sections=[
+    {id:'intro',label:'01 · WHAT THIS IS'},
+    {id:'tiers',label:'02 · THE 7 TIERS'},
+    {id:'cascade',label:'03 · READING THE CASCADE'},
+    {id:'filters',label:'04 · FILTERS'},
+    {id:'scores',label:'05 · SCORES (A · E · R)'},
+    {id:'insights',label:'06 · INSIGHTS'},
+    {id:'drawer',label:'07 · DETAIL DRAWER'},
+    {id:'migration',label:'08 · MIGRATION'},
+    {id:'audit',label:'09 · 15-MIN AUDIT'},
+    {id:'limits',label:'10 · WHAT IT CAN’T DO YET'},
+    {id:'data',label:'11 · DATA & CAVEATS'},
+    {id:'troubleshoot',label:'12 · TROUBLESHOOTING'}
+  ];
+  toc.innerHTML='<div class="strat-guide-toc-h">CONTENTS</div>';
+  sections.forEach(function(sec){
+    var a=document.createElement('a');a.textContent=sec.label;a.setAttribute('data-target',sec.id);
+    a.onclick=function(){
+      toc.querySelectorAll('a').forEach(function(x){x.classList.remove('active');});
+      this.classList.add('active');
+      var t=box.querySelector('#sg-'+sec.id);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});
+    };
+    toc.appendChild(a);
+  });
+  box.appendChild(toc);
+
+  // Content
+  var c=document.createElement('div');c.className='strat-guide-content';
+  c.innerHTML=
+    '<div class="strat-guide-h1">Strategy — User Guide</div>'
+    +'<div class="strat-guide-sub">How to use the Strategy section · Reloadly Operational Performance OS</div>'
+
+    +'<div class="strat-guide-section" id="sg-intro">'
+      +'<h2>01 · What this is</h2>'
+      +'<p>The Strategy section shows how strategy cascades through Reloadly. Company Objectives at the top, the Department Objectives that translate them downward, the Key Results that measure them, the Initiatives that execute them, and the Tasks that close them out. Every node carries three at-a-glance scores so you can spot — without opening anything — which objectives are well-aligned, which can actually be delivered, and which are at risk. A sidebar surfaces problems automatically.</p>'
+      +'<div class="tip">This first release is <strong>read-only</strong>. Edit OKRs in the OKR Tracker and tasks in the department boards as before — the Strategy view reflects any change within a second.</div>'
+    +'</div>'
+
+    +'<div class="strat-guide-section" id="sg-tiers">'
+      +'<h2>02 · The 7 tiers</h2>'
+      +'<table><thead><tr><th>Tier</th><th>What it is</th><th>Example</th></tr></thead><tbody>'
+      +'<tr><td><span class="strat-tier L1">L1</span></td><td>Company Objective — top-level strategy</td><td>Scale Swype B2B revenue while protecting margins</td></tr>'
+      +'<tr><td><span class="strat-tier L2">L2</span></td><td>Department Objective — dept-level translation</td><td>Deliver best-in-class support for B2B retention</td></tr>'
+      +'<tr><td><span class="strat-tier L3">L3</span></td><td>Team Objective (optional)</td><td>Reduce SLA breaches by 30%</td></tr>'
+      +'<tr><td><span class="strat-tier L4">L4</span></td><td>Individual Objective (optional)</td><td>Own escalated ticket backlog</td></tr>'
+      +'<tr><td><span class="strat-tier L5">L5</span></td><td>Key Result — measurable outcome</td><td>Resolve 85% of tickets within 48h</td></tr>'
+      +'<tr><td><span class="strat-tier L6">L6</span></td><td>Initiative / Project — execution bundle</td><td>Implement new routing workflow</td></tr>'
+      +'<tr><td><span class="strat-tier L7">L7</span></td><td>Task — operational unit</td><td>Configure workflow automation</td></tr>'
+      +'</tbody></table>'
+      +'<p>Today your data uses L1, L2, L5, L6 (auto-generated wrappers), and L7. L3 and L4 are supported but appear only when someone creates them.</p>'
+    +'</div>'
+
+    +'<div class="strat-guide-section" id="sg-cascade">'
+      +'<h2>03 · Reading the cascade</h2>'
+      +'<p>Each row in the cascade shows, left-to-right:</p>'
+      +'<div class="ex"><div class="ex-h">EXAMPLE ROW</div>'
+        +'<div class="row">'
+        +'<span class="strat-caret open" style="display:inline-block">▸</span>'
+        +'<span class="strat-tier L5">L5</span>'
+        +'<span class="strat-id">KR-OPS-1-2</span>'
+        +'<span style="font-size:12px">Respond to 95% of inbound B2B support tickets within 1 hour</span>'
+        +'<span class="strat-prog" style="display:inline-block;vertical-align:middle"><span class="strat-prog-bar" style="width:65%"></span></span>'
+        +'<span class="strat-owner">Irene Paez</span>'
+        +'<span class="strat-score s-ok">A 90</span>'
+        +'<span class="strat-score s-warn">E 65</span>'
+        +'<span class="strat-score s-warn">R Med</span>'
+        +'</div>'
+      +'</div>'
+      +'<ul>'
+        +'<li><strong>Caret</strong> — click to expand/collapse children</li>'
+        +'<li><strong>Tier chip</strong> — which level in the hierarchy</li>'
+        +'<li><strong>ID</strong> — typed identifier (CO-, DO-, KR-, IN-, TA-)</li>'
+        +'<li><strong>Title</strong> — the objective / KR / initiative / task name</li>'
+        +'<li><strong>Progress bar</strong> — current %</li>'
+        +'<li><strong>Owner</strong> — accountable person</li>'
+        +'<li><strong>Score chips</strong> — Alignment · Execution Readiness · Risk</li>'
+      +'</ul>'
+      +'<p>Click anywhere on the row (not the caret) to open the detail drawer. Top two tiers (L1, L2) auto-expand on first load. Use <strong>Expand all</strong> / <strong>Collapse</strong> in the filter bar to override.</p>'
+    +'</div>'
+
+    +'<div class="strat-guide-section" id="sg-filters">'
+      +'<h2>04 · Filters</h2>'
+      +'<table><tbody>'
+      +'<tr><td><strong>Quarter</strong></td><td>Switch between OKR quarters. Defaults to the active quarter.</td></tr>'
+      +'<tr><td><strong>Dept</strong></td><td>Show only chains tied to a specific department. L1 nodes show only if they have a descendant in that dept.</td></tr>'
+      +'<tr><td><strong>Owner</strong></td><td>Show only nodes owned by a specific person.</td></tr>'
+      +'<tr><td><strong>Type</strong></td><td>Show only one tier — useful for scanning orphans or weak metrics.</td></tr>'
+      +'<tr><td><strong>Find</strong></td><td>Free-text search across title and ID.</td></tr>'
+      +'<tr><td><strong>Expand all / Collapse</strong></td><td>Bulk control over the cascade.</td></tr>'
+      +'</tbody></table>'
+      +'<p>Filters persist per browser — each colleague’s filter state is private.</p>'
+    +'</div>'
+
+    +'<div class="strat-guide-section" id="sg-scores">'
+      +'<h2>05 · The three scores</h2>'
+      +'<p>Every non-Task node has three chips. They are <strong>deterministic, rule-based</strong> — no AI yet. Hover any chip in the cascade to see the rule breakdown for that specific node.</p>'
+
+      +'<h3>A · Alignment (0–100)</h3>'
+      +'<p>Does this node fit into the strategy graph?</p>'
+      +'<ul>'
+        +'<li><strong>+40</strong> if it has a parent traceable upward (or is an L1)</li>'
+        +'<li><strong>+20</strong> if parents are in the same quarter</li>'
+        +'<li><strong>+20</strong> if an owner is set</li>'
+        +'<li><strong>+20</strong> if the title shares vocabulary with at least one parent</li>'
+      +'</ul>'
+      +'<div class="pill-row"><span class="strat-score s-ok">A 85</span><span style="font-size:11px;color:var(--mut)">≥ 80 green</span> <span class="strat-score s-warn">A 65</span><span style="font-size:11px;color:var(--mut)">50–79 amber</span> <span class="strat-score s-bad">A 40</span><span style="font-size:11px;color:var(--mut)">&lt; 50 red</span></div>'
+
+      +'<h3>E · Execution Readiness (0–100)</h3>'
+      +'<p>Can this actually be delivered?</p>'
+      +'<ul>'
+        +'<li><strong>+25</strong> if it has the minimum number of children</li>'
+        +'<li><strong>+25</strong> if all children have owners</li>'
+        +'<li><strong>+20</strong> if children have due dates inside the parent quarter (Initiative/Task only — KRs auto-pass)</li>'
+        +'<li><strong>+15</strong> if a workload-days estimate exists (Initiative/Task only)</li>'
+        +'<li><strong>+15</strong> if the metric is fully defined: baseline + target + unit + direction (KRs only)</li>'
+      +'</ul>'
+
+      +'<h3>R · Risk (Low / Medium / High)</h3>'
+      +'<p>Composite signal of execution health: progress vs. expected progress for time elapsed, confidence flags, blocked state, stalled tasks (lastUpdated &gt; 14 days). Higher penalty count = higher risk.</p>'
+      +'<div class="pill-row"><span class="strat-score s-ok">R Low</span> <span class="strat-score s-warn">R Med</span> <span class="strat-score s-bad">R High</span></div>'
+    +'</div>'
+
+    +'<div class="strat-guide-section" id="sg-insights">'
+      +'<h2>06 · The Insights sidebar</h2>'
+      +'<p>Eight rule-based checks run automatically. Click any insight to open its node in the detail drawer.</p>'
+      +'<table><thead><tr><th>Insight</th><th>Means</th><th>Severity</th></tr></thead><tbody>'
+      +'<tr><td><strong>ORPHAN KR</strong></td><td>KR has no Initiatives and no Tasks attached</td><td>High</td></tr>'
+      +'<tr><td><strong>UNALIGNED DO</strong></td><td>Department Objective has no link to a Company Objective</td><td>Medium</td></tr>'
+      +'<tr><td><strong>WEAK METRIC</strong></td><td>KR is missing baseline, target, unit, or direction</td><td>Low</td></tr>'
+      +'<tr><td><strong>NO OWNER</strong></td><td>Active node has no owner — accountability gap</td><td>Medium</td></tr>'
+      +'<tr><td><strong>AT RISK</strong></td><td>KR has confidence Off Track / At Risk</td><td>High</td></tr>'
+      +'<tr><td><strong>OVERLOADED</strong></td><td>One person owns ≥ 8 KRs/Initiatives this quarter</td><td>Medium</td></tr>'
+      +'<tr><td><strong>STALLED</strong></td><td>Initiative’s linked tasks haven’t moved in 14+ days</td><td>Medium</td></tr>'
+      +'<tr><td><strong>POSSIBLE DUP</strong></td><td>Two Initiatives in the same dept have very similar titles</td><td>Low</td></tr>'
+      +'</tbody></table>'
+      +'<div class="tip">These are <strong>heuristics, not AI</strong>. Same UI shape as a future LLM-backed pass — when the backend ships, the rule output gets replaced by real model analysis without changing the surface.</div>'
+    +'</div>'
+
+    +'<div class="strat-guide-section" id="sg-drawer">'
+      +'<h2>07 · The detail drawer</h2>'
+      +'<p>Click any node to slide a panel in from the right:</p>'
+      +'<ul>'
+        +'<li><strong>Header</strong> — tier, ID, dept, quarter, state</li>'
+        +'<li><strong>Scores</strong> — full rule breakdowns</li>'
+        +'<li><strong>Ownership</strong> — owner name + email</li>'
+        +'<li><strong>Parents</strong> — every direct upstream node, click to navigate up</li>'
+        +'<li><strong>Children</strong> — every direct downstream node, click to navigate down</li>'
+        +'<li><strong>Metric</strong> (KRs only) — baseline / target / unit / direction</li>'
+        +'<li><strong>Linked Tasks</strong> (Initiatives only) — live status from the task board</li>'
+      +'</ul>'
+      +'<p>The drawer stacks: clicking a parent or child swaps its contents without losing the cascade view behind. Click × or outside to close.</p>'
+    +'</div>'
+
+    +'<div class="strat-guide-section" id="sg-migration">'
+      +'<h2>08 · How your OKRs got migrated</h2>'
+      +'<p>First load auto-migrated existing data into the typed-node graph:</p>'
+      +'<ul>'
+        +'<li>OKR Tracker → Company tab objectives → became <code>CO-</code> nodes (L1)</li>'
+        +'<li>OKR Tracker → dept-tab objectives → became <code>DO-</code> nodes (L2)</li>'
+        +'<li>Every KR → became a <code>KR-</code> node (L5)</li>'
+        +'<li>KRs with linked tasks got an auto-Initiative wrapper <code>IN-AUTO-</code> (L6), tasks underneath as <code>TA-</code> (L7)</li>'
+        +'<li>L2s auto-cascaded upward to the most semantically similar L1 via title-token overlap. Mismatches show in an "Unaligned" section at the bottom — those are real strategy gaps.</li>'
+      +'</ul>'
+      +'<div class="warn"><strong>Non-destructive.</strong> Your original <code>rl_okr_*</code> and <code>rl_okr_links</code> are untouched. OKR Tracker, task boards, and Performance module all continue to work. New data lives in <code>rl_strat_nodes_v1</code> / <code>rl_strat_edges_v1</code>. The migration is idempotent — refreshing won’t duplicate nodes.</div>'
+      +'<p>To roll back: clear <code>rl_strat_*</code> keys from your browser localStorage. The Strategy view repopulates on next reload.</p>'
+    +'</div>'
+
+    +'<div class="strat-guide-section" id="sg-audit">'
+      +'<h2>09 · A practical 15-minute gap audit</h2>'
+      +'<p>Open the Strategy tab right now and do this walk:</p>'
+      +'<div class="step"><div class="step-n">1</div><div class="step-b"><strong>Quarter filter</strong> — confirm it’s on the active quarter.</div></div>'
+      +'<div class="step"><div class="step-n">2</div><div class="step-b"><strong>Sidebar → Insights</strong> — look at every <em>ORPHAN KR</em> and <em>UNALIGNED DO</em>. Direct holes in the plan.</div></div>'
+      +'<div class="step"><div class="step-n">3</div><div class="step-b"><strong>Sidebar → Execution Portfolio</strong> — note the average Alignment and Execution Readiness. If either is under 70, the issue is structural across many nodes.</div></div>'
+      +'<div class="step"><div class="step-n">4</div><div class="step-b"><strong>Click any high-severity insight</strong> — drawer opens on the bad node. If you can fix it (e.g. assign an owner), the fix happens in the OKR Tracker for now. Strategy view refreshes on next page load.</div></div>'
+      +'<div class="step"><div class="step-n">5</div><div class="step-b"><strong>Filter by Dept = Operations</strong> (or any) — confirm the cascade reaches Tasks. Chains stopping at L5 mean no initiatives/tasks linked.</div></div>'
+      +'<div class="step"><div class="step-n">6</div><div class="step-b"><strong>Filter by Owner = your name</strong> — see everything you personally own. Personal accountability dashboard.</div></div>'
+      +'<p style="margin-top:14px">Repeat weekly. Execution Portfolio averages should trend upward as gaps close.</p>'
+    +'</div>'
+
+    +'<div class="strat-guide-section" id="sg-limits">'
+      +'<h2>10 · What this can’t do yet</h2>'
+      +'<table><thead><tr><th>Capability</th><th>Where to do it now</th><th>Coming in</th></tr></thead><tbody>'
+      +'<tr><td>Create / edit Objectives or KRs</td><td>OKR Tracker</td><td>Phase 3</td></tr>'
+      +'<tr><td>Link a task to a KR</td><td>OKR Tracker → Link Tasks</td><td>Phase 3</td></tr>'
+      +'<tr><td>Create / edit Tasks</td><td>Dept board or My Tasks</td><td>Phase 3</td></tr>'
+      +'<tr><td>Set KR metric (baseline/target/unit/dir)</td><td>Not editable yet</td><td>Phase 3</td></tr>'
+      +'<tr><td>Enforce no-empty-KR rule</td><td>Surfaced as ORPHAN KR insight</td><td>Phase 3 planning gates</td></tr>'
+      +'<tr><td>Drag-and-drop graph / mindmap</td><td>—</td><td>Phase 4</td></tr>'
+      +'<tr><td>Bottom-up proposal flow</td><td>—</td><td>Phase 5</td></tr>'
+      +'<tr><td>Real LLM-driven insights</td><td>Heuristics for now</td><td>Phase 7+ (needs backend)</td></tr>'
+      +'<tr><td>Cross-device / cross-user sync</td><td>localStorage is per-browser</td><td>Phase 7+ (needs backend)</td></tr>'
+      +'</tbody></table>'
+    +'</div>'
+
+    +'<div class="strat-guide-section" id="sg-data">'
+      +'<h2>11 · Where data lives + caveats</h2>'
+      +'<table><thead><tr><th>Key</th><th>Holds</th></tr></thead><tbody>'
+      +'<tr><td><code>rl_okr_Q*_YYYY</code></td><td>Source-of-truth OKRs (untouched)</td></tr>'
+      +'<tr><td><code>rl_okr_links</code></td><td>Source-of-truth KR → Task links (untouched)</td></tr>'
+      +'<tr><td><code>rl_tasks_v4</code></td><td>Source-of-truth tasks (untouched)</td></tr>'
+      +'<tr><td><code>rl_strat_nodes_v1</code></td><td>Migrated typed-node graph</td></tr>'
+      +'<tr><td><code>rl_strat_edges_v1</code></td><td>Parent-child relationships</td></tr>'
+      +'<tr><td><code>rl_strat_migrated_v1</code></td><td>Per-quarter migration timestamps</td></tr>'
+      +'<tr><td><code>rl_strat_uistate_v1</code></td><td>Your filter / expansion state</td></tr>'
+      +'</tbody></table>'
+      +'<div class="warn"><strong>localStorage is per-browser per-device.</strong> Two browsers on the same laptop = two separate copies of the Strategy graph. Different colleagues looking at the live site = each sees their own browser’s view. This is the same limitation as the rest of the app, and the single biggest argument for the Reloadly-backend migration in Phase 7.</div>'
+    +'</div>'
+
+    +'<div class="strat-guide-section" id="sg-troubleshoot">'
+      +'<h2>12 · Troubleshooting</h2>'
+      +'<table><thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead><tbody>'
+      +'<tr><td>Strategy tab empty</td><td>Migration hasn’t run or no OKR data in active quarter</td><td>Reload page; verify OKR Tracker has objectives</td></tr>'
+      +'<tr><td>Strategy nav not visible</td><td>Browser cache</td><td>Hard refresh or private window</td></tr>'
+      +'<tr><td>Insight count seems too high</td><td>Most KRs in seed data have no linked tasks — real ORPHAN flags</td><td>Either link tasks, or accept as the baseline gap audit</td></tr>'
+      +'<tr><td>DOs show under "Unaligned"</td><td>Title didn’t share enough tokens with any L1</td><td>Will be manually mappable in Phase 3; until then, real strategy mismatch to discuss</td></tr>'
+      +'<tr><td>All scores low</td><td>Owner / metric fields empty in source data</td><td>Fill in OKR Tracker; reload Strategy view</td></tr>'
+      +'<tr><td>"No nodes match filters"</td><td>Filter combo eliminates everything</td><td>Clear search field; switch Dept back to All</td></tr>'
+      +'</tbody></table>'
+      +'<div class="tip">Bug reports or feedback → ping Dren.</div>'
+    +'</div>';
+
+  box.appendChild(c);
+  ov.appendChild(box);
+  ov.classList.add('open');
+
+  // First toc link active by default
+  var firstA=toc.querySelector('a');if(firstA)firstA.classList.add('active');
+
+  // Click outside to close
+  ov.onclick=function(e){if(e.target===ov)ov.classList.remove('open');};
+
+  // Track scroll position to highlight active TOC entry
+  c.onscroll=function(){
+    var top=c.scrollTop+40;
+    var active=null;
+    sections.forEach(function(sec){
+      var el=c.querySelector('#sg-'+sec.id);
+      if(el&&el.offsetTop<=top)active=sec.id;
+    });
+    if(active){
+      toc.querySelectorAll('a').forEach(function(x){x.classList.toggle('active',x.getAttribute('data-target')===active);});
+    }
+  };
+
+  // ESC closes
+  function onEsc(e){if(e.key==='Escape'){ov.classList.remove('open');document.removeEventListener('keydown',onEsc);}}
+  document.addEventListener('keydown',onEsc);
+};
 
 NS._dismissBanner=function(){localStorage.setItem(BANNER_KEY,'1');NS.renderStrategy();};
 
