@@ -1048,6 +1048,9 @@ function renderOKR(){
     var otl=document.createElement('div');otl.style.cssText='font-size:14px;font-weight:700';otl.textContent=obj.title;
     if(isAdmin()){otl.contentEditable='true';otl.style.outline='none';otl.style.borderBottom='1px dashed transparent';otl.onfocus=function(){this.style.borderBottomColor='var(--acc)';};otl.onblur=(function(o,k,d){return function(){this.style.borderBottomColor='transparent';o.title=this.textContent.trim();saveOKRForQuarter(k,d);};})(obj,activeKey,okrData);}
     otd.appendChild(oid);otd.appendChild(otl);
+    var oInfo=document.createElement('span');oInfo.className='th-info';oInfo.textContent='i';oInfo.style.cssText='margin-left:6px;vertical-align:middle';
+    oInfo.setAttribute('data-tip','Objective % is the average of all its Key Results\u2019 progress values. Each KR is weighted equally. Update a KR\u2019s progress and this recalculates automatically.');
+    otl.appendChild(oInfo);
     var opd=document.createElement('div');opd.style.cssText='margin-left:20px;text-align:right';opd.innerHTML='<div style="font-size:28px;font-weight:800;color:'+deptObj.color+'">'+obj.progress+'<span style="font-size:14px">%</span></div><div style="width:80px;height:6px;background:var(--surf2);border-radius:3px;margin-top:4px"><div style="width:'+obj.progress+'%;height:100%;background:'+deptObj.color+';border-radius:3px"></div></div>';
     oh.appendChild(otd);oh.appendChild(opd);od.appendChild(oh);
     var krsDiv=document.createElement('div');krsDiv.style.cssText='display:flex;flex-direction:column;gap:8px';
@@ -1749,6 +1752,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
