@@ -99,6 +99,9 @@ td{padding:8px 12px;font-size:12px;vertical-align:middle}
 .sp.ur{background:rgba(251,191,36,.12);color:var(--yel)}
 .sdot{width:4px;height:4px;border-radius:50%;background:currentColor}
 .ie{background:transparent;border:none;font-size:12px;color:var(--txt);font-family:'Lexend',sans-serif;width:100%}
+.nht{transition:all .15s ease;}
+.nht:hover,.nht:focus{position:relative;z-index:50;min-width:300px;width:300px;background:var(--surf);box-shadow:0 6px 24px rgba(0,0,0,.35);border:1px solid var(--acc);border-radius:6px;padding:6px 8px;font-size:12px;}
+td:has(.nht:hover),td:has(.nht:focus){overflow:visible;}
 .ie:focus{background:var(--bg);border:1px solid var(--acc);padding:3px 6px;border-radius:4px;outline:none}
 .isel{background:transparent;border:none;color:inherit;font-family:inherit;font-size:inherit;font-weight:inherit;cursor:pointer;padding:0;outline:none;width:100%}
 .pw{width:55px;background:var(--bg);border-radius:2px;height:3px;flex-shrink:0}
@@ -355,6 +358,7 @@ function renderMyTasks(){
   var el=document.getElementById('main');if(!el)return;
   var h2='<div class="ptitle">My Tasks</div>';
   h2+='<div class="psub">'+all.length+' task'+(all.length!==1?'s':'')+' assigned to you · '+done+' done</div>';
+  h2+='<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin:14px 0 18px;padding:14px;background:var(--surf);border:1px solid var(--brd);border-radius:10px">';  h2+='<div style="flex:2;min-width:200px"><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">NEW TASK</label><input id="mtn" placeholder="Describe the task..." style="width:100%;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box"></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">DEPT</label><select id="mtd" style="padding:8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px">'+DEPTS.map(function(d){return '<option value="'+d+'"'+(d===(currentUser.dept||'')?' selected':'')+'>'+d+'</option>';}).join('')+'</select></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">PRIORITY</label><select id="mtp" style="padding:8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option></select></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">DUE</label><input id="mtdue" type="date" style="padding:7px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px"></div>';  h2+='<button style="background:var(--acc);color:#fff;border:none;padding:9px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer" onclick="addMyTask()">+ Add</button>';  h2+='</div>';
   if(!all.length){h2+='<div style="color:var(--mut);margin-top:32px;text-align:center;font-size:11px">No tasks assigned to you yet.</div>';el.innerHTML=h2;return;}
   h2+='<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>STATUS</th><th>PRIORITY</th><th>DUE</th><th>PROGRESS</th></tr></thead><tbody>';
   all.forEach(function(t){
@@ -496,6 +500,17 @@ function addTask(dept){
   autoSave();render();toast(t.id+' created','ok');
   document.getElementById('nn').value='';document.getElementById('na').selectedIndex=0;
 }
+function addMyTask(){
+  var name=document.getElementById('mtn').value.trim();
+  if(!name){toast('Task name required','err');return;}
+  var dept=document.getElementById('mtd').value;
+  var pri=document.getElementById('mtp').value;
+  var due=document.getElementById('mtdue').value;
+  var t={id:nextId(dept),name:name,assignee:currentUser.name,priority:pri,status:'Not Started',createdAt:new Date().toISOString(),due:due,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',lastUpdated:new Date().toISOString().split('T')[0]};
+  data[dept].unshift(t);logEntry('Created '+t.id+' in '+dept+' (self-assigned)','add');
+  autoSave();renderMyTasks();toast(t.id+' created','ok');
+}
+
 function upd(dept,id,field,val){
   var t=data[dept].filter(function(x){return x.id===id;})[0];if(!t)return;
   var old=t[field];t[field]=val;t.lastUpdated=new Date().toISOString().split('T')[0];
@@ -818,7 +833,7 @@ function exportExcel(){
   DEPTS.forEach(function(d){var s=stats(d);sum.push([d,s.total,s.ns,s.ip,s.bl,s.ur,s.dn,s.total?Math.round(s.dn/s.total*100)+'%':'0%']);});
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Summary');
   DEPTS.forEach(function(dept){
-    var rows=[['ID','Task','Assignee','Priority','Status','Progress%','Due','Start','Notes','Updated']];
+    var rows=[['ID','Task','DRI','Priority','Status','Progress%','Due','Start','Notes','Updated']];
     sorted(data[dept]).forEach(function(t){rows.push([t.id,t.name,t.assignee||'',t.priority,t.status,t.progress||0,t.due||'',t.startDate||'',t.notes||'',t.lastUpdated||'']);});
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),dept);
   });
@@ -872,7 +887,7 @@ function renderDash(){
     +'</div>';
   if(crit.length){
     h+='<div class="sh"><div><div class="sh-t">Critical Tasks</div><div class="sh-s">'+crit.length+' needing attention</div></div></div>'
-      +'<div id="crit-tbl" class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>ASSIGNEE</th><th>STATUS</th><th>DUE</th></tr></thead><tbody>';
+      +'<div id="crit-tbl" class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>DRI</th><th>STATUS</th><th>DUE</th></tr></thead><tbody>';
     crit.forEach(function(t){
       h+='<tr class="clickrow" data-go="'+t.dept+'">'
         +'<td class="tid">'+t.id+'</td><td>'+esc(t.name)+'</td>'
@@ -1100,7 +1115,7 @@ function renderOKR(){
   main.innerHTML='';main.appendChild(wrap);
 }
 function openLinkTaskModal(krId,krTitle){
-  var allTasks=[];DEPTS.forEach(function(d){(data[d]||[]).forEach(function(t){allTasks.push(Object.assign({},t,{dept:d}));});});
+  var allTasks=[];DEPTS.forEach(function(d){(data[d]||[]).forEach(function(t){if((t.assignee||'').trim()!==''){allTasks.push(Object.assign({},t,{dept:d}));}});});
   var linked=OKR_LINKS[krId]||[];
   var overlay=document.createElement('div');overlay.id='okr-modal';overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';overlay.onclick=function(ev){if(ev.target===overlay)overlay.remove();};
   var box=document.createElement('div');box.style.cssText='background:var(--surf);border-radius:10px;padding:24px;width:560px;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)';
@@ -1620,7 +1635,7 @@ function renderDept(dept){
     +'</div>'
     +'<div class="atb">'
     +'<div class="fld"><label>TASK NAME</label><input id="nn" placeholder="Describe the task..."></div>'
-    +'<div class="fld"><label>ASSIGNEE</label><select id="na">'+assigneeOptions(currentUser?currentUser.name:'')+'</select></div>'
+    +'<div class="fld"><label>DRI</label><select id="na">'+assigneeOptions(currentUser?currentUser.name:'')+'</select></div>'
     +'<div class="fld"><label>PRIORITY</label><select id="np">'+PRIORITIES.map(function(p){return '<option>'+p+'</option>';}).join('')+'</select></div>'
     +'<div class="fld"><label>DUE DATE</label><input id="nd" type="date"></div>'
     +'<button class="add-btn" id="add-task-btn">+ ADD</button>'
@@ -1634,7 +1649,7 @@ function renderDept(dept){
   }else{
     var af=fil.filter(function(t){return t.status!=='Done';});
     var df=fil.filter(function(t){return t.status==='Done';});
-    h+='<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>ASSIGNEE</th><th>PRIORITY</th><th>STATUS</th><th>PROG</th><th>DUE</th><th>NOTES</th>'+(isAdmin()?'<th style="color:var(--acc2)" title="Admin only">⏱ DONE IN</th>':'')+'<th></th></tr></thead><tbody id="tbody">';
+    h+='<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DRI</th><th>PRIORITY</th><th>STATUS</th><th>PROG</th><th>DUE</th><th>NOTES</th>'+(isAdmin()?'<th style="color:var(--acc2)" title="Admin only">⏱ DONE IN</th>':'')+'<th></th></tr></thead><tbody id="tbody">';
     af.concat(df.length?[{_divider:true,count:df.length}]:[]).concat(df).forEach(function(t){
       if(t._divider){h+='<tr class="done-divider"><td colspan="'+(isAdmin()?10:9)+'">&#10003; COMPLETED ('+t.count+')</td></tr>';return;}
       var pr=t.progress||0,id=t.id,isDone=t.status==='Done';
@@ -1648,7 +1663,7 @@ function renderDept(dept){
         +'<input type="number" min="0" max="100" value="'+pr+'" style="width:46px;padding:2px 4px;font-size:11px;font-family:Roboto Mono,monospace;text-align:center;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="progress" class="prog-inp" title="Type 0-100 and press Enter">'
         +'<span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">%</span></div></td>'
         +'<td><input type="date" value="'+(t.due||'')+'" style="width:118px;font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:3px 5px;outline:none" data-dept="'+dept+'" data-id="'+id+'" data-field="due" class="date-inp"></td>'
-        +'<td><input class="ie" style="width:100px;font-size:11px" value="'+esc(t.notes||'')+'" placeholder="Notes..." data-dept="'+dept+'" data-id="'+id+'" data-field="notes"></td>'
+        +'<td><input class="ie nht" style="width:100px;font-size:11px" value="'+esc(t.notes||'')+'" title="'+esc(t.notes||'')+'" placeholder="Notes..." data-dept="'+dept+'" data-id="'+id+'" data-field="notes"></td>'
         +(isAdmin()?(function(){var cs='font-size:10px;font-family:Roboto Mono,monospace;white-space:nowrap;text-align:center;';var tt='Created: '+(t.createdAt?t.createdAt.slice(0,10):'?')+(t.completedAt?' | Done: '+t.completedAt.slice(0,10):'');if(t.status==='Done'&&t.completedAt&&t.createdAt)return '<td style="'+cs+'color:var(--grn)" title="'+tt+'">'+timeDiff(t.createdAt,t.completedAt)+'</td>';if(t.createdAt)return '<td style="'+cs+'color:var(--mut)" title="'+tt+'">⏳ '+timeDiff(t.createdAt,null)+'</td>';return '<td style="'+cs+'color:var(--mut)">—</td>';})():'')
 +'<td><button class="del" data-dept="'+dept+'" data-id="'+id+'">&#215;</button></td></tr>';
     });
@@ -1772,6 +1787,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
