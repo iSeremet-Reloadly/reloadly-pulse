@@ -175,6 +175,82 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .th-info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;background:rgba(108,99,255,.25);color:var(--acc);font-size:9px;font-weight:700;cursor:default;margin-left:4px;vertical-align:middle;line-height:1;font-family:sans-serif;flex-shrink:0}
 #th-tooltip{position:fixed;background:var(--surf);border:1px solid var(--acc);border-radius:8px;padding:10px 12px;max-width:210px;font-size:11px;color:var(--txt);line-height:1.6;z-index:99999;box-shadow:0 8px 28px rgba(0,0,0,.45);pointer-events:none;display:none}
 #th-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--acc)}
+
+/* ── Strategic Execution Architecture ───────────────────────────────── */
+.strat-wrap{padding:24px;max-width:1700px;margin:0 auto}
+.strat-hdr{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.strat-title{font-size:22px;font-weight:800;letter-spacing:-.5px}
+.strat-sub{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:18px}
+.strat-fbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:10px 12px}
+.strat-fbar select,.strat-fbar input{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;padding:6px 10px;font-size:11px;font-family:inherit}
+.strat-fbar input{min-width:200px}
+.strat-fbar .fl{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace}
+.strat-layout{display:grid;grid-template-columns:1fr 360px;gap:18px}
+@media (max-width:1200px){.strat-layout{grid-template-columns:1fr}}
+.strat-tree{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:18px;min-height:600px}
+.strat-side{display:flex;flex-direction:column;gap:14px}
+.strat-card{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:16px}
+.strat-card-h{font-size:10px;font-weight:800;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:10px;letter-spacing:1px}
+.strat-stat{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.strat-stat-c{background:var(--surf2);border-radius:8px;padding:10px;text-align:center}
+.strat-stat-v{font-size:22px;font-weight:800;line-height:1}
+.strat-stat-l{font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:4px;letter-spacing:.5px}
+.strat-node{border:1px solid var(--brd);border-radius:10px;background:var(--surf2);margin-bottom:10px;transition:border-color .12s, transform .12s}
+.strat-node:hover{border-color:var(--acc)}
+.strat-node-h{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;user-select:none}
+.strat-tier{font-size:9px;font-weight:800;font-family:Roboto Mono,monospace;padding:2px 7px;border-radius:6px;letter-spacing:.5px;flex-shrink:0}
+.strat-tier.L1{background:rgba(108,99,255,.2);color:var(--acc)}
+.strat-tier.L2{background:rgba(9,250,163,.18);color:var(--grn)}
+.strat-tier.L3{background:rgba(251,191,36,.18);color:var(--yel)}
+.strat-tier.L4{background:rgba(139,92,246,.2);color:#a78bfa}
+.strat-tier.L5{background:rgba(255,107,107,.18);color:var(--red)}
+.strat-tier.L6{background:rgba(39,120,196,.22);color:#5aa3e0}
+.strat-tier.L7{background:rgba(150,150,160,.18);color:var(--mut)}
+.strat-name{flex:1;font-size:13px;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.strat-name.L5{font-size:12px;font-weight:500}
+.strat-name.L6{font-size:11px;font-weight:500;color:var(--mut)}
+.strat-name.L7{font-size:11px;font-weight:400;color:var(--mut)}
+.strat-id{font-size:9px;font-family:Roboto Mono,monospace;color:var(--mut);flex-shrink:0;padding:1px 6px;border-radius:4px;background:var(--surf)}
+.strat-owner{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;flex-shrink:0}
+.strat-children{padding:0 14px 8px 28px;border-left:2px solid var(--brd);margin-left:18px}
+.strat-scores{display:flex;gap:5px;flex-shrink:0}
+.strat-score{font-size:9px;font-family:Roboto Mono,monospace;padding:2px 7px;border-radius:5px;cursor:default;font-weight:700;letter-spacing:.3px;border:1px solid transparent}
+.strat-score.s-ok{background:rgba(9,250,163,.16);color:var(--grn);border-color:rgba(9,250,163,.3)}
+.strat-score.s-warn{background:rgba(251,191,36,.16);color:var(--yel);border-color:rgba(251,191,36,.3)}
+.strat-score.s-bad{background:rgba(255,107,107,.18);color:var(--red);border-color:rgba(255,107,107,.32)}
+.strat-prog{height:4px;background:var(--surf);border-radius:2px;overflow:hidden;width:60px;flex-shrink:0}
+.strat-prog-bar{height:100%;background:var(--acc);transition:width .25s}
+.strat-caret{font-size:11px;color:var(--mut);width:12px;flex-shrink:0;transition:transform .12s;font-family:monospace}
+.strat-caret.open{transform:rotate(90deg)}
+.strat-empty{padding:40px 20px;text-align:center;color:var(--mut);font-size:12px}
+.strat-empty-icon{font-size:28px;margin-bottom:10px}
+.strat-insight{padding:10px;background:var(--surf2);border-radius:8px;margin-bottom:8px;border-left:3px solid var(--acc);font-size:11px}
+.strat-insight.sev-high{border-left-color:var(--red)}
+.strat-insight.sev-med{border-left-color:var(--yel)}
+.strat-insight.sev-low{border-left-color:var(--acc)}
+.strat-insight-t{font-weight:700;font-size:10px;margin-bottom:4px;font-family:Roboto Mono,monospace;letter-spacing:.5px}
+.strat-insight-b{font-size:11px;color:var(--txt);line-height:1.4}
+.strat-insight-id{font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:4px}
+.strat-detail{position:fixed;top:0;right:0;width:480px;max-width:95vw;height:100vh;background:var(--surf);border-left:1px solid var(--brd);box-shadow:-8px 0 32px rgba(0,0,0,.45);z-index:9000;overflow-y:auto;padding:24px;display:none}
+.strat-detail.open{display:block}
+.strat-detail-close{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--mut);font-size:20px;cursor:pointer}
+.strat-detail-close:hover{color:var(--txt)}
+.strat-detail h3{font-size:18px;font-weight:800;margin:0 0 8px 0;letter-spacing:-.3px;padding-right:32px}
+.strat-detail-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.strat-detail-sect{margin-top:18px}
+.strat-detail-sect h4{font-size:10px;font-weight:800;color:var(--mut);font-family:Roboto Mono,monospace;margin:0 0 8px 0;letter-spacing:1px}
+.strat-link{font-size:11px;padding:6px 8px;background:var(--surf2);border-radius:6px;margin-bottom:4px;cursor:pointer;display:flex;align-items:center;gap:8px}
+.strat-link:hover{background:var(--bg)}
+.strat-link-empty{font-size:11px;color:var(--mut);font-style:italic}
+.strat-score-explain{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;line-height:1.5;background:var(--surf2);border-radius:6px;padding:8px;margin-top:4px}
+.strat-banner{background:linear-gradient(90deg,rgba(108,99,255,.12),rgba(9,250,163,.08));border:1px solid rgba(108,99,255,.3);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--txt);display:flex;align-items:center;gap:10px}
+.strat-banner-x{font-size:11px;color:var(--mut);cursor:pointer;margin-left:auto;padding:2px 8px;border-radius:5px}
+.strat-banner-x:hover{background:var(--surf2);color:var(--txt)}
+.strat-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.strat-act .hbtn{font-size:10px;padding:5px 10px}
+.strat-tab{display:inline-block;padding:6px 12px;font-size:10px;border-radius:6px;cursor:pointer;font-family:Roboto Mono,monospace;font-weight:700;letter-spacing:.5px;color:var(--mut);border:1px solid var(--brd);background:var(--surf2);margin-right:6px}
+.strat-tab.active{background:var(--acc);color:#fff;border-color:var(--acc)}
+
 </style>
 </head>
 <body>
@@ -195,6 +271,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="sb-lbl">OVERVIEW</div>
     <div class="ni active" id="nav-dashboard" onclick="go('dashboard')"><div class="ni-l"><div class="dd" style="background:var(--mut)"></div>Dashboard</div></div>
     
+    <div class="ni" id="nav-strategy" onclick="go('strategy')"><div class="ni-l"><div class="dd" style="background:linear-gradient(45deg,var(--acc),var(--grn))"></div>Strategy</div></div>
     <div class="ni" id="nav-okr" onclick="go('okr')"><div class="ni-l"><div class="dd" style="background:var(--acc2)"></div>OKR Tracker</div></div>
     <div class="sb-lbl">DEPARTMENTS</div>
     <div class="ni" id="nav-Management" onclick="go('Management')"><div class="ni-l"><div class="dd" style="background:var(--acc)"></div>Management</div><div class="cnt" id="c-Management">0</div></div>
@@ -410,6 +487,7 @@ function loadData(){
   ];}
   autoSave();updCnts();
   if(currentUser&&!currentUser.canViewAll){view=currentUser.dept;}
+  try{STRAT.migrate();}catch(e){console.warn('STRAT migrate failed',e);}
   render();
   document.getElementById('ts').textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'});
   renderUserPill();checkReminders();
@@ -495,7 +573,7 @@ function nextId(dept){
 function addTask(dept){
   var name=document.getElementById('nn').value.trim();
   if(!name){toast('Task name required','err');return;}
-  var t={id:nextId(dept),name:name,assignee:document.getElementById('na').value||'',priority:document.getElementById('np').value,status:'Not Started',createdAt:new Date().toISOString(),due:document.getElementById('nd').value,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',lastUpdated:new Date().toISOString().split('T')[0]};
+  var t={id:nextId(dept),name:name,assignee:(document.getElementById('na').value||'').trim(),priority:document.getElementById('np').value,status:'Not Started',createdAt:new Date().toISOString(),due:document.getElementById('nd').value,startDate:new Date().toISOString().split('T')[0],progress:0,notes:'',lastUpdated:new Date().toISOString().split('T')[0]};
   data[dept].unshift(t);logEntry('Created '+t.id+' in '+dept,'add');
   autoSave();render();toast(t.id+' created','ok');
   document.getElementById('nn').value='';document.getElementById('na').selectedIndex=0;
@@ -773,6 +851,7 @@ function render(){
   else if(view==='mytasks')renderMyTasks();
   else if(view==='okr')renderOKR();
   else if(view==='perf')renderPerf();
+  else if(view==='strategy')STRAT.renderStrategy();
   else renderDept(view);
 }
 function go(v){
@@ -816,7 +895,7 @@ function renderReminders(){
       h+='<div class="remind-row" data-dept="'+t.dept+'">'
         +'<span class="remind-chip '+dl.cls+'">'+dl.label+'</span>'
         +'<div class="remind-info"><div class="remind-name">'+esc(t.name)+'</div>'
-        +'<div class="remind-meta">'+t.id+' &middot; '+t.dept+' &middot; '+esc(t.assignee||'Unassigned')+'</div></div>'
+        +'<div class="remind-meta">'+t.id+' &middot; '+t.dept+' &middot; '+esc((t.assignee||'').trim()||'Unassigned')+'</div></div>'
         +'<span class="badge '+t.priority+'">'+t.priority+'</span></div>';
     });
     h+='</div>';
@@ -891,7 +970,7 @@ function renderDash(){
     crit.forEach(function(t){
       h+='<tr class="clickrow" data-go="'+t.dept+'">'
         +'<td class="tid">'+t.id+'</td><td>'+esc(t.name)+'</td>'
-        +'<td>'+bpill(t.dept)+'</td><td>'+esc(t.assignee)+'</td>'
+        +'<td>'+bpill(t.dept)+'</td><td>'+esc((t.assignee||'').trim())+'</td>'
         +'<td>'+spill(t.status)+'</td>'
         +'<td style="font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut)">'+(t.due||'&mdash;')+'</td></tr>';
     });
@@ -1597,7 +1676,7 @@ function renderOrgTree(wrap){
   wrap.appendChild(treeBox);
   var tdH=document.createElement('div');tdH.style.cssText='font-size:11px;font-weight:700;margin:0 0 10px;color:var(--mut);font-family:Roboto Mono,monospace';tdH.textContent='TALENT DIRECTORY';wrap.appendChild(tdH);
   var dir=document.createElement('div');dir.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px';
-  allUsers.forEach(function(email){var u=USER_REGISTRY[email];var ex=extras[email]||{};var dc=CFG[u.dept]||{col:'var(--mut)'};var card=document.createElement('div');card.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:12px;cursor:pointer';card.onmouseenter=function(){this.style.borderColor='var(--acc)';};card.onmouseleave=function(){this.style.borderColor='var(--brd)';};var skills=(ex.skills||'').split(',').filter(Boolean).slice(0,3);card.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="font-size:12px;font-weight:700">'+u.name+'</span><span style="font-size:9px;padding:1px 6px;border-radius:8px;background:'+dc.col+'22;color:'+dc.col+';font-family:Roboto Mono,monospace">'+u.dept+'</span></div><div style="font-size:10px;color:var(--mut);margin-bottom:6px">'+u.role+'</div>'+(skills.length>0?'<div style="display:flex;gap:4px;flex-wrap:wrap">'+skills.map(function(s){return '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:var(--surf2);color:var(--mut);font-family:Roboto Mono,monospace">'+s.trim()+'</span>';}).join('')+'</div>':'<div style="font-size:9px;color:var(--mut);font-style:italic">No skills listed</div>');card.onclick=function(){openProfileModal(email);};dir.appendChild(card);});
+  allUsers.forEach(function(email){var u=USER_REGISTRY[email];var ex=extras[email]||{};var dc=CFG[u.dept]||{col:'var(--mut)'};var card=document.createElement('div');card.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:12px;cursor:pointer';card.onmouseenter=function(){this.style.borderColor='var(--acc)';};card.onmouseleave=function(){this.style.borderColor='var(--brd)';};var skills=(ex.skills||'').split(',').map(function(s){return s.trim();}).filter(Boolean).slice(0,3);card.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="font-size:12px;font-weight:700">'+u.name+'</span><span style="font-size:9px;padding:1px 6px;border-radius:8px;background:'+dc.col+'22;color:'+dc.col+';font-family:Roboto Mono,monospace">'+u.dept+'</span></div><div style="font-size:10px;color:var(--mut);margin-bottom:6px">'+u.role+'</div>'+(skills.length>0?'<div style="display:flex;gap:4px;flex-wrap:wrap">'+skills.map(function(s){return '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:var(--surf2);color:var(--mut);font-family:Roboto Mono,monospace">'+esc(s)+'</span>';}).join('')+'</div>':'<div style="font-size:9px;color:var(--mut);font-style:italic">No skills listed</div>');card.onclick=function(){openProfileModal(email);};dir.appendChild(card);});
   wrap.appendChild(dir);
 }
 function openProfileModal(email){
@@ -1656,7 +1735,7 @@ function renderDept(dept){
       h+='<tr class="'+(isDone?'done-row':'')+'">'
         +(function(){var lkrIds=Object.keys(OKR_LINKS).filter(function(k){return(OKR_LINKS[k]||[]).indexOf(id)>-1;});return '<td class="tid">'+id+(isDone?' &#10003;':'')+(lkrIds.length>0?' <span style="color:var(--acc2);font-size:9px" title="Linked to: '+lkrIds.join(', ')+'">🔗</span>':'')+'</td>';})()
         +'<td style="min-width:160px;max-width:260px"><input class="ie" value="'+esc(t.name)+'" data-dept="'+dept+'" data-id="'+id+'" data-field="name"></td>'
-        +'<td><input class="ie" style="width:90px" value="'+esc(t.assignee||'')+'" data-dept="'+dept+'" data-id="'+id+'" data-field="assignee"></td>'
+        +'<td><input class="ie" style="width:90px" value="'+esc((t.assignee||'').trim())+'" data-dept="'+dept+'" data-id="'+id+'" data-field="assignee"></td>'
         +'<td><select class="isel" data-dept="'+dept+'" data-id="'+id+'" data-field="priority">'+PRIORITIES.map(function(p){return '<option'+(t.priority===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select></td>'
         +'<td><select class="isel" style="min-width:100px" data-dept="'+dept+'" data-id="'+id+'" data-field="status">'+STATUSES.map(function(ss){return '<option'+(t.status===ss?' selected':'')+'>'+ss+'</option>';}).join('')+'</select></td>'
         +'<td><div style="display:flex;align-items:center;gap:6px"><div class="pw" id="pb-'+id+'"><div class="pf" style="width:'+pr+'%" id="pf-'+id+'"></div></div>'
@@ -1781,6 +1860,764 @@ function toast(msg,type){
     requestAnimationFrame(function(){var tr=tip.getBoundingClientRect();if(tr.left<8){tip.style.left='8px';tip.style.transform='translateY(-100%)';}if(tr.right>window.innerWidth-8){tip.style.left=(window.innerWidth-tr.width-8)+'px';tip.style.transform='translateY(-100%)';};});
   });
   document.addEventListener('mouseout',function(e){if(e.target.closest&&e.target.closest('.th-info'))tip.style.display='none';});
+})();
+
+// ─────────────────────────────────────────────────────────────────────────
+// Strategic Execution Architecture (Phase 1+2+6 bridge implementation)
+// Lives entirely in localStorage; pluggable replacement once backend ships.
+// ─────────────────────────────────────────────────────────────────────────
+var STRAT=(function(){
+var NS={};
+var NODE_KEY='rl_strat_nodes_v1';
+var EDGE_KEY='rl_strat_edges_v1';
+var MIG_KEY='rl_strat_migrated_v1';
+var STATE_KEY='rl_strat_uistate_v1';
+var BANNER_KEY='rl_strat_banner_dismissed_v1';
+
+// ── Storage ───────────────────────────────────────────────────────────
+function loadNodes(){try{return JSON.parse(localStorage.getItem(NODE_KEY)||'{}');}catch(e){return{};}}
+function saveNodes(n){localStorage.setItem(NODE_KEY,JSON.stringify(n));}
+function loadEdges(){try{return JSON.parse(localStorage.getItem(EDGE_KEY)||'{}');}catch(e){return{};}}
+function saveEdges(es){localStorage.setItem(EDGE_KEY,JSON.stringify(es));}
+function loadMig(){try{return JSON.parse(localStorage.getItem(MIG_KEY)||'{}');}catch(e){return{};}}
+function saveMig(m){localStorage.setItem(MIG_KEY,JSON.stringify(m));}
+function loadUI(){try{return JSON.parse(localStorage.getItem(STATE_KEY)||'{}');}catch(e){return{};}}
+function saveUI(u){localStorage.setItem(STATE_KEY,JSON.stringify(u));}
+
+// ── Migration: existing OKR + task data -> typed nodes + edges ────────
+NS.migrate=function(){
+  var migrated=loadMig();
+  var allQuarters=[];
+  for(var i=0;i<localStorage.length;i++){
+    var k=localStorage.key(i);
+    if(k&&k.indexOf('rl_okr_Q')===0)allQuarters.push(k.replace('rl_okr_',''));
+  }
+  if(allQuarters.length===0)allQuarters.push(getActiveOKRKey());
+  var allNodes=loadNodes(),allEdges=loadEdges();
+  var changed=false;
+  allQuarters.forEach(function(qk){
+    if(migrated[qk]&&allNodes[qk])return; // idempotent
+    var okr=loadOKRForQuarter(qk);
+    if(!okr||!okr.depts)return;
+    var qnodes={},qedges=[];
+    // Identify Company tier (dept name "Company") vs Department tier
+    Object.keys(okr.depts).forEach(function(deptName){
+      var deptBlock=okr.depts[deptName];
+      if(!deptBlock||!deptBlock.objectives)return;
+      var isCompany=(deptName==='Company');
+      deptBlock.objectives.forEach(function(obj){
+        var nid=(isCompany?'CO-':'DO-')+obj.id;
+        qnodes[nid]={
+          id:nid, type:isCompany?'CompanyObjective':'DepartmentObjective',
+          title:obj.title||'(untitled)', dept:deptName, quarter:qk,
+          ownerEmail:'', state:obj.progress>=100?'Done':(obj.progress>0?'Active':'Draft'),
+          progressPct:obj.progress||0, sourceOkrObjId:obj.id,
+          createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
+        };
+        (obj.krs||[]).forEach(function(kr){
+          var kid='KR-'+kr.id;
+          qnodes[kid]={
+            id:kid, type:'KeyResult', title:kr.title||'(untitled)',
+            dept:deptName, quarter:qk,
+            ownerEmail:'', ownerName:kr.owner||'',
+            state:kr.progress>=100?'Done':(kr.confidence==='Off Track'?'AtRisk':(kr.progress>0?'Active':'Draft')),
+            progressPct:kr.progress||0, confidence:kr.confidence||'Not started',
+            metric:{name:'',baseline:null,target:null,unit:'',direction:''},
+            sourceKrId:kr.id, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
+          };
+          qedges.push({p:nid,c:kid,w:1.0,pr:true});
+        });
+      });
+    });
+    // Auto-cascade: link each Department Objective to a best-guess Company Objective in same quarter
+    var coNodes=Object.values(qnodes).filter(function(n){return n.type==='CompanyObjective';});
+    var doNodes=Object.values(qnodes).filter(function(n){return n.type==='DepartmentObjective';});
+    doNodes.forEach(function(dn){
+      var best=null,bestScore=0;
+      coNodes.forEach(function(cn){
+        var score=tokenOverlap(dn.title,cn.title);
+        if(score>bestScore){bestScore=score;best=cn;}
+      });
+      if(best&&bestScore>0.12){
+        qedges.push({p:best.id,c:dn.id,w:1.0,pr:true});
+      }
+    });
+    // L6 auto-initiatives wrapping linked tasks
+    var okrLinks={};
+    try{okrLinks=JSON.parse(localStorage.getItem('rl_okr_links')||'{}');}catch(e){}
+    Object.keys(okrLinks).forEach(function(krId){
+      var taskIds=okrLinks[krId]||[];
+      if(!taskIds.length)return;
+      var krNodeId='KR-'+krId;
+      if(!qnodes[krNodeId])return;
+      var initId='IN-AUTO-'+krId;
+      qnodes[initId]={
+        id:initId, type:'Initiative', title:'Tasks linked to '+krId,
+        dept:qnodes[krNodeId].dept, quarter:qk, ownerEmail:'',
+        state:'Active', progressPct:0, workloadEstimateDays:taskIds.length*2,
+        autoGenerated:true, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
+      };
+      qedges.push({p:krNodeId,c:initId,w:1.0,pr:true});
+      taskIds.forEach(function(tid){
+        qedges.push({p:initId,c:'TA-'+tid,w:1.0,pr:true});
+      });
+    });
+    allNodes[qk]=qnodes;
+    allEdges[qk]=qedges;
+    migrated[qk]=new Date().toISOString();
+    changed=true;
+  });
+  if(changed){saveNodes(allNodes);saveEdges(allEdges);saveMig(migrated);}
+};
+
+// ── Token overlap (simple alignment helper) ───────────────────────────
+function tokenOverlap(a,b){
+  if(!a||!b)return 0;
+  var stop={the:1,a:1,an:1,and:1,or:1,of:1,to:1,for:1,in:1,on:1,by:1,with:1,from:1,at:1,is:1,be:1,as:1};
+  function toks(s){return String(s).toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(function(t){return t&&t.length>2&&!stop[t];});}
+  var ta=toks(a),tb=toks(b);
+  if(!ta.length||!tb.length)return 0;
+  var sa={};ta.forEach(function(t){sa[t]=1;});
+  var inter=0;tb.forEach(function(t){if(sa[t])inter++;});
+  return inter/Math.max(ta.length,tb.length);
+}
+
+// ── Live linking to tasks ─────────────────────────────────────────────
+NS.getTask=function(taId){
+  if(!taId||taId.indexOf('TA-')!==0)return null;
+  var raw=taId.slice(3);
+  for(var i=0;i<DEPTS.length;i++){
+    var d=DEPTS[i];if(!data[d])continue;
+    for(var j=0;j<data[d].length;j++){if(data[d][j].id===raw)return Object.assign({},data[d][j],{dept:d});}
+  }
+  return null;
+};
+
+// ── Score engine ──────────────────────────────────────────────────────
+function bandClass(score){return score>=80?'s-ok':(score>=50?'s-warn':'s-bad');}
+NS.bandClass=bandClass;
+
+NS.alignmentScore=function(node,edges,allNodes){
+  var s=0;var parents=edges.filter(function(e){return e.c===node.id;});
+  // 40: has at least one parent traceable upward (or node itself is L1)
+  if(node.type==='CompanyObjective'||parents.length>0)s+=40;
+  // 20: parents are in same quarter
+  if(node.type==='CompanyObjective'||parents.every(function(e){var pn=allNodes[e.p];return pn&&pn.quarter===node.quarter;}))s+=20;
+  // 20: owner set
+  if(node.ownerEmail||node.ownerName)s+=20;
+  // 20: title meaningfully shares tokens with at least one parent (or is L1)
+  if(node.type==='CompanyObjective')s+=20;
+  else{
+    var ok=parents.some(function(e){var pn=allNodes[e.p];return pn&&tokenOverlap(node.title,pn.title)>0.15;});
+    if(ok)s+=20;
+  }
+  return Math.min(100,s);
+};
+
+NS.execReadinessScore=function(node,edges,allNodes){
+  var s=0;
+  var children=edges.filter(function(e){return e.p===node.id;});
+  var requiredMin=(node.type==='CompanyObjective'||node.type==='DepartmentObjective'||node.type==='TeamObjective'||node.type==='IndividualObjective')?1
+    :(node.type==='KeyResult')?1
+    :(node.type==='Initiative')?1:0;
+  if(node.type==='Task')return 100;
+  // 25: enough children
+  if(children.length>=requiredMin)s+=25;
+  // 25: all children have owner (name or email)
+  var withOwner=children.filter(function(e){var cn=allNodes[e.c];if(!cn)return false;return cn.ownerEmail||cn.ownerName;});
+  if(children.length===0||withOwner.length===children.length)s+=25;
+  // 20: due dates (Initiative/Task only; KR uses quarter so auto-pass)
+  if(node.type==='KeyResult'||node.type==='CompanyObjective'||node.type==='DepartmentObjective')s+=20;
+  else{
+    var withDue=children.filter(function(e){var cn=allNodes[e.c];return cn&&(cn.dueDate||cn.due);});
+    if(children.length===0||withDue.length===children.length)s+=20;
+  }
+  // 15: workload estimate
+  if(node.type==='KeyResult'||node.type==='CompanyObjective'||node.type==='DepartmentObjective')s+=15;
+  else if(node.workloadEstimateDays)s+=15;
+  // 15: metric defined (KR-only; others auto-pass)
+  if(node.type==='KeyResult'){
+    var m=node.metric||{};
+    if(m.target!=null&&m.target!==''&&m.unit&&m.direction)s+=15;
+  }else s+=15;
+  return Math.min(100,s);
+};
+
+NS.riskLevel=function(node,edges,allNodes){
+  // Heuristic risk: progress vs. expected, blocked tasks, confidence
+  var penalties=0;
+  if(node.state==='Blocked')penalties+=2;
+  if(node.confidence==='Off Track'||node.confidence==='At Risk')penalties+=2;
+  if(node.progressPct!=null){
+    var qInfo=node.quarter?quarterDates(node.quarter):null;
+    if(qInfo){
+      var now=new Date(),s=new Date(qInfo.startDate),e=new Date(qInfo.endDate);
+      var pct=Math.max(0,Math.min(1,(now-s)/(e-s+1)));
+      var expected=Math.round(pct*100);
+      if(node.progressPct<expected-25)penalties+=2;
+      else if(node.progressPct<expected-10)penalties+=1;
+    }
+  }
+  // Stalled task: lastUpdated > 14 days
+  if(node.type==='Task'){
+    var t=NS.getTask(node.id);
+    if(t&&t.lastUpdated){
+      var age=(Date.now()-new Date(t.lastUpdated))/86400000;
+      if(age>14)penalties+=1;
+    }
+  }
+  return penalties>=3?'High':(penalties>=1?'Medium':'Low');
+};
+
+// ── Heuristic insights ────────────────────────────────────────────────
+NS.computeInsights=function(quarter){
+  var nodes=(loadNodes()[quarter])||{};
+  var edges=(loadEdges()[quarter])||[];
+  var ins=[];
+  // edges enrichment: include live tasks as virtual nodes
+  var liveTaskNodes={};
+  Object.keys(nodes).forEach(function(nid){
+    if(nid.indexOf('IN-')===0){
+      edges.filter(function(e){return e.p===nid;}).forEach(function(e){
+        if(e.c.indexOf('TA-')===0&&!liveTaskNodes[e.c]){
+          var t=NS.getTask(e.c);
+          if(t){liveTaskNodes[e.c]={id:e.c,type:'Task',title:t.name,dept:t.dept,quarter:quarter,
+            ownerName:t.assignee,progressPct:t.progress||0,state:t.status,due:t.due};}
+        }
+      });
+    }
+  });
+  Object.assign(nodes,liveTaskNodes);
+
+  // 1) Orphan KR: KR with 0 initiatives and 0 task children
+  Object.values(nodes).forEach(function(n){
+    if(n.type!=='KeyResult')return;
+    var kids=edges.filter(function(e){return e.p===n.id;});
+    if(kids.length===0){
+      ins.push({sev:'high',type:'ORPHAN KR',body:'"'+truncate(n.title,80)+'" has no execution — no initiatives or tasks attached.',nodeId:n.id});
+    }
+  });
+  // 2) Disconnected dept objective
+  Object.values(nodes).forEach(function(n){
+    if(n.type!=='DepartmentObjective')return;
+    var parents=edges.filter(function(e){return e.c===n.id;});
+    if(parents.length===0){
+      ins.push({sev:'med',type:'UNALIGNED DO',body:'"'+truncate(n.title,80)+'" is not linked to any Company Objective.',nodeId:n.id});
+    }
+  });
+  // 3) Weak metric on KR
+  Object.values(nodes).forEach(function(n){
+    if(n.type!=='KeyResult')return;
+    var m=n.metric||{};
+    if(!m.target||!m.unit||!m.direction){
+      ins.push({sev:'low',type:'WEAK METRIC',body:'"'+truncate(n.title,80)+'" is missing a measurable metric (baseline/target/unit).',nodeId:n.id});
+    }
+  });
+  // 4) Missing owner on active node
+  Object.values(nodes).forEach(function(n){
+    if(n.type==='Task')return;
+    if(!n.ownerEmail&&!n.ownerName&&n.state!=='Draft'&&n.state!=='Cancelled'){
+      ins.push({sev:'med',type:'NO OWNER',body:'"'+truncate(n.title,80)+'" is active but has no owner.',nodeId:n.id});
+    }
+  });
+  // 5) At-risk KR (low progress, confidence flagged)
+  Object.values(nodes).forEach(function(n){
+    if(n.type!=='KeyResult')return;
+    if(n.confidence==='Off Track'||n.confidence==='At Risk'){
+      ins.push({sev:'high',type:'AT RISK',body:'"'+truncate(n.title,80)+'" — confidence flagged '+(n.confidence||'')+'.',nodeId:n.id});
+    }
+  });
+  // 6) Overloaded owner (sum of active KRs/initiatives per owner)
+  var owl={};
+  Object.values(nodes).forEach(function(n){
+    var o=(n.ownerEmail||n.ownerName||'').trim();
+    if(!o)return;
+    if(n.type==='KeyResult'||n.type==='Initiative'){
+      owl[o]=(owl[o]||0)+1;
+    }
+  });
+  Object.keys(owl).forEach(function(o){
+    if(owl[o]>=8){
+      ins.push({sev:'med',type:'OVERLOADED',body:o+' owns '+owl[o]+' KRs/initiatives this quarter — capacity check recommended.'});
+    }
+  });
+  // 7) Stalled initiatives (no task progress in 14d)
+  Object.values(nodes).forEach(function(n){
+    if(n.type!=='Initiative')return;
+    var kids=edges.filter(function(e){return e.p===n.id;}).map(function(e){return e.c;});
+    var maxTouch=0;
+    kids.forEach(function(tid){
+      var t=NS.getTask(tid);
+      if(t&&t.lastUpdated){maxTouch=Math.max(maxTouch,new Date(t.lastUpdated).getTime());}
+    });
+    if(maxTouch>0&&(Date.now()-maxTouch)/86400000>14){
+      ins.push({sev:'med',type:'STALLED',body:'"'+truncate(n.title,80)+'" — no task movement in 14+ days.',nodeId:n.id});
+    }
+  });
+  // 8) Duplicate initiatives in same dept
+  var initsByDept={};
+  Object.values(nodes).forEach(function(n){if(n.type==='Initiative'){(initsByDept[n.dept]=initsByDept[n.dept]||[]).push(n);}});
+  Object.keys(initsByDept).forEach(function(d){
+    var list=initsByDept[d];
+    for(var i=0;i<list.length;i++)for(var j=i+1;j<list.length;j++){
+      if(tokenOverlap(list[i].title,list[j].title)>0.6){
+        ins.push({sev:'low',type:'POSSIBLE DUP',body:'"'+truncate(list[i].title,50)+'" and "'+truncate(list[j].title,50)+'" look similar in '+d+'.',nodeId:list[i].id});
+      }
+    }
+  });
+  return ins;
+};
+function truncate(s,n){s=String(s||'');return s.length>n?s.slice(0,n-1)+'…':s;}
+
+// ── UI State ──────────────────────────────────────────────────────────
+function getState(){var s=loadUI();return{
+  quarter:s.quarter||getActiveOKRKey(),
+  dept:s.dept||'All',
+  owner:s.owner||'All',
+  type:s.type||'All',
+  search:s.search||'',
+  expanded:s.expanded||{}
+};}
+function setState(patch){var s=getState();Object.assign(s,patch);saveUI(s);}
+function toggleExpand(id){var s=getState();s.expanded[id]=!s.expanded[id];saveUI(s);}
+
+// ── Renderer ──────────────────────────────────────────────────────────
+NS.renderStrategy=function(){
+  var main=document.getElementById('main');
+  if(!main)return;
+  main.innerHTML='';
+  var st=getState();
+  var allNodes=loadNodes()[st.quarter]||{};
+  var allEdges=loadEdges()[st.quarter]||[];
+
+  // Hydrate task nodes (so Strategy tree can show TASK-level live)
+  var liveTasks={};
+  allEdges.forEach(function(e){
+    if(e.c.indexOf('TA-')===0&&!liveTasks[e.c]){
+      var t=NS.getTask(e.c);
+      if(t){liveTasks[e.c]={
+        id:e.c,type:'Task',title:t.name,dept:t.dept,quarter:st.quarter,
+        ownerName:t.assignee,progressPct:t.progress||0,state:t.status,due:t.due,
+        live:true
+      };}
+    }
+  });
+  var nodesMap=Object.assign({},allNodes,liveTasks);
+
+  var wrap=document.createElement('div');wrap.className='strat-wrap';
+  // Header
+  var hdr=document.createElement('div');hdr.className='strat-hdr';
+  hdr.innerHTML='<div class="strat-title">Strategy</div>'
+    +'<div class="strat-sub" style="margin-bottom:0">Strategic Execution & Organizational Intelligence — '+quarterLabel(st.quarter)+'</div>';
+  wrap.appendChild(hdr);
+  var sub=document.createElement('div');sub.className='strat-sub';
+  sub.innerHTML='Cascade view: Company → Department → KR → Initiative → Task. Read-only first pass; planning gates land in the next phase.';
+  wrap.appendChild(sub);
+
+  // First-time banner
+  if(!localStorage.getItem(BANNER_KEY)){
+    var banner=document.createElement('div');banner.className='strat-banner';
+    banner.innerHTML='<div style="font-size:18px">★</div><div><div style="font-weight:700;font-size:12px;margin-bottom:2px">Strategic Execution Architecture — Phase 1+2 live</div><div style="font-size:11px;color:var(--mut)">Your existing OKRs and task links have been migrated into the new typed-node model. Existing OKR Tracker and task boards continue to work unchanged.</div></div><div class="strat-banner-x" onclick="STRAT._dismissBanner()">Got it ×</div>';
+    wrap.appendChild(banner);
+  }
+
+  // Filter bar
+  var fbar=document.createElement('div');fbar.className='strat-fbar';
+  // quarter
+  var qSel=document.createElement('select');
+  generateQuarterList().forEach(function(qk){
+    var has=loadOKRForQuarter(qk);
+    if(!has)return;
+    var opt=document.createElement('option');opt.value=qk;opt.textContent=quarterLabel(qk);
+    if(qk===st.quarter)opt.selected=true;
+    qSel.appendChild(opt);
+  });
+  qSel.onchange=function(){setState({quarter:this.value,expanded:{}});NS.renderStrategy();};
+  fbar.appendChild(wrapField('Quarter',qSel));
+  // dept
+  var dSel=document.createElement('select');
+  ['All','Company','Operations','Finance','Engineering','Sales','Management'].forEach(function(d){
+    var o=document.createElement('option');o.value=d;o.textContent=d;if(d===st.dept)o.selected=true;dSel.appendChild(o);
+  });
+  dSel.onchange=function(){setState({dept:this.value});NS.renderStrategy();};
+  fbar.appendChild(wrapField('Dept',dSel));
+  // owner
+  var oSel=document.createElement('select');
+  var owners=['All'];Object.values(nodesMap).forEach(function(n){var o=n.ownerEmail||n.ownerName;if(o&&owners.indexOf(o)<0)owners.push(o);});
+  owners.forEach(function(o){var op=document.createElement('option');op.value=o;op.textContent=o;if(o===st.owner)op.selected=true;oSel.appendChild(op);});
+  oSel.onchange=function(){setState({owner:this.value});NS.renderStrategy();};
+  fbar.appendChild(wrapField('Owner',oSel));
+  // type
+  var tSel=document.createElement('select');
+  ['All','CompanyObjective','DepartmentObjective','KeyResult','Initiative','Task'].forEach(function(t){
+    var o=document.createElement('option');o.value=t;o.textContent=t==='All'?'All':t.replace(/([A-Z])/g,' $1').trim();
+    if(t===st.type)o.selected=true;tSel.appendChild(o);
+  });
+  tSel.onchange=function(){setState({type:this.value});NS.renderStrategy();};
+  fbar.appendChild(wrapField('Type',tSel));
+  // search
+  var sInp=document.createElement('input');sInp.placeholder='Search…';sInp.value=st.search;
+  sInp.oninput=function(){setState({search:this.value});NS.renderStrategy();};
+  fbar.appendChild(wrapField('Find',sInp));
+  // expand/collapse
+  var ea=document.createElement('button');ea.className='hbtn';ea.textContent='Expand all';ea.style.cssText='font-size:10px;padding:5px 10px';
+  ea.onclick=function(){var x={};Object.keys(nodesMap).forEach(function(id){x[id]=true;});setState({expanded:x});NS.renderStrategy();};
+  fbar.appendChild(ea);
+  var ca=document.createElement('button');ca.className='hbtn';ca.textContent='Collapse';ca.style.cssText='font-size:10px;padding:5px 10px';
+  ca.onclick=function(){setState({expanded:{}});NS.renderStrategy();};
+  fbar.appendChild(ca);
+  wrap.appendChild(fbar);
+
+  // Layout: tree + side
+  var layout=document.createElement('div');layout.className='strat-layout';
+  var tree=document.createElement('div');tree.className='strat-tree';
+  var side=document.createElement('div');side.className='strat-side';
+  layout.appendChild(tree);layout.appendChild(side);
+  wrap.appendChild(layout);
+
+  // Build tree starting from L1 Company Objectives
+  var l1=Object.values(nodesMap).filter(function(n){return n.type==='CompanyObjective'&&matchesFilters(n,st,allEdges,nodesMap);});
+  // Also surface orphan DOs (no parent) so they don't disappear
+  var doParented={};allEdges.forEach(function(e){if(e.c.indexOf('DO-')===0)doParented[e.c]=1;});
+  var orphanDOs=Object.values(nodesMap).filter(function(n){return n.type==='DepartmentObjective'&&!doParented[n.id]&&matchesFilters(n,st,allEdges,nodesMap);});
+
+  if(l1.length===0&&orphanDOs.length===0){
+    tree.innerHTML='<div class="strat-empty"><div class="strat-empty-icon">○</div><div>No nodes match the current filters.</div><div style="font-size:10px;margin-top:6px;color:var(--mut)">Try switching quarter or resetting filters.</div></div>';
+  }else{
+    l1.forEach(function(n){tree.appendChild(renderNode(n,allEdges,nodesMap,st,0));});
+    if(orphanDOs.length>0){
+      var oh=document.createElement('div');oh.style.cssText='margin-top:18px;padding-top:14px;border-top:1px dashed var(--brd)';
+      oh.innerHTML='<div class="strat-sub" style="margin-bottom:8px">Unaligned Department Objectives (no Company parent in this quarter)</div>';
+      tree.appendChild(oh);
+      orphanDOs.forEach(function(n){tree.appendChild(renderNode(n,allEdges,nodesMap,st,0));});
+    }
+  }
+
+  // Sidebar
+  side.appendChild(renderSummary(nodesMap,allEdges,st));
+  side.appendChild(renderInsightsPanel(st));
+  side.appendChild(renderLegend());
+
+  main.appendChild(wrap);
+
+  // Detail panel mount
+  if(!document.getElementById('strat-detail-panel')){
+    var dp=document.createElement('div');dp.id='strat-detail-panel';dp.className='strat-detail';
+    document.body.appendChild(dp);
+  }
+};
+
+function wrapField(label,el){
+  var d=document.createElement('div');d.className='fl';
+  var l=document.createElement('span');l.textContent=label.toUpperCase();l.style.cssText='color:var(--mut);font-size:9px;letter-spacing:.5px';
+  d.appendChild(l);d.appendChild(el);return d;
+}
+
+function matchesFilters(n,st,edges,nodesMap){
+  // Type filter — but the cascade must still include parents to reach matches
+  if(st.dept!=='All'&&n.dept&&n.dept!==st.dept&&n.type!=='CompanyObjective')return false;
+  if(st.dept!=='All'&&n.type==='CompanyObjective'){
+    // a CO matches if any descendant matches the dept filter; cheap check: any DO/KR/Init in this dept with parent path
+    var descMatches=anyDescendantInDept(n.id,st.dept,edges,nodesMap);
+    if(!descMatches)return false;
+  }
+  if(st.owner!=='All'){var o=(n.ownerEmail||n.ownerName||'');if(o!==st.owner)return false;}
+  if(st.type!=='All'&&n.type!==st.type)return false;
+  if(st.search){
+    var q=st.search.toLowerCase();
+    if(String(n.title||'').toLowerCase().indexOf(q)<0&&String(n.id||'').toLowerCase().indexOf(q)<0)return false;
+  }
+  return true;
+}
+function anyDescendantInDept(rootId,dept,edges,nodesMap){
+  var stack=[rootId],seen={};
+  while(stack.length){
+    var id=stack.pop();if(seen[id])continue;seen[id]=1;
+    var n=nodesMap[id];if(n&&n.dept===dept)return true;
+    edges.filter(function(e){return e.p===id;}).forEach(function(e){stack.push(e.c);});
+  }
+  return false;
+}
+
+function renderNode(n,edges,nodesMap,st,depth){
+  var wrap=document.createElement('div');wrap.className='strat-node';
+  var children=edges.filter(function(e){return e.p===n.id;}).map(function(e){return nodesMap[e.c];}).filter(Boolean);
+  // Filter visible children, but always recurse — collapsed by default beyond L5 for top-level reads
+  var expanded=st.expanded[n.id];
+  if(expanded===undefined){
+    expanded=(n.type==='CompanyObjective'||n.type==='DepartmentObjective');
+  }
+  var tier=tierFor(n.type);
+  var head=document.createElement('div');head.className='strat-node-h';
+  var caret=document.createElement('span');caret.className='strat-caret'+(expanded?' open':'');
+  caret.textContent=children.length>0?'▸':' ';
+  caret.onclick=function(ev){ev.stopPropagation();toggleExpand(n.id);NS.renderStrategy();};
+  head.appendChild(caret);
+
+  var tch=document.createElement('span');tch.className='strat-tier '+tier;tch.textContent=tier;
+  head.appendChild(tch);
+
+  var idch=document.createElement('span');idch.className='strat-id';idch.textContent=n.id;
+  head.appendChild(idch);
+
+  var name=document.createElement('span');name.className='strat-name '+tier;name.textContent=n.title||'(untitled)';
+  head.appendChild(name);
+
+  // progress bar
+  if(typeof n.progressPct==='number'&&n.type!=='Task'){
+    var pw=document.createElement('div');pw.className='strat-prog';
+    var pb=document.createElement('div');pb.className='strat-prog-bar';pb.style.width=Math.min(100,Math.max(0,n.progressPct))+'%';
+    pw.appendChild(pb);head.appendChild(pw);
+  }
+  // owner
+  var owner=n.ownerEmail||n.ownerName;
+  if(owner){var ow=document.createElement('span');ow.className='strat-owner';ow.textContent=truncate(owner,18);head.appendChild(ow);}
+
+  // scores
+  var sc=document.createElement('div');sc.className='strat-scores';
+  var aS=NS.alignmentScore(n,edges,nodesMap);
+  var eS=NS.execReadinessScore(n,edges,nodesMap);
+  var rL=NS.riskLevel(n,edges,nodesMap);
+  sc.appendChild(scoreChip('A',aS,bandClass(aS),'Alignment Score: '+aS+'/100 — strategic linkage quality. Click node for breakdown.'));
+  sc.appendChild(scoreChip('E',eS,bandClass(eS),'Execution Readiness: '+eS+'/100 — has owner, children, metric. Click node for breakdown.'));
+  sc.appendChild(scoreChip('R',rL,(rL==='Low'?'s-ok':(rL==='Medium'?'s-warn':'s-bad')),'Risk Level: '+rL+' — based on progress vs. expected, confidence, blockers, stale activity.'));
+  head.appendChild(sc);
+
+  head.onclick=function(){openDetail(n,edges,nodesMap);};
+  wrap.appendChild(head);
+
+  if(expanded&&children.length>0){
+    var cwrap=document.createElement('div');cwrap.className='strat-children';
+    children.forEach(function(cn){
+      if(!matchesFilters(cn,st,edges,nodesMap)&&!anyDescendantMatches(cn,st,edges,nodesMap))return;
+      cwrap.appendChild(renderNode(cn,edges,nodesMap,st,depth+1));
+    });
+    wrap.appendChild(cwrap);
+  }
+  return wrap;
+}
+function anyDescendantMatches(n,st,edges,nodesMap){
+  var stack=[n.id],seen={};
+  while(stack.length){
+    var id=stack.pop();if(seen[id])continue;seen[id]=1;
+    var nn=nodesMap[id];
+    if(nn&&matchesFilters(nn,st,edges,nodesMap)&&nn.id!==n.id)return true;
+    edges.filter(function(e){return e.p===id;}).forEach(function(e){stack.push(e.c);});
+  }
+  return false;
+}
+
+function scoreChip(letter,val,cls,tip){
+  var s=document.createElement('span');s.className='strat-score '+cls;
+  s.innerHTML='<span style="opacity:.7">'+letter+'</span> '+val;
+  s.title=tip;
+  return s;
+}
+
+function tierFor(type){
+  return {CompanyObjective:'L1',DepartmentObjective:'L2',TeamObjective:'L3',IndividualObjective:'L4',KeyResult:'L5',Initiative:'L6',Task:'L7'}[type]||'L?';
+}
+
+function renderSummary(nodesMap,edges,st){
+  var c=document.createElement('div');c.className='strat-card';
+  var counts={CompanyObjective:0,DepartmentObjective:0,KeyResult:0,Initiative:0,Task:0};
+  Object.values(nodesMap).forEach(function(n){if(counts[n.type]!=null)counts[n.type]++;});
+  var avgA=0,avgE=0,cnt=0;
+  Object.values(nodesMap).forEach(function(n){
+    if(n.type==='Task')return;
+    avgA+=NS.alignmentScore(n,edges,nodesMap);
+    avgE+=NS.execReadinessScore(n,edges,nodesMap);
+    cnt++;
+  });
+  avgA=cnt?Math.round(avgA/cnt):0;avgE=cnt?Math.round(avgE/cnt):0;
+  c.innerHTML='<div class="strat-card-h">EXECUTION PORTFOLIO — '+quarterLabel(st.quarter)+'</div>';
+  var grid=document.createElement('div');grid.className='strat-stat';
+  grid.appendChild(mkStat(counts.CompanyObjective,'L1 COMPANY','var(--acc)'));
+  grid.appendChild(mkStat(counts.DepartmentObjective,'L2 DEPT','var(--grn)'));
+  grid.appendChild(mkStat(counts.KeyResult,'L5 KRs','var(--red)'));
+  grid.appendChild(mkStat(counts.Initiative,'L6 INIT','#5aa3e0'));
+  grid.appendChild(mkStat(avgA+'%','AVG ALIGN','var(--acc)'));
+  grid.appendChild(mkStat(avgE+'%','AVG READY','var(--grn)'));
+  c.appendChild(grid);
+  return c;
+}
+function mkStat(val,label,color){
+  var d=document.createElement('div');d.className='strat-stat-c';
+  d.innerHTML='<div class="strat-stat-v" style="color:'+color+'">'+val+'</div><div class="strat-stat-l">'+label+'</div>';
+  return d;
+}
+
+function renderInsightsPanel(st){
+  var c=document.createElement('div');c.className='strat-card';
+  c.innerHTML='<div class="strat-card-h">INSIGHTS (HEURISTIC)</div>';
+  var ins=NS.computeInsights(st.quarter);
+  if(ins.length===0){
+    var ok=document.createElement('div');ok.style.cssText='font-size:11px;color:var(--mut);padding:14px;text-align:center';
+    ok.innerHTML='○ No issues detected. Strategy graph looks clean.';
+    c.appendChild(ok);return c;
+  }
+  // sort severity
+  var order={high:0,med:1,low:2};ins.sort(function(a,b){return order[a.sev]-order[b.sev];});
+  ins.slice(0,12).forEach(function(i){
+    var d=document.createElement('div');d.className='strat-insight sev-'+(i.sev==='high'?'high':i.sev==='med'?'med':'low');
+    d.innerHTML='<div class="strat-insight-t">'+i.type+'</div>'
+      +'<div class="strat-insight-b">'+esc(i.body)+'</div>'
+      +(i.nodeId?'<div class="strat-insight-id">'+i.nodeId+'</div>':'');
+    if(i.nodeId){
+      d.style.cursor='pointer';
+      d.onclick=function(){
+        var allN=loadNodes()[st.quarter]||{};var allE=loadEdges()[st.quarter]||[];
+        var nodesMap=Object.assign({},allN);
+        allE.forEach(function(e){if(e.c.indexOf('TA-')===0&&!nodesMap[e.c]){var t=NS.getTask(e.c);if(t)nodesMap[e.c]={id:e.c,type:'Task',title:t.name,dept:t.dept,quarter:st.quarter,ownerName:t.assignee,progressPct:t.progress||0,state:t.status,due:t.due};}});
+        var n=nodesMap[i.nodeId];if(n)openDetail(n,allE,nodesMap);
+      };
+    }
+    c.appendChild(d);
+  });
+  if(ins.length>12){
+    var more=document.createElement('div');more.style.cssText='font-size:10px;color:var(--mut);text-align:center;margin-top:8px;font-family:Roboto Mono,monospace';
+    more.textContent='+ '+(ins.length-12)+' more insights';
+    c.appendChild(more);
+  }
+  return c;
+}
+
+function renderLegend(){
+  var c=document.createElement('div');c.className='strat-card';
+  c.innerHTML='<div class="strat-card-h">LEGEND</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px;font-size:10px;font-family:Roboto Mono,monospace;color:var(--mut)">'
+    +'<div><span class="strat-tier L1">L1</span> Company Objective</div>'
+    +'<div><span class="strat-tier L2">L2</span> Department Objective</div>'
+    +'<div><span class="strat-tier L5">L5</span> Key Result</div>'
+    +'<div><span class="strat-tier L6">L6</span> Initiative / Project</div>'
+    +'<div><span class="strat-tier L7">L7</span> Task</div>'
+    +'<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--brd)">'
+    +'<span class="strat-score s-ok">A 85</span> <span class="strat-score s-warn">E 65</span> <span class="strat-score s-bad">R High</span></div>'
+    +'<div style="font-size:9px;line-height:1.5">A=Alignment · E=Execution Readiness · R=Risk Level. Hover any chip for the rule breakdown.</div>'
+    +'</div>';
+  return c;
+}
+
+function openDetail(n,edges,nodesMap){
+  var dp=document.getElementById('strat-detail-panel');
+  if(!dp){dp=document.createElement('div');dp.id='strat-detail-panel';dp.className='strat-detail';document.body.appendChild(dp);}
+  dp.innerHTML='';
+  var close=document.createElement('button');close.className='strat-detail-close';close.innerHTML='×';
+  close.onclick=function(){dp.classList.remove('open');};
+  dp.appendChild(close);
+
+  var tier=tierFor(n.type);
+  var h=document.createElement('h3');h.textContent=n.title||'(untitled)';dp.appendChild(h);
+  var meta=document.createElement('div');meta.className='strat-detail-meta';
+  meta.innerHTML='<span class="strat-tier '+tier+'">'+tier+' · '+n.type.replace(/([A-Z])/g,' $1').trim()+'</span>'
+    +'<span class="strat-id">'+n.id+'</span>'
+    +(n.dept?'<span class="strat-owner">'+n.dept+'</span>':'')
+    +(n.quarter?'<span class="strat-owner">'+quarterLabel(n.quarter)+'</span>':'')
+    +(n.state?'<span class="strat-owner" style="color:var(--acc)">'+n.state+'</span>':'');
+  dp.appendChild(meta);
+
+  // Scores section
+  var aS=NS.alignmentScore(n,edges,nodesMap);
+  var eS=NS.execReadinessScore(n,edges,nodesMap);
+  var rL=NS.riskLevel(n,edges,nodesMap);
+  var sect=document.createElement('div');sect.className='strat-detail-sect';
+  sect.innerHTML='<h4>SCORES</h4>';
+  var sg=document.createElement('div');sg.style.cssText='display:flex;gap:10px;flex-wrap:wrap';
+  sg.appendChild(scoreBlock('Alignment',aS+'/100',bandClass(aS),
+    '40 if has parent traceable upward (or is L1)<br>20 if parents same quarter<br>20 if owner set<br>20 if title shares tokens with a parent'));
+  sg.appendChild(scoreBlock('Execution Readiness',eS+'/100',bandClass(eS),
+    '25 if enough children<br>25 if all children have owner<br>20 if children have due dates<br>15 if workload estimate set<br>15 if metric fully defined (KR)'));
+  sg.appendChild(scoreBlock('Risk',rL,(rL==='Low'?'s-ok':(rL==='Medium'?'s-warn':'s-bad')),
+    'Composite of: progress vs expected,<br>confidence flag, blocker state,<br>stalled activity (>14 days)'));
+  sect.appendChild(sg);
+  dp.appendChild(sect);
+
+  // Owner
+  var oSec=document.createElement('div');oSec.className='strat-detail-sect';
+  oSec.innerHTML='<h4>OWNERSHIP</h4><div style="font-size:12px">'+
+    (n.ownerName||n.ownerEmail?(esc(n.ownerName||'')+(n.ownerEmail?(' <span class="strat-owner">&middot; '+esc(n.ownerEmail)+'</span>'):'')):'<span class="strat-link-empty">No owner assigned</span>')
+    +'</div>';
+  dp.appendChild(oSec);
+
+  // Lineage: parents
+  var pSec=document.createElement('div');pSec.className='strat-detail-sect';
+  pSec.innerHTML='<h4>PARENTS</h4>';
+  var parents=edges.filter(function(e){return e.c===n.id;}).map(function(e){return nodesMap[e.p];}).filter(Boolean);
+  if(!parents.length)pSec.innerHTML+='<div class="strat-link-empty">No parents (top of cascade)</div>';
+  else parents.forEach(function(p){
+    var l=document.createElement('div');l.className='strat-link';
+    l.innerHTML='<span class="strat-tier '+tierFor(p.type)+'">'+tierFor(p.type)+'</span><span style="flex:1">'+esc(p.title)+'</span><span class="strat-id">'+p.id+'</span>';
+    l.onclick=function(){openDetail(p,edges,nodesMap);};
+    pSec.appendChild(l);
+  });
+  dp.appendChild(pSec);
+
+  // Children
+  var cSec=document.createElement('div');cSec.className='strat-detail-sect';
+  cSec.innerHTML='<h4>CHILDREN</h4>';
+  var ch=edges.filter(function(e){return e.p===n.id;}).map(function(e){return nodesMap[e.c];}).filter(Boolean);
+  if(!ch.length)cSec.innerHTML+='<div class="strat-link-empty">No children — execution missing</div>';
+  else ch.forEach(function(p){
+    var l=document.createElement('div');l.className='strat-link';
+    l.innerHTML='<span class="strat-tier '+tierFor(p.type)+'">'+tierFor(p.type)+'</span><span style="flex:1">'+esc(p.title||'(untitled)')+'</span>'
+      +(typeof p.progressPct==='number'?'<span class="strat-owner">'+p.progressPct+'%</span>':'')
+      +'<span class="strat-id">'+p.id+'</span>';
+    l.onclick=function(){openDetail(p,edges,nodesMap);};
+    cSec.appendChild(l);
+  });
+  dp.appendChild(cSec);
+
+  // KR metric (placeholder)
+  if(n.type==='KeyResult'){
+    var mSec=document.createElement('div');mSec.className='strat-detail-sect';
+    var m=n.metric||{};
+    mSec.innerHTML='<h4>METRIC</h4>'
+      +'<div class="strat-score-explain">'
+      +'Baseline: '+(m.baseline!=null?esc(String(m.baseline)):'<em>not set</em>')+'<br>'
+      +'Target: '+(m.target!=null?esc(String(m.target)):'<em>not set</em>')+'<br>'
+      +'Unit: '+(m.unit?esc(m.unit):'<em>not set</em>')+'<br>'
+      +'Direction: '+(m.direction?esc(m.direction):'<em>not set</em>')+'<br>'
+      +'Confidence: '+esc(n.confidence||'—')
+      +'</div>'
+      +'<div style="font-size:10px;color:var(--mut);margin-top:8px;font-family:Roboto Mono,monospace">Metric editing lands in Phase 3 (Execution Planning Engine).</div>';
+    dp.appendChild(mSec);
+  }
+
+  // Linked tasks (live) for Initiative
+  if(n.type==='Initiative'){
+    var tSec=document.createElement('div');tSec.className='strat-detail-sect';
+    tSec.innerHTML='<h4>LINKED TASKS (LIVE)</h4>';
+    var tasks=ch.filter(function(c){return c.type==='Task';});
+    if(!tasks.length)tSec.innerHTML+='<div class="strat-link-empty">No tasks attached</div>';
+    else tasks.forEach(function(t){
+      var l=document.createElement('div');l.className='strat-link';
+      l.innerHTML='<span class="strat-id">'+t.id.replace('TA-','')+'</span><span style="flex:1">'+esc(t.title)+'</span><span class="strat-owner">'+esc(t.state||'')+'</span><span class="strat-owner">'+(t.progressPct||0)+'%</span>';
+      tSec.appendChild(l);
+    });
+    dp.appendChild(tSec);
+  }
+
+  // Footer hint
+  var foot=document.createElement('div');foot.className='strat-detail-sect';
+  foot.innerHTML='<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;border-top:1px solid var(--brd);padding-top:10px;line-height:1.6">'
+    +'Edit ownership, metric, planning fields & state transitions land in Phase 3.<br>'
+    +'Mindmap visualization with drag-and-drop reparenting lands in Phase 4.'
+    +'</div>';
+  dp.appendChild(foot);
+
+  dp.classList.add('open');
+}
+function scoreBlock(label,val,cls,explain){
+  var d=document.createElement('div');d.style.cssText='flex:1;min-width:140px';
+  d.innerHTML='<div style="font-size:9px;font-weight:800;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.5px;margin-bottom:4px">'+label.toUpperCase()+'</div>'
+    +'<div class="strat-score '+cls+'" style="font-size:13px;padding:6px 10px;display:inline-block">'+val+'</div>'
+    +'<div class="strat-score-explain" style="margin-top:6px">'+explain+'</div>';
+  return d;
+}
+
+NS._dismissBanner=function(){localStorage.setItem(BANNER_KEY,'1');NS.renderStrategy();};
+
+return NS;
 })();
 
 init();
