@@ -1513,15 +1513,35 @@ function renderReviewComments(box, revId, r, iRer, iRee){
 }
 function renderEvidenceSection(box, revId, r){
   var u = USER_REGISTRY[r.reviewee] || {};
-  var allTasks = loadTasks();
-  var revTasks = allTasks.filter(function(t){return t.owner === r.reviewee || (t.assignees||[]).indexOf(r.reviewee)>=0;});
+  var fullName = u.name || '';
+  var firstName = fullName.split(' ')[0] || '';
+  var revTasks = [];
+  if(typeof data === 'object' && data){
+    Object.keys(data).forEach(function(dept){
+      if(!Array.isArray(data[dept])) return;
+      data[dept].forEach(function(t){
+        var a = (t.assignee||'').trim();
+        if(a && (a===fullName || a===firstName)){
+          revTasks.push({id:t.id, name:t.name, status:t.status, due:t.due, dept:dept});
+        }
+      });
+    });
+  }
   var doneTasks = revTasks.filter(function(t){return t.status==='Done';});
   var overdueTasks = revTasks.filter(function(t){if(t.status==='Done') return false;if(!t.due) return false;return new Date(t.due) < new Date();});
-  var okrLinks = JSON.parse(localStorage.getItem('rl_okr_links')||'{}');
+  var okrLinks = {};
+  try { okrLinks = JSON.parse(localStorage.getItem('rl_okr_links')||'{}'); } catch(e){ okrLinks = {}; }
+  var revTaskIds = {};
+  revTasks.forEach(function(t){ revTaskIds[t.id]=t; });
   var linkedKRs = [];
-  Object.keys(okrLinks).forEach(function(taskId){var task = revTasks.find(function(t){return t.id===taskId;});if(task){var krs = okrLinks[taskId];(krs||[]).forEach(function(kr){linkedKRs.push({task:task,kr:kr});});}});
+  Object.keys(okrLinks).forEach(function(kr){
+    var taskIds = okrLinks[kr]||[];
+    taskIds.forEach(function(tid){
+      if(revTaskIds[tid]) linkedKRs.push({kr:kr, task:revTaskIds[tid]});
+    });
+  });
   var sec = document.createElement('div');sec.style.cssText='background:var(--surf2);border-radius:8px;padding:14px;margin-bottom:20px';
-  sec.innerHTML='<div style="font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:10px">EVIDENCE · OBJECTIVE PERFORMANCE</div>';
+  sec.innerHTML='<div style="font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:10px">EVIDENCE \u00b7 OBJECTIVE PERFORMANCE</div>';
   var stats = document.createElement('div');stats.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px';
   function mkS(v,l,col){var c=document.createElement('div');c.style.cssText='background:var(--surf);border-radius:6px;padding:8px 10px;text-align:center';c.innerHTML='<div style="font-size:18px;font-weight:800;color:'+col+'">'+v+'</div><div style="font-size:9px;color:var(--mut);margin-top:2px;font-family:Roboto Mono,monospace">'+l+'</div>';return c;}
   stats.appendChild(mkS(doneTasks.length,'COMPLETED','var(--grn)'));
@@ -1529,17 +1549,20 @@ function renderEvidenceSection(box, revId, r){
   stats.appendChild(mkS(overdueTasks.length,'OVERDUE','var(--red)'));
   stats.appendChild(mkS(linkedKRs.length,'OKR-LINKED','var(--acc2)'));
   sec.appendChild(stats);
-  if(doneTasks.length > 0){var dt = document.createElement('div');dt.style.cssText='margin-bottom:10px';dt.innerHTML = '<div style="font-size:10px;font-weight:700;color:var(--grn);font-family:Roboto Mono,monospace;margin-bottom:6px">✓ COMPLETED CONTRIBUTIONS</div>';doneTasks.slice(0,6).forEach(function(t){var row=document.createElement('div');row.style.cssText='font-size:11px;padding:4px 8px;background:var(--surf);border-radius:4px;margin-bottom:3px;display:flex;justify-content:space-between;align-items:center';row.innerHTML='<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:8px">'+esc(t.title)+'</span><span style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;flex-shrink:0">'+(t.dept||'')+'</span>';dt.appendChild(row);});if(doneTasks.length>6){var more=document.createElement('div');more.style.cssText='font-size:10px;color:var(--mut);margin-top:4px;text-align:center';more.textContent='+'+(doneTasks.length-6)+' more';dt.appendChild(more);}sec.appendChild(dt);}
-  if(linkedKRs.length > 0){var ok = document.createElement('div');ok.style.cssText='margin-bottom:10px';ok.innerHTML='<div style="font-size:10px;font-weight:700;color:var(--acc2);font-family:Roboto Mono,monospace;margin-bottom:6px">◎ OKR ALIGNMENT</div>';linkedKRs.slice(0,5).forEach(function(lk){var row=document.createElement('div');row.style.cssText='font-size:11px;padding:4px 8px;background:var(--surf);border-radius:4px;margin-bottom:3px';row.innerHTML='<span style="color:var(--acc2);font-family:Roboto Mono,monospace;font-size:9px">'+lk.kr+'</span> · '+esc(lk.task.title);ok.appendChild(row);});sec.appendChild(ok);}
-  if(overdueTasks.length > 0){var od = document.createElement('div');od.innerHTML='<div style="font-size:10px;font-weight:700;color:var(--red);font-family:Roboto Mono,monospace;margin-bottom:6px">⚠ OPEN CONCERNS</div>';overdueTasks.slice(0,4).forEach(function(t){var row=document.createElement('div');row.style.cssText='font-size:11px;padding:4px 8px;background:var(--surf);border-radius:4px;margin-bottom:3px';row.innerHTML='<span>'+esc(t.title)+'</span> <span style="font-size:9px;color:var(--red);font-family:Roboto Mono,monospace;margin-left:6px">due '+t.due+'</span>';od.appendChild(row);});sec.appendChild(od);}
+  if(revTasks.length === 0){
+    var none = document.createElement('div');none.style.cssText='font-size:11px;color:var(--mut);padding:8px;text-align:center';
+    none.textContent='No tasks assigned to '+(fullName||'this person')+' found in the task board.';
+    sec.appendChild(none);box.appendChild(sec);return;
+  }
+  if(doneTasks.length > 0){var dt = document.createElement('div');dt.style.cssText='margin-bottom:10px';dt.innerHTML = '<div style="font-size:10px;font-weight:700;color:var(--grn);font-family:Roboto Mono,monospace;margin-bottom:6px">\u2713 COMPLETED CONTRIBUTIONS</div>';doneTasks.slice(0,6).forEach(function(t){var row=document.createElement('div');row.style.cssText='font-size:11px;padding:4px 8px;background:var(--surf);border-radius:4px;margin-bottom:3px;display:flex;justify-content:space-between;align-items:center';row.innerHTML='<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:8px">'+esc(t.name)+'</span><span style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;flex-shrink:0">'+(t.dept||'')+'</span>';dt.appendChild(row);});if(doneTasks.length>6){var more=document.createElement('div');more.style.cssText='font-size:10px;color:var(--mut);margin-top:4px;text-align:center';more.textContent='+'+(doneTasks.length-6)+' more';dt.appendChild(more);}sec.appendChild(dt);}
+  if(linkedKRs.length > 0){var ok = document.createElement('div');ok.style.cssText='margin-bottom:10px';ok.innerHTML='<div style="font-size:10px;font-weight:700;color:var(--acc2);font-family:Roboto Mono,monospace;margin-bottom:6px">\u25CE OKR ALIGNMENT</div>';linkedKRs.slice(0,5).forEach(function(lk){var row=document.createElement('div');row.style.cssText='font-size:11px;padding:4px 8px;background:var(--surf);border-radius:4px;margin-bottom:3px';row.innerHTML='<span style="color:var(--acc2);font-family:Roboto Mono,monospace;font-size:9px">'+lk.kr+'</span> \u00b7 '+esc(lk.task.name);ok.appendChild(row);});sec.appendChild(ok);}
+  if(overdueTasks.length > 0){var od = document.createElement('div');od.innerHTML='<div style="font-size:10px;font-weight:700;color:var(--red);font-family:Roboto Mono,monospace;margin-bottom:6px">\u26A0 OPEN CONCERNS</div>';overdueTasks.slice(0,4).forEach(function(t){var row=document.createElement('div');row.style.cssText='font-size:11px;padding:4px 8px;background:var(--surf);border-radius:4px;margin-bottom:3px';row.innerHTML='<span>'+esc(t.name)+'</span> <span style="font-size:9px;color:var(--red);font-family:Roboto Mono,monospace;margin-left:6px">due '+t.due+'</span>';od.appendChild(row);});sec.appendChild(od);}
   var totalAssigned = revTasks.length;var doneRate = totalAssigned > 0 ? Math.round(doneTasks.length / totalAssigned * 100) : 0;
   var summary = document.createElement('div');summary.style.cssText='margin-top:10px;padding:10px;background:var(--surf);border-radius:6px;border-left:3px solid var(--acc);font-size:11px';
   summary.innerHTML='<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:4px">OPERATIONAL IMPACT SUMMARY</div><div>Completed <b>'+doneTasks.length+' of '+revTasks.length+'</b> assigned tasks ('+doneRate+'% completion rate)'+ (linkedKRs.length>0 ? ', contributing to <b>'+linkedKRs.length+'</b> strategic key results' : '') + (overdueTasks.length>0 ? ', with <span style="color:var(--red)"><b>'+overdueTasks.length+' overdue</b></span> items outstanding' : '') +'.</div>';
   sec.appendChild(summary);
   box.appendChild(sec);
 }
-
-
 function loadProfileExtras(){try{return JSON.parse(localStorage.getItem('rl_profile_extras_v1')||'{}');}catch(e){return{};}}
 function saveProfileExtras(d){localStorage.setItem('rl_profile_extras_v1',JSON.stringify(d));}
 function getProfileExtra(email){var all=loadProfileExtras();return all[email]||{};}
@@ -1749,6 +1772,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
