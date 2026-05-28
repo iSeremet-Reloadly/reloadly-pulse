@@ -287,6 +287,29 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .strat-guide-section .step-b{flex:1;font-size:12px;line-height:1.5}
 .strat-guide-btn{background:var(--surf2);border:1px solid var(--brd);color:var(--acc);padding:5px 11px;border-radius:6px;font-size:10px;font-weight:700;font-family:Roboto Mono,monospace;cursor:pointer;letter-spacing:.5px}
 .strat-guide-btn:hover{background:var(--acc);color:#fff;border-color:var(--acc)}
+/* ── Strategic Mindmap modal ─────────────────────────────────────────── */
+.mm-ov{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9600;display:none;align-items:stretch;justify-content:stretch;padding:0}
+.mm-ov.open{display:flex}
+.mm-box{flex:1;background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+.mm-top{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--brd);background:var(--surf);flex-wrap:wrap}
+.mm-title{font-size:15px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:8px;color:var(--txt)}
+.mm-sel{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;padding:6px 10px;font-size:11px;font-family:inherit;min-width:140px}
+.mm-btn{background:var(--surf2);border:1px solid var(--brd);color:var(--acc);padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;font-family:Roboto Mono,monospace;cursor:pointer;letter-spacing:.3px}
+.mm-btn:hover:not(:disabled){background:var(--acc);color:#fff;border-color:var(--acc)}
+.mm-close{background:var(--surf2);border:1px solid var(--brd);color:var(--mut);width:34px;height:34px;border-radius:8px;font-size:20px;cursor:pointer;margin-left:auto;display:flex;align-items:center;justify-content:center}
+.mm-close:hover{color:var(--txt);background:var(--bg)}
+.mm-crumb{display:flex;align-items:center;gap:6px;padding:10px 22px;background:var(--surf2);border-bottom:1px solid var(--brd);flex-wrap:wrap;font-size:11px;overflow-x:auto}
+.mm-crumb-item{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--mut);padding:3px 8px;border-radius:5px}
+.mm-crumb-item:hover{background:var(--surf);color:var(--txt)}
+.mm-crumb-item.active{color:var(--txt);font-weight:600;background:var(--surf)}
+.mm-crumb-sep{color:var(--mut);font-size:14px}
+.mm-canvas{flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(108,99,255,.04),transparent 70%)}
+.mm-svg{width:100%;height:100%;max-height:calc(100vh - 180px)}
+.mm-node{transition:transform .15s}
+.mm-node.clickable:hover{transform:scale(1.04);transform-origin:center}
+.mm-node.clickable:hover rect{filter:brightness(1.15)}
+.mm-foot{padding:8px 22px;border-top:1px solid var(--brd);background:var(--surf);font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;text-align:center}
+
 
 
 </style>
@@ -2304,7 +2327,10 @@ NS.renderStrategy=function(){
   var ca=document.createElement('button');ca.className='hbtn';ca.textContent='Collapse';ca.style.cssText='font-size:10px;padding:5px 10px';
   ca.onclick=function(){setState({expanded:{}});NS.renderStrategy();};
   fbar.appendChild(ca);
-  var ug=document.createElement('button');ug.className='strat-guide-btn';ug.innerHTML='📖 User Guide';ug.style.cssText='margin-left:auto';
+  var mmBtn=document.createElement('button');mmBtn.className='strat-guide-btn';mmBtn.innerHTML='🗺️ Mindmap';mmBtn.style.cssText='margin-left:auto;background:linear-gradient(135deg,rgba(108,99,255,.18),rgba(9,250,163,.12));border-color:var(--acc)';
+  mmBtn.onclick=function(){NS.openMindmap();};
+  fbar.appendChild(mmBtn);
+  var ug=document.createElement('button');ug.className='strat-guide-btn';ug.innerHTML='📖 User Guide';ug.style.cssText='margin-left:0';
   ug.onclick=function(){NS.openUserGuide();};
   fbar.appendChild(ug);
   wrap.appendChild(fbar);
@@ -2921,6 +2947,386 @@ NS.openUserGuide=function(){
   function onEsc(e){if(e.key==='Escape'){ov.classList.remove('open');document.removeEventListener('keydown',onEsc);}}
   document.addEventListener('keydown',onEsc);
 };
+
+
+// ── Interactive Radial Mindmap ────────────────────────────────────────
+// Click any node to re-center on it. Walk up via breadcrumb. Pivot by
+// quarter or by team member. Curved bezier links between focus and
+// children. No external deps.
+NS.openMindmap=function(focusId){
+  var ov=document.getElementById('strat-mm-overlay');
+  if(!ov){
+    ov=document.createElement('div');ov.id='strat-mm-overlay';ov.className='mm-ov';
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML='';
+
+  // State
+  var st=loadUI();
+  var quarter=st.quarter||getActiveOKRKey();
+  var member=st.mmMember||'';
+  var allNodes=loadNodes()[quarter]||{};
+  var allEdges=loadEdges()[quarter]||[];
+  // Hydrate task nodes from live data
+  var nodesMap=Object.assign({},allNodes);
+  allEdges.forEach(function(e){
+    if(e.c.indexOf('TA-')===0&&!nodesMap[e.c]){
+      var t=NS.getTask(e.c);
+      if(t)nodesMap[e.c]={id:e.c,type:'Task',title:t.name,dept:t.dept,quarter:quarter,ownerName:t.assignee,progressPct:t.progress||0,state:t.status,due:t.due};
+    }
+  });
+
+  // Pick initial focus: passed in, persisted, member's chain, or first L1
+  if(!focusId)focusId=st.mmFocus||null;
+  if(member){
+    // Find a node owned by this member as best focus
+    var u=USER_REGISTRY[member];
+    var memberName=u?u.name:member;
+    var ownedKR=Object.values(nodesMap).find(function(n){return (n.ownerName||n.ownerEmail||'')===memberName&&(n.type==='KeyResult'||n.type==='IndividualObjective');});
+    if(ownedKR){
+      // Walk up to find their dept objective parent
+      var parents=allEdges.filter(function(e){return e.c===ownedKR.id;}).map(function(e){return nodesMap[e.p];}).filter(Boolean);
+      focusId=(parents[0]&&parents[0].id)||ownedKR.id;
+    }
+  }
+  if(!focusId||!nodesMap[focusId]){
+    var firstL1=Object.values(nodesMap).find(function(n){return n.type==='CompanyObjective';});
+    focusId=firstL1?firstL1.id:Object.keys(nodesMap)[0];
+  }
+
+  // Box
+  var box=document.createElement('div');box.className='mm-box';
+
+  // Top bar
+  var top=document.createElement('div');top.className='mm-top';
+  var title=document.createElement('div');title.className='mm-title';
+  title.innerHTML='<span style="font-size:18px">🗺️</span> Strategic Mindmap';
+  top.appendChild(title);
+
+  // Quarter selector
+  var qSel=document.createElement('select');qSel.className='mm-sel';
+  generateQuarterList().forEach(function(qk){
+    if(!loadOKRForQuarter(qk))return;
+    var op=document.createElement('option');op.value=qk;op.textContent=quarterLabel(qk);if(qk===quarter)op.selected=true;qSel.appendChild(op);
+  });
+  qSel.onchange=function(){var s=loadUI();s.quarter=this.value;s.mmFocus=null;saveUI(s);NS.openMindmap(null);};
+  top.appendChild(wrapLabel('QUARTER',qSel));
+
+  // Member selector
+  var mSel=document.createElement('select');mSel.className='mm-sel';
+  var allMembers=[{e:'',n:'— all team members —'}];
+  if(window.USER_REGISTRY){
+    Object.keys(USER_REGISTRY).forEach(function(e){allMembers.push({e:e,n:USER_REGISTRY[e].name+' · '+USER_REGISTRY[e].role});});
+  }
+  allMembers.forEach(function(m){var op=document.createElement('option');op.value=m.e;op.textContent=m.n;if(m.e===member)op.selected=true;mSel.appendChild(op);});
+  mSel.onchange=function(){var s=loadUI();s.mmMember=this.value;s.mmFocus=null;saveUI(s);NS.openMindmap(null);};
+  top.appendChild(wrapLabel('MEMBER',mSel));
+
+  // Up button
+  var upBtn=document.createElement('button');upBtn.className='mm-btn';upBtn.innerHTML='↑ Up';
+  var parents=allEdges.filter(function(e){return e.c===focusId;}).map(function(e){return nodesMap[e.p];}).filter(Boolean);
+  if(parents.length===0){upBtn.disabled=true;upBtn.style.opacity='.4';upBtn.style.cursor='not-allowed';}
+  upBtn.onclick=function(){if(parents.length)NS.openMindmap(parents[0].id);};
+  top.appendChild(upBtn);
+
+  // Reset to top
+  var resetBtn=document.createElement('button');resetBtn.className='mm-btn';resetBtn.innerHTML='⌂ Top';
+  resetBtn.onclick=function(){var firstL1=Object.values(nodesMap).find(function(n){return n.type==='CompanyObjective';});if(firstL1)NS.openMindmap(firstL1.id);};
+  top.appendChild(resetBtn);
+
+  // Close
+  var closeBtn=document.createElement('button');closeBtn.className='mm-close';closeBtn.innerHTML='×';
+  closeBtn.onclick=function(){ov.classList.remove('open');};
+  top.appendChild(closeBtn);
+  box.appendChild(top);
+
+  // Breadcrumb
+  var crumb=document.createElement('div');crumb.className='mm-crumb';
+  var chain=buildAncestorChain(focusId,allEdges,nodesMap);
+  chain.forEach(function(n,i){
+    var c=document.createElement('span');c.className='mm-crumb-item'+(i===chain.length-1?' active':'');
+    c.innerHTML='<span class="strat-tier '+tierFor(n.type)+'" style="font-size:8px;padding:1px 5px">'+tierFor(n.type)+'</span> '+esc(truncate(n.title,40));
+    c.onclick=function(){NS.openMindmap(n.id);};
+    crumb.appendChild(c);
+    if(i<chain.length-1){var sep=document.createElement('span');sep.className='mm-crumb-sep';sep.textContent='›';crumb.appendChild(sep);}
+  });
+  box.appendChild(crumb);
+
+  // SVG canvas
+  var canvas=document.createElement('div');canvas.className='mm-canvas';
+  var svg=renderMindmapSvg(focusId,allEdges,nodesMap,member);
+  canvas.appendChild(svg);
+  box.appendChild(canvas);
+
+  // Footer hint
+  var foot=document.createElement('div');foot.className='mm-foot';
+  foot.innerHTML='Click any node to focus it. Click ↑ Up to walk to the parent. Pivot by member to see their chain.';
+  box.appendChild(foot);
+
+  ov.appendChild(box);
+  ov.classList.add('open');
+
+  // Persist focus
+  var s=loadUI();s.mmFocus=focusId;s.quarter=quarter;saveUI(s);
+
+  // Close interactions
+  ov.onclick=function(e){if(e.target===ov)ov.classList.remove('open');};
+  function onEsc(e){if(e.key==='Escape'){ov.classList.remove('open');document.removeEventListener('keydown',onEsc);}}
+  document.addEventListener('keydown',onEsc);
+};
+
+function wrapLabel(label,el){
+  var d=document.createElement('div');d.style.cssText='display:flex;align-items:center;gap:6px';
+  var l=document.createElement('span');l.textContent=label;l.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.5px';
+  d.appendChild(l);d.appendChild(el);return d;
+}
+
+function buildAncestorChain(nodeId,edges,nodesMap){
+  var chain=[],cur=nodeId,seen={},safety=12;
+  while(cur&&!seen[cur]&&safety-->0){
+    seen[cur]=1;
+    var n=nodesMap[cur];if(!n)break;
+    chain.unshift(n);
+    var p=edges.filter(function(e){return e.c===cur;}).map(function(e){return e.p;})[0];
+    cur=p;
+  }
+  return chain;
+}
+
+function deptColor(dept){
+  if(!dept)return 'var(--mut)';
+  var c=window.CFG&&window.CFG[dept];return c?c.col:'var(--acc)';
+}
+
+function tierBgColor(type){
+  return {
+    CompanyObjective:'rgba(108,99,255,.18)',
+    DepartmentObjective:'rgba(9,250,163,.16)',
+    TeamObjective:'rgba(251,191,36,.18)',
+    IndividualObjective:'rgba(167,139,250,.18)',
+    KeyResult:'rgba(255,107,107,.16)',
+    Initiative:'rgba(90,163,224,.18)',
+    Task:'rgba(150,150,160,.15)'
+  }[type]||'var(--surf2)';
+}
+function tierStrokeColor(type){
+  return {
+    CompanyObjective:'#6c63ff',
+    DepartmentObjective:'#09faa3',
+    TeamObjective:'#fbbf24',
+    IndividualObjective:'#a78bfa',
+    KeyResult:'#ff6b6b',
+    Initiative:'#5aa3e0',
+    Task:'#969aa0'
+  }[type]||'#6c63ff';
+}
+
+function renderMindmapSvg(focusId,edges,nodesMap,memberFilter){
+  var W=1400,H=820;
+  var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  svg.setAttribute('width','100%');
+  svg.setAttribute('height','100%');
+  svg.setAttribute('class','mm-svg');
+
+  var focus=nodesMap[focusId];
+  if(!focus){
+    var t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',W/2);t.setAttribute('y',H/2);t.setAttribute('text-anchor','middle');
+    t.setAttribute('fill','var(--mut)');t.setAttribute('font-size','14');t.textContent='No node selected';
+    svg.appendChild(t);return svg;
+  }
+
+  var cx=W/2,cy=H/2;
+  // Get children
+  var children=edges.filter(function(e){return e.p===focusId;}).map(function(e){return nodesMap[e.c];}).filter(Boolean);
+  // Get parent (one)
+  var parents=edges.filter(function(e){return e.c===focusId;}).map(function(e){return nodesMap[e.p];}).filter(Boolean);
+  var parent=parents[0]||null;
+
+  // If member filter active, prune children to those they own or contribute
+  if(memberFilter&&window.USER_REGISTRY){
+    var mName=USER_REGISTRY[memberFilter]?USER_REGISTRY[memberFilter].name:memberFilter;
+    children=children.filter(function(c){
+      var o=(c.ownerName||c.ownerEmail||'');
+      if(o===mName||o===memberFilter)return true;
+      // Also include if any descendant is owned by member
+      return hasDescendantOwnedBy(c.id,mName,memberFilter,edges,nodesMap);
+    });
+  }
+
+  // Draw parent node (top-center, smaller)
+  if(parent){
+    var px=cx,py=110;
+    drawCurve(svg,px,py+38,cx,cy-70,tierStrokeColor(parent.type),0.45);
+    drawNode(svg,px,py,parent,200,52,false,function(){NS.openMindmap(parent.id);});
+    var upLabel=document.createElementNS('http://www.w3.org/2000/svg','text');
+    upLabel.setAttribute('x',px);upLabel.setAttribute('y',py-12);upLabel.setAttribute('text-anchor','middle');
+    upLabel.setAttribute('fill','var(--mut)');upLabel.setAttribute('font-size','9');upLabel.setAttribute('font-family','Roboto Mono,monospace');upLabel.textContent='PARENT — click to walk up';
+    svg.appendChild(upLabel);
+  }
+
+  // Draw focus node
+  drawNode(svg,cx,cy,focus,300,90,true,null);
+
+  // Draw children radiating outward
+  if(children.length===0){
+    var emp=document.createElementNS('http://www.w3.org/2000/svg','text');
+    emp.setAttribute('x',cx);emp.setAttribute('y',cy+200);emp.setAttribute('text-anchor','middle');
+    emp.setAttribute('fill','var(--mut)');emp.setAttribute('font-size','13');
+    emp.textContent='○ No children — execution chain ends here';
+    svg.appendChild(emp);
+  }else{
+    var radius=Math.min(W,H)*0.36;
+    // Distribute children on right half-fan if parent exists (so parent stays unblocked), else full circle
+    var startAngle, endAngle;
+    if(parent){startAngle=-Math.PI*0.45;endAngle=Math.PI*0.45;}  // right semi-fan
+    else{startAngle=-Math.PI*0.5;endAngle=Math.PI*1.5;}  // full circle
+    // Actually simpler: always use right-fan; mindmap reads better
+    startAngle=-Math.PI*0.5;endAngle=Math.PI*0.5;
+    // For many children, expand fan
+    if(children.length>6){startAngle=-Math.PI*0.7;endAngle=Math.PI*0.7;}
+    if(children.length>10){startAngle=-Math.PI*0.85;endAngle=Math.PI*0.85;}
+    var step=(endAngle-startAngle)/Math.max(1,children.length-1);
+    if(children.length===1)step=0;
+
+    children.forEach(function(child,i){
+      var angle=children.length===1?0:(startAngle+i*step);
+      var rx=cx+Math.cos(angle)*radius;
+      var ry=cy+Math.sin(angle)*radius;
+      // Curve from focus edge to child
+      drawCurve(svg,cx+150,cy+(angle*30),rx,ry,tierStrokeColor(child.type),0.85,angle);
+      // Determine child box width based on text
+      var w=Math.min(280,Math.max(150,(child.title||'').length*7));
+      var h=child.type==='Task'?42:(child.type==='Initiative'?56:64);
+      drawNode(svg,rx,ry,child,w,h,false,function(){NS.openMindmap(child.id);});
+    });
+  }
+
+  return svg;
+}
+
+function hasDescendantOwnedBy(rootId,mName,memberId,edges,nodesMap){
+  var stack=[rootId],seen={},safety=300;
+  while(stack.length&&safety-->0){
+    var id=stack.pop();if(seen[id])continue;seen[id]=1;
+    var n=nodesMap[id];if(n){var o=n.ownerName||n.ownerEmail||'';if(o===mName||o===memberId)return true;}
+    edges.filter(function(e){return e.p===id;}).forEach(function(e){stack.push(e.c);});
+  }
+  return false;
+}
+
+function drawCurve(svg,x1,y1,x2,y2,stroke,opacity,childAngle){
+  // Cubic bezier with pulled control points
+  var dx=x2-x1,dy=y2-y1;
+  var c1x=x1+dx*0.45,c1y=y1+dy*0.1;
+  var c2x=x1+dx*0.55,c2y=y2-dy*0.05;
+  var path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d','M '+x1+' '+y1+' C '+c1x+' '+c1y+' '+c2x+' '+c2y+' '+x2+' '+y2);
+  path.setAttribute('stroke',stroke||'#6c63ff');
+  path.setAttribute('stroke-width','2.5');
+  path.setAttribute('fill','none');
+  path.setAttribute('opacity',opacity!=null?opacity:0.75);
+  path.setAttribute('stroke-linecap','round');
+  svg.appendChild(path);
+}
+
+function drawNode(svg,cx,cy,node,w,h,isFocus,onClick){
+  var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('class','mm-node'+(isFocus?' focus':'')+(onClick?' clickable':''));
+  if(onClick){
+    g.style.cursor='pointer';
+    g.addEventListener('click',onClick);
+  }
+  var rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  rect.setAttribute('x',cx-w/2);rect.setAttribute('y',cy-h/2);
+  rect.setAttribute('width',w);rect.setAttribute('height',h);
+  rect.setAttribute('rx',isFocus?14:10);rect.setAttribute('ry',isFocus?14:10);
+  rect.setAttribute('fill',tierBgColor(node.type));
+  rect.setAttribute('stroke',tierStrokeColor(node.type));
+  rect.setAttribute('stroke-width',isFocus?2.5:1.5);
+  g.appendChild(rect);
+
+  // Tier label (small badge top-left of box)
+  var tier=tierFor(node.type);
+  var badge=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  badge.setAttribute('x',cx-w/2+8);badge.setAttribute('y',cy-h/2+8);
+  badge.setAttribute('width',24);badge.setAttribute('height',14);
+  badge.setAttribute('rx',3);badge.setAttribute('fill',tierStrokeColor(node.type));
+  badge.setAttribute('opacity',0.85);
+  g.appendChild(badge);
+  var tt=document.createElementNS('http://www.w3.org/2000/svg','text');
+  tt.setAttribute('x',cx-w/2+20);tt.setAttribute('y',cy-h/2+18);tt.setAttribute('text-anchor','middle');
+  tt.setAttribute('fill','#fff');tt.setAttribute('font-size','9');tt.setAttribute('font-weight','700');tt.setAttribute('font-family','Roboto Mono,monospace');
+  tt.textContent=tier;
+  g.appendChild(tt);
+
+  // ID text top-right
+  var idt=document.createElementNS('http://www.w3.org/2000/svg','text');
+  idt.setAttribute('x',cx+w/2-8);idt.setAttribute('y',cy-h/2+18);idt.setAttribute('text-anchor','end');
+  idt.setAttribute('fill','var(--mut)');idt.setAttribute('font-size','9');idt.setAttribute('font-family','Roboto Mono,monospace');
+  idt.textContent=node.id;
+  g.appendChild(idt);
+
+  // Wrapped title text
+  var lines=wrapText(node.title||'(untitled)',Math.floor(w/(isFocus?8:7)));
+  var maxLines=isFocus?3:(h<50?1:2);
+  lines=lines.slice(0,maxLines);
+  if((node.title||'').length>lines.join(' ').length&&lines.length===maxLines){
+    lines[lines.length-1]=lines[lines.length-1].replace(/.{0,3}$/,'…');
+  }
+  lines.forEach(function(line,i){
+    var t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',cx);
+    var yOff=isFocus?(-8+i*16):(0+i*14);
+    t.setAttribute('y',cy+yOff);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('fill','var(--txt)');
+    t.setAttribute('font-size',isFocus?14:12);
+    t.setAttribute('font-weight',isFocus?700:500);
+    t.textContent=line;
+    g.appendChild(t);
+  });
+
+  // Owner + progress (bottom row) for focus and non-task children
+  var owner=node.ownerName||node.ownerEmail||'';
+  var hasMeta=owner||typeof node.progressPct==='number';
+  if(hasMeta&&node.type!=='Task'){
+    if(owner){
+      var ot=document.createElementNS('http://www.w3.org/2000/svg','text');
+      ot.setAttribute('x',cx-w/2+8);ot.setAttribute('y',cy+h/2-8);
+      ot.setAttribute('text-anchor','start');ot.setAttribute('fill','var(--mut)');
+      ot.setAttribute('font-size','9');ot.setAttribute('font-family','Roboto Mono,monospace');
+      ot.textContent=truncate(owner,18);
+      g.appendChild(ot);
+    }
+    if(typeof node.progressPct==='number'){
+      var pt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      pt.setAttribute('x',cx+w/2-8);pt.setAttribute('y',cy+h/2-8);
+      pt.setAttribute('text-anchor','end');pt.setAttribute('fill',tierStrokeColor(node.type));
+      pt.setAttribute('font-size','10');pt.setAttribute('font-weight','700');pt.setAttribute('font-family','Roboto Mono,monospace');
+      pt.textContent=Math.round(node.progressPct)+'%';
+      g.appendChild(pt);
+    }
+  }
+
+  // Tooltip via title
+  var tip=document.createElementNS('http://www.w3.org/2000/svg','title');
+  tip.textContent=node.id+' — '+node.title+(owner?(' · '+owner):'')+(node.dept?(' · '+node.dept):'');
+  g.appendChild(tip);
+
+  svg.appendChild(g);
+}
+
+function wrapText(text,maxChars){
+  var words=String(text||'').split(/\s+/),lines=[],cur='';
+  words.forEach(function(w){
+    if((cur+' '+w).trim().length<=maxChars){cur=(cur+' '+w).trim();}
+    else{if(cur)lines.push(cur);cur=w;}
+  });
+  if(cur)lines.push(cur);
+  return lines.length?lines:[''];
+}
 
 NS._dismissBanner=function(){localStorage.setItem(BANNER_KEY,'1');NS.renderStrategy();};
 
