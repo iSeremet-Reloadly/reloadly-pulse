@@ -939,29 +939,33 @@ function renderLog(){
   var fBar = document.createElement('div');
   fBar.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:12px;margin-bottom:14px;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 1fr auto auto;gap:8px;align-items:center';
   var qIn=document.createElement('input');qIn.type='text';qIn.placeholder='Search messages...';qIn.value=fState.q;qIn.style.cssText='padding:6px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:11px';
-  qIn.oninput=function(){fState.q=this.value;renderLog();var i=document.querySelector('.log-panel');setTimeout(function(){var el=document.querySelector('input[placeholder=\"Search messages...\"]');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}},0);};
+  qIn.oninput=function(){fState.q=this.value;refreshLogList(main,fState);};
   var userIn=document.createElement('select');userIn.style.cssText='padding:6px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:11px';
   var allUsers=Array.from(new Set(actLog.map(function(e){return e.user||'';}).filter(Boolean))).sort();
   userIn.innerHTML='<option value="">All users</option>'+allUsers.map(function(u){var sel=fState.user===u?'selected':'';return '<option value="'+u+'" '+sel+'>'+u+'</option>';}).join('');
-  userIn.onchange=function(){fState.user=this.value;renderLog();};
+  userIn.onchange=function(){fState.user=this.value;refreshLogList(main,fState);};
   var tagIn=document.createElement('select');tagIn.style.cssText='padding:6px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:11px';
   var allTags=Array.from(new Set(actLog.map(function(e){return e.tag||'';}).filter(Boolean))).sort();
   tagIn.innerHTML='<option value="">All types</option>'+allTags.map(function(t){var sel=fState.tag===t?'selected':'';return '<option value="'+t+'" '+sel+'>'+t+'</option>';}).join('');
-  tagIn.onchange=function(){fState.tag=this.value;renderLog();};
+  tagIn.onchange=function(){fState.tag=this.value;refreshLogList(main,fState);};
   var fromIn=document.createElement('input');fromIn.type='date';fromIn.value=fState.from;fromIn.style.cssText='padding:5px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:11px';
-  fromIn.onchange=function(){fState.from=this.value;renderLog();};
+  fromIn.onchange=function(){fState.from=this.value;refreshLogList(main,fState);};
   var toIn=document.createElement('input');toIn.type='date';toIn.value=fState.to;toIn.style.cssText='padding:5px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:11px';
-  toIn.onchange=function(){fState.to=this.value;renderLog();};
+  toIn.onchange=function(){fState.to=this.value;refreshLogList(main,fState);};
   var expBtn=document.createElement('button');expBtn.className='hbtn';expBtn.style.cssText='font-size:10px;padding:6px 10px;white-space:nowrap';expBtn.textContent='↓ CSV';
   expBtn.onclick=function(){var filtered=filterLog(fState);var csv='timestamp,user,type,message\n'+filtered.map(function(e){return '"'+(e.ts||'')+'","'+(e.user||'')+'","'+(e.tag||'')+'","'+(e.msg||'').replace(/"/g,'""')+'"';}).join('\n');var blob=new Blob([csv],{type:'text/csv'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='activity_log_'+new Date().toISOString().slice(0,10)+'.csv';a.click();toast('Log exported','ok');};
   var clrBtn=document.createElement('button');clrBtn.className='hbtn';clrBtn.style.cssText='font-size:10px;padding:6px 10px;white-space:nowrap;color:var(--red);border-color:var(--red)';clrBtn.textContent='Clear';
   clrBtn.onclick=function(){if(confirm('Clear log?'))clearLog();};
   fBar.appendChild(qIn);fBar.appendChild(userIn);fBar.appendChild(tagIn);fBar.appendChild(fromIn);fBar.appendChild(toIn);fBar.appendChild(expBtn);fBar.appendChild(clrBtn);
   main.appendChild(fBar);
+  refreshLogList(main, fState);
+}
+function refreshLogList(main, fState){
+  var existing = main.querySelector('.log-panel');if(existing) existing.remove();
   var filtered = filterLog(fState);
   var lp=document.createElement('div');lp.className='log-panel';
   var hd=document.createElement('div');hd.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px';
-  hd.innerHTML='<div style="font-size:13px;font-weight:700">Recent Activity</div><div style="font-family:Roboto Mono,monospace;font-size:9px;color:var(--mut)">'+filtered.length+' of '+actLog.length+' · newest first</div>';
+  hd.innerHTML='<div style="font-size:13px;font-weight:700">Recent Activity</div><div style="font-family:Roboto Mono,monospace;font-size:9px;color:var(--mut)">'+filtered.length+' of '+actLog.length+' \u00b7 newest first</div>';
   lp.appendChild(hd);
   if(filtered.length===0){var em=document.createElement('div');em.className='log-empty';em.textContent='No matches.';lp.appendChild(em);}
   else{filtered.forEach(function(e){var le=document.createElement('div');le.className='log-entry';le.innerHTML='<span class="log-time">'+e.ts+'</span><span style="font-family:Roboto Mono,monospace;font-size:9px;color:var(--acc);min-width:100px;white-space:nowrap;padding-top:1px">'+(e.user||'')+'</span><span class="log-msg">'+esc(e.msg)+'<span class="log-tag '+e.tag+'">'+e.tag+'</span></span>';lp.appendChild(le);});}
@@ -1745,4 +1749,5 @@ init();
 </script>
 </body>
 </html>
+
 
