@@ -172,7 +172,8 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 #gate-pwd{margin-top:-4px}
 .gate-input+.gate-input{margin-top:0}
 
-.th-info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;background:rgba(108,99,255,.25);color:var(--acc);font-size:9px;font-weight:700;cursor:default;margin-left:4px;vertical-align:middle;line-height:1;font-family:sans-serif;flex-shrink:0}
+.th-info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(108,99,255,.4);color:#fff;font-size:9px;font-weight:700;cursor:help;margin-left:6px;vertical-align:middle;line-height:1;font-family:sans-serif;flex-shrink:0;transition:transform .12s,background .12s}
+.th-info:hover{background:var(--acc);transform:scale(1.18)}
 #th-tooltip{position:fixed;background:var(--surf);border:1px solid var(--acc);border-radius:8px;padding:10px 12px;max-width:210px;font-size:11px;color:var(--txt);line-height:1.6;z-index:99999;box-shadow:0 8px 28px rgba(0,0,0,.45);pointer-events:none;display:none}
 #th-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--acc)}
 
@@ -2154,6 +2155,9 @@ function saveMig(m){localStorage.setItem(MIG_KEY,JSON.stringify(m));}
 function loadUI(){try{return JSON.parse(localStorage.getItem(STATE_KEY)||'{}');}catch(e){return{};}}
 function saveUI(u){localStorage.setItem(STATE_KEY,JSON.stringify(u));}
 
+// Inline info icon helper — reuses existing .th-info / data-tip system
+function _thi(tip){return ' <span class="th-info" data-tip="'+String(tip||'').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" style="cursor:help">i</span>';}
+
 // ── Migration: existing OKR + task data -> typed nodes + edges ────────
 NS.migrate=function(){
   var migrated=loadMig();
@@ -2478,24 +2482,24 @@ function _stratViewpointHeader(wrap, activeViewpoint){
   // Toggle row
   var tbar=document.createElement('div');tbar.className='strat-vptbar';
   var modes=[
-    {id:'company',label:'Company',sub:'Where strategy starts',ic:'🏢'},
-    {id:'department',label:'Department',sub:'How each team contributes',ic:'⚙'},
-    {id:'individual',label:'Individual',sub:'Personal action list',ic:'🎯'},
-    {id:'cascade',label:'Cascade',sub:'Full tree drill-down',ic:'🌳'}
+    {id:'company',label:'Company',sub:'Where strategy starts',ic:'🏢',tip:'Exec lens for the quarter. Shows each Company Objective as a hero card with progress, owner, KR counts, at-risk count; a contribution heatmap (rows=depts × columns=COs) revealing strategy gaps; and the top strategic actions to unblock. Use this for board updates and strategy reviews.'},
+    {id:'department',label:'Department',sub:'How each team contributes',ic:'⚙',tip:'Dept-head lens. Pick a department to see its scorecard, all Department Objectives with KR rows inline, the action queue specific to that dept, and a team roster card for every member so you can set Individual OKRs directly for any report.'},
+    {id:'individual',label:'Individual',sub:'Personal action list',ic:'🎯',tip:'IC lens. Pick a person (defaults to you) to see their personal scorecard, Individual Objectives with KRs and inline progress, KRs they own outside their IOs, tasks due in 7 days, and stalled tasks. + Set Individual OKR to create personal commitments.'},
+    {id:'cascade',label:'Cascade',sub:'Full tree drill-down',ic:'🌳',tip:'Full read-only tree: Company → Department → KR → Initiative → Task. Deep analysis view with quarter/dept/owner/type filters, search, expand/collapse. Each node has A/E/R score chips. Click any node for the detail drawer with parent/child navigation.'}
   ];
   modes.forEach(function(m){
     var b=document.createElement('button');b.className='strat-vpt'+(m.id===activeViewpoint?' active':'');
-    b.innerHTML='<span class="strat-vpt-ic">'+m.ic+'</span><span class="strat-vpt-l"><span class="strat-vpt-t">'+m.label+'</span><span class="strat-vpt-s">'+m.sub+'</span></span>';
+    b.innerHTML='<span class="strat-vpt-ic">'+m.ic+'</span><span class="strat-vpt-l"><span class="strat-vpt-t">'+m.label+_thi(m.tip||'')+'</span><span class="strat-vpt-s">'+m.sub+'</span></span>';
     b.onclick=function(){setState({viewpoint:m.id});NS.renderStrategy();};
     tbar.appendChild(b);
   });
   // Action buttons right side
   var actR=document.createElement('div');actR.className='strat-vpt-actions';
-  var mmBtn=document.createElement('button');mmBtn.className='strat-guide-btn';mmBtn.innerHTML='🗺️ Mindmap';
+  var mmBtn=document.createElement('button');mmBtn.className='strat-guide-btn';mmBtn.innerHTML='🗺️ Mindmap'+_thi('Fullscreen interactive radial mindmap. Click any node to refocus on it. Drag canvas to pan, scroll to zoom. Pivot by quarter or by team member to see their OKR chain. Breadcrumb at top walks ancestors. Each child shows a +N grandchild badge so you see depth before clicking.');
   mmBtn.style.cssText='background:linear-gradient(135deg,rgba(108,99,255,.18),rgba(9,250,163,.12));border-color:var(--acc)';
   mmBtn.onclick=function(){NS.openMindmap();};
   actR.appendChild(mmBtn);
-  var ug=document.createElement('button');ug.className='strat-guide-btn';ug.innerHTML='📖 User Guide';
+  var ug=document.createElement('button');ug.className='strat-guide-btn';ug.innerHTML='📖 User Guide'+_thi('Full in-app guide modal. 12 sections covering: 7 tiers, cascade reading, filters, A/E/R scores with examples, all 8 insight types, detail drawer, migration details, 15-min gap audit walkthrough, current limitations, data caveats, troubleshooting.');
   ug.onclick=function(){NS.openUserGuide();};
   actR.appendChild(ug);
   tbar.appendChild(actR);
@@ -2592,7 +2596,7 @@ NS._renderCompanyMode=function(){
 
   // Top header for the company section
   var sec=document.createElement('div');sec.className='strat-vp-sec';
-  sec.innerHTML='<div class="strat-vp-sec-h">QUARTERLY STRATEGIC OBJECTIVES — '+quarterLabel(st.quarter)+'</div>'
+  sec.innerHTML='<div class="strat-vp-sec-h">QUARTERLY STRATEGIC OBJECTIVES — '+quarterLabel(st.quarter)+_thi('Top-level Company Objectives for this quarter. Each card shows progress (avg of descendant KR progress), owner, # of Department Objective rollups, KR count, downstream task count, and at-risk KR count. Color of left bar = health: green on track, amber trending behind, red at risk vs expected progress for time elapsed.')+'</div>'
     +'<div class="strat-vp-sec-d">'+cos.length+' company objective'+(cos.length===1?'':'s')+' · '+allKRs.length+' key results · '+dos.length+' department rollups</div>';
   wrap.appendChild(sec);
 
@@ -2630,7 +2634,7 @@ NS._renderCompanyMode=function(){
 
   // Contribution heatmap: dept × company objective
   var hm=document.createElement('div');hm.className='strat-vp-sec';
-  hm.innerHTML='<div class="strat-vp-sec-h">CONTRIBUTION HEATMAP — how each department supports each company objective</div>'
+  hm.innerHTML='<div class="strat-vp-sec-h">CONTRIBUTION HEATMAP — how each department supports each company objective'+_thi('Rows = departments, columns = Company Objectives. Each cell shows # of KRs that dept contributes toward that objective + avg progress + health band. Empty cells (—) are STRATEGIC GAPS: that dept is not contributing to that objective. Click any non-empty cell to jump to that dept view.')+'</div>'
     +'<div class="strat-vp-sec-d">Empty cells = strategic gap (department isn’t contributing to that objective)</div>';
   wrap.appendChild(hm);
   var hmTable=document.createElement('div');hmTable.className='strat-heatmap';
@@ -2677,7 +2681,7 @@ NS._renderCompanyMode=function(){
   var seenA={};allActions=allActions.filter(function(a){var k=a.nodeId+'::'+a.type;if(seenA[k])return false;seenA[k]=1;return true;});
   var topA=allActions.slice(0,8);
   var aSec=document.createElement('div');aSec.className='strat-vp-sec';
-  aSec.innerHTML='<div class="strat-vp-sec-h">STRATEGIC ACTIONS — top of the queue for leadership</div>'
+  aSec.innerHTML='<div class="strat-vp-sec-h">STRATEGIC ACTIONS — top of the queue for leadership'+_thi('Issues across the organization for leadership to unblock. From heuristics: ORPHAN KR (no execution), UNALIGNED DO (no parent CO), WEAK METRIC, NO OWNER, KR AT RISK. Sorted by severity. Click View to inspect; Edit/Set/Link to jump to OKR Tracker.')+'</div>'
     +'<div class="strat-vp-sec-d">Click any item to drill in; tap "Open OKR Tracker" to edit the source data</div>';
   wrap.appendChild(aSec);
   if(topA.length===0){
@@ -2739,7 +2743,7 @@ NS._renderDeptMode=function(){
   });
 
   var summary=document.createElement('div');summary.className='strat-dept-summary health-'+band;
-  summary.innerHTML='<div class="sds-h">'+dept.toUpperCase()+' — Q'+quarterLabel(st.quarter).slice(1)+' SCORECARD</div>'
+  summary.innerHTML='<div class="sds-h">'+dept.toUpperCase()+' — Q'+quarterLabel(st.quarter).slice(1)+' SCORECARD'+_thi('Department rollup: # Dept Objectives, KRs, Tasks; average progress across all KRs; # of Company Objectives this dept supports. If Supports L1 shows ⚠ NONE, the dept is disconnected from company strategy — link its Dept Objectives to a CO via OKR Tracker.')+'</div>'
     +'<div class="sds-stats">'
       +'<div class="hs"><div class="hs-v">'+deptDOs.length+'</div><div class="hs-l">OBJECTIVES</div></div>'
       +'<div class="hs"><div class="hs-v">'+deptKRs.length+'</div><div class="hs-l">KEY RESULTS</div></div>'
@@ -2755,7 +2759,7 @@ NS._renderDeptMode=function(){
 
   // Objectives section
   var oSec=document.createElement('div');oSec.className='strat-vp-sec';
-  oSec.innerHTML='<div class="strat-vp-sec-h">OBJECTIVES IN '+dept.toUpperCase()+'</div>'
+  oSec.innerHTML='<div class="strat-vp-sec-h">OBJECTIVES IN '+dept.toUpperCase()+_thi('Every Department Objective with its KRs inline. Each KR row shows owner, confidence, progress, and a ⚠ no execution flag if it has 0 initiatives. ✎ Edit in OKR Tracker updates progress/owners; 🗺️ Mindmap shows radial; 🌳 Full cascade shows the deep tree.')+'</div>'
     +'<div class="strat-vp-sec-d">Each objective with its KRs and execution. Click "Edit in OKR Tracker" to update progress or owners.</div>';
   wrap.appendChild(oSec);
 
@@ -2812,7 +2816,7 @@ NS._renderDeptMode=function(){
   var seenA={};deptActions=deptActions.filter(function(a){var k=a.nodeId+'::'+a.type;if(seenA[k])return false;seenA[k]=1;return true;}).slice(0,8);
   if(deptActions.length){
     var aSec=document.createElement('div');aSec.className='strat-vp-sec';
-    aSec.innerHTML='<div class="strat-vp-sec-h">ACTIONS NEEDED IN '+dept.toUpperCase()+'</div>';
+    aSec.innerHTML='<div class="strat-vp-sec-h">ACTIONS NEEDED IN '+dept.toUpperCase()+_thi('Heuristic-detected gaps in this department: KRs missing initiatives, unowned nodes, weak metrics, at-risk KRs, overloaded owners (8+ KRs/initiatives), stalled initiatives. Click View to inspect; Add/Set/Link buttons jump to OKR Tracker.')+'</div>';
     wrap.appendChild(aSec);
     var aGrid=document.createElement('div');aGrid.className='strat-actions-grid';
     deptActions.forEach(function(a){aGrid.appendChild(mkActionCard(a,H));});
@@ -2823,7 +2827,7 @@ NS._renderDeptMode=function(){
   var deptMembers=Object.keys(USER_REGISTRY||{}).filter(function(em){return USER_REGISTRY[em].dept===dept;});
   if(deptMembers.length){
     var tSec=document.createElement('div');tSec.className='strat-vp-sec';
-    tSec.innerHTML='<div class="strat-vp-sec-h">TEAM — INDIVIDUAL OKRs <span style="font-size:9px;background:rgba(167,139,250,.18);color:#a78bfa;padding:2px 6px;border-radius:4px;font-family:Roboto Mono,monospace;margin-left:8px">L4</span></div>'
+    tSec.innerHTML='<div class="strat-vp-sec-h">TEAM — INDIVIDUAL OKRs <span style="font-size:9px;background:rgba(167,139,250,.18);color:#a78bfa;padding:2px 6px;border-radius:4px;font-family:Roboto Mono,monospace;margin-left:8px">L4</span>'+_thi('Roster of every member of this department. Each card shows avatar, name + role, # Individual OKRs set, # KRs owned, their existing Individual OKRs (click any to edit). + Set Individual OKR opens a modal: objective title, parent CO/DO, 1-N Key Results with baseline/target/unit/direction/confidence/progress.')+'</div>'
       +'<div class="strat-vp-sec-d">Set personal quarterly commitments directly for each report. Each Individual OKR auto-links upward to a Department or Company Objective.</div>';
     wrap.appendChild(tSec);
     var grid=document.createElement('div');grid.className='strat-team-grid';
@@ -2924,7 +2928,7 @@ NS._renderIndividualMode=function(){
 
   // Scorecard
   var sc=document.createElement('div');sc.className='strat-ind-scorecard';
-  sc.innerHTML='<div class="sis-h">'+esc(name).toUpperCase()+' — '+esc(u.role||'')+' · '+esc(u.dept||'')+'</div>'
+  sc.innerHTML='<div class="sis-h">'+esc(name).toUpperCase()+' — '+esc(u.role||'')+' · '+esc(u.dept||'')+_thi('Personal accountability for this quarter: KRs owned across all depts; Tasks due in next 7 days; Tasks stalled 14+ days; Tasks Blocked; # of L1 Company Objectives this person contributes to via owned KRs. If L1 contributions = 0, the work is not feeding company strategy.')+'</div>'
     +'<div class="sis-stats">'
       +'<div class="hs"><div class="hs-v">'+ownedKRs.length+'</div><div class="hs-l">KRs OWNED</div></div>'
       +'<div class="hs"><div class="hs-v" style="color:var(--acc)">'+dueSoon.length+'</div><div class="hs-l">DUE THIS WEEK</div></div>'
@@ -2941,7 +2945,7 @@ NS._renderIndividualMode=function(){
   // === Your Individual Objectives (user-settable) ===
   var ownedIOs=Object.values(H.nodes).filter(function(n){return n.type==='IndividualObjective'&&((n.ownerEmail||'')===person||(n.ownerName||'')===name);});
   var ioSec=document.createElement('div');ioSec.className='strat-vp-sec';
-  ioSec.innerHTML='<div class="strat-vp-sec-h" style="display:flex;align-items:center;gap:10px">YOUR INDIVIDUAL OBJECTIVES <span style="font-size:9px;background:rgba(167,139,250,.18);color:#a78bfa;padding:2px 6px;border-radius:4px;font-family:Roboto Mono,monospace">L4</span><button class="hbtn xl" style="margin-left:auto;background:var(--acc);color:#fff;border-color:var(--acc);font-size:11px" onclick="STRAT.openIndividualOKRModal(\''+person+'\')">+ Set Individual OKR</button></div>'
+  ioSec.innerHTML='<div class="strat-vp-sec-h" style="display:flex;align-items:center;gap:10px">YOUR INDIVIDUAL OBJECTIVES <span style="font-size:9px;background:rgba(167,139,250,.18);color:#a78bfa;padding:2px 6px;border-radius:4px;font-family:Roboto Mono,monospace">L4</span>'+_thi('Personal quarterly commitments. Each Individual Objective must link upward to a Department or Company Objective. KRs roll up via average — change a KR progress inline and the IO recalculates automatically. ✎ Edit modifies title/parent/KRs. + Set Individual OKR adds a new one.')+'<button class="hbtn xl" style="margin-left:auto;background:var(--acc);color:#fff;border-color:var(--acc);font-size:11px" onclick="STRAT.openIndividualOKRModal(\''+person+'\')">+ Set Individual OKR</button></div>'
     +'<div class="strat-vp-sec-d">Personal quarterly commitments. Each must link upward to a Company or Department Objective.</div>';
   wrap.appendChild(ioSec);
   if(ownedIOs.length===0){
@@ -2986,7 +2990,7 @@ NS._renderIndividualMode=function(){
 
   // Your KRs
   var krSec=document.createElement('div');krSec.className='strat-vp-sec';
-  krSec.innerHTML='<div class="strat-vp-sec-h">YOUR KEY RESULTS</div>'
+  krSec.innerHTML='<div class="strat-vp-sec-h">YOUR KEY RESULTS'+_thi('All KRs this person owns — typically KRs delegated under Department Objectives. Distinct from Individual Objectives (personally-set L4 commitments). Each card shows the upstream chain CO → DO → KR so the person sees exactly how their work feeds strategy.')+'</div>'
     +'<div class="strat-vp-sec-d">What you personally own this quarter. Each KR needs initiatives to be executable.</div>';
   wrap.appendChild(krSec);
   if(ownedKRs.length===0){
@@ -3015,7 +3019,7 @@ NS._renderIndividualMode=function(){
   // Tasks due this week
   if(dueSoon.length){
     var tSec=document.createElement('div');tSec.className='strat-vp-sec';
-    tSec.innerHTML='<div class="strat-vp-sec-h">YOUR TASKS DUE THIS WEEK ('+dueSoon.length+')</div>';
+    tSec.innerHTML='<div class="strat-vp-sec-h">YOUR TASKS DUE THIS WEEK ('+dueSoon.length+')'+_thi('Open tasks (not Done) assigned to this person with due dates in the next 7 days. Color-coded: red = overdue, amber = due within 2 days, grey = later this week. Click any row to jump to the dept board to edit directly.')+'</div>';
     wrap.appendChild(tSec);
     var tList=document.createElement('div');tList.className='strat-task-list';
     dueSoon.forEach(function(t){
@@ -3037,7 +3041,7 @@ NS._renderIndividualMode=function(){
   // Stalled
   if(stalled.length){
     var sSec=document.createElement('div');sSec.className='strat-vp-sec';
-    sSec.innerHTML='<div class="strat-vp-sec-h" style="color:var(--yel)">⚠ STALLED TASKS — no updates in 14+ days ('+stalled.length+')</div>';
+    sSec.innerHTML='<div class="strat-vp-sec-h" style="color:var(--yel)">⚠ STALLED TASKS — no updates in 14+ days ('+stalled.length+')'+_thi('Open tasks assigned to this person where lastUpdated is older than 14 days. Stale work signals execution risk: blocked silently, no longer relevant, or forgotten. Click to jump to the dept board and update status, mark complete, or close.')+'</div>';
     wrap.appendChild(sSec);
     var sList=document.createElement('div');sList.className='strat-task-list';
     stalled.forEach(function(t){
@@ -3060,7 +3064,7 @@ NS._renderIndividualMode=function(){
     }).slice(0,5);
     if(deptOnlyKRs.length){
       var cSec=document.createElement('div');cSec.className='strat-vp-sec';
-      cSec.innerHTML='<div class="strat-vp-sec-h">OTHER '+u.dept.toUpperCase()+' KRs (FOR CONTEXT)</div>'
+      cSec.innerHTML='<div class="strat-vp-sec-h">OTHER '+u.dept.toUpperCase()+' KRs (FOR CONTEXT)'+_thi('Up to 5 KRs in this person\'s department that they don\'t own — situational awareness of what colleagues are working on. Click any row to open its detail drawer.')+'</div>'
         +'<div class="strat-vp-sec-d">What your colleagues are working on this quarter</div>';
       wrap.appendChild(cSec);
       deptOnlyKRs.forEach(function(kr){
@@ -3443,7 +3447,7 @@ NS._renderCascadeMode=function(){
   var mmBtn=document.createElement('button');mmBtn.className='strat-guide-btn';mmBtn.innerHTML='🗺️ Mindmap';mmBtn.style.cssText='margin-left:auto;background:linear-gradient(135deg,rgba(108,99,255,.18),rgba(9,250,163,.12));border-color:var(--acc)';
   mmBtn.onclick=function(){NS.openMindmap();};
   fbar.appendChild(mmBtn);
-  var ug=document.createElement('button');ug.className='strat-guide-btn';ug.innerHTML='📖 User Guide';ug.style.cssText='margin-left:0';
+  var ug=document.createElement('button');ug.className='strat-guide-btn';ug.innerHTML='📖 User Guide'+_thi('Full in-app guide modal. 12 sections covering: 7 tiers, cascade reading, filters, A/E/R scores with examples, all 8 insight types, detail drawer, migration details, 15-min gap audit walkthrough, current limitations, data caveats, troubleshooting.');ug.style.cssText='margin-left:0';
   ug.onclick=function(){NS.openUserGuide();};
   fbar.appendChild(ug);
   wrap.appendChild(fbar);
