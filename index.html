@@ -453,6 +453,51 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
   .strat-hero-stats{grid-template-columns:repeat(2,1fr)}
 }
 
+/* ── Individual OKR setter modal ─────────────────────────────────────── */
+.io-ov{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9700;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;transition:opacity .2s;pointer-events:none}
+.io-ov.open{opacity:1;pointer-events:auto}
+.io-box{background:var(--surf);border:1px solid var(--brd);border-radius:14px;width:100%;max-width:900px;max-height:90vh;overflow-y:auto;padding:28px 32px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.55);transform:translateY(10px);transition:transform .2s}
+.io-ov.open .io-box{transform:translateY(0)}
+.io-close{position:absolute;top:16px;right:18px;background:var(--surf2);border:1px solid var(--brd);color:var(--mut);width:32px;height:32px;border-radius:8px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.io-close:hover{color:var(--txt);background:var(--bg)}
+.io-h{font-size:20px;font-weight:800;letter-spacing:-.3px;color:var(--txt);margin-bottom:4px;padding-right:40px}
+.io-sub{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:24px}
+.io-form{display:flex;flex-direction:column;gap:16px}
+.io-field{display:flex;flex-direction:column;gap:6px}
+.io-field label{font-size:10px;font-weight:800;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.5px}
+.io-field input[type="text"],.io-field textarea,.io-field select{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:8px;padding:10px 14px;font-size:13px;font-family:inherit;outline:none}
+.io-field input[type="text"]:focus,.io-field textarea:focus,.io-field select:focus{border-color:var(--acc)}
+.io-field textarea{min-height:64px;resize:vertical}
+.io-krs-h{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-size:11px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.3px;padding-bottom:6px;border-bottom:1px solid var(--brd)}
+.io-krs{display:flex;flex-direction:column;gap:14px}
+.io-kr-row{background:var(--surf2);border:1px solid var(--brd);border-radius:10px;padding:14px}
+.io-kr-top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.io-kr-top input[type="text"]{flex:1;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;font-weight:600}
+.io-kr-top input[type="text"]:focus{border-color:var(--acc)}
+.io-kr-del{background:none;border:none;color:var(--red);width:28px;height:28px;border-radius:6px;font-size:18px;cursor:pointer}
+.io-kr-del:hover{background:rgba(255,107,107,.12)}
+.io-kr-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.io-mf{display:flex;flex-direction:column;gap:3px}
+.io-mf label{font-size:8px;font-weight:800;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.4px}
+.io-mf input,.io-mf select{background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:5px;padding:6px 8px;font-size:11px;font-family:inherit;outline:none}
+.io-mf input:focus,.io-mf select:focus{border-color:var(--acc)}
+.io-foot{display:flex;gap:10px;justify-content:flex-end;padding-top:16px;border-top:1px solid var(--brd);margin-top:8px}
+.io-foot .hbtn{font-size:12px;padding:8px 16px}
+.io-foot .hbtn.xl{font-size:12px;padding:8px 18px;font-weight:700}
+@media (max-width:700px){.io-kr-metrics{grid-template-columns:repeat(2,1fr)}}
+/* IO KR inline display rows */
+.io-kr-list{display:flex;flex-direction:column;gap:5px;padding-top:10px;border-top:1px solid var(--brd);margin-top:10px}
+.io-kr-disp{display:grid;grid-template-columns:auto 1fr 180px 110px 90px;align-items:center;gap:10px;background:var(--surf2);border-radius:6px;padding:8px 12px;font-size:11px}
+.io-kr-disp-l{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.io-kr-disp-title{color:var(--txt);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.io-kr-disp-metric{color:var(--mut);font-size:10px;font-family:Roboto Mono,monospace;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.io-kr-disp-prog{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;justify-content:flex-end}
+.io-kr-disp-prog input{width:48px;background:var(--bg);border:1px solid var(--brd);color:var(--acc);border-radius:4px;padding:3px 6px;font-size:11px;font-weight:700;text-align:center;font-family:Roboto Mono,monospace;outline:none}
+.io-kr-disp-prog input:focus{border-color:var(--acc)}
+.io-kr-disp-conf{font-size:10px;font-family:Roboto Mono,monospace;text-align:right}
+@media (max-width:800px){.io-kr-disp{grid-template-columns:1fr;gap:4px}.io-kr-disp-metric,.io-kr-disp-prog,.io-kr-disp-conf{text-align:left}}
+.hbtn.xs{font-size:10px;padding:4px 10px}
+
 </style>
 </head>
 <body>
@@ -2815,6 +2860,52 @@ NS._renderIndividualMode=function(){
     +'</div>';
   wrap.appendChild(sc);
 
+  // === Your Individual Objectives (user-settable) ===
+  var ownedIOs=Object.values(H.nodes).filter(function(n){return n.type==='IndividualObjective'&&((n.ownerEmail||'')===person||(n.ownerName||'')===name);});
+  var ioSec=document.createElement('div');ioSec.className='strat-vp-sec';
+  ioSec.innerHTML='<div class="strat-vp-sec-h" style="display:flex;align-items:center;gap:10px">YOUR INDIVIDUAL OBJECTIVES <span style="font-size:9px;background:rgba(167,139,250,.18);color:#a78bfa;padding:2px 6px;border-radius:4px;font-family:Roboto Mono,monospace">L4</span><button class="hbtn xl" style="margin-left:auto;background:var(--acc);color:#fff;border-color:var(--acc);font-size:11px" onclick="STRAT.openIndividualOKRModal(\''+person+'\')">+ Set Individual OKR</button></div>'
+    +'<div class="strat-vp-sec-d">Personal quarterly commitments. Each must link upward to a Company or Department Objective.</div>';
+  wrap.appendChild(ioSec);
+  if(ownedIOs.length===0){
+    var empIo=document.createElement('div');empIo.className='strat-card';
+    empIo.innerHTML='<div style="text-align:center;padding:28px 20px;color:var(--mut);font-size:12px"><div style="font-size:24px;margin-bottom:8px">🎯</div><div style="font-size:13px;color:var(--txt);margin-bottom:6px">No Individual OKRs set yet for '+esc(name)+'</div><div>Individual OKRs translate strategy into personal weekly action.<br>Click <strong>"+ Set Individual OKR"</strong> above to create one.</div></div>';
+    wrap.appendChild(empIo);
+  }else{
+    ownedIOs.forEach(function(io){
+      var krs=H.edges.filter(function(e){return e.p===io.id;}).map(function(e){return H.nodes[e.c];}).filter(function(n){return n&&n.type==='KeyResult';});
+      var parents=H.edges.filter(function(e){return e.c===io.id;}).map(function(e){return H.nodes[e.p];}).filter(Boolean);
+      var avgProg=krs.length?Math.round(krs.reduce(function(s,k){return s+(k.progressPct||0);},0)/krs.length):0;
+      var band=_stratHealthBand(avgProg,st.quarter);
+      var card=document.createElement('div');card.className='strat-ind-kr health-'+band;card.style.borderLeftColor='#a78bfa';
+      var inner='<div class="sik-top"><span class="strat-tier L4">L4</span><span class="strat-id">'+io.id+'</span><span class="sik-prog">'+avgProg+'%</span><button class="hbtn xs" style="margin-left:auto" onclick="STRAT.openIndividualOKRModal(\''+person+'\',\''+io.id+'\')">✎ Edit</button></div>'
+        +'<div class="sik-title">'+esc(io.title)+'</div>'
+        +(io.description?'<div style="font-size:11px;color:var(--mut);margin-bottom:8px;white-space:pre-wrap">'+esc(io.description)+'</div>':'')
+        +'<div class="sik-up">↑ '+parents.map(function(p){return '<span class="strat-tier '+tierFor(p.type)+'" style="font-size:8px">'+tierFor(p.type)+'</span> <span style="cursor:pointer" onclick="STRAT._drillCO(\''+p.id+'\')">'+esc(truncate(p.title,42))+'</span>';}).join(' › ')+'</div>'
+        +'<div style="margin:10px 0"><div class="strat-prog" style="width:100%;height:5px"><div class="strat-prog-bar" style="width:'+avgProg+'%;background:'+(band==='ok'?'var(--grn)':band==='warn'?'var(--yel)':'#a78bfa')+'"></div></div></div>';
+      // KRs underneath
+      if(krs.length){
+        inner+='<div class="io-kr-list">';
+        krs.forEach(function(kr){
+          var m=kr.metric||{};
+          var mTxt=(m.baseline!=null&&m.baseline!=='')||(m.target!=null&&m.target!=='')?
+            ((m.baseline||'?')+' '+(m.direction||'→')+' '+(m.target||'?')+(m.unit?' '+m.unit:'')):'<em style="color:var(--mut)">no metric set</em>';
+          inner+='<div class="io-kr-disp">'
+            +'<div class="io-kr-disp-l"><span class="strat-tier L5" style="font-size:8px">L5</span><span class="strat-id">'+kr.id+'</span></div>'
+            +'<div class="io-kr-disp-title">'+esc(kr.title)+'</div>'
+            +'<div class="io-kr-disp-metric">'+mTxt+'</div>'
+            +'<div class="io-kr-disp-prog">'
+              +'<input type="number" min="0" max="100" value="'+(kr.progressPct||0)+'" onchange="STRAT._ioInlineProgress(\''+kr.id+'\',this.value)" onclick="event.stopPropagation()">%'
+            +'</div>'
+            +'<div class="io-kr-disp-conf" style="color:'+(kr.confidence==='Off Track'||kr.confidence==='At Risk'?'var(--red)':kr.confidence==='On track'?'var(--grn)':'var(--mut)')+'">'+esc(kr.confidence||'—')+'</div>'
+          +'</div>';
+        });
+        inner+='</div>';
+      }
+      card.innerHTML=inner;
+      wrap.appendChild(card);
+    });
+  }
+
   // Your KRs
   var krSec=document.createElement('div');krSec.className='strat-vp-sec';
   krSec.innerHTML='<div class="strat-vp-sec-h">YOUR KEY RESULTS</div>'
@@ -2920,6 +3011,264 @@ function mkActionCard(a,H){
     +'</div>';
   return c;
 }
+
+
+// ── Individual OKR setting (create / edit / delete / inline updates) ────
+NS.openIndividualOKRModal=function(personEmail,existingIOId){
+  var st=getState();
+  var H=_stratHydrate(st.quarter);
+  var u=USER_REGISTRY[personEmail]||{};
+  var existing=existingIOId?H.nodes[existingIOId]:null;
+  var existingParent=null;
+  var existingKRs=[];
+  if(existing){
+    existingParent=H.edges.filter(function(e){return e.c===existing.id;}).map(function(e){return H.nodes[e.p];}).filter(Boolean)[0];
+    existingKRs=H.edges.filter(function(e){return e.p===existing.id;}).map(function(e){return H.nodes[e.c];}).filter(function(n){return n&&n.type==='KeyResult';});
+  }
+
+  // Remove any prior modal
+  var prior=document.getElementById('io-modal-ov');if(prior)prior.remove();
+  var ov=document.createElement('div');ov.id='io-modal-ov';ov.className='io-ov';
+  var box=document.createElement('div');box.className='io-box';
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  setTimeout(function(){ov.classList.add('open');},10);
+
+  // Build form HTML
+  var personName=u.name||personEmail;
+  var personDept=u.dept||'';
+  // Candidate parents: this dept's DOs first, then all COs, then other DOs
+  var parentOptions=[];
+  var dos=Object.values(H.nodes).filter(function(n){return n.type==='DepartmentObjective';});
+  var cos=Object.values(H.nodes).filter(function(n){return n.type==='CompanyObjective';});
+  var sameDept=dos.filter(function(n){return n.dept===personDept;});
+  var otherDept=dos.filter(function(n){return n.dept!==personDept;});
+  if(sameDept.length)parentOptions.push({group:personDept+' Department Objectives',items:sameDept});
+  if(cos.length)parentOptions.push({group:'Company Objectives',items:cos});
+  if(otherDept.length)parentOptions.push({group:'Other Department Objectives',items:otherDept});
+
+  var html=
+    '<button class="io-close" onclick="this.closest(\'.io-ov\').classList.remove(\'open\');setTimeout(function(){var p=document.getElementById(\'io-modal-ov\');if(p)p.remove();},250);">&times;</button>'
+    +'<div class="io-h">'+(existing?'Edit Individual Objective':'Set Individual Objective')+'</div>'
+    +'<div class="io-sub">For <strong>'+esc(personName)+'</strong> · '+esc(u.role||'')+' · '+esc(personDept)+' · '+quarterLabel(st.quarter)+'</div>'
+    +'<div class="io-form">'
+      +'<div class="io-field">'
+        +'<label>OBJECTIVE TITLE</label>'
+        +'<input type="text" id="io-title" placeholder="e.g. Own escalated ticket backlog and drive resolution velocity" value="'+esc(existing?existing.title:'')+'">'
+      +'</div>'
+      +'<div class="io-field">'
+        +'<label>WHY THIS MATTERS (optional)</label>'
+        +'<textarea id="io-desc" placeholder="What does success look like? Why is this the right commitment for the quarter?">'+esc(existing&&existing.description?existing.description:'')+'</textarea>'
+      +'</div>'
+      +'<div class="io-field">'
+        +'<label>ALIGN TO PARENT — which Company or Department Objective does this support?</label>'
+        +'<select id="io-parent">'
+        +'<option value="">— select a parent objective —</option>';
+  parentOptions.forEach(function(g){
+    html+='<optgroup label="'+esc(g.group)+'">';
+    g.items.forEach(function(it){
+      var sel=existingParent&&existingParent.id===it.id?' selected':'';
+      html+='<option value="'+esc(it.id)+'"'+sel+'>['+it.id+'] '+esc(truncate(it.title,80))+'</option>';
+    });
+    html+='</optgroup>';
+  });
+  html+='</select></div>'
+    +'<div class="io-krs-h"><span>KEY RESULTS — what measurable outcomes prove this objective is achieved?</span><button type="button" class="hbtn xs" onclick="STRAT._ioAddKrRow()">+ Add KR</button></div>'
+    +'<div class="io-krs" id="io-krs"></div>'
+    +'<div class="io-foot">'
+      +'<button class="hbtn" onclick="this.closest(\'.io-ov\').classList.remove(\'open\');setTimeout(function(){var p=document.getElementById(\'io-modal-ov\');if(p)p.remove();},250);">Cancel</button>'
+      +(existing?'<button class="hbtn" style="border-color:var(--red);color:var(--red)" onclick="STRAT._ioDelete(\''+existing.id+'\')">Delete</button>':'')
+      +'<button class="hbtn xl" style="background:var(--acc);color:#fff;border-color:var(--acc)" onclick="STRAT._ioSave(\''+esc(personEmail)+'\','+(existing?'\''+existing.id+'\'':'null')+')">'+(existing?'Save changes':'Create Individual OKR')+'</button>'
+    +'</div>'
+    +'</div>';
+
+  box.innerHTML=html;
+
+  // Populate KRs
+  var krsContainer=box.querySelector('#io-krs');
+  if(existingKRs.length){
+    existingKRs.forEach(function(kr){_ioAppendKrRow(krsContainer,kr);});
+  }else{
+    _ioAppendKrRow(krsContainer);
+    _ioAppendKrRow(krsContainer);
+  }
+
+  // Click outside / ESC closes
+  ov.onclick=function(e){if(e.target===ov){ov.classList.remove('open');setTimeout(function(){ov.remove();},250);}};
+  function escClose(e){if(e.key==='Escape'){ov.classList.remove('open');setTimeout(function(){ov.remove();},250);document.removeEventListener('keydown',escClose);}}
+  document.addEventListener('keydown',escClose);
+};
+
+NS._ioAddKrRow=function(){
+  var c=document.querySelector('#io-modal-ov #io-krs');if(!c)return;
+  _ioAppendKrRow(c);
+};
+function _ioAppendKrRow(container,existingKR){
+  var row=document.createElement('div');row.className='io-kr-row';
+  var conf=existingKR?(existingKR.confidence||'Not started'):'Not started';
+  var prog=existingKR?(existingKR.progressPct||0):0;
+  var m=existingKR&&existingKR.metric?existingKR.metric:{};
+  row.innerHTML=
+    '<div class="io-kr-top">'
+      +'<input type="hidden" class="io-kr-id" value="'+(existingKR?esc(existingKR.id):'')+'">'
+      +'<input type="text" class="io-kr-title" placeholder="e.g. Cut escalation backlog from 40 to under 10 tickets" value="'+esc(existingKR?existingKR.title:'')+'">'
+      +'<button type="button" class="io-kr-del" title="Remove this KR" onclick="this.closest(\'.io-kr-row\').remove();">&times;</button>'
+    +'</div>'
+    +'<div class="io-kr-metrics">'
+      +'<div class="io-mf"><label>BASELINE</label><input type="text" class="io-kr-base" placeholder="e.g. 40" value="'+esc(m.baseline!=null?m.baseline:'')+'"></div>'
+      +'<div class="io-mf"><label>TARGET</label><input type="text" class="io-kr-target" placeholder="e.g. 10" value="'+esc(m.target!=null?m.target:'')+'"></div>'
+      +'<div class="io-mf"><label>UNIT</label><input type="text" class="io-kr-unit" placeholder="e.g. tickets" value="'+esc(m.unit||'')+'"></div>'
+      +'<div class="io-mf"><label>DIRECTION</label><select class="io-kr-dir"><option value=""'+(!m.direction?' selected':'')+'>—</option><option value="↑"'+(m.direction==='↑'?' selected':'')+'>↑ Increase</option><option value="↓"'+(m.direction==='↓'?' selected':'')+'>↓ Decrease</option><option value="="'+(m.direction==='='?' selected':'')+'>= Maintain</option></select></div>'
+      +'<div class="io-mf"><label>CONFIDENCE</label><select class="io-kr-conf">'
+        +['Not started','On track','At Risk','Off Track'].map(function(c){return '<option'+(c===conf?' selected':'')+'>'+c+'</option>';}).join('')
+      +'</select></div>'
+      +'<div class="io-mf"><label>PROGRESS %</label><input type="number" min="0" max="100" class="io-kr-prog" value="'+prog+'"></div>'
+    +'</div>';
+  container.appendChild(row);
+}
+
+NS._ioSave=function(personEmail,existingId){
+  var box=document.getElementById('io-modal-ov');if(!box)return;
+  var title=(box.querySelector('#io-title').value||'').trim();
+  var desc=(box.querySelector('#io-desc').value||'').trim();
+  var parentId=box.querySelector('#io-parent').value;
+  if(!title){toast('Objective title is required','err');return;}
+  if(!parentId){toast('Choose a parent objective for alignment','err');return;}
+
+  var st=getState();
+  var u=USER_REGISTRY[personEmail]||{};
+  var personName=u.name||personEmail;
+  var personDept=u.dept||'';
+
+  // Collect KR rows
+  var krRows=Array.from(box.querySelectorAll('.io-kr-row'));
+  var krs=krRows.map(function(r){
+    return {
+      id:r.querySelector('.io-kr-id').value||null,
+      title:(r.querySelector('.io-kr-title').value||'').trim(),
+      baseline:(r.querySelector('.io-kr-base').value||'').trim(),
+      target:(r.querySelector('.io-kr-target').value||'').trim(),
+      unit:(r.querySelector('.io-kr-unit').value||'').trim(),
+      direction:r.querySelector('.io-kr-dir').value,
+      confidence:r.querySelector('.io-kr-conf').value,
+      progress:parseInt(r.querySelector('.io-kr-prog').value)||0
+    };
+  }).filter(function(k){return k.title;});
+  if(krs.length===0){toast('At least one Key Result with a title is required','err');return;}
+
+  // Read store
+  var allNodes=loadNodes();var allEdges=loadEdges();
+  var qNodes=allNodes[st.quarter]=allNodes[st.quarter]||{};
+  var qEdges=allEdges[st.quarter]=allEdges[st.quarter]||[];
+
+  // Generate or reuse IO id
+  var ioId=existingId;
+  if(!ioId){
+    var firstName=(personName.split(' ')[0]||'X').replace(/[^A-Za-z]/g,'');
+    var existing=Object.keys(qNodes).filter(function(id){return id.indexOf('IO-'+firstName+'-')===0;});
+    var seq=existing.length+1;
+    while(qNodes['IO-'+firstName+'-'+seq])seq++;
+    ioId='IO-'+firstName+'-'+seq;
+  }
+
+  var nowIso=new Date().toISOString();
+  var avgProg=krs.reduce(function(s,k){return s+k.progress;},0)/Math.max(1,krs.length);
+
+  // Upsert IO node
+  qNodes[ioId]={
+    id:ioId, type:'IndividualObjective',
+    title:title, description:desc, dept:personDept, quarter:st.quarter,
+    ownerEmail:personEmail, ownerName:personName,
+    state:avgProg>=100?'Done':(avgProg>0?'Active':'Active'),
+    progressPct:Math.round(avgProg),
+    createdAt:(qNodes[ioId]&&qNodes[ioId].createdAt)||nowIso,
+    updatedAt:nowIso,
+    userCreated:true
+  };
+
+  // Remove old parent edges for this IO, add new
+  qEdges=qEdges.filter(function(e){return e.c!==ioId;});
+  qEdges.push({p:parentId,c:ioId,w:1.0,pr:true});
+
+  // Handle KRs: remove old edges from IO that no longer match, add/update each KR
+  var keepKrIds={};
+  krs.forEach(function(kr,idx){
+    var kid=kr.id||('KR-'+ioId+'-'+(idx+1));
+    while(!kr.id&&qNodes[kid]){kid='KR-'+ioId+'-'+(idx+1)+'-'+Math.random().toString(36).slice(2,5);}
+    keepKrIds[kid]=true;
+    qNodes[kid]={
+      id:kid, type:'KeyResult', title:kr.title,
+      dept:personDept, quarter:st.quarter,
+      ownerEmail:personEmail, ownerName:personName,
+      state:kr.progress>=100?'Done':(kr.confidence==='Off Track'?'AtRisk':(kr.progress>0?'Active':'Active')),
+      progressPct:kr.progress, confidence:kr.confidence,
+      metric:{baseline:kr.baseline,target:kr.target,unit:kr.unit,direction:kr.direction,name:kr.title},
+      createdAt:(qNodes[kid]&&qNodes[kid].createdAt)||nowIso,
+      updatedAt:nowIso,
+      userCreated:true
+    };
+  });
+  // Drop any IO→KR edges whose KR is no longer in the form, and the orphaned KR nodes themselves
+  var droppedKrIds=qEdges.filter(function(e){return e.p===ioId&&e.c.indexOf('KR-')===0&&!keepKrIds[e.c];}).map(function(e){return e.c;});
+  qEdges=qEdges.filter(function(e){return !(e.p===ioId&&e.c.indexOf('KR-')===0&&!keepKrIds[e.c]);});
+  droppedKrIds.forEach(function(id){if(qNodes[id]&&qNodes[id].userCreated)delete qNodes[id];});
+  // Add edges for current KRs (skip if edge already exists)
+  Object.keys(keepKrIds).forEach(function(kid){
+    if(!qEdges.some(function(e){return e.p===ioId&&e.c===kid;}))qEdges.push({p:ioId,c:kid,w:1.0,pr:true});
+  });
+
+  allNodes[st.quarter]=qNodes;
+  allEdges[st.quarter]=qEdges;
+  saveNodes(allNodes);saveEdges(allEdges);
+
+  logEntry('Individual OKR '+(existingId?'updated':'created')+' for '+personName+': '+title,(existingId?'edit':'add'));
+  toast('Individual OKR '+(existingId?'updated':'created'),'ok');
+
+  // Close modal
+  var ovEl=document.getElementById('io-modal-ov');if(ovEl){ovEl.classList.remove('open');setTimeout(function(){ovEl.remove();},250);}
+  NS.renderStrategy();
+};
+
+NS._ioDelete=function(ioId){
+  if(!confirm('Delete this Individual Objective and all its KRs? This cannot be undone.'))return;
+  var st=getState();
+  var allNodes=loadNodes();var allEdges=loadEdges();
+  var qNodes=allNodes[st.quarter]||{};var qEdges=allEdges[st.quarter]||[];
+  // Find KR children
+  var krChildren=qEdges.filter(function(e){return e.p===ioId;}).map(function(e){return e.c;});
+  delete qNodes[ioId];
+  krChildren.forEach(function(id){if(qNodes[id]&&qNodes[id].userCreated)delete qNodes[id];});
+  qEdges=qEdges.filter(function(e){return e.p!==ioId&&e.c!==ioId&&krChildren.indexOf(e.c)<0&&krChildren.indexOf(e.p)<0;});
+  allNodes[st.quarter]=qNodes;allEdges[st.quarter]=qEdges;
+  saveNodes(allNodes);saveEdges(allEdges);
+  logEntry('Individual OKR deleted: '+ioId,'del');
+  toast('Individual OKR deleted','ok');
+  var ovEl=document.getElementById('io-modal-ov');if(ovEl){ovEl.classList.remove('open');setTimeout(function(){ovEl.remove();},250);}
+  NS.renderStrategy();
+};
+
+NS._ioInlineProgress=function(nodeId,newPct){
+  newPct=Math.min(100,Math.max(0,parseInt(newPct)||0));
+  var st=getState();
+  var allNodes=loadNodes();var allEdges=loadEdges();
+  var qNodes=allNodes[st.quarter]||{};var qEdges=allEdges[st.quarter]||[];
+  var n=qNodes[nodeId];if(!n)return;
+  n.progressPct=newPct;n.updatedAt=new Date().toISOString();
+  if(newPct>=100)n.state='Done';
+  // If KR under an IO, recompute IO progress
+  var parents=qEdges.filter(function(e){return e.c===nodeId;}).map(function(e){return qNodes[e.p];}).filter(Boolean);
+  parents.forEach(function(p){
+    if(p&&p.type==='IndividualObjective'){
+      var krs=qEdges.filter(function(e){return e.p===p.id;}).map(function(e){return qNodes[e.c];}).filter(function(n){return n&&n.type==='KeyResult';});
+      var avg=krs.length?Math.round(krs.reduce(function(s,k){return s+(k.progressPct||0);},0)/krs.length):0;
+      p.progressPct=avg;p.updatedAt=new Date().toISOString();
+      if(avg>=100)p.state='Done';
+    }
+  });
+  allNodes[st.quarter]=qNodes;saveNodes(allNodes);
+  logEntry('Progress updated: '+nodeId+' → '+newPct+'%','edit');
+  NS.renderStrategy();
+};
 
 NS._drillCO=function(coId){
   setState({viewpoint:'cascade'});
