@@ -530,6 +530,43 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .mm-layout-btn:hover:not(.active){background:var(--surf);color:var(--txt)}
 .mm-node-g.dim{filter:saturate(.4)}
 
+/* ── TODAY landing — deliberately simple ──────────────────────────────── */
+.today-wrap{max-width:760px;margin:0 auto;padding:48px 24px 60px;font-family:inherit}
+.today-hdr{margin-bottom:36px}
+.today-title{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1;margin-bottom:8px;color:var(--txt)}
+.today-sub{font-size:12px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.3px}
+.today-card{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:30px 34px;margin-bottom:18px}
+.today-card-label{font-size:10px;font-weight:800;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:1.2px;margin-bottom:18px}
+.today-card-body{display:flex;flex-direction:column}
+.today-card-id{font-size:11px;color:var(--acc);font-family:Roboto Mono,monospace;margin-bottom:8px;letter-spacing:.3px}
+.today-card-title{font-size:22px;font-weight:700;line-height:1.3;color:var(--txt);margin-bottom:10px;letter-spacing:-.2px}
+.today-card-context{font-size:12px;color:var(--mut);margin-bottom:18px;font-style:italic}
+.today-card-progress{margin-bottom:22px;margin-top:6px}
+.today-progress-bar{height:6px;background:var(--surf2);border-radius:3px;overflow:hidden;margin-bottom:8px}
+.today-progress-fill{height:100%;background:var(--acc);transition:width .3s}
+.today-card-pct{font-size:12px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.3px}
+.today-card-action{margin-top:4px}
+.today-action-btn{background:var(--acc);color:#fff;border:none;padding:11px 20px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.2px;transition:filter .12s,transform .12s}
+.today-action-btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.today-empty{font-size:15px;color:var(--txt);margin-bottom:10px;font-weight:500}
+.today-empty-sub{font-size:12px;color:var(--mut);line-height:1.5}
+.today-snap{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:30px 34px;margin-bottom:32px}
+.today-snap-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;align-items:start}
+.today-snap-stat{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.today-snap-dot{width:10px;height:10px;border-radius:50%;margin-bottom:8px}
+.today-snap-val{font-size:38px;font-weight:800;line-height:1;font-family:Roboto Mono,monospace}
+.today-snap-label{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.5px;margin-top:6px}
+.today-foot{text-align:center;margin-top:28px}
+.today-link{font-size:12px;color:var(--mut);font-family:Roboto Mono,monospace;cursor:pointer;padding:10px 18px;border-radius:6px;display:inline-block;letter-spacing:.3px;transition:color .12s,background .12s}
+.today-link:hover{color:var(--acc);background:rgba(108,99,255,.08)}
+.today-back{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;cursor:pointer;display:inline-block;padding:6px 0;margin-bottom:14px;letter-spacing:.3px;transition:color .12s}
+.today-back:hover{color:var(--acc)}
+@media (max-width:600px){
+  .today-wrap{padding:32px 18px 40px}
+  .today-card,.today-snap{padding:22px 20px}
+  .today-snap-val{font-size:28px}
+}
+
 </style>
 </head>
 <body>
@@ -2465,23 +2502,29 @@ function toggleExpand(id){var s=getState();s.expanded[id]=!s.expanded[id];saveUI
 
 // ── Renderer ──────────────────────────────────────────────────────────
 NS.renderStrategy=function(){
-  // Read viewpoint directly from raw state to avoid any getState reshape bugs
   var raw=loadUI();
-  var vp=raw.viewpoint;
-  if(!vp){
-    vp=(currentUser&&currentUser.isAdmin)?'company':'individual';
-    raw.viewpoint=vp;saveUI(raw);
+  // One-time migration: move every existing user to Today on first load after this deploy
+  if(!localStorage.getItem('rl_strat_today_v1')){
+    localStorage.setItem('rl_strat_today_v1','1');
+    raw.viewpoint='today';saveUI(raw);
   }
+  var vp=raw.viewpoint;
+  if(!vp){vp='today';raw.viewpoint=vp;saveUI(raw);}
+  if(vp==='today')return NS._renderTodayMode();
   if(vp==='cascade')return NS._renderCascadeMode();
   if(vp==='company')return NS._renderCompanyMode();
   if(vp==='department')return NS._renderDeptMode();
   if(vp==='individual')return NS._renderIndividualMode();
-  return NS._renderCascadeMode();
+  return NS._renderTodayMode();
 };
 
 
 // ── Shared viewpoint header (toggle + quarter + buttons) ───────────────
 function _stratViewpointHeader(wrap, activeViewpoint){
+  // Back-to-Today link (always available in the detailed views)
+  var back=document.createElement('a');back.className='today-back';back.textContent='← Back to Today';
+  back.onclick=function(){setState({viewpoint:'today'});NS.renderStrategy();};
+  wrap.appendChild(back);
   var hdr=document.createElement('div');hdr.className='strat-hdr';
   hdr.innerHTML='<div class="strat-title">Strategy</div>'
     +'<div class="strat-sub" style="margin-bottom:0">Strategic Execution & Organizational Intelligence — '+quarterLabel(getState().quarter)+'</div>';
@@ -2589,6 +2632,152 @@ function _stratHealthDot(band){
   return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+col+';box-shadow:0 0 6px '+col+'"></span>';
 }
 function _bandLabel(band){return band==='ok'?'On track':band==='warn'?'Trending behind':band==='bad'?'At risk':'No data';}
+
+
+// ── TODAY VIEW — the deliberately simple landing ──────────────────────
+// Three cards. No filters, no score chips, no insights sidebar, no nav.
+NS._renderTodayMode=function(){
+  var main=document.getElementById('main');if(!main)return;main.innerHTML='';
+  var st=getState();
+  var H=_stratHydrate(st.quarter);
+  var wrap=document.createElement('div');wrap.className='today-wrap';
+
+  // Header — minimal
+  var dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  var firstName=currentUser?currentUser.name.split(' ')[0]:'';
+  var hdr=document.createElement('div');hdr.className='today-hdr';
+  hdr.innerHTML='<div class="today-title">Strategy</div>'
+    +'<div class="today-sub">'+dateStr+' · '+quarterLabel(st.quarter)+(firstName?' · Welcome back, '+esc(firstName):'')+'</div>';
+  wrap.appendChild(hdr);
+
+  var me=currentUser?currentUser.email:'';
+  var myName=currentUser?currentUser.name:'';
+
+  // === CARD 1: Your most at-risk KR (or most active if all healthy) ===
+  var myKRs=Object.values(H.nodes).filter(function(n){
+    return n.type==='KeyResult'&&((n.ownerName||'')===myName||(n.ownerEmail||'')===me);
+  });
+  var card1=document.createElement('div');card1.className='today-card';
+  if(myKRs.length===0){
+    card1.innerHTML='<div class="today-card-label">YOUR KEY RESULTS</div>'
+      +'<div class="today-card-body">'
+      +'<div class="today-empty">You don\'t own any Key Results in '+quarterLabel(st.quarter)+'.</div>'
+      +'<div class="today-empty-sub">Talk to your manager about owning a KR — it\'s how your work shows up in company strategy.</div>'
+      +'</div>';
+  }else{
+    var ranked=myKRs.map(function(kr){
+      var score=0;
+      if(kr.confidence==='Off Track')score+=100;
+      else if(kr.confidence==='At Risk')score+=50;
+      var q=quarterDates(kr.quarter||st.quarter);
+      var now=Date.now(),sd=new Date(q.startDate).getTime(),ed=new Date(q.endDate).getTime();
+      var expected=Math.round(Math.max(0,Math.min(1,(now-sd)/(ed-sd)))*100);
+      var gap=expected-(kr.progressPct||0);
+      score+=gap;
+      return {kr:kr,score:score,expected:expected};
+    }).sort(function(a,b){return b.score-a.score;});
+    var top=ranked[0];var kr=top.kr;
+    var isAtRisk=top.score>=20||kr.confidence==='Off Track'||kr.confidence==='At Risk';
+    var label=isAtRisk?'YOUR MOST AT-RISK KR':'YOUR LEADING KR';
+    var statusColor=isAtRisk?'var(--red)':(kr.confidence==='On track'?'var(--grn)':'var(--mut)');
+    // Parent CO for context
+    var parents=buildAncestorChain(kr.id,H.edges,H.nodes);
+    var coParent=parents.find(function(n){return n.type==='CompanyObjective';});
+    var deptParent=parents.find(function(n){return n.type==='DepartmentObjective';});
+    var contextText='';
+    if(coParent)contextText='Feeds into '+coParent.title;
+    else if(deptParent)contextText='Part of '+deptParent.title;
+
+    var html='<div class="today-card-label">'+label+'</div>'
+      +'<div class="today-card-body">'
+      +'<div class="today-card-id">'+kr.id+'</div>'
+      +'<div class="today-card-title">'+esc(kr.title)+'</div>'
+      +(contextText?'<div class="today-card-context">↗ '+esc(contextText)+'</div>':'')
+      +'<div class="today-card-progress">'
+        +'<div class="today-progress-bar"><div class="today-progress-fill" style="width:'+(kr.progressPct||0)+'%;background:'+statusColor+'"></div></div>'
+        +'<div class="today-card-pct">'+(kr.progressPct||0)+'% complete · '+esc(kr.confidence||'not started')+'</div>'
+      +'</div>'
+      +'<div class="today-card-action"><button class="today-action-btn" onclick="STRAT._drillKR(\''+kr.id+'\')">View KR detail →</button></div>'
+      +'</div>';
+    card1.innerHTML=html;
+  }
+  wrap.appendChild(card1);
+
+  // === CARD 2: Your next task (most overdue first, then due soonest) ===
+  var myTasks=[];
+  DEPTS.forEach(function(d){
+    (data[d]||[]).forEach(function(t){
+      var a=(t.assignee||'').trim();
+      if((a===myName||a===me||(myName&&a.toLowerCase()===myName.toLowerCase())||(myName&&a===myName.split(' ')[0]))&&t.status!=='Done'){
+        myTasks.push(Object.assign({},t,{dept:d}));
+      }
+    });
+  });
+  myTasks.sort(function(a,b){
+    if(!a.due&&!b.due)return 0;
+    if(!a.due)return 1;
+    if(!b.due)return -1;
+    return new Date(a.due)-new Date(b.due);
+  });
+  var card2=document.createElement('div');card2.className='today-card';
+  if(myTasks.length===0){
+    card2.innerHTML='<div class="today-card-label">YOUR NEXT TASK</div>'
+      +'<div class="today-card-body">'
+      +'<div class="today-empty">No open tasks assigned to you.</div>'
+      +'<div class="today-empty-sub">All caught up — or visit a department board to take on more.</div>'
+      +'</div>';
+  }else{
+    var nextT=myTasks[0];
+    var due=nextT.due?new Date(nextT.due):null;
+    var days=due?Math.round((due-Date.now())/86400000):null;
+    var dueText,dueColor;
+    if(days===null){dueText='No due date';dueColor='var(--mut)';}
+    else if(days<0){dueText=Math.abs(days)+' day'+(Math.abs(days)===1?'':'s')+' overdue';dueColor='var(--red)';}
+    else if(days===0){dueText='Due today';dueColor='var(--yel)';}
+    else if(days===1){dueText='Due tomorrow';dueColor='var(--yel)';}
+    else if(days<=7){dueText='Due in '+days+' days';dueColor='var(--acc)';}
+    else{dueText='Due in '+days+' days';dueColor='var(--mut)';}
+    var progFill=(nextT.progress||0);
+    var progColor=dueColor;
+    card2.innerHTML='<div class="today-card-label">YOUR NEXT TASK</div>'
+      +'<div class="today-card-body">'
+      +'<div class="today-card-id">'+nextT.id+' · '+esc(nextT.dept)+'</div>'
+      +'<div class="today-card-title">'+esc(nextT.name)+'</div>'
+      +'<div class="today-card-progress">'
+        +'<div class="today-progress-bar"><div class="today-progress-fill" style="width:'+progFill+'%;background:'+progColor+'"></div></div>'
+        +'<div class="today-card-pct" style="color:'+dueColor+'">'+dueText+' · '+esc(nextT.priority||'')+' · '+progFill+'% complete</div>'
+      +'</div>'
+      +'<div class="today-card-action"><button class="today-action-btn" onclick="go(\''+esc(nextT.dept)+'\')">Open task board →</button></div>'
+      +'</div>';
+  }
+  wrap.appendChild(card2);
+
+  // === CARD 3: Company OKR snapshot — 3 numbers, nothing else ===
+  var allKRs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult';});
+  var onTrack=0,behind=0,atRisk=0;
+  allKRs.forEach(function(kr){
+    if(kr.confidence==='Off Track'||kr.confidence==='At Risk'){atRisk++;return;}
+    var band=_stratHealthBand(kr.progressPct||0,st.quarter);
+    if(band==='ok'||kr.confidence==='On track')onTrack++;
+    else if(band==='bad')atRisk++;
+    else behind++;
+  });
+  var snap=document.createElement('div');snap.className='today-snap';
+  snap.innerHTML='<div class="today-card-label">COMPANY OKR SNAPSHOT — '+quarterLabel(st.quarter)+'</div>'
+    +'<div class="today-snap-row">'
+    +'<div class="today-snap-stat"><div class="today-snap-dot" style="background:var(--grn)"></div><div class="today-snap-val" style="color:var(--grn)">'+onTrack+'</div><div class="today-snap-label">on track</div></div>'
+    +'<div class="today-snap-stat"><div class="today-snap-dot" style="background:var(--yel)"></div><div class="today-snap-val" style="color:var(--yel)">'+behind+'</div><div class="today-snap-label">trending behind</div></div>'
+    +'<div class="today-snap-stat"><div class="today-snap-dot" style="background:var(--red)"></div><div class="today-snap-val" style="color:var(--red)">'+atRisk+'</div><div class="today-snap-label">at risk</div></div>'
+    +'</div>';
+  wrap.appendChild(snap);
+
+  // === Footer: single link to detailed views ===
+  var foot=document.createElement('div');foot.className='today-foot';
+  foot.innerHTML='<a class="today-link" onclick="setState({viewpoint:\'company\'});NS.renderStrategy();">Open detailed views →</a>';
+  wrap.appendChild(foot);
+
+  main.appendChild(wrap);
+};
 
 // ── COMPANY VIEW ───────────────────────────────────────────────────────
 NS._renderCompanyMode=function(){
