@@ -2440,14 +2440,14 @@ NS.computeInsights=function(quarter){
 function truncate(s,n){s=String(s||'');return s.length>n?s.slice(0,n-1)+'…':s;}
 
 // ── UI State ──────────────────────────────────────────────────────────
-function getState(){var s=loadUI();return{
-  quarter:s.quarter||getActiveOKRKey(),
-  dept:s.dept||'All',
-  owner:s.owner||'All',
-  type:s.type||'All',
-  search:s.search||'',
-  expanded:s.expanded||{}
-};}
+function getState(){var s=loadUI();return Object.assign({
+  quarter:getActiveOKRKey(),
+  dept:'All',
+  owner:'All',
+  type:'All',
+  search:'',
+  expanded:{}
+},s);}
 function setState(patch){var s=getState();Object.assign(s,patch);saveUI(s);}
 function toggleExpand(id){var s=getState();s.expanded[id]=!s.expanded[id];saveUI(s);}
 
