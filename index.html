@@ -313,6 +313,146 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .mm-node-g.clickable:hover rect:first-of-type{stroke-width:3}
 .mm-node-g.focus rect:first-of-type{filter:drop-shadow(0 0 18px rgba(108,99,255,.4))}
 .mm-foot{padding:7px 22px;border-top:1px solid var(--brd);background:var(--surf);font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;text-align:center;letter-spacing:.3px}
+/* ── Viewpoint toggle + 3 mode layouts ────────────────────────────────── */
+.strat-vptbar{display:flex;align-items:stretch;gap:8px;margin-bottom:18px;padding:6px;background:var(--surf);border:1px solid var(--brd);border-radius:14px}
+.strat-vpt{flex:1;display:flex;align-items:center;gap:10px;padding:12px 14px;background:transparent;border:none;border-radius:10px;cursor:pointer;color:var(--txt);text-align:left;font-family:inherit;transition:background .12s,transform .1s}
+.strat-vpt:hover{background:var(--surf2)}
+.strat-vpt.active{background:linear-gradient(135deg,rgba(108,99,255,.18),rgba(9,250,163,.1));box-shadow:inset 0 0 0 1px var(--acc)}
+.strat-vpt-ic{font-size:22px;flex-shrink:0;filter:saturate(1.2)}
+.strat-vpt-l{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.strat-vpt-t{font-size:13px;font-weight:700;color:var(--txt)}
+.strat-vpt-s{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.3px}
+.strat-vpt.active .strat-vpt-t{color:var(--acc)}
+.strat-vpt-actions{display:flex;align-items:center;gap:8px;padding-left:8px;border-left:1px solid var(--brd)}
+
+.strat-vp-sec{margin:24px 0 12px 0}
+.strat-vp-sec-h{font-size:12px;font-weight:800;font-family:Roboto Mono,monospace;color:var(--acc);letter-spacing:.5px;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--brd);margin-bottom:8px}
+.strat-vp-sec-d{font-size:11px;color:var(--mut);margin-bottom:14px}
+
+/* Hero cards (Company view) */
+.strat-hero-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:8px}
+.strat-hero-card{background:var(--surf);border:1px solid var(--brd);border-left:4px solid var(--acc);border-radius:12px;padding:18px 18px 14px 18px;display:flex;flex-direction:column;gap:10px}
+.strat-hero-card.health-ok{border-left-color:var(--grn)}
+.strat-hero-card.health-warn{border-left-color:var(--yel)}
+.strat-hero-card.health-bad{border-left-color:var(--red)}
+.strat-hero-card.health-unknown{border-left-color:var(--mut)}
+.strat-hero-top{display:flex;align-items:center;gap:8px}
+.strat-hero-title{font-size:15px;font-weight:700;color:var(--txt);line-height:1.35;min-height:40px}
+.strat-hero-prog{display:flex;flex-direction:column;gap:4px}
+.strat-hero-pct{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace}
+.strat-hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding-top:4px}
+.strat-hero-stats .hs{background:var(--surf2);border-radius:6px;padding:6px 4px;text-align:center}
+.strat-hero-stats .hs-v{font-size:16px;font-weight:800;line-height:1}
+.strat-hero-stats .hs-l{font-size:8px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.3px;margin-top:3px}
+.strat-hero-owner{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;padding-top:6px;border-top:1px solid var(--brd)}
+.strat-hero-acts{display:flex;gap:8px;padding-top:6px}
+.strat-hero-acts .hbtn{font-size:10px;padding:5px 10px;flex:1}
+
+/* Heatmap */
+.strat-heatmap{display:flex;flex-direction:column;background:var(--surf);border:1px solid var(--brd);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.strat-hm-row{display:grid;grid-template-columns:200px repeat(auto-fit,minmax(150px,1fr));border-bottom:1px solid var(--brd)}
+.strat-hm-row:last-child{border-bottom:none}
+.strat-hm-cell-base{padding:12px 14px;border-right:1px solid var(--brd)}
+.strat-hm-cell-base:last-child{border-right:none}
+.strat-hm-corner{background:var(--surf2)}
+.strat-hm-coh-cell{background:var(--surf2);text-align:center}
+.strat-hm-coh{font-size:10px;color:var(--txt);font-weight:600;margin-top:4px;line-height:1.3}
+.strat-hm-deph-cell{background:var(--surf2)}
+.strat-hm-deph{font-size:12px;font-weight:700;color:var(--txt)}
+.strat-hm-dept-sub{font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px}
+.strat-hm-cell{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;transition:background .1s}
+.strat-hm-cell.empty{background:transparent}
+.strat-hm-cell.ok{background:rgba(9,250,163,.08)}
+.strat-hm-cell.warn{background:rgba(251,191,36,.08)}
+.strat-hm-cell.bad{background:rgba(255,107,107,.08)}
+.strat-hm-cell.unknown{background:rgba(150,150,160,.06)}
+.strat-hm-cell:hover{filter:brightness(1.3)}
+.strat-hm-cell-v{font-size:13px;font-weight:700;color:var(--txt)}
+.strat-hm-cell-p{font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace}
+.strat-hm-empty{font-size:18px;color:var(--mut)}
+
+/* Action cards grid */
+.strat-actions-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-bottom:14px}
+.strat-action-card{background:var(--surf);border:1px solid var(--brd);border-left:3px solid var(--acc);border-radius:10px;padding:12px}
+.strat-action-card.sev-high{border-left-color:var(--red)}
+.strat-action-card.sev-med{border-left-color:var(--yel)}
+.strat-action-card.sev-low{border-left-color:var(--acc)}
+.sac-type{font-size:10px;font-weight:800;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.5px;margin-bottom:6px}
+.sac-body{font-size:11px;color:var(--txt);line-height:1.4;margin-bottom:8px}
+.sac-acts{display:flex;gap:6px}
+.sac-acts .hbtn.xs{font-size:9px;padding:4px 8px;flex:1}
+
+/* Department picker + summary */
+.strat-pick-row{display:flex;align-items:center;gap:12px;background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:12px 16px;margin-bottom:14px}
+.strat-pick-l{font-size:12px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+.strat-dept-summary{background:var(--surf);border:1px solid var(--brd);border-left:4px solid var(--acc);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.strat-dept-summary.health-ok{border-left-color:var(--grn)}
+.strat-dept-summary.health-warn{border-left-color:var(--yel)}
+.strat-dept-summary.health-bad{border-left-color:var(--red)}
+.sds-h{font-size:14px;font-weight:800;letter-spacing:.5px;margin-bottom:14px;font-family:Roboto Mono,monospace}
+.sds-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}
+.sds-stats .hs{background:var(--surf2);border-radius:8px;padding:10px 6px;text-align:center}
+.sds-stats .hs-v{font-size:20px;font-weight:800;line-height:1}
+.sds-stats .hs-l{font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:4px;letter-spacing:.3px}
+.sds-l1{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;padding-top:10px;border-top:1px solid var(--brd)}
+.sds-l1 .strat-id{cursor:pointer;color:var(--acc)}
+
+/* Objective card */
+.strat-obj-card{background:var(--surf);border:1px solid var(--brd);border-left:3px solid var(--grn);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.strat-obj-card.health-ok{border-left-color:var(--grn)}
+.strat-obj-card.health-warn{border-left-color:var(--yel)}
+.strat-obj-card.health-bad{border-left-color:var(--red)}
+.soc-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.soc-prog{margin-left:auto;font-size:14px;font-weight:800;color:var(--txt);font-family:Roboto Mono,monospace}
+.soc-title{font-size:14px;font-weight:700;color:var(--txt);margin-bottom:6px}
+.soc-meta{font-size:11px;color:var(--mut);margin-bottom:10px}
+.soc-up{font-size:11px;color:var(--mut)}
+.soc-up .strat-id{color:var(--acc)}
+.soc-prog-bar{margin-bottom:10px}
+.soc-krs{display:flex;flex-direction:column;gap:4px;padding-top:8px;border-top:1px solid var(--brd);margin-top:4px}
+.soc-kr{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;background:var(--surf2);font-size:11px;cursor:pointer;transition:background .12s}
+.soc-kr:hover{background:var(--bg)}
+.soc-kr-t{flex:1;min-width:0;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.soc-kr-owner{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;min-width:90px}
+.soc-kr-prog{font-size:11px;font-weight:700;color:var(--acc);font-family:Roboto Mono,monospace;min-width:36px;text-align:right}
+.soc-init{font-size:9px;background:rgba(108,99,255,.16);color:var(--acc);padding:2px 6px;border-radius:4px;font-family:Roboto Mono,monospace}
+.soc-warn{font-size:9px;background:rgba(255,107,107,.16);color:var(--red);padding:2px 6px;border-radius:4px;font-family:Roboto Mono,monospace}
+.soc-empty{font-size:11px;color:var(--mut);padding:10px;text-align:center;background:var(--surf2);border-radius:6px}
+.soc-acts{display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--brd);margin-top:10px;flex-wrap:wrap}
+.soc-acts .hbtn{font-size:10px;padding:5px 10px}
+
+/* Individual scorecard */
+.strat-ind-scorecard{background:var(--surf);border:1px solid var(--brd);border-left:4px solid var(--acc);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.sis-h{font-size:13px;font-weight:800;letter-spacing:.4px;margin-bottom:14px;font-family:Roboto Mono,monospace}
+.sis-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}
+.sis-stats .hs{background:var(--surf2);border-radius:8px;padding:10px 6px;text-align:center}
+.sis-stats .hs-v{font-size:20px;font-weight:800;line-height:1}
+.sis-stats .hs-l{font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:4px;letter-spacing:.3px}
+.sis-l1{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;padding-top:10px;border-top:1px solid var(--brd);line-height:1.5}
+.sis-l1 .strat-id{color:var(--acc)}
+
+.strat-ind-kr{background:var(--surf);border:1px solid var(--brd);border-left:3px solid var(--red);border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.sik-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.sik-prog{margin-left:auto;font-size:13px;font-weight:800;color:var(--acc);font-family:Roboto Mono,monospace}
+.sik-title{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:6px}
+.sik-up{font-size:11px;color:var(--mut);margin-bottom:8px;line-height:1.6}
+.sik-up .strat-tier{margin-right:4px}
+.sik-stats{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:8px}
+.sik-acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--brd);margin-top:6px}
+.sik-acts .hbtn{font-size:10px;padding:5px 10px}
+
+.strat-task-list{display:flex;flex-direction:column;gap:4px;background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:8px;margin-bottom:14px}
+.strat-task-row{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surf2);border-radius:6px;font-size:11px;transition:background .12s}
+.strat-task-row:hover{background:var(--bg)}
+.hbtn.xs{font-size:9px;padding:3px 8px}
+
+@media (max-width:900px){
+  .strat-vptbar{flex-wrap:wrap}
+  .strat-vpt{min-width:140px}
+  .sds-stats,.sis-stats{grid-template-columns:repeat(2,1fr)}
+  .strat-hero-stats{grid-template-columns:repeat(2,1fr)}
+}
+
 </style>
 </head>
 <body>
@@ -2245,6 +2385,562 @@ function toggleExpand(id){var s=getState();s.expanded[id]=!s.expanded[id];saveUI
 
 // ── Renderer ──────────────────────────────────────────────────────────
 NS.renderStrategy=function(){
+  var st=getState();
+  var vp=st.viewpoint||'company';
+  // First-time landing: pick viewpoint based on role
+  if(!st.viewpoint){
+    vp=(currentUser&&currentUser.isAdmin)?'company':'individual';
+    setState({viewpoint:vp});
+  }
+  if(vp==='cascade')return NS._renderCascadeMode();
+  if(vp==='company')return NS._renderCompanyMode();
+  if(vp==='department')return NS._renderDeptMode();
+  if(vp==='individual')return NS._renderIndividualMode();
+  return NS._renderCascadeMode();
+};
+
+
+// ── Shared viewpoint header (toggle + quarter + buttons) ───────────────
+function _stratViewpointHeader(wrap, activeViewpoint){
+  var hdr=document.createElement('div');hdr.className='strat-hdr';
+  hdr.innerHTML='<div class="strat-title">Strategy</div>'
+    +'<div class="strat-sub" style="margin-bottom:0">Strategic Execution & Organizational Intelligence — '+quarterLabel(getState().quarter)+'</div>';
+  wrap.appendChild(hdr);
+
+  // Toggle row
+  var tbar=document.createElement('div');tbar.className='strat-vptbar';
+  var modes=[
+    {id:'company',label:'Company',sub:'Where strategy starts',ic:'🏢'},
+    {id:'department',label:'Department',sub:'How each team contributes',ic:'⚙'},
+    {id:'individual',label:'Individual',sub:'Personal action list',ic:'🎯'},
+    {id:'cascade',label:'Cascade',sub:'Full tree drill-down',ic:'🌳'}
+  ];
+  modes.forEach(function(m){
+    var b=document.createElement('button');b.className='strat-vpt'+(m.id===activeViewpoint?' active':'');
+    b.innerHTML='<span class="strat-vpt-ic">'+m.ic+'</span><span class="strat-vpt-l"><span class="strat-vpt-t">'+m.label+'</span><span class="strat-vpt-s">'+m.sub+'</span></span>';
+    b.onclick=function(){setState({viewpoint:m.id});NS.renderStrategy();};
+    tbar.appendChild(b);
+  });
+  // Action buttons right side
+  var actR=document.createElement('div');actR.className='strat-vpt-actions';
+  var mmBtn=document.createElement('button');mmBtn.className='strat-guide-btn';mmBtn.innerHTML='🗺️ Mindmap';
+  mmBtn.style.cssText='background:linear-gradient(135deg,rgba(108,99,255,.18),rgba(9,250,163,.12));border-color:var(--acc)';
+  mmBtn.onclick=function(){NS.openMindmap();};
+  actR.appendChild(mmBtn);
+  var ug=document.createElement('button');ug.className='strat-guide-btn';ug.innerHTML='📖 User Guide';
+  ug.onclick=function(){NS.openUserGuide();};
+  actR.appendChild(ug);
+  tbar.appendChild(actR);
+  wrap.appendChild(tbar);
+
+  // First-time banner (only if not dismissed)
+  if(!localStorage.getItem(BANNER_KEY)){
+    var banner=document.createElement('div');banner.className='strat-banner';
+    banner.innerHTML='<div style="font-size:18px">★</div><div><div style="font-weight:700;font-size:12px;margin-bottom:2px">Strategic Execution Architecture — viewpoints live</div><div style="font-size:11px;color:var(--mut)">Toggle between Company / Department / Individual to see role-appropriate action lists. Cascade gives you the full tree.</div></div><div class="strat-banner-x" onclick="STRAT._dismissBanner()">Got it ×</div>';
+    wrap.appendChild(banner);
+  }
+}
+
+// ── Hydration helper used by all modes ─────────────────────────────────
+function _stratHydrate(quarter){
+  var allNodes=loadNodes()[quarter]||{};
+  var allEdges=loadEdges()[quarter]||[];
+  var liveTasks={};
+  allEdges.forEach(function(e){
+    if(e.c.indexOf('TA-')===0&&!liveTasks[e.c]){
+      var t=NS.getTask(e.c);
+      if(t)liveTasks[e.c]={id:e.c,type:'Task',title:t.name,dept:t.dept,quarter:quarter,
+        ownerName:t.assignee,progressPct:t.progress||0,state:t.status,due:t.due,priority:t.priority,live:true};
+    }
+  });
+  return {nodes:Object.assign({},allNodes,liveTasks),edges:allEdges,rawNodes:allNodes};
+}
+
+// ── Rollup: gather all descendant nodes of a root (BFS) ───────────────
+function _stratDescendants(rootId,edges,nodesMap){
+  var stack=[rootId],seen={},out=[],safety=2000;
+  while(stack.length&&safety-->0){
+    var id=stack.pop();if(seen[id])continue;seen[id]=1;
+    if(id!==rootId){var n=nodesMap[id];if(n)out.push(n);}
+    edges.filter(function(e){return e.p===id;}).forEach(function(e){stack.push(e.c);});
+  }
+  return out;
+}
+
+function _stratHealthBand(progressPct,quarter){
+  if(progressPct==null)return 'unknown';
+  var q=quarterDates(quarter);
+  var now=Date.now(),sd=new Date(q.startDate).getTime(),ed=new Date(q.endDate).getTime();
+  var expected=Math.round(Math.max(0,Math.min(1,(now-sd)/(ed-sd)))*100);
+  var diff=progressPct-expected;
+  if(progressPct>=90||diff>=-5)return 'ok';
+  if(diff>=-25)return 'warn';
+  return 'bad';
+}
+
+// ── Action item shortlist for a node and its descendants ──────────────
+function _stratActionsForRoot(rootId,edges,nodesMap){
+  var actions=[];
+  var root=nodesMap[rootId];if(!root)return actions;
+  var descendants=_stratDescendants(rootId,edges,nodesMap);
+  var pool=[root].concat(descendants);
+  pool.forEach(function(n){
+    if(n.type==='KeyResult'){
+      var kids=edges.filter(function(e){return e.p===n.id;});
+      if(kids.length===0)actions.push({sev:'high',type:'ADD INITIATIVE',nodeId:n.id,body:'"'+truncate(n.title,70)+'" has no execution',action:'add-initiative'});
+      var m=n.metric||{};
+      if(!m.target||!m.unit||!m.direction)actions.push({sev:'low',type:'SET METRIC',nodeId:n.id,body:'"'+truncate(n.title,70)+'" needs baseline/target/unit',action:'edit-okr'});
+      if(n.confidence==='Off Track'||n.confidence==='At Risk')actions.push({sev:'high',type:'KR AT RISK',nodeId:n.id,body:'"'+truncate(n.title,70)+'" — flagged '+n.confidence,action:'review'});
+    }
+    if(n.type!=='Task'&&!n.ownerEmail&&!n.ownerName&&n.state!=='Draft'&&n.state!=='Cancelled')
+      actions.push({sev:'med',type:'ASSIGN OWNER',nodeId:n.id,body:'"'+truncate(n.title,70)+'" has no owner',action:'set-owner'});
+    if(n.type==='DepartmentObjective'){
+      var parents=edges.filter(function(e){return e.c===n.id;});
+      if(parents.length===0)actions.push({sev:'med',type:'LINK TO COMPANY',nodeId:n.id,body:'"'+truncate(n.title,70)+'" is unaligned',action:'link-parent'});
+    }
+  });
+  var order={high:0,med:1,low:2};
+  actions.sort(function(a,b){return order[a.sev]-order[b.sev];});
+  return actions;
+}
+
+function _stratHealthDot(band){
+  var col=band==='ok'?'var(--grn)':band==='warn'?'var(--yel)':band==='bad'?'var(--red)':'var(--mut)';
+  return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+col+';box-shadow:0 0 6px '+col+'"></span>';
+}
+function _bandLabel(band){return band==='ok'?'On track':band==='warn'?'Trending behind':band==='bad'?'At risk':'No data';}
+
+// ── COMPANY VIEW ───────────────────────────────────────────────────────
+NS._renderCompanyMode=function(){
+  var main=document.getElementById('main');if(!main)return;main.innerHTML='';
+  var st=getState();
+  var H=_stratHydrate(st.quarter);
+  var wrap=document.createElement('div');wrap.className='strat-wrap';
+  _stratViewpointHeader(wrap,'company');
+
+  var cos=Object.values(H.nodes).filter(function(n){return n.type==='CompanyObjective';});
+  var dos=Object.values(H.nodes).filter(function(n){return n.type==='DepartmentObjective';});
+  var allKRs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult';});
+
+  // Top header for the company section
+  var sec=document.createElement('div');sec.className='strat-vp-sec';
+  sec.innerHTML='<div class="strat-vp-sec-h">QUARTERLY STRATEGIC OBJECTIVES — '+quarterLabel(st.quarter)+'</div>'
+    +'<div class="strat-vp-sec-d">'+cos.length+' company objective'+(cos.length===1?'':'s')+' · '+allKRs.length+' key results · '+dos.length+' department rollups</div>';
+  wrap.appendChild(sec);
+
+  // Hero cards row
+  var hero=document.createElement('div');hero.className='strat-hero-row';
+  cos.forEach(function(co){
+    var children=H.edges.filter(function(e){return e.p===co.id;}).map(function(e){return H.nodes[e.c];}).filter(Boolean);
+    var desc=_stratDescendants(co.id,H.edges,H.nodes);
+    var deptCount=desc.filter(function(n){return n.type==='DepartmentObjective';}).length;
+    var krCount=desc.filter(function(n){return n.type==='KeyResult';}).length;
+    var taskCount=desc.filter(function(n){return n.type==='Task';}).length;
+    var krs=desc.filter(function(n){return n.type==='KeyResult';});
+    var avgProgress=krs.length?Math.round(krs.reduce(function(s,k){return s+(k.progressPct||0);},0)/krs.length):0;
+    var band=_stratHealthBand(avgProgress,st.quarter);
+    var atRiskCount=krs.filter(function(k){return k.confidence==='Off Track'||k.confidence==='At Risk';}).length;
+    var card=document.createElement('div');card.className='strat-hero-card health-'+band;
+    card.innerHTML=
+      '<div class="strat-hero-top"><span class="strat-tier L1">L1</span><span class="strat-id">'+co.id+'</span>'+_stratHealthDot(band)+'</div>'
+      +'<div class="strat-hero-title">'+esc(co.title)+'</div>'
+      +'<div class="strat-hero-prog"><div class="strat-prog" style="width:100%;height:6px"><div class="strat-prog-bar" style="width:'+avgProgress+'%;background:'+(band==='ok'?'var(--grn)':band==='warn'?'var(--yel)':'var(--red)')+'"></div></div><div class="strat-hero-pct">'+avgProgress+'% · '+_bandLabel(band)+'</div></div>'
+      +'<div class="strat-hero-stats">'
+        +'<div class="hs"><div class="hs-v">'+deptCount+'</div><div class="hs-l">DEPT OBJS</div></div>'
+        +'<div class="hs"><div class="hs-v">'+krCount+'</div><div class="hs-l">KEY RESULTS</div></div>'
+        +'<div class="hs"><div class="hs-v">'+taskCount+'</div><div class="hs-l">TASKS</div></div>'
+        +'<div class="hs"><div class="hs-v" style="color:'+(atRiskCount>0?'var(--red)':'var(--grn)')+'">'+atRiskCount+'</div><div class="hs-l">AT RISK</div></div>'
+      +'</div>'
+      +'<div class="strat-hero-owner">'+(co.ownerName||co.ownerEmail?'Owner: '+esc(co.ownerName||co.ownerEmail):'<span style="color:var(--yel)">⚠ No owner assigned</span>')+'</div>'
+      +'<div class="strat-hero-acts">'
+        +'<button class="hbtn" onclick="STRAT._drillCO(\''+co.id+'\')">Drill in →</button>'
+        +'<button class="hbtn" onclick="STRAT._openMindmapFocus(\''+co.id+'\')">Open in mindmap</button>'
+      +'</div>';
+    hero.appendChild(card);
+  });
+  wrap.appendChild(hero);
+
+  // Contribution heatmap: dept × company objective
+  var hm=document.createElement('div');hm.className='strat-vp-sec';
+  hm.innerHTML='<div class="strat-vp-sec-h">CONTRIBUTION HEATMAP — how each department supports each company objective</div>'
+    +'<div class="strat-vp-sec-d">Empty cells = strategic gap (department isn’t contributing to that objective)</div>';
+  wrap.appendChild(hm);
+  var hmTable=document.createElement('div');hmTable.className='strat-heatmap';
+  var depts=['Operations','Engineering','Finance','Sales','Management'];
+  // Header row
+  var hdrRow=document.createElement('div');hdrRow.className='strat-hm-row';
+  hdrRow.appendChild(mkHmCell('','strat-hm-corner'));
+  cos.forEach(function(co){
+    hdrRow.appendChild(mkHmCell('<span class="strat-id">'+co.id+'</span><div class="strat-hm-coh">'+esc(truncate(co.title,38))+'</div>','strat-hm-coh-cell'));
+  });
+  hmTable.appendChild(hdrRow);
+  depts.forEach(function(d){
+    var row=document.createElement('div');row.className='strat-hm-row';
+    var deptDOs=dos.filter(function(n){return n.dept===d;});
+    var deptKRs=deptDOs.reduce(function(acc,doN){return acc.concat(H.edges.filter(function(e){return e.p===doN.id;}).map(function(e){return H.nodes[e.c];}).filter(function(n){return n&&n.type==='KeyResult';}));},[]);
+    row.appendChild(mkHmCell('<div class="strat-hm-deph">'+d+'</div><div class="strat-hm-dept-sub">'+deptDOs.length+' obj · '+deptKRs.length+' KRs</div>','strat-hm-deph-cell'));
+    cos.forEach(function(co){
+      // Count DOs in this dept that link to this CO
+      var linkedDOs=deptDOs.filter(function(doN){return H.edges.some(function(e){return e.c===doN.id&&e.p===co.id;});});
+      var krs=linkedDOs.reduce(function(acc,doN){return acc.concat(H.edges.filter(function(e){return e.p===doN.id;}).map(function(e){return H.nodes[e.c];}).filter(function(n){return n&&n.type==='KeyResult';}));},[]);
+      var avg=krs.length?Math.round(krs.reduce(function(s,k){return s+(k.progressPct||0);},0)/krs.length):null;
+      var band=avg==null?'empty':_stratHealthBand(avg,st.quarter);
+      var cell=document.createElement('div');
+      cell.className='strat-hm-cell '+band;
+      if(linkedDOs.length===0){cell.innerHTML='<span class="strat-hm-empty">—</span>';}
+      else{
+        cell.innerHTML='<div class="strat-hm-cell-v">'+krs.length+' KR'+(krs.length===1?'':'s')+'</div>'
+          +'<div class="strat-hm-cell-p">'+avg+'% '+_bandLabel(band)+'</div>';
+        cell.style.cursor='pointer';
+        cell.onclick=(function(coId,depN){return function(){
+          // Open dept view filtered to this CO
+          setState({viewpoint:'department',dept:depN});NS.renderStrategy();
+        };})(co.id,d);
+      }
+      row.appendChild(cell);
+    });
+    hmTable.appendChild(row);
+  });
+  wrap.appendChild(hmTable);
+
+  // Action items panel
+  var allActions=[];
+  cos.forEach(function(co){allActions=allActions.concat(_stratActionsForRoot(co.id,H.edges,H.nodes));});
+  var seenA={};allActions=allActions.filter(function(a){var k=a.nodeId+'::'+a.type;if(seenA[k])return false;seenA[k]=1;return true;});
+  var topA=allActions.slice(0,8);
+  var aSec=document.createElement('div');aSec.className='strat-vp-sec';
+  aSec.innerHTML='<div class="strat-vp-sec-h">STRATEGIC ACTIONS — top of the queue for leadership</div>'
+    +'<div class="strat-vp-sec-d">Click any item to drill in; tap "Open OKR Tracker" to edit the source data</div>';
+  wrap.appendChild(aSec);
+  if(topA.length===0){
+    var ok=document.createElement('div');ok.className='strat-card';
+    ok.innerHTML='<div style="text-align:center;padding:20px;font-size:12px;color:var(--mut)">○ No strategic action items detected at the Company level. Strategy graph looks clean.</div>';
+    wrap.appendChild(ok);
+  }else{
+    var aGrid=document.createElement('div');aGrid.className='strat-actions-grid';
+    topA.forEach(function(a){aGrid.appendChild(mkActionCard(a,H));});
+    wrap.appendChild(aGrid);
+  }
+
+  main.appendChild(wrap);
+  _ensureDetailPanel();
+};
+
+function mkHmCell(html,cls){var d=document.createElement('div');d.className=(cls||'')+' strat-hm-cell-base';d.innerHTML=html;return d;}
+
+// ── DEPARTMENT VIEW ────────────────────────────────────────────────────
+NS._renderDeptMode=function(){
+  var main=document.getElementById('main');if(!main)return;main.innerHTML='';
+  var st=getState();
+  var H=_stratHydrate(st.quarter);
+  var wrap=document.createElement('div');wrap.className='strat-wrap';
+  _stratViewpointHeader(wrap,'department');
+
+  // Dept picker — default to user's dept
+  var depts=['Operations','Engineering','Finance','Sales','Management'];
+  var dept=st.dept&&st.dept!=='All'?st.dept:(currentUser&&currentUser.dept?currentUser.dept:depts[0]);
+  if(depts.indexOf(dept)<0)dept=depts[0];
+
+  // Picker row
+  var pickRow=document.createElement('div');pickRow.className='strat-pick-row';
+  var pLabel=document.createElement('div');pLabel.className='strat-pick-l';pLabel.innerHTML='<span class="strat-vpt-ic" style="font-size:14px">⚙</span> Department:';
+  pickRow.appendChild(pLabel);
+  var pSel=document.createElement('select');pSel.className='mm-sel';pSel.style.cssText='font-size:14px;font-weight:700;padding:8px 14px;min-width:200px';
+  depts.forEach(function(d){var o=document.createElement('option');o.value=d;o.textContent=d;if(d===dept)o.selected=true;pSel.appendChild(o);});
+  pSel.onchange=function(){setState({dept:this.value});NS.renderStrategy();};
+  pickRow.appendChild(pSel);
+  wrap.appendChild(pickRow);
+
+  // Department roll-up summary
+  var deptDOs=Object.values(H.nodes).filter(function(n){return n.type==='DepartmentObjective'&&n.dept===dept;});
+  var deptKRs=[];
+  deptDOs.forEach(function(doN){
+    H.edges.filter(function(e){return e.p===doN.id;}).forEach(function(e){
+      var n=H.nodes[e.c];if(n&&n.type==='KeyResult')deptKRs.push(n);
+    });
+  });
+  var deptTaskCount=Object.values(H.nodes).filter(function(n){return n.type==='Task'&&n.dept===dept;}).length;
+  var avgProg=deptKRs.length?Math.round(deptKRs.reduce(function(s,k){return s+(k.progressPct||0);},0)/deptKRs.length):0;
+  var band=_stratHealthBand(avgProg,st.quarter);
+  // Find Company Objectives this dept rolls up to
+  var linkedCOs=[];
+  deptDOs.forEach(function(doN){
+    H.edges.filter(function(e){return e.c===doN.id;}).forEach(function(e){
+      var co=H.nodes[e.p];if(co&&co.type==='CompanyObjective'&&linkedCOs.indexOf(co.id)<0)linkedCOs.push(co.id);
+    });
+  });
+
+  var summary=document.createElement('div');summary.className='strat-dept-summary health-'+band;
+  summary.innerHTML='<div class="sds-h">'+dept.toUpperCase()+' — Q'+quarterLabel(st.quarter).slice(1)+' SCORECARD</div>'
+    +'<div class="sds-stats">'
+      +'<div class="hs"><div class="hs-v">'+deptDOs.length+'</div><div class="hs-l">OBJECTIVES</div></div>'
+      +'<div class="hs"><div class="hs-v">'+deptKRs.length+'</div><div class="hs-l">KEY RESULTS</div></div>'
+      +'<div class="hs"><div class="hs-v">'+deptTaskCount+'</div><div class="hs-l">TASKS</div></div>'
+      +'<div class="hs"><div class="hs-v" style="color:'+(band==='ok'?'var(--grn)':band==='warn'?'var(--yel)':'var(--red)')+'">'+avgProg+'%</div><div class="hs-l">AVG PROGRESS</div></div>'
+      +'<div class="hs"><div class="hs-v">'+linkedCOs.length+'</div><div class="hs-l">SUPPORTS L1</div></div>'
+    +'</div>'
+    +'<div class="sds-l1">Supports Company Objectives: '
+    + (linkedCOs.length?linkedCOs.map(function(id){var co=H.nodes[id];return '<span class="strat-id" style="cursor:pointer" onclick="STRAT._drillCO(\''+id+'\')">'+id+'</span>';}).join(' ')
+       :'<span style="color:var(--yel)">⚠ NONE — department not aligned to any company strategy</span>')
+    +'</div>';
+  wrap.appendChild(summary);
+
+  // Objectives section
+  var oSec=document.createElement('div');oSec.className='strat-vp-sec';
+  oSec.innerHTML='<div class="strat-vp-sec-h">OBJECTIVES IN '+dept.toUpperCase()+'</div>'
+    +'<div class="strat-vp-sec-d">Each objective with its KRs and execution. Click "Edit in OKR Tracker" to update progress or owners.</div>';
+  wrap.appendChild(oSec);
+
+  if(deptDOs.length===0){
+    var empty=document.createElement('div');empty.className='strat-card';
+    empty.innerHTML='<div style="text-align:center;padding:30px;color:var(--mut);font-size:13px">○ No objectives in '+dept+' this quarter. <br><br><a href="#" onclick="go(\'okr\');return false;" style="color:var(--acc)">→ Open OKR Tracker to add some</a></div>';
+    wrap.appendChild(empty);
+  }else{
+    deptDOs.forEach(function(doN){
+      var krs=H.edges.filter(function(e){return e.p===doN.id;}).map(function(e){return H.nodes[e.c];}).filter(function(n){return n&&n.type==='KeyResult';});
+      var doProg=krs.length?Math.round(krs.reduce(function(s,k){return s+(k.progressPct||0);},0)/krs.length):0;
+      var doBand=_stratHealthBand(doProg,st.quarter);
+      var doParents=H.edges.filter(function(e){return e.c===doN.id;}).map(function(e){return H.nodes[e.p];}).filter(Boolean);
+      var card=document.createElement('div');card.className='strat-obj-card health-'+doBand;
+      var inner='<div class="soc-h"><span class="strat-tier L2">L2</span><span class="strat-id">'+doN.id+'</span>'+_stratHealthDot(doBand)+'<span class="soc-prog">'+doProg+'%</span></div>'
+        +'<div class="soc-title">'+esc(doN.title)+'</div>'
+        +'<div class="soc-meta">'
+          +(doParents.length>0?'<span class="soc-up">↑ rolls up to '+doParents.map(function(p){return '<span class="strat-id" style="cursor:pointer" onclick="event.stopPropagation();STRAT._drillCO(\''+p.id+'\')">'+p.id+'</span> '+esc(truncate(p.title,40));}).join(', ')+'</span>'
+                                :'<span style="color:var(--yel)">⚠ NOT LINKED TO COMPANY STRATEGY</span>')
+        +'</div>'
+        +'<div class="soc-prog-bar"><div class="strat-prog" style="width:100%;height:5px"><div class="strat-prog-bar" style="width:'+doProg+'%;background:'+(doBand==='ok'?'var(--grn)':doBand==='warn'?'var(--yel)':'var(--red)')+'"></div></div></div>'
+        +'<div class="soc-krs">';
+      if(krs.length===0){inner+='<div class="soc-empty">○ No KRs — open OKR Tracker to add</div>';}
+      else{
+        krs.forEach(function(kr){
+          var krInitCount=H.edges.filter(function(e){return e.p===kr.id;}).length;
+          var krConf=kr.confidence||'';
+          var confCol=krConf==='Off Track'||krConf==='At Risk'?'var(--red)':krConf==='On track'?'var(--grn)':'var(--mut)';
+          inner+='<div class="soc-kr" onclick="STRAT._drillKR(\''+kr.id+'\')">'
+            +'<span class="strat-tier L5" style="font-size:8px">L5</span>'
+            +'<span class="strat-id">'+kr.id+'</span>'
+            +'<span class="soc-kr-t">'+esc(kr.title)+'</span>'
+            +'<span class="soc-kr-owner">'+(kr.ownerName||kr.ownerEmail?esc(kr.ownerName||kr.ownerEmail):'<span style="color:var(--yel)">no owner</span>')+'</span>'
+            +'<span style="color:'+confCol+';font-size:9px;font-family:Roboto Mono,monospace">'+esc(krConf||'—')+'</span>'
+            +'<span class="soc-kr-prog">'+(kr.progressPct||0)+'%</span>'
+            +(krInitCount===0?'<span class="soc-warn">⚠ no execution</span>':'<span class="soc-init">'+krInitCount+' init</span>')
+            +'</div>';
+        });
+      }
+      inner+='</div>'
+        +'<div class="soc-acts">'
+          +'<button class="hbtn" onclick="event.stopPropagation();go(\'okr\');">✎ Edit in OKR Tracker</button>'
+          +'<button class="hbtn" onclick="event.stopPropagation();STRAT._openMindmapFocus(\''+doN.id+'\')">🗺️ Mindmap</button>'
+          +'<button class="hbtn" onclick="event.stopPropagation();setState({viewpoint:\'cascade\',dept:\''+dept+'\'});NS.renderStrategy();">🌳 Full cascade</button>'
+        +'</div>';
+      card.innerHTML=inner;
+      wrap.appendChild(card);
+    });
+  }
+
+  // Dept-level action items
+  var deptActions=[];
+  deptDOs.forEach(function(doN){deptActions=deptActions.concat(_stratActionsForRoot(doN.id,H.edges,H.nodes));});
+  var seenA={};deptActions=deptActions.filter(function(a){var k=a.nodeId+'::'+a.type;if(seenA[k])return false;seenA[k]=1;return true;}).slice(0,8);
+  if(deptActions.length){
+    var aSec=document.createElement('div');aSec.className='strat-vp-sec';
+    aSec.innerHTML='<div class="strat-vp-sec-h">ACTIONS NEEDED IN '+dept.toUpperCase()+'</div>';
+    wrap.appendChild(aSec);
+    var aGrid=document.createElement('div');aGrid.className='strat-actions-grid';
+    deptActions.forEach(function(a){aGrid.appendChild(mkActionCard(a,H));});
+    wrap.appendChild(aGrid);
+  }
+
+  main.appendChild(wrap);
+  _ensureDetailPanel();
+};
+
+// ── INDIVIDUAL VIEW ────────────────────────────────────────────────────
+NS._renderIndividualMode=function(){
+  var main=document.getElementById('main');if(!main)return;main.innerHTML='';
+  var st=getState();
+  var H=_stratHydrate(st.quarter);
+  var wrap=document.createElement('div');wrap.className='strat-wrap';
+  _stratViewpointHeader(wrap,'individual');
+
+  // Member picker — default to current user
+  var person=st.mmMember||(currentUser?currentUser.email:'');
+  if(!person||!USER_REGISTRY[person])person=currentUser?currentUser.email:Object.keys(USER_REGISTRY)[0];
+  var u=USER_REGISTRY[person]||{};
+
+  var pickRow=document.createElement('div');pickRow.className='strat-pick-row';
+  var pLabel=document.createElement('div');pLabel.className='strat-pick-l';pLabel.innerHTML='<span class="strat-vpt-ic" style="font-size:14px">🎯</span> Individual:';
+  pickRow.appendChild(pLabel);
+  var pSel=document.createElement('select');pSel.className='mm-sel';pSel.style.cssText='font-size:14px;font-weight:700;padding:8px 14px;min-width:240px';
+  Object.keys(USER_REGISTRY).forEach(function(em){
+    var uu=USER_REGISTRY[em];
+    var o=document.createElement('option');o.value=em;o.textContent=uu.name+' · '+uu.role;if(em===person)o.selected=true;pSel.appendChild(o);
+  });
+  pSel.onchange=function(){setState({mmMember:this.value});NS.renderStrategy();};
+  pickRow.appendChild(pSel);
+  wrap.appendChild(pickRow);
+
+  // Find owned + contributed nodes
+  var name=u.name||person;
+  var ownedKRs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult'&&((n.ownerName||'')===name||(n.ownerEmail||'')===person);});
+  var ownedInits=Object.values(H.nodes).filter(function(n){return n.type==='Initiative'&&((n.ownerName||'')===name||(n.ownerEmail||'')===person);});
+  var ownedTasks=DEPTS.reduce(function(acc,d){return acc.concat((data[d]||[]).filter(function(t){return(t.assignee||'').trim()===name||(t.assignee||'').toLowerCase()===name.toLowerCase()||(t.assignee||'').split(' ')[0]===name.split(' ')[0];}).map(function(t){return Object.assign({},t,{dept:d});}));},[]);
+
+  // Tasks due this week
+  var now=new Date(),weekFromNow=new Date(now.getTime()+7*86400000);
+  var dueSoon=ownedTasks.filter(function(t){if(!t.due||t.status==='Done')return false;var d=new Date(t.due);return d<=weekFromNow;}).sort(function(a,b){return new Date(a.due)-new Date(b.due);});
+  var stalled=ownedTasks.filter(function(t){if(t.status==='Done'||t.status==='Blocked')return false;if(!t.lastUpdated)return false;return (Date.now()-new Date(t.lastUpdated))/86400000>14;});
+  var blocked=ownedTasks.filter(function(t){return t.status==='Blocked';});
+
+  // Walk up from owned KRs to find Company Objectives they contribute to
+  var contributesTo={};
+  ownedKRs.forEach(function(kr){
+    var chain=buildAncestorChain(kr.id,H.edges,H.nodes);
+    chain.forEach(function(n){if(n.type==='CompanyObjective')contributesTo[n.id]=n;});
+  });
+
+  // Scorecard
+  var sc=document.createElement('div');sc.className='strat-ind-scorecard';
+  sc.innerHTML='<div class="sis-h">'+esc(name).toUpperCase()+' — '+esc(u.role||'')+' · '+esc(u.dept||'')+'</div>'
+    +'<div class="sis-stats">'
+      +'<div class="hs"><div class="hs-v">'+ownedKRs.length+'</div><div class="hs-l">KRs OWNED</div></div>'
+      +'<div class="hs"><div class="hs-v" style="color:var(--acc)">'+dueSoon.length+'</div><div class="hs-l">DUE THIS WEEK</div></div>'
+      +'<div class="hs"><div class="hs-v" style="color:'+(stalled.length>0?'var(--yel)':'var(--mut)')+'">'+stalled.length+'</div><div class="hs-l">STALLED 14+ DAYS</div></div>'
+      +'<div class="hs"><div class="hs-v" style="color:'+(blocked.length>0?'var(--red)':'var(--mut)')+'">'+blocked.length+'</div><div class="hs-l">BLOCKED</div></div>'
+      +'<div class="hs"><div class="hs-v">'+Object.keys(contributesTo).length+'</div><div class="hs-l">L1 CONTRIBUTIONS</div></div>'
+    +'</div>'
+    +'<div class="sis-l1">Contributing to: '
+    +(Object.keys(contributesTo).length?Object.keys(contributesTo).map(function(id){return '<span class="strat-id" style="cursor:pointer" onclick="STRAT._drillCO(\''+id+'\')">'+id+'</span> '+esc(truncate(contributesTo[id].title,30));}).join(' · ')
+      :'<span style="color:var(--yel)">⚠ No KRs owned — your work isn’t feeding company strategy</span>')
+    +'</div>';
+  wrap.appendChild(sc);
+
+  // Your KRs
+  var krSec=document.createElement('div');krSec.className='strat-vp-sec';
+  krSec.innerHTML='<div class="strat-vp-sec-h">YOUR KEY RESULTS</div>'
+    +'<div class="strat-vp-sec-d">What you personally own this quarter. Each KR needs initiatives to be executable.</div>';
+  wrap.appendChild(krSec);
+  if(ownedKRs.length===0){
+    var emp=document.createElement('div');emp.className='strat-card';
+    emp.innerHTML='<div style="text-align:center;padding:24px;color:var(--mut);font-size:13px">○ No Key Results owned. Talk to your manager about owning one this quarter — it’s how individual work shows up in company strategy.</div>';
+    wrap.appendChild(emp);
+  }else{
+    ownedKRs.forEach(function(kr){
+      var initCount=H.edges.filter(function(e){return e.p===kr.id;}).length;
+      var taskCount=_stratDescendants(kr.id,H.edges,H.nodes).filter(function(n){return n.type==='Task';}).length;
+      var parents=buildAncestorChain(kr.id,H.edges,H.nodes).slice(0,-1);
+      var card=document.createElement('div');card.className='strat-ind-kr';
+      card.innerHTML='<div class="sik-top"><span class="strat-tier L5">L5</span><span class="strat-id">'+kr.id+'</span><span class="sik-prog">'+(kr.progressPct||0)+'%</span><span style="color:var(--mut);font-size:10px;font-family:Roboto Mono,monospace">'+esc(kr.confidence||'')+'</span></div>'
+        +'<div class="sik-title">'+esc(kr.title)+'</div>'
+        +'<div class="sik-up">↑ '+parents.map(function(p){return '<span class="strat-tier '+tierFor(p.type)+'" style="font-size:8px">'+tierFor(p.type)+'</span> <span style="cursor:pointer" onclick="STRAT._drillCO(\''+p.id+'\')">'+esc(truncate(p.title,40))+'</span>';}).join(' › ')+'</div>'
+        +'<div class="sik-stats"><span>'+initCount+' initiative'+(initCount===1?'':'s')+'</span> · <span>'+taskCount+' task'+(taskCount===1?'':'s')+'</span></div>'
+        +'<div class="sik-acts">'
+          +(initCount===0?'<span class="soc-warn">⚠ This KR has no execution — add an initiative</span>':'')
+          +'<button class="hbtn" onclick="go(\'okr\');">✎ Edit in OKR Tracker</button>'
+          +'<button class="hbtn" onclick="STRAT._openMindmapFocus(\''+kr.id+'\')">🗺️ Mindmap</button>'
+        +'</div>';
+      wrap.appendChild(card);
+    });
+  }
+
+  // Tasks due this week
+  if(dueSoon.length){
+    var tSec=document.createElement('div');tSec.className='strat-vp-sec';
+    tSec.innerHTML='<div class="strat-vp-sec-h">YOUR TASKS DUE THIS WEEK ('+dueSoon.length+')</div>';
+    wrap.appendChild(tSec);
+    var tList=document.createElement('div');tList.className='strat-task-list';
+    dueSoon.forEach(function(t){
+      var dDate=new Date(t.due),days=Math.round((dDate-Date.now())/86400000);
+      var col=days<0?'var(--red)':days<=2?'var(--yel)':'var(--mut)';
+      var row=document.createElement('div');row.className='strat-task-row';
+      row.innerHTML='<span class="strat-id">'+t.id+'</span>'
+        +'<span style="flex:1">'+esc(t.name)+'</span>'
+        +'<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:var(--surf2);color:var(--mut)">'+esc(t.dept)+'</span>'
+        +'<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:var(--surf2);color:var(--mut)">'+esc(t.status)+'</span>'
+        +'<span style="font-size:10px;color:'+col+';font-family:Roboto Mono,monospace">'+(days<0?Math.abs(days)+'d overdue':days===0?'today':days+'d')+'</span>';
+      row.style.cursor='pointer';
+      row.onclick=function(){go(t.dept);};
+      tList.appendChild(row);
+    });
+    wrap.appendChild(tList);
+  }
+
+  // Stalled
+  if(stalled.length){
+    var sSec=document.createElement('div');sSec.className='strat-vp-sec';
+    sSec.innerHTML='<div class="strat-vp-sec-h" style="color:var(--yel)">⚠ STALLED TASKS — no updates in 14+ days ('+stalled.length+')</div>';
+    wrap.appendChild(sSec);
+    var sList=document.createElement('div');sList.className='strat-task-list';
+    stalled.forEach(function(t){
+      var row=document.createElement('div');row.className='strat-task-row';
+      var age=Math.round((Date.now()-new Date(t.lastUpdated))/86400000);
+      row.innerHTML='<span class="strat-id">'+t.id+'</span><span style="flex:1">'+esc(t.name)+'</span><span style="font-size:10px;color:var(--yel);font-family:Roboto Mono,monospace">'+age+' days stale</span>';
+      row.style.cursor='pointer';
+      row.onclick=function(){go(t.dept);};
+      sList.appendChild(row);
+    });
+    wrap.appendChild(sList);
+  }
+
+  // What they contribute (KRs where assignee but not owner)
+  // For first version: KRs in their dept they don't own
+  if(u.dept){
+    var deptOnlyKRs=Object.values(H.nodes).filter(function(n){
+      if(n.type!=='KeyResult'||n.dept!==u.dept)return false;
+      var o=n.ownerName||'';return o!==name&&o!==person;
+    }).slice(0,5);
+    if(deptOnlyKRs.length){
+      var cSec=document.createElement('div');cSec.className='strat-vp-sec';
+      cSec.innerHTML='<div class="strat-vp-sec-h">OTHER '+u.dept.toUpperCase()+' KRs (FOR CONTEXT)</div>'
+        +'<div class="strat-vp-sec-d">What your colleagues are working on this quarter</div>';
+      wrap.appendChild(cSec);
+      deptOnlyKRs.forEach(function(kr){
+        var row=document.createElement('div');row.className='strat-task-row';
+        row.innerHTML='<span class="strat-tier L5" style="font-size:8px">L5</span><span class="strat-id">'+kr.id+'</span><span style="flex:1">'+esc(kr.title)+'</span><span class="strat-owner">'+esc(kr.ownerName||kr.ownerEmail||'no owner')+'</span><span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">'+(kr.progressPct||0)+'%</span>';
+        row.style.cursor='pointer';
+        row.onclick=function(){STRAT._drillKR(kr.id);};
+        wrap.appendChild(row);
+      });
+    }
+  }
+
+  main.appendChild(wrap);
+  _ensureDetailPanel();
+};
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+function mkActionCard(a,H){
+  var c=document.createElement('div');c.className='strat-action-card sev-'+(a.sev==='high'?'high':a.sev==='med'?'med':'low');
+  var label=(a.action==='add-initiative'?'+ Add Initiative':a.action==='set-owner'?'Assign Owner':a.action==='link-parent'?'Link to Company OKR':a.action==='edit-okr'?'Edit Metric':a.action==='review'?'Review KR':'Open');
+  c.innerHTML='<div class="sac-type">'+a.type+'</div>'
+    +'<div class="sac-body">'+esc(a.body)+'</div>'
+    +'<div class="sac-acts">'
+      +'<button class="hbtn xs" onclick="STRAT._drillKR(\''+(a.nodeId||'')+'\')">View →</button>'
+      +'<button class="hbtn xs" onclick="go(\'okr\')">'+label+'</button>'
+    +'</div>';
+  return c;
+}
+
+NS._drillCO=function(coId){
+  setState({viewpoint:'cascade'});
+  var s=loadUI();s.expanded={};s.expanded[coId]=true;saveUI(s);
+  NS.renderStrategy();
+};
+NS._drillKR=function(krId){
+  var st=getState();var H=_stratHydrate(st.quarter);
+  var n=H.nodes[krId];if(!n)return;
+  openDetail(n,H.edges,H.nodes);
+};
+NS._openMindmapFocus=function(id){NS.openMindmap(id);};
+
+function _ensureDetailPanel(){
+  if(!document.getElementById('strat-detail-panel')){
+    var dp=document.createElement('div');dp.id='strat-detail-panel';dp.className='strat-detail';
+    document.body.appendChild(dp);
+  }
+}
+
+NS._renderCascadeMode=function(){
   var main=document.getElementById('main');
   if(!main)return;
   main.innerHTML='';
