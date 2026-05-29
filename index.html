@@ -2503,28 +2503,23 @@ function toggleExpand(id){var s=getState();s.expanded[id]=!s.expanded[id];saveUI
 // ── Renderer ──────────────────────────────────────────────────────────
 NS.renderStrategy=function(){
   var raw=loadUI();
-  // One-time migration: move every existing user to Today on first load after this deploy
-  if(!localStorage.getItem('rl_strat_today_v1')){
-    localStorage.setItem('rl_strat_today_v1','1');
-    raw.viewpoint='today';saveUI(raw);
-  }
   var vp=raw.viewpoint;
-  if(!vp){vp='today';raw.viewpoint=vp;saveUI(raw);}
-  if(vp==='today')return NS._renderTodayMode();
+  // Any user stuck on the reverted Today view → fall back to company
+  if(vp==='today'){vp='company';raw.viewpoint='company';saveUI(raw);}
+  if(!vp){
+    vp=(currentUser&&currentUser.isAdmin)?'company':'individual';
+    raw.viewpoint=vp;saveUI(raw);
+  }
   if(vp==='cascade')return NS._renderCascadeMode();
   if(vp==='company')return NS._renderCompanyMode();
   if(vp==='department')return NS._renderDeptMode();
   if(vp==='individual')return NS._renderIndividualMode();
-  return NS._renderTodayMode();
+  return NS._renderCascadeMode();
 };
 
 
 // ── Shared viewpoint header (toggle + quarter + buttons) ───────────────
 function _stratViewpointHeader(wrap, activeViewpoint){
-  // Back-to-Today link (always available in the detailed views)
-  var back=document.createElement('a');back.className='today-back';back.textContent='← Back to Today';
-  back.onclick=function(){setState({viewpoint:'today'});NS.renderStrategy();};
-  wrap.appendChild(back);
   var hdr=document.createElement('div');hdr.className='strat-hdr';
   hdr.innerHTML='<div class="strat-title">Strategy</div>'
     +'<div class="strat-sub" style="margin-bottom:0">Strategic Execution & Organizational Intelligence — '+quarterLabel(getState().quarter)+'</div>';
