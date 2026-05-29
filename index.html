@@ -2453,12 +2453,12 @@ function toggleExpand(id){var s=getState();s.expanded[id]=!s.expanded[id];saveUI
 
 // ── Renderer ──────────────────────────────────────────────────────────
 NS.renderStrategy=function(){
-  var st=getState();
-  var vp=st.viewpoint||'company';
-  // First-time landing: pick viewpoint based on role
-  if(!st.viewpoint){
+  // Read viewpoint directly from raw state to avoid any getState reshape bugs
+  var raw=loadUI();
+  var vp=raw.viewpoint;
+  if(!vp){
     vp=(currentUser&&currentUser.isAdmin)?'company':'individual';
-    setState({viewpoint:vp});
+    raw.viewpoint=vp;saveUI(raw);
   }
   if(vp==='cascade')return NS._renderCascadeMode();
   if(vp==='company')return NS._renderCompanyMode();
