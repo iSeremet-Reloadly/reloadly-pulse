@@ -498,6 +498,29 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 @media (max-width:800px){.io-kr-disp{grid-template-columns:1fr;gap:4px}.io-kr-disp-metric,.io-kr-disp-prog,.io-kr-disp-conf{text-align:left}}
 .hbtn.xs{font-size:10px;padding:4px 10px}
 
+/* ── Team roster on Department view ──────────────────────────────────── */
+.strat-team-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:14px}
+.strat-team-card{background:var(--surf);border:1px solid var(--brd);border-left:3px solid var(--mut);border-radius:10px;padding:14px}
+.strat-team-card.health-ok{border-left-color:var(--grn)}
+.strat-team-card.health-warn{border-left-color:var(--yel)}
+.strat-team-card.health-bad{border-left-color:var(--red)}
+.strat-team-card.health-unknown{border-left-color:#a78bfa}
+.stc-h{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.stc-av{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,rgba(108,99,255,.4),rgba(167,139,250,.4));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;font-family:Roboto Mono,monospace;flex-shrink:0}
+.stc-name-wrap{flex:1;min-width:0}
+.stc-name{font-size:13px;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stc-role{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stc-prog{font-size:14px;font-weight:800;color:var(--acc);font-family:Roboto Mono,monospace;flex-shrink:0}
+.stc-stats{display:flex;gap:14px;padding:6px 0;font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;border-top:1px solid var(--brd);border-bottom:1px solid var(--brd);margin-bottom:10px}
+.stc-stat-v{font-weight:800;color:var(--txt);font-size:14px}
+.stc-stat-l{margin-left:3px;letter-spacing:.3px}
+.stc-empty{font-size:10px;color:var(--mut);font-style:italic;padding:6px 0;text-align:center;font-family:Roboto Mono,monospace;margin-bottom:8px}
+.stc-iolist{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.stc-iol{font-size:11px;background:var(--surf2);border-radius:5px;padding:6px 8px;cursor:pointer;display:flex;gap:6px;align-items:center;color:var(--txt);overflow:hidden}
+.stc-iol:hover{background:var(--bg)}
+.stc-iol .strat-id{flex-shrink:0;font-size:9px}
+.stc-acts{display:flex;gap:6px}
+
 </style>
 </head>
 <body>
@@ -2794,6 +2817,61 @@ NS._renderDeptMode=function(){
     var aGrid=document.createElement('div');aGrid.className='strat-actions-grid';
     deptActions.forEach(function(a){aGrid.appendChild(mkActionCard(a,H));});
     wrap.appendChild(aGrid);
+  }
+
+  // === Team roster: per-member Individual OKR setting ===
+  var deptMembers=Object.keys(USER_REGISTRY||{}).filter(function(em){return USER_REGISTRY[em].dept===dept;});
+  if(deptMembers.length){
+    var tSec=document.createElement('div');tSec.className='strat-vp-sec';
+    tSec.innerHTML='<div class="strat-vp-sec-h">TEAM — INDIVIDUAL OKRs <span style="font-size:9px;background:rgba(167,139,250,.18);color:#a78bfa;padding:2px 6px;border-radius:4px;font-family:Roboto Mono,monospace;margin-left:8px">L4</span></div>'
+      +'<div class="strat-vp-sec-d">Set personal quarterly commitments directly for each report. Each Individual OKR auto-links upward to a Department or Company Objective.</div>';
+    wrap.appendChild(tSec);
+    var grid=document.createElement('div');grid.className='strat-team-grid';
+    deptMembers.forEach(function(em){
+      var uu=USER_REGISTRY[em];
+      var memberIOs=Object.values(H.nodes).filter(function(n){return n.type==='IndividualObjective'&&((n.ownerEmail||'')===em||(n.ownerName||'')===uu.name);});
+      var memberKRs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult'&&((n.ownerName||'')===uu.name||(n.ownerEmail||'')===em);});
+      var avgProg=0,band='unknown';
+      if(memberIOs.length){
+        var allMemKRs=[];
+        memberIOs.forEach(function(io){
+          H.edges.filter(function(e){return e.p===io.id;}).forEach(function(e){
+            var n=H.nodes[e.c];if(n&&n.type==='KeyResult')allMemKRs.push(n);
+          });
+        });
+        if(allMemKRs.length){
+          avgProg=Math.round(allMemKRs.reduce(function(s,k){return s+(k.progressPct||0);},0)/allMemKRs.length);
+          band=_stratHealthBand(avgProg,st.quarter);
+        }
+      }
+      var card=document.createElement('div');card.className='strat-team-card health-'+band;
+      var initials=(uu.name||'?').split(' ').map(function(p){return p[0];}).join('').slice(0,2).toUpperCase();
+      var inner='<div class="stc-h">'
+        +'<div class="stc-av">'+initials+'</div>'
+        +'<div class="stc-name-wrap"><div class="stc-name">'+esc(uu.name)+'</div><div class="stc-role">'+esc(uu.role||'')+'</div></div>'
+        +(memberIOs.length?'<div class="stc-prog">'+avgProg+'%</div>':'')
+        +'</div>'
+        +'<div class="stc-stats">'
+          +'<div class="stc-stat"><span class="stc-stat-v">'+memberIOs.length+'</span> <span class="stc-stat-l">IO'+(memberIOs.length===1?'':'s')+'</span></div>'
+          +'<div class="stc-stat"><span class="stc-stat-v">'+memberKRs.length+'</span> <span class="stc-stat-l">KRs owned</span></div>'
+        +'</div>';
+      if(memberIOs.length===0){
+        inner+='<div class="stc-empty">No Individual OKRs set</div>';
+      }else{
+        inner+='<div class="stc-iolist">'
+          +memberIOs.map(function(io){
+            return '<div class="stc-iol" onclick="event.stopPropagation();STRAT.openIndividualOKRModal(\''+em+'\',\''+io.id+'\')"><span class="strat-id">'+io.id+'</span> '+esc(truncate(io.title,42))+'</div>';
+          }).join('')
+          +'</div>';
+      }
+      inner+='<div class="stc-acts">'
+        +'<button class="hbtn xs" style="flex:1;background:var(--acc);color:#fff;border-color:var(--acc)" onclick="STRAT.openIndividualOKRModal(\''+em+'\')">+ Set Individual OKR</button>'
+        +'<button class="hbtn xs" onclick="setState({viewpoint:\'individual\',mmMember:\''+em+'\'});NS.renderStrategy();">View →</button>'
+        +'</div>';
+      card.innerHTML=inner;
+      grid.appendChild(card);
+    });
+    wrap.appendChild(grid);
   }
 
   main.appendChild(wrap);
