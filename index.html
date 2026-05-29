@@ -3390,21 +3390,10 @@ NS._renderCascadeMode=function(){
   var nodesMap=Object.assign({},allNodes,liveTasks);
 
   var wrap=document.createElement('div');wrap.className='strat-wrap';
-  // Header
-  var hdr=document.createElement('div');hdr.className='strat-hdr';
-  hdr.innerHTML='<div class="strat-title">Strategy</div>'
-    +'<div class="strat-sub" style="margin-bottom:0">Strategic Execution & Organizational Intelligence — '+quarterLabel(st.quarter)+'</div>';
-  wrap.appendChild(hdr);
+  _stratViewpointHeader(wrap,'cascade');
   var sub=document.createElement('div');sub.className='strat-sub';
-  sub.innerHTML='Cascade view: Company → Department → KR → Initiative → Task. Read-only first pass; planning gates land in the next phase.';
+  sub.innerHTML='Cascade view: full Company → Department → KR → Initiative → Task tree. Use the toggle above to switch viewpoints.';
   wrap.appendChild(sub);
-
-  // First-time banner
-  if(!localStorage.getItem(BANNER_KEY)){
-    var banner=document.createElement('div');banner.className='strat-banner';
-    banner.innerHTML='<div style="font-size:18px">★</div><div><div style="font-weight:700;font-size:12px;margin-bottom:2px">Strategic Execution Architecture — Phase 1+2 live</div><div style="font-size:11px;color:var(--mut)">Your existing OKRs and task links have been migrated into the new typed-node model. Existing OKR Tracker and task boards continue to work unchanged.</div></div><div class="strat-banner-x" onclick="STRAT._dismissBanner()">Got it ×</div>';
-    wrap.appendChild(banner);
-  }
 
   // Filter bar
   var fbar=document.createElement('div');fbar.className='strat-fbar';
