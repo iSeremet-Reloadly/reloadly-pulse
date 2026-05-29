@@ -232,7 +232,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .strat-insight-t{font-weight:700;font-size:10px;margin-bottom:4px;font-family:Roboto Mono,monospace;letter-spacing:.5px}
 .strat-insight-b{font-size:11px;color:var(--txt);line-height:1.4}
 .strat-insight-id{font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:4px}
-.strat-detail{position:fixed;top:0;right:0;width:480px;max-width:95vw;height:100vh;background:var(--surf);border-left:1px solid var(--brd);box-shadow:-8px 0 32px rgba(0,0,0,.45);z-index:9000;overflow-y:auto;padding:24px;display:none}
+.strat-detail{position:fixed;top:0;right:0;width:480px;max-width:95vw;height:100vh;background:var(--surf);border-left:1px solid var(--brd);box-shadow:-8px 0 32px rgba(0,0,0,.45);z-index:9800;overflow-y:auto;padding:24px;display:none}
 .strat-detail.open{display:block}
 .strat-detail-close{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--mut);font-size:20px;cursor:pointer}
 .strat-detail-close:hover{color:var(--txt)}
@@ -4138,6 +4138,23 @@ NS.openMindmap=function(focusId){
   mSel.onchange=function(){var s=loadUI();s.mmMember=this.value;s.mmFocus=null;saveUI(s);NS.openMindmap(null);};
   top.appendChild(_mmField('MEMBER',mSel));
 
+  // === Company Objective filter — anchor the chain to a specific CO ===
+  var coSel=document.createElement('select');coSel.className='mm-sel';coSel.style.minWidth='200px';
+  var coOptAll=document.createElement('option');coOptAll.value='';coOptAll.textContent='— follow focus —';
+  coSel.appendChild(coOptAll);
+  var nodesForCo=_mmHydrateNodes(_MM.quarter);
+  Object.values(nodesForCo).filter(function(n){return n.type==='CompanyObjective';}).forEach(function(co){
+    var op=document.createElement('option');op.value=co.id;op.textContent=co.id+' · '+truncate(co.title,50);
+    var fid=loadUI().mmFocus;
+    if(fid===co.id)op.selected=true;
+    coSel.appendChild(op);
+  });
+  coSel.onchange=function(){
+    var cid=this.value;
+    if(cid){_MM.layout='chain';var s=loadUI();s.mmLayout='chain';s.mmFocus=cid;saveUI(s);NS.openMindmap(cid);}
+  };
+  top.appendChild(_mmField('CO FILTER',coSel));
+
   var upBtn=document.createElement('button');upBtn.className='mm-btn';upBtn.innerHTML='↑ Up';
   upBtn.id='mm-up-btn';
   upBtn.onclick=function(){_mmGoUp();};
@@ -4362,7 +4379,7 @@ function _mmRenderSvgInto(host){
   if(parent){
     var pX=160, pY=80, pW=300, pH=46;
     _mmDrawCurve(panG, pX+pW/2, pY+pH, fcx, fcy-fH/2, tierStrokeColor(parent.type), 0.35, true);
-    _mmDrawNode(panG, parent, pX, pY, pW, pH, false, function(){_mmRefocus(parent.id);});
+    _mmDrawNode(panG, parent, pX, pY, pW, pH, false, (function(pid){return function(){NS.openMindmapDetail(pid);};})(parent.id));
     var lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
     lbl.setAttribute('x',pX+pW/2);lbl.setAttribute('y',pY-10);lbl.setAttribute('text-anchor','middle');
     lbl.setAttribute('fill','var(--mut)');lbl.setAttribute('font-size','10');
@@ -4491,9 +4508,9 @@ function _mmRenderChainSvg(host,nodesMap,edges,focus){
   var W=1500, H=900;
   var pad=40;
   var colX={CO:240,DO:760,IND:1260};
-  var coBoxW=360,coBoxH=120;
-  var doBoxW=320,doBoxH=70;
-  var indBoxW=300,indBoxH=58;
+  var coBoxW=380,coBoxH=120;
+  var doBoxW=360,doBoxH=84;
+  var indBoxW=320,indBoxH=64;
 
   var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('viewBox','0 0 '+W+' '+H);
@@ -4528,7 +4545,7 @@ function _mmRenderChainSvg(host,nodesMap,edges,focus){
     var dy=doStartY+i*(doBoxH+16);
     // Curve from CO right edge to DO left edge
     _mmDrawCurve(panG, colX.CO+coBoxW/2, coY, colX.DO-doBoxW/2, dy, tierStrokeColor('DepartmentObjective'), 0.75, false);
-    _mmDrawNode(panG, dw.dept, colX.DO-doBoxW/2, dy-doBoxH/2, doBoxW, doBoxH, false, (function(d){return function(){_mmRefocus(d.id);};})(dw.dept), dw.owners.length);
+    _mmDrawNode(panG, dw.dept, colX.DO-doBoxW/2, dy-doBoxH/2, doBoxW, doBoxH, false, (function(d){return function(){NS.openMindmapDetail(d.id);};})(dw.dept), dw.owners.length);
   });
 
   // === Individual column ===
@@ -4695,44 +4712,54 @@ function _mmDrawNode(host,node,x,y,w,h,isFocus,onClick,grandCount){
   rect.setAttribute('fill',tierBgColor(node.type));
   rect.setAttribute('stroke',tierStrokeColor(node.type));
   rect.setAttribute('stroke-width',isFocus?3:1.8);
-  if(isFocus){
-    rect.setAttribute('filter','url(#mm-focus-glow)');
-  }
+  if(isFocus)rect.setAttribute('filter','url(#mm-focus-glow)');
   g.appendChild(rect);
 
-  // Tier badge top-left
+  // === TOP ROW: badge (left) + ID (right) ===
+  var topY = y + 18;
   var tier=tierFor(node.type);
   var badge=document.createElementNS('http://www.w3.org/2000/svg','rect');
-  badge.setAttribute('x',x+10);badge.setAttribute('y',y+10);
-  badge.setAttribute('width',28);badge.setAttribute('height',16);
-  badge.setAttribute('rx',4);
-  badge.setAttribute('fill',tierStrokeColor(node.type));
+  badge.setAttribute('x',x+10);badge.setAttribute('y',y+8);
+  badge.setAttribute('width',30);badge.setAttribute('height',18);
+  badge.setAttribute('rx',4);badge.setAttribute('fill',tierStrokeColor(node.type));
   g.appendChild(badge);
   var tt=document.createElementNS('http://www.w3.org/2000/svg','text');
-  tt.setAttribute('x',x+24);tt.setAttribute('y',y+21);tt.setAttribute('text-anchor','middle');
+  tt.setAttribute('x',x+25);tt.setAttribute('y',y+21);tt.setAttribute('text-anchor','middle');
   tt.setAttribute('fill','#fff');tt.setAttribute('font-size','10');tt.setAttribute('font-weight','800');
   tt.setAttribute('font-family','Roboto Mono,monospace');
   tt.textContent=tier;
   g.appendChild(tt);
 
-  // ID top-right
   var idt=document.createElementNS('http://www.w3.org/2000/svg','text');
-  idt.setAttribute('x',x+w-10);idt.setAttribute('y',y+21);idt.setAttribute('text-anchor','end');
+  idt.setAttribute('x',x+w-12);idt.setAttribute('y',y+21);idt.setAttribute('text-anchor','end');
   idt.setAttribute('fill','var(--mut)');idt.setAttribute('font-size','10');
   idt.setAttribute('font-family','Roboto Mono,monospace');
   idt.textContent=node.id;
   g.appendChild(idt);
 
-  // Title wrapped
+  // === MIDDLE: TITLE (wrapped, full width, BELOW the top row) ===
   var titleFontSize=isFocus?15:12;
   var pxPerChar=titleFontSize*0.55;
-  var maxChars=Math.floor((w-24)/pxPerChar);
-  var maxLines=isFocus?3:2;
+  var titleAreaLeft = x + 14;
+  var titleAreaRight = x + w - 14;
+  var titleAreaW = titleAreaRight - titleAreaLeft;
+  var maxChars=Math.max(8,Math.floor(titleAreaW/pxPerChar));
+  // Compute owner/progress row presence
+  var owner=node.ownerName||node.ownerEmail||'';
+  var hasBottom = (node.type!=='Task') && (owner || typeof node.progressPct==='number');
+  // Title vertical area: between top row bottom (y+32) and bottom row top
+  var topRowBot = y + 32;
+  var botRowTop = hasBottom ? (y + h - 22) : (y + h - 8);
+  var titleAreaH = botRowTop - topRowBot;
+  var maxLines = Math.max(1, Math.floor(titleAreaH/(titleFontSize*1.2)));
+  if(isFocus)maxLines = Math.min(maxLines, 4);
   var lines=wrapText(node.title||'(untitled)',maxChars).slice(0,maxLines);
-  if(lines.join(' ').length<(node.title||'').length){
-    lines[lines.length-1]=lines[lines.length-1].replace(/.{0,2}$/,'…');
+  var totalChars=lines.join(' ').length;
+  if(totalChars<(node.title||'').length && lines.length>0){
+    lines[lines.length-1]=lines[lines.length-1].replace(/.{0,3}$/,'…');
   }
-  var titleStartY=y+h/2-((lines.length-1)*titleFontSize*0.6);
+  var titleH = lines.length * titleFontSize * 1.2;
+  var titleStartY = topRowBot + (titleAreaH - titleH)/2 + titleFontSize*0.85;
   lines.forEach(function(line,i){
     var t=document.createElementNS('http://www.w3.org/2000/svg','text');
     t.setAttribute('x',x+w/2);
@@ -4745,20 +4772,19 @@ function _mmDrawNode(host,node,x,y,w,h,isFocus,onClick,grandCount){
     g.appendChild(t);
   });
 
-  // Bottom row — owner + progress (skip for tasks)
-  var owner=node.ownerName||node.ownerEmail||'';
-  if(node.type!=='Task'){
+  // === BOTTOM ROW: owner (left) + progress (right) ===
+  if(hasBottom){
     if(owner){
       var ot=document.createElementNS('http://www.w3.org/2000/svg','text');
-      ot.setAttribute('x',x+10);ot.setAttribute('y',y+h-10);
+      ot.setAttribute('x',x+12);ot.setAttribute('y',y+h-10);
       ot.setAttribute('text-anchor','start');ot.setAttribute('fill','var(--mut)');
       ot.setAttribute('font-size','10');ot.setAttribute('font-family','Roboto Mono,monospace');
-      ot.textContent=truncate(owner,22);
+      ot.textContent=truncate(owner, Math.max(10, Math.floor((w*0.55)/6.5)));
       g.appendChild(ot);
     }
     if(typeof node.progressPct==='number'){
       var pt=document.createElementNS('http://www.w3.org/2000/svg','text');
-      pt.setAttribute('x',x+w-10);pt.setAttribute('y',y+h-10);
+      pt.setAttribute('x',x+w-12);pt.setAttribute('y',y+h-10);
       pt.setAttribute('text-anchor','end');pt.setAttribute('fill',tierStrokeColor(node.type));
       pt.setAttribute('font-size','11');pt.setAttribute('font-weight','800');
       pt.setAttribute('font-family','Roboto Mono,monospace');
@@ -4767,16 +4793,17 @@ function _mmDrawNode(host,node,x,y,w,h,isFocus,onClick,grandCount){
     }
   }
 
-  // Grandchild count badge on the right (if any) — invites further drill-in
+  // Grandchild count badge — small floating button on the right edge
   if(grandCount&&grandCount>0&&!isFocus){
     var gcg=document.createElementNS('http://www.w3.org/2000/svg','g');
-    var gbx=x+w-2,gby=y+h/2-12;
+    var gbCX=x+w-2,gbCY=y-2;  // top-right corner overlap
     var gb=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    gb.setAttribute('cx',gbx+12);gb.setAttribute('cy',gby+12);gb.setAttribute('r',13);
-    gb.setAttribute('fill',tierStrokeColor(node.type));gb.setAttribute('opacity','.9');
+    gb.setAttribute('cx',gbCX);gb.setAttribute('cy',gbCY+16);gb.setAttribute('r',13);
+    gb.setAttribute('fill',tierStrokeColor(node.type));gb.setAttribute('opacity','.95');
+    gb.setAttribute('stroke','var(--surf)');gb.setAttribute('stroke-width','2');
     gcg.appendChild(gb);
     var gt=document.createElementNS('http://www.w3.org/2000/svg','text');
-    gt.setAttribute('x',gbx+12);gt.setAttribute('y',gby+16);gt.setAttribute('text-anchor','middle');
+    gt.setAttribute('x',gbCX);gt.setAttribute('y',gbCY+20);gt.setAttribute('text-anchor','middle');
     gt.setAttribute('fill','#fff');gt.setAttribute('font-size','11');gt.setAttribute('font-weight','800');
     gt.setAttribute('font-family','Roboto Mono,monospace');
     gt.textContent='+'+grandCount;
@@ -4785,6 +4812,7 @@ function _mmDrawNode(host,node,x,y,w,h,isFocus,onClick,grandCount){
   }
 
   // Tooltip
+  var tipTitle=document.createElementNS('http://www.w3.org/2000/svg','title');  // Tooltip
   var tipTitle=document.createElementNS('http://www.w3.org/2000/svg','title');
   tipTitle.textContent=node.id+' — '+node.title+(owner?(' · owner: '+owner):'')+(node.dept?(' · '+node.dept):'');
   g.appendChild(tipTitle);
@@ -4857,6 +4885,60 @@ function wrapText(text,maxChars){
   if(cur)lines.push(cur);
   return lines.length?lines:[''];
 }
+
+NS.openMindmapDetail=function(nodeId){
+  var H=_stratHydrate(_MM.quarter);
+  var n=H.nodes[nodeId];if(!n){return;}
+  openDetail(n,H.edges,H.nodes);
+  // After openDetail renders, prepend a mindmap-context action row
+  var dp=document.getElementById('strat-detail-panel');if(!dp)return;
+  var mmActs=document.createElement('div');mmActs.className='strat-detail-sect';
+  mmActs.innerHTML='<h4>MINDMAP ACTIONS</h4>';
+  var bw=document.createElement('div');bw.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+  // Refocus here
+  var rb=document.createElement('button');rb.className='hbtn';rb.style.fontSize='11px';rb.textContent='🎯 Refocus mindmap here';
+  rb.onclick=function(){_mmRefocus(nodeId);};
+  bw.appendChild(rb);
+  // Open in tree mode
+  if(_MM.layout==='chain'){
+    var tb=document.createElement('button');tb.className='hbtn';tb.style.fontSize='11px';tb.textContent='🌲 Switch to Tree';
+    tb.onclick=function(){_MM.layout='tree';var s=loadUI();s.mmLayout='tree';saveUI(s);if(_MM.container)_mmRenderSvgInto(_MM.container);};
+    bw.appendChild(tb);
+  }else{
+    var cb=document.createElement('button');cb.className='hbtn';cb.style.fontSize='11px';cb.textContent='🔗 Switch to Chain';
+    cb.onclick=function(){_MM.layout='chain';var s=loadUI();s.mmLayout='chain';saveUI(s);if(_MM.container)_mmRenderSvgInto(_MM.container);};
+    bw.appendChild(cb);
+  }
+  // Open in Individual view if it's a KR/IO with an owner
+  var ownerEmail=n.ownerEmail;
+  if(!ownerEmail&&n.ownerName){
+    // Map name → email via USER_REGISTRY
+    Object.keys(USER_REGISTRY||{}).forEach(function(em){if(USER_REGISTRY[em].name===n.ownerName)ownerEmail=em;});
+  }
+  if(ownerEmail){
+    var ib=document.createElement('button');ib.className='hbtn';ib.style.fontSize='11px';ib.textContent='🎯 Owner in Individual view';
+    ib.onclick=function(){
+      setState({viewpoint:'individual',mmMember:ownerEmail});
+      var ov=document.getElementById('strat-mm-overlay');if(ov)ov.classList.remove('open');
+      dp.classList.remove('open');
+      NS.renderStrategy();
+    };
+    bw.appendChild(ib);
+  }
+  // Edit in OKR Tracker
+  var eb=document.createElement('button');eb.className='hbtn';eb.style.fontSize='11px';eb.textContent='✎ Edit in OKR Tracker';
+  eb.onclick=function(){
+    var ov=document.getElementById('strat-mm-overlay');if(ov)ov.classList.remove('open');
+    dp.classList.remove('open');
+    go('okr');
+  };
+  bw.appendChild(eb);
+  mmActs.appendChild(bw);
+  // Insert right after the meta row
+  var meta=dp.querySelector('.strat-detail-meta');
+  if(meta)meta.parentNode.insertBefore(mmActs,meta.nextSibling);
+  else dp.appendChild(mmActs);
+};
 
 NS._dismissBanner=function(){localStorage.setItem(BANNER_KEY,'1');NS.renderStrategy();};
 
