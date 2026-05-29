@@ -522,6 +522,14 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .stc-iol .strat-id{flex-shrink:0;font-size:9px}
 .stc-acts{display:flex;gap:6px}
 
+/* Mindmap layout toggle */
+.mm-layout-toggle{display:inline-flex;gap:0;margin:0 6px;border:1px solid var(--brd);border-radius:8px;overflow:hidden;background:var(--surf2)}
+.mm-layout-btn{border-radius:0;border:none;padding:7px 12px;font-size:11px;background:transparent;color:var(--mut)}
+.mm-layout-btn:not(:last-child){border-right:1px solid var(--brd)}
+.mm-layout-btn.active{background:linear-gradient(135deg,rgba(108,99,255,.25),rgba(167,139,250,.18));color:var(--txt)}
+.mm-layout-btn:hover:not(.active){background:var(--surf);color:var(--txt)}
+.mm-node-g.dim{filter:saturate(.4)}
+
 </style>
 </head>
 <body>
@@ -4072,13 +4080,14 @@ NS.openUserGuide=function(){
 // Re-focus is in-place: only the SVG re-renders, no modal teardown.
 var _MM={
   focusId:null, quarter:null, member:'', container:null, svg:null,
-  pan:{x:0,y:0}, zoom:1, dragStart:null
+  pan:{x:0,y:0}, zoom:1, dragStart:null, layout:'tree'
 };
 
 NS.openMindmap=function(focusId){
   var st=loadUI();
   _MM.quarter=st.quarter||getActiveOKRKey();
   _MM.member=st.mmMember||'';
+  _MM.layout=st.mmLayout||'tree';
 
   // Pick initial focus
   if(!focusId)focusId=st.mmFocus||null;
@@ -4152,6 +4161,16 @@ NS.openMindmap=function(focusId){
   zoomReset.onclick=function(){_MM.zoom=1;_MM.pan={x:0,y:0};_mmApplyTransform();};
   top.appendChild(zoomReset);
 
+  // Layout toggle: Tree (focus + children) vs Chain (CO → Dept → Individual)
+  var layoutWrap=document.createElement('div');layoutWrap.className='mm-layout-toggle';
+  ['tree','chain'].forEach(function(mode){
+    var b=document.createElement('button');b.className='mm-btn mm-layout-btn'+(_MM.layout===mode?' active':'');
+    b.innerHTML=mode==='chain'?'🔗 Strategy Chain'+_thi('3-column layout: Company Objective in column 1, Department Objectives in column 2, Individuals (people who own KRs/IOs) in column 3. Curves connect the strategic chain CO → Dept → Person. Click any node to drill.'):'🌲 Tree'+_thi('Focus node on the left with its direct children stacked on the right. Click a child to refocus, ↑ Up to walk to parent.');
+    b.onclick=(function(m){return function(){_MM.layout=m;var s=loadUI();s.mmLayout=m;saveUI(s);if(_MM.container)_mmRenderSvgInto(_MM.container);Array.from(layoutWrap.querySelectorAll('button')).forEach(function(bb,i){bb.classList.toggle('active',(i===0?'tree':'chain')===m);});};})(mode);
+    layoutWrap.appendChild(b);
+  });
+  top.appendChild(layoutWrap);
+
   var closeBtn=document.createElement('button');closeBtn.className='mm-close';closeBtn.innerHTML='×';
   closeBtn.onclick=function(){ov.classList.remove('open');};
   top.appendChild(closeBtn);
@@ -4170,7 +4189,7 @@ NS.openMindmap=function(focusId){
 
   // === Foot ===
   var foot=document.createElement('div');foot.className='mm-foot';
-  foot.innerHTML='Click any node to refocus · drag the background to pan · scroll to zoom · ↑ Up walks to parent · ESC closes';
+  foot.innerHTML='Click any node to drill in · drag to pan · scroll to zoom · ↑ Up walks to parent · 🔗 Strategy Chain shows CO → Dept → Individual · ESC closes';
   box.appendChild(foot);
 
   ov.classList.add('open');
@@ -4295,6 +4314,7 @@ function _mmRenderSvgInto(host){
     host.innerHTML='<div style="text-align:center;color:var(--mut);font-size:13px;padding:60px">No node selected</div>';
     return;
   }
+  if(_MM.layout==='chain'){return _mmRenderChainSvg(host,nodesMap,edges,focus);}
 
   // Resolve children with member filter
   var children=edges.filter(function(e){return e.p===_MM.focusId;}).map(function(e){return nodesMap[e.c];}).filter(Boolean);
@@ -4402,6 +4422,245 @@ function _mmRenderSvgInto(host){
 
   host.appendChild(svg);
   _MM.svg=svg;
+}
+
+function _mmRenderChainSvg(host,nodesMap,edges,focus){
+  // Walk up to find the ancestor Company Objective
+  var chain=buildAncestorChain(focus.id,edges,nodesMap);
+  var rootCO=chain.find(function(n){return n.type==='CompanyObjective';});
+  if(!rootCO){
+    // Focus IS a CO or above
+    if(focus.type==='CompanyObjective')rootCO=focus;
+    else rootCO=chain[0];
+  }
+  // If no CO available, fall back to tree
+  if(!rootCO||rootCO.type!=='CompanyObjective'){
+    var allCOs=Object.values(nodesMap).filter(function(n){return n.type==='CompanyObjective';});
+    if(allCOs.length===0){host.innerHTML='<div style="text-align:center;color:var(--mut);font-size:13px;padding:60px">No Company Objectives in this quarter yet — set one in the OKR Tracker to enable Strategy Chain view.</div>';return;}
+    rootCO=allCOs[0];
+  }
+
+  // Find Dept Objectives linked to this CO
+  var deptObjs=edges.filter(function(e){return e.p===rootCO.id;}).map(function(e){return nodesMap[e.c];}).filter(function(n){return n&&n.type==='DepartmentObjective';});
+  // Group remaining KRs under the CO (KRs directly under CO without going through DO)
+  var directKRs=edges.filter(function(e){return e.p===rootCO.id;}).map(function(e){return nodesMap[e.c];}).filter(function(n){return n&&n.type==='KeyResult';});
+
+  // For each DO, find owners of KRs/IOs underneath
+  function ownersFor(rootId){
+    var stack=[rootId],seen={},owners={};
+    while(stack.length){
+      var id=stack.pop();if(seen[id])continue;seen[id]=1;
+      var n=nodesMap[id];
+      if(n&&(n.type==='KeyResult'||n.type==='IndividualObjective')){
+        var o=n.ownerEmail||n.ownerName||'';
+        if(o){
+          if(!owners[o])owners[o]={key:o,name:n.ownerName||o,email:n.ownerEmail||null,nodes:[]};
+          owners[o].nodes.push(n);
+        }
+      }
+      edges.filter(function(e){return e.p===id;}).forEach(function(e){stack.push(e.c);});
+    }
+    return Object.values(owners);
+  }
+
+  // For each DO, compute its owners
+  var deptWithOwners=deptObjs.map(function(d){return {dept:d, owners:ownersFor(d.id)};});
+
+  // Member filter: if active, dim non-matching chains
+  var memberKey=_MM.member;
+  var memberName=memberKey&&window.USER_REGISTRY&&USER_REGISTRY[memberKey]?USER_REGISTRY[memberKey].name:memberKey;
+  function isMatch(o){if(!memberKey)return true;return o.key===memberKey||o.key===memberName||o.name===memberName;}
+
+  // Build a unique-people list for col 3, merging across DOs
+  var personMap={};
+  deptWithOwners.forEach(function(dw){
+    dw.owners.forEach(function(o){
+      if(!personMap[o.key])personMap[o.key]={key:o.key,name:o.name,email:o.email,deptIds:{},nodeCount:0};
+      personMap[o.key].deptIds[dw.dept.id]=1;
+      personMap[o.key].nodeCount+=o.nodes.length;
+    });
+  });
+  var persons=Object.values(personMap);
+  if(memberKey){
+    var match=persons.filter(isMatch);
+    var others=persons.filter(function(o){return !isMatch(o);});
+    persons=match.concat(others);  // matching first, then dimmed
+  }
+
+  // === Layout ===
+  var W=1500, H=900;
+  var pad=40;
+  var colX={CO:240,DO:760,IND:1260};
+  var coBoxW=360,coBoxH=120;
+  var doBoxW=320,doBoxH=70;
+  var indBoxW=300,indBoxH=58;
+
+  var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  svg.setAttribute('width','100%');svg.setAttribute('height','100%');
+  svg.setAttribute('class','mm-svg');
+  svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+  var panG=document.createElementNS('http://www.w3.org/2000/svg','g');
+  panG.setAttribute('class','mm-pan-group');
+  svg.appendChild(panG);
+
+  // Column headers
+  _mmColHeader(panG, colX.CO, 30, 'COMPANY OBJECTIVE','#6c63ff');
+  _mmColHeader(panG, colX.DO, 30, 'DEPARTMENT','#09faa3');
+  _mmColHeader(panG, colX.IND, 30, 'INDIVIDUAL','#a78bfa');
+
+  // === CO node (single, centered vertically) ===
+  var coY=H/2;
+  _mmDrawNode(panG, rootCO, colX.CO-coBoxW/2, coY-coBoxH/2, coBoxW, coBoxH, true, null);
+
+  // === DO column ===
+  var doStartY, doStep;
+  if(deptWithOwners.length===0){
+    var emp=document.createElementNS('http://www.w3.org/2000/svg','text');
+    emp.setAttribute('x',colX.DO);emp.setAttribute('y',H/2);emp.setAttribute('text-anchor','middle');
+    emp.setAttribute('fill','var(--yel)');emp.setAttribute('font-size','13');
+    emp.textContent='⚠ No Department Objectives linked to this CO';
+    panG.appendChild(emp);
+  }
+  var doTotal=deptWithOwners.length*doBoxH+(deptWithOwners.length-1)*16;
+  doStartY=H/2-doTotal/2+doBoxH/2;
+  deptWithOwners.forEach(function(dw,i){
+    var dy=doStartY+i*(doBoxH+16);
+    // Curve from CO right edge to DO left edge
+    _mmDrawCurve(panG, colX.CO+coBoxW/2, coY, colX.DO-doBoxW/2, dy, tierStrokeColor('DepartmentObjective'), 0.75, false);
+    _mmDrawNode(panG, dw.dept, colX.DO-doBoxW/2, dy-doBoxH/2, doBoxW, doBoxH, false, (function(d){return function(){_mmRefocus(d.id);};})(dw.dept), dw.owners.length);
+  });
+
+  // === Individual column ===
+  if(persons.length===0){
+    var empI=document.createElementNS('http://www.w3.org/2000/svg','text');
+    empI.setAttribute('x',colX.IND);empI.setAttribute('y',H/2);empI.setAttribute('text-anchor','middle');
+    empI.setAttribute('fill','var(--mut)');empI.setAttribute('font-size','13');
+    empI.textContent='○ No KR owners under these Department Objectives';
+    panG.appendChild(empI);
+  }
+  var maxVisible=Math.min(persons.length,14);
+  var visiblePersons=persons.slice(0,maxVisible);
+  var indTotal=visiblePersons.length*indBoxH+(visiblePersons.length-1)*10;
+  var indStartY=H/2-indTotal/2+indBoxH/2;
+  visiblePersons.forEach(function(p,i){
+    var py=indStartY+i*(indBoxH+10);
+    var dim=memberKey&&!isMatch(p);
+    // Curves: connect to each DO that has this person as an owner
+    Object.keys(p.deptIds).forEach(function(doId){
+      // Find the y of that DO
+      var didx=deptWithOwners.findIndex(function(dw){return dw.dept.id===doId;});
+      if(didx<0)return;
+      var dy=doStartY+didx*(doBoxH+16);
+      _mmDrawCurve(panG, colX.DO+doBoxW/2, dy, colX.IND-indBoxW/2, py, '#a78bfa', dim?0.18:0.7, false);
+    });
+    _mmDrawPersonNode(panG, p, colX.IND-indBoxW/2, py-indBoxH/2, indBoxW, indBoxH, dim);
+  });
+  if(persons.length>maxVisible){
+    var more=document.createElementNS('http://www.w3.org/2000/svg','text');
+    more.setAttribute('x',colX.IND);more.setAttribute('y',indStartY+visiblePersons.length*(indBoxH+10)-10);
+    more.setAttribute('text-anchor','middle');more.setAttribute('fill','var(--mut)');
+    more.setAttribute('font-size','11');more.setAttribute('font-family','Roboto Mono,monospace');
+    more.textContent='+ '+(persons.length-maxVisible)+' more — pivot by Member to focus';
+    panG.appendChild(more);
+  }
+
+  // CO label below it
+  var coLabel=document.createElementNS('http://www.w3.org/2000/svg','text');
+  coLabel.setAttribute('x',colX.CO);coLabel.setAttribute('y',coY+coBoxH/2+20);
+  coLabel.setAttribute('text-anchor','middle');coLabel.setAttribute('fill','var(--mut)');
+  coLabel.setAttribute('font-size','10');coLabel.setAttribute('font-family','Roboto Mono,monospace');
+  coLabel.textContent='STRATEGIC ANCHOR';
+  panG.appendChild(coLabel);
+
+  // CO siblings hint
+  var allCOs=Object.values(nodesMap).filter(function(n){return n.type==='CompanyObjective';});
+  if(allCOs.length>1){
+    var sibY=H-50;
+    var sibLabel=document.createElementNS('http://www.w3.org/2000/svg','text');
+    sibLabel.setAttribute('x',colX.CO);sibLabel.setAttribute('y',sibY);sibLabel.setAttribute('text-anchor','middle');
+    sibLabel.setAttribute('fill','var(--mut)');sibLabel.setAttribute('font-size','10');sibLabel.setAttribute('font-family','Roboto Mono,monospace');
+    sibLabel.textContent='OTHER OBJECTIVES';
+    panG.appendChild(sibLabel);
+    var sibY2=sibY+20;
+    var sibGap=Math.min(40,(W*0.45)/Math.max(1,allCOs.length-1));
+    allCOs.filter(function(c){return c.id!==rootCO.id;}).forEach(function(c,i){
+      var sx=colX.CO-(allCOs.length-1)*sibGap/2+i*sibGap;
+      var dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      dot.setAttribute('cx',sx);dot.setAttribute('cy',sibY2);dot.setAttribute('r',8);
+      dot.setAttribute('fill','rgba(108,99,255,.18)');dot.setAttribute('stroke','#6c63ff');dot.setAttribute('stroke-width','1.5');
+      dot.setAttribute('class','mm-node-g clickable');dot.style.cursor='pointer';
+      dot.addEventListener('click',(function(id){return function(){_mmRefocus(id);};})(c.id));
+      var titleEl=document.createElementNS('http://www.w3.org/2000/svg','title');
+      titleEl.textContent=c.id+' — '+c.title;dot.appendChild(titleEl);
+      panG.appendChild(dot);
+    });
+  }
+
+  host.appendChild(svg);
+  _MM.svg=svg;
+}
+
+function _mmColHeader(host,x,y,label,color){
+  var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+  var bg=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  bg.setAttribute('x',x-120);bg.setAttribute('y',y-12);bg.setAttribute('width',240);bg.setAttribute('height',26);
+  bg.setAttribute('rx',6);bg.setAttribute('fill',color);bg.setAttribute('opacity','0.18');
+  g.appendChild(bg);
+  var t=document.createElementNS('http://www.w3.org/2000/svg','text');
+  t.setAttribute('x',x);t.setAttribute('y',y+5);t.setAttribute('text-anchor','middle');
+  t.setAttribute('fill',color);t.setAttribute('font-size','11');t.setAttribute('font-weight','800');
+  t.setAttribute('font-family','Roboto Mono,monospace');t.setAttribute('letter-spacing','1.5');
+  t.textContent=label;
+  g.appendChild(t);
+  host.appendChild(g);
+}
+
+function _mmDrawPersonNode(host,p,x,y,w,h,dim){
+  var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('class','mm-node-g'+(dim?' dim':''));g.style.cursor='pointer';
+  if(dim)g.setAttribute('opacity','0.35');
+  g.addEventListener('click',function(){
+    // Switch to Individual view focused on this person
+    if(p.email){setState({viewpoint:'individual',mmMember:p.email});}
+    document.getElementById('strat-mm-overlay').classList.remove('open');
+    NS.renderStrategy();
+  });
+  var rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  rect.setAttribute('x',x);rect.setAttribute('y',y);rect.setAttribute('width',w);rect.setAttribute('height',h);
+  rect.setAttribute('rx',12);rect.setAttribute('fill','rgba(167,139,250,.16)');
+  rect.setAttribute('stroke','#a78bfa');rect.setAttribute('stroke-width','1.8');
+  g.appendChild(rect);
+  // Avatar
+  var av=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  av.setAttribute('cx',x+24);av.setAttribute('cy',y+h/2);av.setAttribute('r',16);
+  av.setAttribute('fill','#a78bfa');
+  g.appendChild(av);
+  var initials=(p.name||'?').split(' ').map(function(s){return s[0];}).join('').slice(0,2).toUpperCase();
+  var avT=document.createElementNS('http://www.w3.org/2000/svg','text');
+  avT.setAttribute('x',x+24);avT.setAttribute('y',y+h/2+4);avT.setAttribute('text-anchor','middle');
+  avT.setAttribute('fill','#fff');avT.setAttribute('font-size','11');avT.setAttribute('font-weight','800');
+  avT.setAttribute('font-family','Roboto Mono,monospace');
+  avT.textContent=initials;
+  g.appendChild(avT);
+  // Name
+  var nm=document.createElementNS('http://www.w3.org/2000/svg','text');
+  nm.setAttribute('x',x+48);nm.setAttribute('y',y+h/2-2);
+  nm.setAttribute('fill','var(--txt)');nm.setAttribute('font-size','12');nm.setAttribute('font-weight','700');
+  nm.textContent=truncate(p.name,26);
+  g.appendChild(nm);
+  // Subtext
+  var sub=document.createElementNS('http://www.w3.org/2000/svg','text');
+  sub.setAttribute('x',x+48);sub.setAttribute('y',y+h/2+14);
+  sub.setAttribute('fill','var(--mut)');sub.setAttribute('font-size','10');sub.setAttribute('font-family','Roboto Mono,monospace');
+  var role=p.email&&window.USER_REGISTRY&&USER_REGISTRY[p.email]?USER_REGISTRY[p.email].role:'';
+  sub.textContent=truncate((role||'')+(role?' · ':'')+p.nodeCount+' KR'+(p.nodeCount===1?'':'s'),32);
+  g.appendChild(sub);
+  // Tooltip
+  var tip=document.createElementNS('http://www.w3.org/2000/svg','title');
+  tip.textContent=p.name+(role?' · '+role:'')+' · owns '+p.nodeCount+' KR/IO';
+  g.appendChild(tip);
+  host.appendChild(g);
 }
 
 function _mmDrawCurve(host,x1,y1,x2,y2,stroke,opacity,isParentLine){
