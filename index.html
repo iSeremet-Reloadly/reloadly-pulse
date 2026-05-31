@@ -920,6 +920,40 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .tm-linked-chain strong{color:var(--acc);font-family:Roboto Mono,monospace;margin-right:4px}
 .tm-linked-up{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace}
 
+/* Owner-preserve / KR picker / bigger Notes */
+.tm-progress-cell{display:flex;align-items:center;gap:6px}
+.tm-progress-cell .tm-drawer-field{width:80px}
+.tm-pct{color:var(--mut);font-size:11px;font-family:Roboto Mono,monospace}
+
+.tm-kr-cell{position:relative}
+.tm-kr-pick{display:flex;align-items:center;gap:8px;width:100%;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-family:inherit;font-size:12px;cursor:pointer;text-align:left;transition:border-color .12s}
+.tm-kr-pick:hover{border-color:var(--mut)}
+.tm-kr-pick-empty{color:var(--mut)}
+.tm-kr-pick-title{flex:1;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tm-kr-pick-caret{color:var(--mut);font-size:10px;margin-left:auto;flex-shrink:0}
+
+.tm-kr-popover{z-index:10000;background:var(--surf);border:1px solid var(--brd);border-radius:10px;box-shadow:0 12px 36px rgba(0,0,0,.5);padding:12px;display:flex;flex-direction:column;gap:10px;max-height:480px}
+.tm-kr-search{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none}
+.tm-kr-search:focus{border-color:var(--acc)}
+.tm-kr-list{overflow-y:auto;max-height:340px;display:flex;flex-direction:column;gap:8px}
+.tm-kr-empty{padding:24px;text-align:center;color:var(--mut);font-size:13px}
+.tm-kr-grp-h{font-size:9px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:1px;padding:4px 4px}
+.tm-kr-row{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .1s}
+.tm-kr-row:hover{background:var(--surf2)}
+.tm-kr-row.active{background:rgba(108,99,255,.1)}
+.tm-kr-row-l{display:flex;align-items:center;gap:6px;flex-shrink:0;min-width:90px}
+.tm-kr-active-mark{color:var(--acc);font-weight:700}
+.tm-kr-row-body{flex:1;min-width:0}
+.tm-kr-row-title{font-size:12px;color:var(--txt);font-weight:500;line-height:1.35}
+.tm-kr-row-sub{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px}
+.tm-kr-foot{display:flex;gap:8px;padding-top:8px;border-top:1px solid var(--brd)}
+
+/* Notes block - full width below the form grid */
+.tm-notes-block{margin-bottom:24px}
+.tm-notes-area{width:100%;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:8px;padding:12px 14px;font-size:13px;font-family:inherit;outline:none;min-height:140px;resize:vertical;box-sizing:border-box;line-height:1.5}
+.tm-notes-area:focus{border-color:var(--acc)}
+.tm-notes-area::placeholder{color:var(--mut)}
+
 </style>
 </head>
 <body>
@@ -6204,6 +6238,107 @@ function tmMigrateAll(){
 function tmLoadUI(){try{return JSON.parse(localStorage.getItem('rl_tm_ui_v1')||'{}');}catch(e){return{};}}
 function tmSaveUI(u){localStorage.setItem('rl_tm_ui_v1',JSON.stringify(u));}
 
+
+function tmAssigneeOptions(selected){
+  var html=assigneeOptions(selected||'');
+  // If selected is a value not present in the registry-derived list, prepend it
+  // so the dropdown doesn't fall back to Unassigned and wipe data on save.
+  if(selected && html.indexOf('value="'+String(selected).replace(/"/g,'&quot;')+'"')<0){
+    html='<option value="'+esc(selected)+'" selected>'+esc(selected)+' (preserve)</option>'+html;
+  }
+  return html;
+}
+
+// ── Searchable OKR picker — open/close + render ─────────────────────────
+function tmRenderKRPickerButton(currentId, onSelect){
+  var btn=document.createElement('button');
+  btn.type='button';btn.className='tm-kr-pick';
+  function refresh(){
+    var kr=currentId?tmGetKR(currentId):null;
+    if(kr){btn.innerHTML='<span class="tm-link-chip">🎯 '+esc(kr.id)+'</span> <span class="tm-kr-pick-title">'+esc(kr.title.slice(0,50))+(kr.title.length>50?'…':'')+'</span><span class="tm-kr-pick-caret">▾</span>';}
+    else{btn.innerHTML='<span class="tm-kr-pick-empty">+ Link to an OKR…</span><span class="tm-kr-pick-caret">▾</span>';}
+  }
+  refresh();
+  btn.onclick=function(e){
+    e.stopPropagation();
+    tmOpenKRPickerPopover(btn, currentId, function(newId){
+      currentId=newId;
+      refresh();
+      if(onSelect)onSelect(newId);
+    });
+  };
+  return btn;
+}
+
+function tmOpenKRPickerPopover(anchor, currentId, onSelect){
+  // Remove any open popover
+  var existing=document.getElementById('tm-kr-popover');if(existing)existing.remove();
+  var pop=document.createElement('div');pop.id='tm-kr-popover';pop.className='tm-kr-popover';
+  var rect=anchor.getBoundingClientRect();
+  pop.style.position='fixed';
+  pop.style.top=(rect.bottom+6)+'px';
+  pop.style.left=rect.left+'px';
+  pop.style.width=Math.max(380, rect.width)+'px';
+
+  var krs=tmGetAllKRs();
+  var search=document.createElement('input');search.className='tm-kr-search';search.placeholder='Search KRs by id or title…';
+  pop.appendChild(search);
+
+  var list=document.createElement('div');list.className='tm-kr-list';
+  pop.appendChild(list);
+
+  function render(filter){
+    list.innerHTML='';
+    var f=(filter||'').toLowerCase().trim();
+    var shown=krs.filter(function(k){
+      if(!f)return true;
+      return k.id.toLowerCase().indexOf(f)>=0 || k.title.toLowerCase().indexOf(f)>=0 || k.objectiveTitle.toLowerCase().indexOf(f)>=0;
+    });
+    if(shown.length===0){
+      var em=document.createElement('div');em.className='tm-kr-empty';em.textContent='No KRs match "'+(f||'')+'".';list.appendChild(em);return;
+    }
+    // Group by dept for visual hierarchy
+    var byDept={};shown.forEach(function(k){if(!byDept[k.dept])byDept[k.dept]=[];byDept[k.dept].push(k);});
+    Object.keys(byDept).forEach(function(d){
+      var grp=document.createElement('div');grp.className='tm-kr-grp';
+      grp.innerHTML='<div class="tm-kr-grp-h">'+esc(d).toUpperCase()+'</div>';
+      byDept[d].forEach(function(k){
+        var row=document.createElement('div');row.className='tm-kr-row'+(k.id===currentId?' active':'');
+        row.innerHTML='<div class="tm-kr-row-l"><span class="tm-link-chip">'+esc(k.id)+'</span>'+(k.id===currentId?'<span class="tm-kr-active-mark">✓</span>':'')+'</div>'+
+          '<div class="tm-kr-row-body">'+
+            '<div class="tm-kr-row-title">'+esc(k.title)+'</div>'+
+            '<div class="tm-kr-row-sub">↑ '+esc(k.objectiveTitle)+'</div>'+
+          '</div>';
+        row.onclick=function(ev){ev.stopPropagation();onSelect(k.id);pop.remove();};
+        grp.appendChild(row);
+      });
+      list.appendChild(grp);
+    });
+  }
+  render('');
+  search.addEventListener('input',function(){render(this.value);});
+
+  // Clear / close footer
+  var foot=document.createElement('div');foot.className='tm-kr-foot';
+  var clearBtn=document.createElement('button');clearBtn.className='tm-btn tm-btn-ghost';clearBtn.textContent='Clear link';clearBtn.type='button';
+  clearBtn.onclick=function(ev){ev.stopPropagation();onSelect('');pop.remove();};
+  foot.appendChild(clearBtn);
+  var spc=document.createElement('div');spc.style.flex='1';foot.appendChild(spc);
+  var closeBtn=document.createElement('button');closeBtn.className='tm-btn';closeBtn.textContent='Cancel';closeBtn.type='button';
+  closeBtn.onclick=function(ev){ev.stopPropagation();pop.remove();};
+  foot.appendChild(closeBtn);
+  pop.appendChild(foot);
+
+  document.body.appendChild(pop);
+  setTimeout(function(){search.focus();},10);
+
+  // Click outside to close
+  function onOut(e){if(!pop.contains(e.target)){pop.remove();document.removeEventListener('mousedown',onOut);document.removeEventListener('keydown',onEsc);}}
+  function onEsc(e){if(e.key==='Escape'){pop.remove();document.removeEventListener('mousedown',onOut);document.removeEventListener('keydown',onEsc);}}
+  document.addEventListener('mousedown',onOut);
+  document.addEventListener('keydown',onEsc);
+}
+
 // ── OKR linking helpers ────────────────────────────────────────────────
 function tmGetAllKRs(){
   try{
@@ -6688,11 +6823,11 @@ function tmOpenNewTaskModal(){
     '<input class="tm-new-name" id="tm-new-name" placeholder="Describe the task..." />'+
     '<button class="tm-new-toggle" id="tm-new-toggle">+ More details</button>'+
     '<div class="tm-new-details" id="tm-new-details" style="display:none">'+
-      '<div class="tm-new-row"><label>OWNER</label><select id="tm-new-owner">'+assigneeOptions(currentUser?currentUser.name:'')+'</select></div>'+
+      '<div class="tm-new-row"><label>OWNER</label><select id="tm-new-owner">'+tmAssigneeOptions(currentUser?currentUser.name:'')+'</select></div>'+
       '<div class="tm-new-row"><label>DEPARTMENT</label><select id="tm-new-dept">'+DEPTS.map(function(d){return '<option'+(d===defaultDept?' selected':'')+'>'+d+'</option>';}).join('')+'</select></div>'+
       '<div class="tm-new-row"><label>PRIORITY</label><select id="tm-new-priority">'+TM_PRIORITIES.map(function(p){return '<option'+(p==='Planned'?' selected':'')+'>'+p+'</option>';}).join('')+'</select></div>'+
       '<div class="tm-new-row"><label>DUE DATE</label><input type="date" id="tm-new-due" value="'+weekLater+'" /></div>'+
-      '<div class="tm-new-row"><label>LINK TO OKR</label><select id="tm-new-kr">'+tmKROptions('')+'</select></div>'+
+      '<div class="tm-new-row"><label>LINK TO OKR</label><div id="tm-new-kr-cell"></div></div>'+
     '</div>'+
     '<div class="tm-new-foot">'+
       '<button class="tm-btn" id="tm-new-cancel">Cancel</button>'+
@@ -6713,7 +6848,7 @@ function tmOpenNewTaskModal(){
     var owner=detailsOpen?document.getElementById('tm-new-owner').value:(currentUser?currentUser.name:'');
     var priority=detailsOpen?document.getElementById('tm-new-priority').value:'Planned';
     var due=detailsOpen?document.getElementById('tm-new-due').value:weekLater;
-    var linkedKRId=detailsOpen?document.getElementById('tm-new-kr').value:'';
+    var linkedKRId=detailsOpen?(window._tmPendingKR||''):'';
     if(!data[dept])data[dept]=[];
     var t={id:nextId(dept), name:name, assignee:owner,
       priority:priority, status:'Not Started',
@@ -6738,6 +6873,10 @@ function tmOpenNewTaskModal(){
     d.style.display=open?'none':'block';
     this.textContent=open?'+ More details':'− Hide details';
   };
+  // Mount the OKR picker button into its cell
+  window._tmPendingKR='';
+  var krCell=document.getElementById('tm-new-kr-cell');
+  if(krCell){var pBtn=tmRenderKRPickerButton('', function(id){window._tmPendingKR=id;});krCell.appendChild(pBtn);}
   var nameInp=document.getElementById('tm-new-name');
   nameInp.focus();
   nameInp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();create();}});
@@ -6772,7 +6911,7 @@ function tmOpenDrawer(t, dept){
     })()+
     '<div class="tm-drawer-form">'+
       '<label>OWNER</label>'+
-      '<select class="tm-drawer-field" data-f="assignee">'+assigneeOptions(t.assignee||'')+'</select>'+
+      '<select class="tm-drawer-field" data-f="assignee">'+tmAssigneeOptions(t.assignee||'')+'</select>'+
       '<label>PRIORITY</label>'+
       '<select class="tm-drawer-field" data-f="priority">'+TM_PRIORITIES.map(function(p){return '<option'+(t.priority===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select>'+
       '<label>DUE DATE</label>'+
@@ -6780,17 +6919,25 @@ function tmOpenDrawer(t, dept){
       '<label>STATUS</label>'+
       '<select class="tm-drawer-field" data-f="status">'+TM_STATUSES.map(function(s){return '<option'+(t.status===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>'+
       '<label>PROGRESS</label>'+
-      '<input class="tm-drawer-field" type="number" min="0" max="100" data-f="progress" value="'+(t.progress||0)+'"> %'+
+      '<div class="tm-progress-cell"><input class="tm-drawer-field" type="number" min="0" max="100" data-f="progress" value="'+(t.progress||0)+'"><span class="tm-pct">%</span></div>'+
       '<label>LINK TO OKR</label>'+
-      '<select class="tm-drawer-field" data-f="linkedKRId">'+tmKROptions(t.linkedKRId||'')+'</select>'+
-      '<label>NOTES</label>'+
-      '<textarea class="tm-drawer-field" data-f="notes">'+esc(t.notes||'')+'</textarea>'+
+      '<div class="tm-kr-cell" id="tm-kr-cell"></div>'+
+    '</div>'+
+    '<div class="tm-notes-block">'+
+      '<div class="tm-section-label">NOTES</div>'+
+      '<textarea class="tm-notes-area" data-f="notes" placeholder="Add notes, context, blockers...">'+esc(t.notes||'')+'</textarea>'+
     '</div>'+
     '<div class="tm-drawer-foot">'+
       '<button class="tm-btn tm-btn-danger" id="tm-drawer-del">Delete</button>'+
       '<button class="tm-btn tm-btn-primary" id="tm-drawer-save">Save</button>'+
     '</div>';
   ov.appendChild(box);
+
+  // Mount KR picker into its cell
+  var pickerCell=box.querySelector('#tm-kr-cell');
+  var pendingKR=t.linkedKRId||'';
+  var pickerBtn=tmRenderKRPickerButton(pendingKR, function(newId){pendingKR=newId;});
+  pickerCell.appendChild(pickerBtn);
 
   ov.querySelector('#tm-drawer-save').onclick=function(){
     var oldKR=t.linkedKRId||'';
@@ -6800,6 +6947,8 @@ function tmOpenDrawer(t, dept){
       if(f==='progress')v=Math.min(100,Math.max(0,parseInt(v)||0));
       t[f]=v;
     });
+    // KR comes from the picker, not a form field
+    t.linkedKRId=pendingKR;
     if((t.linkedKRId||'')!==oldKR)tmSyncKRLink(t.id, oldKR, t.linkedKRId||'');
     t.lastUpdated=new Date().toISOString();
     autoSave();
