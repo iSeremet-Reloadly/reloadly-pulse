@@ -1150,6 +1150,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-tasks" onclick="go('tasks')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#6c63ff)"></div>Tasks</div><div class="cnt" id="c-tasks"></div></div>
     <div class="ni" id="nav-roadmaps" onclick="go('roadmaps')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f59e0b,#ec4899)"></div>Roadmaps</div></div>
     <div style="flex:1"></div>
+    <div class="ni" id="nav-mytasks-v2" onclick="goMyTasks()"><div class="ni-l"><div class="dd" style="background:var(--acc2)"></div>My Tasks</div><div class="cnt" id="c-mytasks-v2"></div></div>
     <!-- Legacy dept tabs (hidden, routes still work) -->
     <div class="ni" id="nav-Management" onclick="go('Management')" style="display:none"></div>
     <div class="ni" id="nav-Operations" onclick="go('Operations')" style="display:none"></div>
@@ -1562,6 +1563,22 @@ function updCnts(){
     else if(nav)nav.classList.remove('locked');
   });
   var lel=document.getElementById('c-log');if(lel)lel.textContent=actLog.length;
+  // My Tasks counter: open tasks assigned to current user across all depts
+  try{
+    var myEl=document.getElementById('c-mytasks-v2');
+    if(myEl && currentUser){
+      var name=currentUser.name||'', em=currentUser.email||'', first=(name||'').split(' ')[0];
+      var n=0;
+      DEPTS.forEach(function(d){
+        (data[d]||[]).forEach(function(t){
+          var a=(t.assignee||'').trim();
+          if(t.status==='Done')return;
+          if(a===name||a===em||a===first||a.toLowerCase()===name.toLowerCase())n++;
+        });
+      });
+      myEl.textContent=n||'';
+    }
+  }catch(e){}
   try{
     var uc=getUpcoming();
     var rel=document.getElementById('c-reminders');if(rel)rel.textContent=uc.length||'';
@@ -6665,6 +6682,17 @@ function tmCounts(st, scope){
 }
 
 // ── MAIN RENDER ────────────────────────────────────────────────────────
+
+// Sidebar shortcut: My Tasks → Tasks page with My Work tab pre-selected
+function goMyTasks(){
+  try{
+    var s=JSON.parse(localStorage.getItem('rl_tm_ui_v1')||'{}');
+    s.tab='my';
+    localStorage.setItem('rl_tm_ui_v1',JSON.stringify(s));
+  }catch(e){}
+  go('tasks');
+}
+
 function renderTasksV2(){
   var main=document.getElementById('main');if(!main)return;main.innerHTML='';
   var st=tmState();
