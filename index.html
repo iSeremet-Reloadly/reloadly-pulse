@@ -912,6 +912,14 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .tm-new-row select:focus,.tm-new-row input:focus{border-color:var(--acc)}
 .tm-new-foot{display:flex;gap:10px;justify-content:flex-end;padding-top:16px;border-top:1px solid var(--brd);margin-top:18px}
 
+/* OKR link chip + drawer linked block */
+.tm-link-chip{font-size:10px;padding:1px 7px;border-radius:8px;background:rgba(108,99,255,.14);color:var(--acc);font-family:Roboto Mono,monospace;font-weight:600;letter-spacing:.2px}
+.tm-linked-block{background:rgba(108,99,255,.06);border:1px solid rgba(108,99,255,.2);border-radius:8px;padding:12px 14px;margin-bottom:18px}
+.tm-linked-block .tm-section-label{margin-bottom:6px}
+.tm-linked-chain{font-size:13px;color:var(--txt);line-height:1.4;margin-bottom:4px}
+.tm-linked-chain strong{color:var(--acc);font-family:Roboto Mono,monospace;margin-right:4px}
+.tm-linked-up{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace}
+
 </style>
 </head>
 <body>
@@ -1147,7 +1155,7 @@ function loadData(){
     {createdAt:'2026-05-01T09:00:00.000Z',id:'SAL-005',name:'Partner commission reconciliation',status:'Not Started',priority:'Low',progress:0,due:'2026-06-30',assignee:'',lastUpdated:new Date().toISOString()}
   ];}
   autoSave();updCnts();
-  try{tmMigrateAll();}catch(e){console.warn('tm migrate',e);}
+  try{tmMigrateAll();tmBackfillLinks();}catch(e){console.warn('tm migrate',e);}
   if(currentUser&&!currentUser.canViewAll){view=currentUser.dept;}
   // Default view: Tasks for everyone unless explicitly overridden
   if(view==='dashboard')view='tasks';
@@ -6195,6 +6203,76 @@ function tmMigrateAll(){
 
 function tmLoadUI(){try{return JSON.parse(localStorage.getItem('rl_tm_ui_v1')||'{}');}catch(e){return{};}}
 function tmSaveUI(u){localStorage.setItem('rl_tm_ui_v1',JSON.stringify(u));}
+
+// ── OKR linking helpers ────────────────────────────────────────────────
+function tmGetAllKRs(){
+  try{
+    var okr=loadOKRForQuarter(getActiveOKRKey());
+    if(!okr || !okr.depts)okr=window.OKR_DATA;
+    if(!okr || !okr.depts)return [];
+    var krs=[];
+    Object.keys(okr.depts).forEach(function(deptKey){
+      var d=okr.depts[deptKey];
+      (d.objectives||[]).forEach(function(obj){
+        (obj.krs||[]).forEach(function(kr){
+          krs.push({id:kr.id, title:kr.title, objectiveId:obj.id, objectiveTitle:obj.title, dept:deptKey, owner:kr.owner||''});
+        });
+      });
+    });
+    return krs;
+  }catch(e){console.warn('tmGetAllKRs',e);return [];}
+}
+function tmGetKR(krId){
+  if(!krId)return null;
+  var all=tmGetAllKRs();
+  for(var i=0;i<all.length;i++)if(all[i].id===krId)return all[i];
+  return null;
+}
+function tmKROptions(selected){
+  var krs=tmGetAllKRs();
+  if(!krs.length)return '<option value="">(no KRs found)</option>';
+  var byDept={};
+  krs.forEach(function(kr){if(!byDept[kr.dept])byDept[kr.dept]=[];byDept[kr.dept].push(kr);});
+  var html='<option value="">— not linked —</option>';
+  Object.keys(byDept).forEach(function(d){
+    html+='<optgroup label="'+esc(d)+'">';
+    byDept[d].forEach(function(kr){
+      html+='<option value="'+esc(kr.id)+'"'+(selected===kr.id?' selected':'')+'>'+esc(kr.id)+' — '+esc(kr.title.slice(0,70))+(kr.title.length>70?'…':'')+'</option>';
+    });
+    html+='</optgroup>';
+  });
+  return html;
+}
+// Sync linkedKRId to/from rl_okr_links (bidirectional with OKR Tracker)
+function tmSyncKRLink(taskId, oldKRId, newKRId){
+  try{
+    var links=JSON.parse(localStorage.getItem('rl_okr_links')||'{}');
+    if(oldKRId && links[oldKRId]){
+      links[oldKRId]=links[oldKRId].filter(function(t){return t!==taskId;});
+      if(links[oldKRId].length===0)delete links[oldKRId];
+    }
+    if(newKRId){
+      if(!links[newKRId])links[newKRId]=[];
+      if(links[newKRId].indexOf(taskId)<0)links[newKRId].push(taskId);
+    }
+    localStorage.setItem('rl_okr_links',JSON.stringify(links));
+  }catch(e){console.warn('tmSyncKRLink',e);}
+}
+// On load: backfill linkedKRId from rl_okr_links if missing
+function tmBackfillLinks(){
+  try{
+    var links=JSON.parse(localStorage.getItem('rl_okr_links')||'{}');
+    Object.keys(links).forEach(function(krId){
+      (links[krId]||[]).forEach(function(taskId){
+        DEPTS.forEach(function(d){
+          var t=(data[d]||[]).find(function(x){return x.id===taskId;});
+          if(t && !t.linkedKRId)t.linkedKRId=krId;
+        });
+      });
+    });
+  }catch(e){console.warn('tmBackfillLinks',e);}
+}
+
 function tmState(){
   var s=tmLoadUI();
   return {
@@ -6471,6 +6549,7 @@ function tmRenderCard(t){
       '<div class="tm-card-meta">'+
         '<span>'+esc(t.assignee||'unassigned')+'</span>'+
         '<span class="tm-card-id">'+t.id+'</span>'+
+        (t.linkedKRId?'<span class="tm-link-chip" title="Linked to '+esc(t.linkedKRId)+'">🎯 '+esc(t.linkedKRId)+'</span>':'')+
       '</div>'+
     '</div>'+
     '<div class="tm-card-right">'+
@@ -6613,6 +6692,7 @@ function tmOpenNewTaskModal(){
       '<div class="tm-new-row"><label>DEPARTMENT</label><select id="tm-new-dept">'+DEPTS.map(function(d){return '<option'+(d===defaultDept?' selected':'')+'>'+d+'</option>';}).join('')+'</select></div>'+
       '<div class="tm-new-row"><label>PRIORITY</label><select id="tm-new-priority">'+TM_PRIORITIES.map(function(p){return '<option'+(p==='Planned'?' selected':'')+'>'+p+'</option>';}).join('')+'</select></div>'+
       '<div class="tm-new-row"><label>DUE DATE</label><input type="date" id="tm-new-due" value="'+weekLater+'" /></div>'+
+      '<div class="tm-new-row"><label>LINK TO OKR</label><select id="tm-new-kr">'+tmKROptions('')+'</select></div>'+
     '</div>'+
     '<div class="tm-new-foot">'+
       '<button class="tm-btn" id="tm-new-cancel">Cancel</button>'+
@@ -6633,14 +6713,17 @@ function tmOpenNewTaskModal(){
     var owner=detailsOpen?document.getElementById('tm-new-owner').value:(currentUser?currentUser.name:'');
     var priority=detailsOpen?document.getElementById('tm-new-priority').value:'Planned';
     var due=detailsOpen?document.getElementById('tm-new-due').value:weekLater;
+    var linkedKRId=detailsOpen?document.getElementById('tm-new-kr').value:'';
     if(!data[dept])data[dept]=[];
     var t={id:nextId(dept), name:name, assignee:owner,
       priority:priority, status:'Not Started',
       createdAt:new Date().toISOString(),
       due:due, startDate:new Date().toISOString().split('T')[0],
-      progress:0, notes:'', lastUpdated:new Date().toISOString()};
+      progress:0, notes:'', lastUpdated:new Date().toISOString(),
+      linkedKRId:linkedKRId||''};
     data[dept].push(t);
-    autoSave();logEntry(t.id+' created via + New task','add');
+    if(linkedKRId)tmSyncKRLink(t.id, null, linkedKRId);
+    autoSave();logEntry(t.id+' created via + New task'+(linkedKRId?(' (linked to '+linkedKRId+')'):''),'add');
     toast(t.id+' added','ok');
     close();
     renderTasksV2();
@@ -6678,6 +6761,15 @@ function tmOpenDrawer(t, dept){
       '<span class="tm-health-pill h-'+h+'">'+tmHealthLabel(h)+'</span>'+
       '<span class="tm-drawer-due">'+tmDueLabel(t)+'</span>'+
     '</div>'+
+    (function(){
+      if(!t.linkedKRId)return '';
+      var kr=tmGetKR(t.linkedKRId);if(!kr)return '';
+      return '<div class="tm-linked-block">'+
+        '<div class="tm-section-label">LINKED OKR</div>'+
+        '<div class="tm-linked-chain">🎯 <strong>'+esc(kr.id)+'</strong> '+esc(kr.title)+'</div>'+
+        '<div class="tm-linked-up">↑ Contributes to '+esc(kr.objectiveTitle)+' · '+esc(kr.dept)+'</div>'+
+      '</div>';
+    })()+
     '<div class="tm-drawer-form">'+
       '<label>OWNER</label>'+
       '<select class="tm-drawer-field" data-f="assignee">'+assigneeOptions(t.assignee||'')+'</select>'+
@@ -6689,6 +6781,8 @@ function tmOpenDrawer(t, dept){
       '<select class="tm-drawer-field" data-f="status">'+TM_STATUSES.map(function(s){return '<option'+(t.status===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>'+
       '<label>PROGRESS</label>'+
       '<input class="tm-drawer-field" type="number" min="0" max="100" data-f="progress" value="'+(t.progress||0)+'"> %'+
+      '<label>LINK TO OKR</label>'+
+      '<select class="tm-drawer-field" data-f="linkedKRId">'+tmKROptions(t.linkedKRId||'')+'</select>'+
       '<label>NOTES</label>'+
       '<textarea class="tm-drawer-field" data-f="notes">'+esc(t.notes||'')+'</textarea>'+
     '</div>'+
@@ -6699,12 +6793,14 @@ function tmOpenDrawer(t, dept){
   ov.appendChild(box);
 
   ov.querySelector('#tm-drawer-save').onclick=function(){
+    var oldKR=t.linkedKRId||'';
     box.querySelectorAll('[data-f]').forEach(function(el){
       var f=el.getAttribute('data-f');
       var v=el.value;
       if(f==='progress')v=Math.min(100,Math.max(0,parseInt(v)||0));
       t[f]=v;
     });
+    if((t.linkedKRId||'')!==oldKR)tmSyncKRLink(t.id, oldKR, t.linkedKRId||'');
     t.lastUpdated=new Date().toISOString();
     autoSave();
     logEntry('Updated '+t.id+' via drawer','edit');
