@@ -892,8 +892,10 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 }
 
 /* + New task — global header button + modal */
-.tm-new-btn{margin-left:auto;background:var(--acc);color:#fff;border:1px solid var(--acc);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.2px;transition:filter .12s}
-.tm-new-btn:hover{filter:brightness(1.15)}
+.tm-new-btn{margin-left:auto;background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.2px;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(16,185,129,.35),0 1px 2px rgba(16,185,129,.4);transition:transform .12s,box-shadow .12s,background .12s}
+.tm-new-btn:hover{background:#0f9e6f;transform:translateY(-1px);box-shadow:0 6px 20px rgba(16,185,129,.45),0 2px 4px rgba(16,185,129,.5)}
+.tm-new-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(16,185,129,.35)}
+.tm-new-btn kbd{background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-family:Roboto Mono,monospace;font-weight:700;letter-spacing:.5px;margin-left:6px}
 .tm-deptpicker{margin-left:8px}
 .tm-new-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9950;display:flex;align-items:center;justify-content:center;padding:24px}
 .tm-new-box{background:var(--surf);border:1px solid var(--brd);border-radius:14px;width:100%;max-width:560px;padding:28px 32px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.5)}
@@ -6502,8 +6504,9 @@ function renderTasksV2(){
   hdr.innerHTML='<div class="tm-title">Tasks</div>';
   // Global "+ New task" button — works on every tab
   var newBtn=document.createElement('button');newBtn.className='tm-new-btn';
-  newBtn.innerHTML='+ New task';
+  newBtn.innerHTML='<span style="font-size:16px;line-height:1;font-weight:700">+</span> New task <kbd>N</kbd>';
   newBtn.onclick=function(){tmOpenNewTaskModal();};
+  newBtn.setAttribute('title','New task (press N)');
   hdr.appendChild(newBtn);
   var deptSel=document.createElement('select');deptSel.className='tm-deptpicker';
   [{v:'All',l:'All departments'}].concat(DEPTS.map(function(d){return {v:d,l:d};})).forEach(function(o){
@@ -6968,6 +6971,21 @@ function tmOpenDrawer(t, dept){
   document.addEventListener('keydown',onEsc);
 }
 
+
+// Global N shortcut for new task — only when not typing in inputs
+(function(){
+  document.addEventListener('keydown', function(e){
+    if((e.key==='n'||e.key==='N') && !e.ctrlKey && !e.metaKey && !e.altKey){
+      var t=e.target;
+      var tag=(t&&t.tagName||'').toLowerCase();
+      if(tag==='input'||tag==='textarea'||tag==='select'||(t&&t.isContentEditable))return;
+      if(typeof view!=='undefined' && view==='tasks'){
+        e.preventDefault();
+        if(typeof tmOpenNewTaskModal==='function')tmOpenNewTaskModal();
+      }
+    }
+  });
+})();
 
 init();
 </script>
