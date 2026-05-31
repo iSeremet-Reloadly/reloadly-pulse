@@ -567,6 +567,147 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
   .today-snap-val{font-size:28px}
 }
 
+/* ════════════════════════════════════════════════════════════════════ */
+/* STRATEGY V2 — 4-tab redesign                                          */
+/* Three semantic colors only. No score chips. No ⓘ flood.               */
+/* ════════════════════════════════════════════════════════════════════ */
+.v2-wrap{max-width:920px;margin:0 auto;padding:32px 24px 60px;font-family:inherit}
+.v2-hdr{display:flex;align-items:baseline;gap:14px;margin-bottom:24px}
+.v2-title{font-size:24px;font-weight:700;letter-spacing:-.3px;color:var(--txt);line-height:1}
+.v2-sub{font-size:12px;color:var(--mut);font-family:Roboto Mono,monospace}
+.v2-deptpicker{margin-left:auto;background:transparent;border:1px solid var(--brd);color:var(--txt);border-radius:8px;padding:7px 12px;font-size:13px;font-family:inherit;outline:none;min-width:180px;cursor:pointer}
+.v2-deptpicker:hover{border-color:var(--mut)}
+.v2-tabs{display:flex;gap:2px;border-bottom:1px solid var(--brd);margin-bottom:24px}
+.v2-tab{background:none;border:none;padding:10px 16px;font-size:13px;color:var(--mut);cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;font-weight:500;transition:color .12s,border-color .12s;margin-bottom:-1px}
+.v2-tab:hover{color:var(--txt)}
+.v2-tab.active{color:var(--txt);border-bottom-color:var(--txt);font-weight:600}
+.v2-content{display:flex;flex-direction:column;gap:18px}
+.v2-section-label{font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:1.2px;margin-bottom:14px;text-transform:uppercase}
+
+/* Health card */
+.v2-health-card{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:24px 26px}
+.v2-health-card.health-ok{border-left:4px solid #10b981}
+.v2-health-card.health-warn{border-left:4px solid #f59e0b}
+.v2-health-card.health-risk{border-left:4px solid #ef4444}
+.v2-health-row{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}
+.v2-health-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;align-self:center}
+.v2-health-card.health-ok .v2-health-dot{background:#10b981}
+.v2-health-card.health-warn .v2-health-dot{background:#f59e0b}
+.v2-health-card.health-risk .v2-health-dot{background:#ef4444}
+.v2-health-pct{font-size:34px;font-weight:700;line-height:1;color:var(--txt);font-family:Roboto Mono,monospace}
+.v2-health-label{font-size:14px;color:var(--mut);font-weight:500}
+.v2-forecast{font-size:13px;color:var(--txt);margin-bottom:14px;line-height:1.5}
+.v2-forecast strong{font-weight:600}
+.v2-health-counts{display:flex;gap:18px;font-size:12px;color:var(--mut);font-family:Roboto Mono,monospace}
+.v2-count{padding:0}
+
+/* Attention Center */
+.v2-attention{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:20px 22px}
+.v2-attention-h{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--brd)}
+.v2-attention-icon{font-size:16px;color:#f59e0b}
+.v2-attention-title{font-size:14px;font-weight:600;color:var(--txt)}
+.v2-attention-count{font-size:11px;font-weight:600;background:var(--surf2);color:var(--mut);padding:2px 10px;border-radius:10px;font-family:Roboto Mono,monospace}
+.v2-attention-empty{font-size:13px;color:var(--mut);padding:20px;text-align:center}
+.v2-attention-list{display:flex;flex-direction:column;gap:6px}
+.v2-attention-row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--brd)}
+.v2-attention-row:last-child{border-bottom:none}
+.v2-attention-bullet{width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--mut)}
+.v2-attention-row.sev-high .v2-attention-bullet{background:#ef4444}
+.v2-attention-row.sev-medium .v2-attention-bullet{background:#f59e0b}
+.v2-attention-row.sev-low .v2-attention-bullet{background:var(--mut)}
+.v2-attention-body{flex:1;min-width:0}
+.v2-attention-title-row{font-size:13px;color:var(--txt);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-attention-meta{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px}
+.v2-attention-actions{display:flex;gap:6px;flex-shrink:0}
+.v2-attention-more{font-size:12px;color:var(--mut);text-align:center;padding:12px;font-family:Roboto Mono,monospace}
+
+/* Buttons */
+.v2-btn{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .12s,border-color .12s}
+.v2-btn:hover{background:var(--surf);border-color:var(--mut)}
+.v2-btn-ghost{background:transparent;color:var(--mut)}
+.v2-btn-ghost:hover{color:var(--txt);background:var(--surf2)}
+
+/* Collapsible */
+.v2-collapsible{margin-top:8px}
+.v2-collapse-btn{background:none;border:none;color:var(--mut);font-size:12px;cursor:pointer;padding:8px 0;font-family:Roboto Mono,monospace}
+.v2-collapse-btn:hover{color:var(--txt)}
+
+/* Heatmap (v2 styling — quieter) */
+.v2-heatmap{background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden;margin-top:8px}
+.v2-hm-row{display:grid;grid-template-columns:180px repeat(auto-fit,minmax(140px,1fr));border-bottom:1px solid var(--brd)}
+.v2-hm-row:last-child{border-bottom:none}
+.v2-hm-cell-base{padding:10px 12px;border-right:1px solid var(--brd)}
+.v2-hm-cell-base:last-child{border-right:none}
+.v2-hm-corner{background:var(--surf2)}
+.v2-hm-coh-cell{background:var(--surf2);text-align:center}
+.v2-hm-coh{font-size:11px;color:var(--txt);font-weight:500}
+.v2-hm-deph-cell{background:var(--surf2)}
+.v2-hm-deph{font-size:11px;font-weight:600;color:var(--txt)}
+.v2-hm-cell{display:flex;flex-direction:column;justify-content:center;align-items:center}
+.v2-hm-cell.empty{}
+.v2-hm-cell.ok{background:rgba(16,185,129,.06)}
+.v2-hm-cell.warn{background:rgba(245,158,11,.06)}
+.v2-hm-cell.risk{background:rgba(239,68,68,.06)}
+.v2-hm-cell-v{font-size:12px;color:var(--txt);font-weight:600}
+.v2-hm-cell-p{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px}
+.v2-hm-empty{color:var(--mut)}
+
+/* Tree */
+.v2-objs-meta{font-size:12px;color:var(--mut);font-family:Roboto Mono,monospace;padding:0 4px 12px}
+.v2-tree-node{margin-bottom:2px}
+.v2-tree-node.depth-1,.v2-tree-node.depth-2,.v2-tree-node.depth-3{margin-left:0}
+.v2-tree-kids{margin-left:24px;padding-left:14px;border-left:1px solid var(--brd);margin-top:4px;margin-bottom:8px}
+.v2-tree-head{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surf);border:1px solid var(--brd);border-radius:8px;cursor:pointer;transition:border-color .12s,background .12s}
+.v2-tree-head:hover{border-color:var(--mut)}
+.v2-caret{background:none;border:none;color:var(--mut);font-size:11px;cursor:pointer;width:16px;font-family:inherit;padding:0}
+.v2-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.v2-dot.dot-ok{background:#10b981}
+.v2-dot.dot-warn{background:#f59e0b}
+.v2-dot.dot-risk{background:#ef4444}
+.v2-dot.dot-neutral{background:var(--mut)}
+.v2-tree-title{flex:1;font-size:13px;color:var(--txt);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.v2-tree-meta{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;flex-shrink:0}
+.v2-tree-id{font-size:10px}
+.v2-tree-owner{font-size:11px;color:var(--mut)}
+.v2-tree-pct{font-weight:600;color:var(--txt);font-size:12px;font-family:Roboto Mono,monospace}
+.v2-tree-status{font-size:10px;padding:2px 8px;border-radius:10px;background:var(--surf2);color:var(--mut)}
+.v2-tree-status.status-ok{color:#10b981;background:rgba(16,185,129,.1)}
+.v2-tree-status.status-warn{color:#f59e0b;background:rgba(245,158,11,.1)}
+.v2-tree-status.status-risk{color:#ef4444;background:rgba(239,68,68,.1)}
+.v2-empty{font-size:13px;color:var(--mut);padding:32px;text-align:center;background:var(--surf);border:1px dashed var(--brd);border-radius:10px}
+
+/* Execution */
+.v2-exec-sec{background:var(--surf);border:1px solid var(--brd);border-radius:10px;margin-bottom:14px;overflow:hidden}
+.v2-exec-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;border-bottom:1px solid transparent;transition:background .12s}
+.v2-exec-hdr:hover{background:var(--surf2)}
+.v2-exec-label{font-size:11px;font-weight:700;color:var(--txt);font-family:Roboto Mono,monospace;letter-spacing:1px}
+.v2-exec-count{margin-left:auto;font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace}
+.v2-exec-row{display:flex;align-items:center;gap:10px;padding:10px 16px 10px 38px;border-top:1px solid var(--brd);cursor:pointer;transition:background .12s}
+.v2-exec-row:hover{background:var(--surf2)}
+
+/* People */
+.v2-person-card{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:18px 20px;margin-bottom:12px}
+.v2-person-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.v2-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#a78bfa);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;font-family:Roboto Mono,monospace;flex-shrink:0}
+.v2-person-name{flex:1}
+.v2-person-role{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px}
+.v2-person-counts{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace}
+.v2-person-section{margin-bottom:12px}
+.v2-person-io,.v2-person-kr{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;color:var(--txt)}
+.v2-person-footline{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;padding-top:10px;border-top:1px solid var(--brd);margin-bottom:10px}
+.v2-person-acts{display:flex;gap:8px}
+
+@media (max-width:640px){
+  .v2-wrap{padding:20px 14px 40px}
+  .v2-hdr{flex-wrap:wrap}
+  .v2-deptpicker{margin-left:0;margin-top:8px;width:100%}
+  .v2-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .v2-tab{white-space:nowrap;flex-shrink:0}
+  .v2-tree-meta{flex-wrap:wrap;gap:6px}
+  .v2-tree-owner,.v2-tree-id{display:none}
+  .v2-attention-row{flex-wrap:wrap}
+}
+
 </style>
 </head>
 <body>
@@ -2502,19 +2643,8 @@ function toggleExpand(id){var s=getState();s.expanded[id]=!s.expanded[id];saveUI
 
 // ── Renderer ──────────────────────────────────────────────────────────
 NS.renderStrategy=function(){
-  var raw=loadUI();
-  var vp=raw.viewpoint;
-  // Any user stuck on the reverted Today view → fall back to company
-  if(vp==='today'){vp='company';raw.viewpoint='company';saveUI(raw);}
-  if(!vp){
-    vp=(currentUser&&currentUser.isAdmin)?'company':'individual';
-    raw.viewpoint=vp;saveUI(raw);
-  }
-  if(vp==='cascade')return NS._renderCascadeMode();
-  if(vp==='company')return NS._renderCompanyMode();
-  if(vp==='department')return NS._renderDeptMode();
-  if(vp==='individual')return NS._renderIndividualMode();
-  return NS._renderCascadeMode();
+  // V2: 4-tab structure per STRATEGY_REDESIGN.md
+  return NS._renderV2();
 };
 
 
@@ -3562,6 +3692,534 @@ function _ensureDetailPanel(){
     document.body.appendChild(dp);
   }
 }
+
+
+// ════════════════════════════════════════════════════════════════════════
+// STRATEGY V2 — 4-tab structure per STRATEGY_REDESIGN.md
+// Overview / Objectives / Execution / People
+// Defaults to Overview. Department dropdown in the page header.
+// ════════════════════════════════════════════════════════════════════════
+function _v2State(){
+  var s=loadUI();
+  return {
+    tab: s.v2Tab || 'overview',
+    dept: s.v2Dept || (currentUser && currentUser.dept ? currentUser.dept : 'All'),
+    quarter: s.quarter || getActiveOKRKey(),
+    expanded: s.v2Expanded || {},
+    snoozed: s.v2Snoozed || {},
+    heatmapOpen: !!s.v2HeatmapOpen
+  };
+}
+function _v2SetState(patch){
+  var s=loadUI();
+  Object.keys(patch).forEach(function(k){s['v2'+k.charAt(0).toUpperCase()+k.slice(1)]=patch[k];});
+  saveUI(s);
+}
+
+NS._renderV2 = function(){
+  var main=document.getElementById('main');if(!main)return;main.innerHTML='';
+  var st=_v2State();
+  var H=_stratHydrate(st.quarter);
+
+  var wrap=document.createElement('div');wrap.className='v2-wrap';
+
+  // === Page header: title + dept dropdown ===
+  var hdr=document.createElement('div');hdr.className='v2-hdr';
+  hdr.innerHTML='<div class="v2-title">Strategy</div><div class="v2-sub">'+quarterLabel(st.quarter)+'</div>';
+
+  var deptSel=document.createElement('select');deptSel.className='v2-deptpicker';
+  var deptOpts=[{v:'All',l:'All departments'}].concat(['Operations','Engineering','Finance','Sales','Management'].map(function(d){return {v:d,l:d};}));
+  deptOpts.forEach(function(o){var op=document.createElement('option');op.value=o.v;op.textContent=o.l;if(o.v===st.dept)op.selected=true;deptSel.appendChild(op);});
+  deptSel.onchange=function(){_v2SetState({dept:this.value});NS.renderStrategy();};
+  hdr.appendChild(deptSel);
+  wrap.appendChild(hdr);
+
+  // === Tabs ===
+  var tabBar=document.createElement('div');tabBar.className='v2-tabs';
+  ['overview','objectives','execution','people'].forEach(function(t){
+    var b=document.createElement('button');b.className='v2-tab'+(t===st.tab?' active':'');
+    b.textContent={overview:'Overview',objectives:'Objectives',execution:'Execution',people:'People'}[t];
+    b.onclick=function(){_v2SetState({tab:t});NS.renderStrategy();};
+    tabBar.appendChild(b);
+  });
+  wrap.appendChild(tabBar);
+
+  // === Tab content ===
+  var content=document.createElement('div');content.className='v2-content';
+  wrap.appendChild(content);
+
+  if(st.tab==='overview')      _v2RenderOverview(content, st, H);
+  else if(st.tab==='objectives') _v2RenderObjectives(content, st, H);
+  else if(st.tab==='execution')  _v2RenderExecution(content, st, H);
+  else if(st.tab==='people')     _v2RenderPeople(content, st, H);
+
+  main.appendChild(wrap);
+};
+
+// ── Compute forecast for a single KR ────────────────────────────────────
+function _v2Forecast(kr, quarter){
+  var q=quarterDates(quarter);
+  var now=Date.now(), sd=new Date(q.startDate).getTime(), ed=new Date(q.endDate).getTime();
+  var pct=Math.max(0,Math.min(1,(now-sd)/(ed-sd)));
+  var expected=Math.round(pct*100);
+  var current=kr.progressPct||0;
+  // Simple velocity estimate: if confidence is Off Track / At Risk treat as -10/-5; else 0.
+  var velAdj=0;
+  if(kr.confidence==='Off Track')velAdj=-20;
+  else if(kr.confidence==='At Risk')velAdj=-10;
+  // Project: assume current velocity holds. If we have no velocity data, use straight-line trajectory adjusted by confidence
+  var daysLeft=Math.max(0,Math.floor((ed-now)/86400000));
+  var totalDays=Math.max(1,Math.floor((ed-sd)/86400000));
+  var dailyExpected=100/totalDays;
+  var velocity=(current - 0)/Math.max(1, totalDays - daysLeft);  // KR progress per day on average
+  var projected=current + velocity*daysLeft + velAdj;
+  if(projected>=100) return {band:'ok', label:'on track'};
+  if(projected>=70) return {band:'warn', label:'trending behind'};
+  return {band:'risk', label:'at risk'};
+}
+
+// ── Build the actionable inbox for the selected scope ───────────────────
+function _v2BuildAttention(st, H){
+  var items=[];
+  var deptFilter=st.dept;
+  Object.values(H.nodes).forEach(function(n){
+    if(deptFilter!=='All' && n.dept && n.dept!==deptFilter) return;
+    var children=H.edges.filter(function(e){return e.p===n.id;});
+    // KRs missing execution
+    if(n.type==='KeyResult' && children.length===0){
+      items.push({id:n.id+'::no-exec', sev:'high', title:n.title, body:'No execution attached', owner:n.ownerName||n.ownerEmail||'unassigned', nodeId:n.id, action:'plan'});
+    }
+    // Missing owners on active nodes
+    if(n.type!=='Task' && !n.ownerName && !n.ownerEmail && n.state!=='Draft' && n.state!=='Cancelled'){
+      items.push({id:n.id+'::no-owner', sev:'medium', title:n.title, body:'No owner assigned', owner:'unassigned', nodeId:n.id, action:'assign'});
+    }
+    // Department Objective with no Company parent
+    if(n.type==='DepartmentObjective' && H.edges.filter(function(e){return e.c===n.id;}).length===0){
+      items.push({id:n.id+'::unaligned', sev:'medium', title:n.title, body:'Not linked to a Company Objective', owner:n.ownerName||n.ownerEmail||'unassigned', nodeId:n.id, action:'link'});
+    }
+    // KRs with confidence flagged
+    if(n.type==='KeyResult' && (n.confidence==='Off Track' || n.confidence==='At Risk')){
+      items.push({id:n.id+'::risk', sev:'high', title:n.title, body:'Confidence: '+n.confidence, owner:n.ownerName||n.ownerEmail||'unassigned', nodeId:n.id, action:'review'});
+    }
+    // KRs missing metric
+    if(n.type==='KeyResult'){
+      var m=n.metric||{};
+      if(!m.target || !m.unit){
+        items.push({id:n.id+'::no-metric', sev:'low', title:n.title, body:'Metric undefined', owner:n.ownerName||n.ownerEmail||'unassigned', nodeId:n.id, action:'define'});
+      }
+    }
+  });
+  // Filter snoozed
+  var snoozed=st.snoozed||{};
+  var now=Date.now();
+  items=items.filter(function(it){return !snoozed[it.id] || snoozed[it.id]<now;});
+  // Sort by severity
+  var order={high:0, medium:1, low:2};
+  items.sort(function(a,b){return order[a.sev]-order[b.sev];});
+  return items;
+}
+
+// ── OVERVIEW TAB ────────────────────────────────────────────────────────
+function _v2RenderOverview(host, st, H){
+  // Compute health score for selected scope
+  var deptFilter=st.dept;
+  var krs=Object.values(H.nodes).filter(function(n){
+    if(n.type!=='KeyResult')return false;
+    if(deptFilter!=='All' && n.dept!==deptFilter)return false;
+    return true;
+  });
+  var objs=Object.values(H.nodes).filter(function(n){
+    if(deptFilter==='All') return n.type==='CompanyObjective'||n.type==='DepartmentObjective';
+    return n.type==='DepartmentObjective' && n.dept===deptFilter;
+  });
+
+  var forecasts=krs.map(function(kr){return _v2Forecast(kr, st.quarter);});
+  var onTrack=forecasts.filter(function(f){return f.band==='ok';}).length;
+  var behind=forecasts.filter(function(f){return f.band==='warn';}).length;
+  var atRisk=forecasts.filter(function(f){return f.band==='risk';}).length;
+  var avgProgress=krs.length?Math.round(krs.reduce(function(s,k){return s+(k.progressPct||0);},0)/krs.length):0;
+
+  var overallBand=atRisk>0?'risk':(behind>onTrack?'warn':'ok');
+  var forecastSentence;
+  if(krs.length===0){
+    forecastSentence='No Key Results in this scope yet.';
+  }else if(atRisk>0){
+    forecastSentence='Likely to miss quarterly target — '+atRisk+' KR'+(atRisk===1?'':'s')+' at risk based on current velocity and confidence flags.';
+  }else if(behind>onTrack){
+    forecastSentence='Trending behind plan — most KRs are not pacing to hit target on current velocity.';
+  }else{
+    forecastSentence='On pace to hit quarterly target across the scope.';
+  }
+
+  // === Health Card ===
+  var hc=document.createElement('div');hc.className='v2-health-card health-'+overallBand;
+  hc.innerHTML=
+    '<div class="v2-section-label">'+esc(st.dept==='All'?'COMPANY':st.dept.toUpperCase())+' · DEPARTMENT HEALTH</div>'+
+    '<div class="v2-health-row">'+
+      '<div class="v2-health-dot"></div>'+
+      '<div class="v2-health-pct">'+avgProgress+'%</div>'+
+      '<div class="v2-health-label">'+_v2BandLabel(overallBand)+'</div>'+
+    '</div>'+
+    '<div class="v2-forecast">Forecast: <strong>'+esc(forecastSentence)+'</strong>'+_thi('Computed from current progress, time elapsed in the quarter, and confidence flags. Updates as KR progress changes.')+'</div>'+
+    '<div class="v2-health-counts">'+
+      '<span class="v2-count">'+objs.length+' objective'+(objs.length===1?'':'s')+'</span>'+
+      '<span class="v2-count">'+atRisk+' at risk</span>'+
+      '<span class="v2-count">'+_v2BlockedCount(st)+' blocked items</span>'+
+    '</div>';
+  host.appendChild(hc);
+
+  // === Attention Center ===
+  var items=_v2BuildAttention(st, H);
+  var ac=document.createElement('div');ac.className='v2-attention';
+  var maxVisible=5;
+  var visible=items.slice(0, maxVisible);
+  var hidden=items.length-visible.length;
+  ac.innerHTML=
+    '<div class="v2-attention-h">'+
+      '<span class="v2-attention-icon">⚠</span>'+
+      '<span class="v2-attention-title">Attention Center</span>'+
+      '<span class="v2-attention-count">'+items.length+'</span>'+
+    '</div>';
+  if(items.length===0){
+    var empty=document.createElement('div');empty.className='v2-attention-empty';
+    empty.textContent='○ All clear — no items need attention.';
+    ac.appendChild(empty);
+  }else{
+    var list=document.createElement('div');list.className='v2-attention-list';
+    visible.forEach(function(it){
+      var row=document.createElement('div');row.className='v2-attention-row sev-'+it.sev;
+      row.innerHTML=
+        '<div class="v2-attention-bullet"></div>'+
+        '<div class="v2-attention-body">'+
+          '<div class="v2-attention-title-row">'+esc(truncate(it.title,68))+'</div>'+
+          '<div class="v2-attention-meta">'+esc(it.body)+' · '+esc(it.owner)+'</div>'+
+        '</div>'+
+        '<div class="v2-attention-actions">'+
+          '<button class="v2-btn v2-btn-ghost" data-action="snooze" data-id="'+esc(it.id)+'">Snooze</button>'+
+          '<button class="v2-btn" data-action="open" data-id="'+esc(it.id)+'" data-node="'+esc(it.nodeId||'')+'">'+_v2ActionLabel(it.action)+'</button>'+
+        '</div>';
+      list.appendChild(row);
+    });
+    ac.appendChild(list);
+    if(hidden>0){
+      var more=document.createElement('div');more.className='v2-attention-more';
+      more.textContent='+ '+hidden+' more item'+(hidden===1?'':'s');
+      ac.appendChild(more);
+    }
+    // Wire actions
+    list.addEventListener('click', function(e){
+      var btn=e.target.closest('button');if(!btn)return;
+      var action=btn.getAttribute('data-action');
+      var id=btn.getAttribute('data-id');
+      if(action==='snooze'){
+        var snoozed=_v2State().snoozed;
+        snoozed[id]=Date.now()+7*86400000;
+        _v2SetState({snoozed:snoozed});
+        NS.renderStrategy();
+      }else if(action==='open'){
+        var nodeId=btn.getAttribute('data-node');
+        if(nodeId){
+          _v2SetState({tab:'objectives', expanded:Object.assign({}, _v2State().expanded, _v2BuildAncestorExpand(nodeId, H))});
+          NS.renderStrategy();
+        }
+      }
+    });
+  }
+  host.appendChild(ac);
+
+  // === Optional contribution breakdown (collapsed) ===
+  if(st.dept==='All' || items.length===0){
+    var cb=document.createElement('div');cb.className='v2-collapsible';
+    var cbBtn=document.createElement('button');cbBtn.className='v2-collapse-btn';
+    cbBtn.textContent=(st.heatmapOpen?'▾':'▸')+' Show contribution breakdown';
+    cbBtn.onclick=function(){_v2SetState({heatmapOpen:!st.heatmapOpen});NS.renderStrategy();};
+    cb.appendChild(cbBtn);
+    host.appendChild(cb);
+    if(st.heatmapOpen){
+      var hm=_v2BuildHeatmap(H, st);
+      host.appendChild(hm);
+    }
+  }
+}
+
+function _v2BlockedCount(st){
+  var c=0;
+  DEPTS.forEach(function(d){
+    if(st.dept!=='All' && d!==st.dept)return;
+    (data[d]||[]).forEach(function(t){if(t.status==='Blocked')c++;});
+  });
+  return c;
+}
+
+function _v2BandLabel(b){return b==='ok'?'on track':b==='warn'?'trending behind':'at risk';}
+function _v2ActionLabel(a){return ({plan:'Plan execution', assign:'Assign owner', link:'Link to Company', review:'Review KR', define:'Define metric'})[a]||'Open';}
+
+function _v2BuildAncestorExpand(nodeId, H){
+  // Build the set of nodes to mark expanded so that the cascade shows nodeId
+  var out={};
+  var cur=nodeId;
+  var safety=10;
+  while(cur && safety-->0){
+    out[cur]=true;
+    var p=H.edges.filter(function(e){return e.c===cur;}).map(function(e){return e.p;})[0];
+    cur=p;
+  }
+  return out;
+}
+
+function _v2BuildHeatmap(H, st){
+  var c=document.createElement('div');c.className='v2-heatmap';
+  var cos=Object.values(H.nodes).filter(function(n){return n.type==='CompanyObjective';});
+  var depts=['Operations','Engineering','Finance','Sales','Management'];
+  // Header row
+  var hRow=document.createElement('div');hRow.className='v2-hm-row';
+  hRow.appendChild(_v2HmCell('','v2-hm-corner'));
+  cos.forEach(function(co){hRow.appendChild(_v2HmCell('<div class="v2-hm-coh">'+esc(truncate(co.title,32))+'</div>','v2-hm-coh-cell'));});
+  c.appendChild(hRow);
+  depts.forEach(function(d){
+    var row=document.createElement('div');row.className='v2-hm-row';
+    row.appendChild(_v2HmCell('<div class="v2-hm-deph">'+d+'</div>','v2-hm-deph-cell'));
+    cos.forEach(function(co){
+      var deptDOs=Object.values(H.nodes).filter(function(n){return n.type==='DepartmentObjective' && n.dept===d;});
+      var linkedDOs=deptDOs.filter(function(doN){return H.edges.some(function(e){return e.c===doN.id && e.p===co.id;});});
+      var krs=linkedDOs.reduce(function(acc,doN){return acc.concat(H.edges.filter(function(e){return e.p===doN.id;}).map(function(e){return H.nodes[e.c];}).filter(function(n){return n && n.type==='KeyResult';}));},[]);
+      var avg=krs.length?Math.round(krs.reduce(function(s,k){return s+(k.progressPct||0);},0)/krs.length):null;
+      var band=avg==null?'empty':_v2HealthBand(avg, st.quarter);
+      var cell=document.createElement('div');cell.className='v2-hm-cell '+band;
+      if(linkedDOs.length===0){cell.innerHTML='<span class="v2-hm-empty">—</span>';}
+      else{cell.innerHTML='<div class="v2-hm-cell-v">'+krs.length+' KR'+(krs.length===1?'':'s')+'</div><div class="v2-hm-cell-p">'+avg+'%</div>';}
+      row.appendChild(cell);
+    });
+    c.appendChild(row);
+  });
+  return c;
+}
+function _v2HmCell(html, cls){var d=document.createElement('div');d.className=(cls||'')+' v2-hm-cell-base';d.innerHTML=html;return d;}
+function _v2HealthBand(p, q){return p>=80?'ok':p>=50?'warn':'risk';}
+
+// ── OBJECTIVES TAB — strategy tree, all collapsed ───────────────────────
+function _v2RenderObjectives(host, st, H){
+  var deptFilter=st.dept;
+  // Roots: Company Objectives, optionally filtered to those that have descendants in dept
+  var cos=Object.values(H.nodes).filter(function(n){return n.type==='CompanyObjective';});
+  if(deptFilter!=='All'){
+    cos=cos.filter(function(co){
+      return Object.values(H.nodes).some(function(n){return n.type==='DepartmentObjective' && n.dept===deptFilter && H.edges.some(function(e){return e.p===co.id && e.c===n.id;});});
+    });
+  }
+  // Also surface unaligned DOs in the chosen dept
+  var unalignedDOs=[];
+  if(deptFilter!=='All'){
+    unalignedDOs=Object.values(H.nodes).filter(function(n){
+      if(n.type!=='DepartmentObjective' || n.dept!==deptFilter)return false;
+      return H.edges.filter(function(e){return e.c===n.id;}).length===0;
+    });
+  }
+  var krCount=Object.values(H.nodes).filter(function(n){
+    if(n.type!=='KeyResult')return false;
+    if(deptFilter!=='All' && n.dept!==deptFilter)return false;
+    return true;
+  }).length;
+
+  var meta=document.createElement('div');meta.className='v2-objs-meta';
+  meta.innerHTML='<span>'+cos.length+' objective'+(cos.length===1?'':'s')+' · '+krCount+' key results</span>';
+  host.appendChild(meta);
+
+  if(cos.length===0 && unalignedDOs.length===0){
+    var empty=document.createElement('div');empty.className='v2-empty';
+    empty.textContent='No objectives in this scope. Use OKR Tracker to add one.';
+    host.appendChild(empty);
+    return;
+  }
+
+  cos.forEach(function(co){host.appendChild(_v2RenderTreeNode(co, H, st, 0, deptFilter));});
+
+  if(unalignedDOs.length){
+    var ua=document.createElement('div');ua.className='v2-section-label';ua.style.cssText='margin-top:24px';
+    ua.textContent='UNALIGNED DEPARTMENT OBJECTIVES';
+    host.appendChild(ua);
+    unalignedDOs.forEach(function(doN){host.appendChild(_v2RenderTreeNode(doN, H, st, 0, deptFilter));});
+  }
+}
+
+function _v2RenderTreeNode(node, H, st, depth, deptFilter){
+  var children=H.edges.filter(function(e){return e.p===node.id;}).map(function(e){return H.nodes[e.c];}).filter(Boolean);
+  if(deptFilter!=='All' && node.type==='CompanyObjective'){
+    children=children.filter(function(c){
+      if(c.type==='KeyResult') return c.dept===deptFilter;
+      if(c.type==='DepartmentObjective') return c.dept===deptFilter;
+      return true;
+    });
+  }
+  var expanded=!!st.expanded[node.id];
+  var band=_v2NodeHealth(node, st.quarter);
+
+  var row=document.createElement('div');row.className='v2-tree-node depth-'+depth;
+  var head=document.createElement('div');head.className='v2-tree-head';
+  head.innerHTML=
+    '<button class="v2-caret">'+(children.length?(expanded?'▾':'▸'):'•')+'</button>'+
+    '<span class="v2-dot dot-'+band+'"></span>'+
+    '<div class="v2-tree-title">'+esc(node.title)+'</div>'+
+    '<div class="v2-tree-meta">'+
+      '<span class="v2-tree-id">'+node.id+'</span>'+
+      '<span class="v2-tree-owner">'+esc(node.ownerName||node.ownerEmail||'unassigned')+'</span>'+
+      '<span class="v2-tree-pct">'+(node.progressPct||0)+'%</span>'+
+      '<span class="v2-tree-status status-'+band+'">'+_v2BandLabel(band)+'</span>'+
+    '</div>';
+  head.onclick=function(){
+    if(!children.length)return;
+    var exp=_v2State().expanded;
+    exp[node.id]=!exp[node.id];
+    _v2SetState({expanded:exp});
+    NS.renderStrategy();
+  };
+  row.appendChild(head);
+
+  if(expanded && children.length){
+    var kids=document.createElement('div');kids.className='v2-tree-kids';
+    // For KR rows, show metric line if available
+    children.forEach(function(c){kids.appendChild(_v2RenderTreeNode(c, H, st, depth+1, deptFilter));});
+    row.appendChild(kids);
+  }
+  return row;
+}
+
+function _v2NodeHealth(node, quarter){
+  if(node.type==='Task')return 'neutral';
+  if(node.confidence==='Off Track' || node.confidence==='At Risk') return 'risk';
+  if(node.type==='KeyResult'){
+    var f=_v2Forecast(node, quarter);
+    return f.band;
+  }
+  // Roll-up for non-KR
+  var p=node.progressPct||0;
+  if(p>=80) return 'ok';
+  if(p>=50) return 'warn';
+  return 'risk';
+}
+
+// ── EXECUTION TAB ───────────────────────────────────────────────────────
+function _v2RenderExecution(host, st, H){
+  var deptFilter=st.dept;
+  var allTasks=[];
+  DEPTS.forEach(function(d){
+    if(deptFilter!=='All' && d!==deptFilter)return;
+    (data[d]||[]).forEach(function(t){
+      if(t.status==='Done')return;
+      allTasks.push(Object.assign({}, t, {dept:d}));
+    });
+  });
+
+  var now=Date.now();
+  var weekFromNow=now+7*86400000;
+  var thisWeek=allTasks.filter(function(t){if(!t.due)return false;return new Date(t.due).getTime()<=weekFromNow;}).sort(function(a,b){return new Date(a.due)-new Date(b.due);});
+  var blocked=allTasks.filter(function(t){return t.status==='Blocked';});
+  var stalled=allTasks.filter(function(t){if(t.status==='Blocked')return false;if(!t.lastUpdated)return false;return (now-new Date(t.lastUpdated).getTime())/86400000>14;});
+
+  var meta=document.createElement('div');meta.className='v2-objs-meta';
+  meta.innerHTML='<span>'+blocked.length+' blocked · '+stalled.length+' stalled · '+thisWeek.length+' due this week</span>';
+  host.appendChild(meta);
+
+  _v2RenderTaskSection(host, 'THIS WEEK', thisWeek, false);
+  _v2RenderTaskSection(host, 'BLOCKED', blocked, blocked.length===0);
+  _v2RenderTaskSection(host, 'STALLED', stalled, true);
+}
+function _v2RenderTaskSection(host, label, list, collapsedDefault){
+  if(!list.length)return;
+  var st=_v2State();
+  var key='exec::'+label;
+  var open=st.expanded[key];
+  if(open===undefined) open=!collapsedDefault;
+
+  var sec=document.createElement('div');sec.className='v2-exec-sec';
+  var hdr=document.createElement('div');hdr.className='v2-exec-hdr';
+  hdr.innerHTML='<button class="v2-caret">'+(open?'▾':'▸')+'</button><div class="v2-exec-label">'+label+'</div><div class="v2-exec-count">'+list.length+'</div>';
+  hdr.onclick=function(){var exp=_v2State().expanded;exp[key]=!open;_v2SetState({expanded:exp});NS.renderStrategy();};
+  sec.appendChild(hdr);
+  if(open){
+    list.forEach(function(t){
+      var row=document.createElement('div');row.className='v2-exec-row';
+      var due=t.due?new Date(t.due):null;
+      var dueText='';
+      if(due){
+        var d=Math.round((due-Date.now())/86400000);
+        if(d<0)dueText=Math.abs(d)+'d overdue';
+        else if(d===0)dueText='due today';
+        else if(d===1)dueText='due tomorrow';
+        else dueText='due '+d+'d';
+      }
+      var dotBand=t.status==='Blocked'?'risk':(t.priority==='Critical'?'warn':'neutral');
+      row.innerHTML=
+        '<span class="v2-dot dot-'+dotBand+'"></span>'+
+        '<span class="v2-tree-id">'+t.id+'</span>'+
+        '<div class="v2-tree-title">'+esc(t.name)+'</div>'+
+        '<span class="v2-tree-owner">'+esc(t.assignee||'unassigned')+'</span>'+
+        '<span class="v2-tree-pct">'+(t.progress||0)+'%</span>'+
+        '<span class="v2-tree-status">'+esc(dueText||t.status)+'</span>';
+      row.onclick=function(){go(t.dept);};
+      sec.appendChild(row);
+    });
+  }
+  host.appendChild(sec);
+}
+
+// ── PEOPLE TAB ──────────────────────────────────────────────────────────
+function _v2RenderPeople(host, st, H){
+  var deptFilter=st.dept;
+  var members=Object.keys(USER_REGISTRY||{}).filter(function(em){
+    if(deptFilter==='All')return true;
+    return USER_REGISTRY[em].dept===deptFilter;
+  });
+
+  var meta=document.createElement('div');meta.className='v2-objs-meta';
+  meta.innerHTML='<span>'+members.length+' '+(deptFilter==='All'?'people':'in '+deptFilter)+'</span>';
+  host.appendChild(meta);
+
+  members.forEach(function(em){
+    var u=USER_REGISTRY[em];
+    var ios=Object.values(H.nodes).filter(function(n){return n.type==='IndividualObjective' && ((n.ownerEmail||'')===em||(n.ownerName||'')===u.name);});
+    var krs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult' && ((n.ownerEmail||'')===em||(n.ownerName||'')===u.name);});
+    var weekTasks=DEPTS.reduce(function(acc,d){return acc.concat((data[d]||[]).filter(function(t){
+      var a=(t.assignee||'').trim();
+      if(a!==u.name && a!==em && (u.name && a!==u.name.split(' ')[0]))return false;
+      if(t.status==='Done')return false;
+      if(!t.due)return false;
+      var d2=new Date(t.due);return d2.getTime()<=Date.now()+7*86400000;
+    }));},[]);
+
+    var card=document.createElement('div');card.className='v2-person-card';
+    var initials=(u.name||'?').split(' ').map(function(p){return p[0];}).join('').slice(0,2).toUpperCase();
+    var inner='<div class="v2-person-head">'+
+      '<div class="v2-avatar">'+initials+'</div>'+
+      '<div class="v2-person-name"><strong>'+esc(u.name)+'</strong><div class="v2-person-role">'+esc(u.role||'')+'</div></div>'+
+      '<div class="v2-person-counts">'+krs.length+' KR'+(krs.length===1?'':'s')+' · '+ios.length+' IO'+(ios.length===1?'':'s')+'</div>'+
+      '</div>';
+
+    if(ios.length){
+      inner+='<div class="v2-person-section"><div class="v2-section-label" style="margin-bottom:6px">PERSONAL COMMITMENT</div>';
+      ios.forEach(function(io){
+        var ioKRs=H.edges.filter(function(e){return e.p===io.id;}).map(function(e){return H.nodes[e.c];}).filter(function(n){return n && n.type==='KeyResult';});
+        inner+='<div class="v2-person-io"><span class="v2-dot dot-'+_v2NodeHealth(io, st.quarter)+'"></span>'+esc(io.title)+' <span class="v2-tree-pct">'+(io.progressPct||0)+'%</span></div>';
+      });
+      inner+='</div>';
+    }
+
+    if(krs.length){
+      inner+='<div class="v2-person-section"><div class="v2-section-label" style="margin-bottom:6px">OWNS</div>';
+      krs.forEach(function(kr){
+        var band=_v2NodeHealth(kr, st.quarter);
+        inner+='<div class="v2-person-kr"><span class="v2-dot dot-'+band+'"></span><span class="v2-tree-id">'+kr.id+'</span> '+esc(truncate(kr.title,52))+' <span class="v2-tree-pct">'+(kr.progressPct||0)+'%</span></div>';
+      });
+      inner+='</div>';
+    }
+
+    inner+='<div class="v2-person-footline">Tasks this week: '+weekTasks.length+'</div>';
+    inner+='<div class="v2-person-acts"><button class="v2-btn" onclick="STRAT.openIndividualOKRModal(\''+esc(em)+'\')">+ Set Individual OKR</button></div>';
+    card.innerHTML=inner;
+    host.appendChild(card);
+  });
+}
+
 
 NS._renderCascadeMode=function(){
   var main=document.getElementById('main');
