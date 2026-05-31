@@ -3738,7 +3738,7 @@ NS._renderV2 = function(){
   var tabBar=document.createElement('div');tabBar.className='v2-tabs';
   ['overview','objectives','execution','people'].forEach(function(t){
     var b=document.createElement('button');b.className='v2-tab'+(t===st.tab?' active':'');
-    b.textContent={overview:'Overview',objectives:'Objectives',execution:'Execution',people:'People'}[t];
+    b.textContent={overview:'Overview',objectives:'Objectives',execution:'Tasks',people:'People'}[t];
     b.onclick=function(){_v2SetState({tab:t});NS.renderStrategy();};
     tabBar.appendChild(b);
   });
