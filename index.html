@@ -956,6 +956,175 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .tm-notes-area:focus{border-color:var(--acc)}
 .tm-notes-area::placeholder{color:var(--mut)}
 
+/* ════════════════════════════════════════════════════════════════════ */
+/* ROADMAPS — Phase 1+2+5                                                */
+/* ════════════════════════════════════════════════════════════════════ */
+.rm-wrap{max-width:1100px;margin:0 auto;padding:32px 24px 60px;font-family:inherit}
+.rm-hdr{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.rm-title{font-size:24px;font-weight:700;letter-spacing:-.3px;color:var(--txt);line-height:1;margin-right:auto}
+.rm-new-btn{background:#10b981;color:#fff;border:none;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(16,185,129,.32);transition:transform .12s,box-shadow .12s,background .12s}
+.rm-new-btn:hover{background:#0f9e6f;transform:translateY(-1px);box-shadow:0 6px 20px rgba(16,185,129,.42)}
+.rm-new-theme-btn{background:transparent;color:var(--mut);border:1px solid var(--brd);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:color .12s,border-color .12s}
+.rm-new-theme-btn:hover{color:var(--txt);border-color:var(--mut)}
+.rm-strip{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;margin-bottom:18px;font-size:12px;color:var(--mut);font-family:Roboto Mono,monospace;flex-wrap:wrap}
+.rm-strip-item strong{color:var(--txt);font-weight:600}
+.rm-strip-sep{color:var(--mut);opacity:.5}
+.rm-strip-risk strong{color:#ef4444}
+.rm-strip-ok strong{color:#10b981}
+.rm-tabs{display:flex;gap:2px;border-bottom:1px solid var(--brd);margin-bottom:24px}
+.rm-tab{background:none;border:none;padding:10px 16px;font-size:13px;color:var(--mut);cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;font-weight:500;transition:color .12s,border-color .12s;margin-bottom:-1px}
+.rm-tab:hover{color:var(--txt)}
+.rm-tab.active{color:var(--txt);border-bottom-color:var(--txt);font-weight:600}
+.rm-content{display:flex;flex-direction:column;gap:14px}
+.rm-section-label{font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:1.2px;margin-bottom:8px;text-transform:uppercase}
+.rm-section-hint{font-size:9px;color:var(--mut);font-weight:400;letter-spacing:.3px;text-transform:none;margin-left:4px}
+
+/* Health dot */
+.rm-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block}
+.rm-dot.dot-ok{background:#10b981}
+.rm-dot.dot-warn{background:#f59e0b}
+.rm-dot.dot-risk{background:#ef4444}
+
+/* Themes */
+.rm-theme{margin-bottom:14px}
+.rm-theme-h{display:flex;align-items:center;gap:10px;padding:8px 6px;cursor:pointer;user-select:none}
+.rm-theme-h:hover{background:var(--surf2);border-radius:6px}
+.rm-caret{background:none;border:none;color:var(--mut);font-size:11px;cursor:pointer;width:16px;font-family:inherit;padding:0}
+.rm-theme-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.rm-theme-label{font-size:12px;font-weight:700;letter-spacing:1px;color:var(--txt);font-family:Roboto Mono,monospace}
+.rm-theme-count{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-left:auto;margin-right:6px}
+.rm-theme-edit{background:none;border:none;color:var(--mut);cursor:pointer;font-size:12px;padding:2px 6px;border-radius:4px}
+.rm-theme-edit:hover{color:var(--txt);background:var(--surf2)}
+
+/* Horizon buckets */
+.rm-horizon{margin-bottom:14px;padding-left:24px}
+.rm-horizon-label{font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:1.2px;margin-bottom:8px}
+.rm-horizon-count{margin-left:6px;font-weight:500}
+.rm-feature-list{display:flex;flex-direction:column;gap:8px}
+
+/* Feature card */
+.rm-feature-card{background:var(--surf);border:1px solid var(--brd);border-left:3px solid var(--mut);border-radius:8px;padding:12px 14px;cursor:pointer;transition:border-color .12s,background .12s}
+.rm-feature-card:hover{border-color:var(--mut);background:var(--surf2)}
+.rm-feature-card.health-ok{border-left-color:#10b981}
+.rm-feature-card.health-warn{border-left-color:#f59e0b}
+.rm-feature-card.health-risk{border-left-color:#ef4444}
+.rm-feat-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.rm-feat-title{flex:1;font-size:13px;font-weight:600;color:var(--txt);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rm-feat-id{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace}
+.rm-feat-meta{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace}
+.rm-feat-meta strong{color:var(--txt);font-weight:600}
+.rm-feat-status{color:var(--acc)}
+.rm-feat-kr{margin-top:6px;font-size:11px;color:var(--acc);font-family:Roboto Mono,monospace;background:rgba(108,99,255,.08);padding:3px 8px;border-radius:5px;display:inline-block}
+.rm-feat-risk{margin-top:6px;font-size:11px;color:#f59e0b;font-family:Roboto Mono,monospace}
+
+.rm-empty{font-size:13px;color:var(--mut);padding:36px 24px;text-align:center;background:var(--surf);border:1px dashed var(--brd);border-radius:10px;line-height:1.6}
+.rm-empty-ic{font-size:32px;margin-bottom:8px}
+.rm-empty-inline{font-size:12px;color:var(--mut);font-style:italic;padding:8px 0}
+
+/* Timeline */
+.rm-timeline{background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow-x:auto}
+.rm-tl-row{display:grid;grid-template-columns:220px repeat(6, minmax(120px, 1fr));border-bottom:1px solid var(--brd);min-height:42px;align-items:stretch}
+.rm-tl-row:last-child{border-bottom:none}
+.rm-tl-row.rm-tl-head{background:var(--surf2);font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:1px}
+.rm-tl-row.rm-tl-theme{background:var(--surf2)}
+.rm-tl-name{padding:10px 12px;display:flex;align-items:center;gap:8px;border-right:1px solid var(--brd);font-size:12px;color:var(--txt)}
+.rm-tl-feat-name{padding-left:24px;font-size:11px;color:var(--mut)}
+.rm-tl-q{padding:10px 8px;text-align:center;border-right:1px solid var(--brd);font-size:10px}
+.rm-tl-cell{padding:8px;border-right:1px solid var(--brd);display:flex;align-items:center;min-height:32px}
+.rm-tl-cell:last-child{border-right:none}
+.rm-tl-bar{flex:1;display:flex;justify-content:space-between;align-items:center;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;transition:filter .12s}
+.rm-tl-bar:hover{filter:brightness(1.15)}
+.rm-tl-bar.band-ok{background:rgba(16,185,129,.18);color:#10b981}
+.rm-tl-bar.band-warn{background:rgba(245,158,11,.18);color:#f59e0b}
+.rm-tl-bar.band-risk{background:rgba(239,68,68,.18);color:#ef4444}
+.rm-tl-bar-title{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:6px}
+.rm-tl-bar-pct{font-family:Roboto Mono,monospace;font-weight:700;flex-shrink:0}
+
+/* Feature drawer */
+.rm-drawer-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9900;display:flex;align-items:stretch;justify-content:flex-end}
+.rm-drawer{width:560px;max-width:96vw;background:var(--surf);border-left:1px solid var(--brd);padding:24px 28px;overflow-y:auto;box-shadow:-8px 0 32px rgba(0,0,0,.45);position:relative}
+.rm-drawer-close{position:absolute;top:14px;right:18px;background:var(--surf2);border:1px solid var(--brd);color:var(--mut);width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.rm-drawer-close:hover{color:var(--txt)}
+.rm-drawer-h{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-right:40px}
+.rm-drawer-title{font-size:18px;font-weight:700;color:var(--txt);line-height:1.3}
+.rm-drawer-sub{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px}
+.rm-drawer-status{display:flex;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--brd);border-bottom:1px solid var(--brd);margin-bottom:18px;flex-wrap:wrap}
+.rm-pill{font-size:10px;padding:3px 8px;border-radius:10px;background:var(--surf2);color:var(--mut);font-family:Roboto Mono,monospace;font-weight:600}
+.rm-pill-prog{background:var(--acc);color:#fff}
+.rm-linked{background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.2);border-radius:8px;padding:12px 14px;margin-bottom:18px}
+.rm-linked-line{font-size:13px;color:var(--txt);margin-bottom:4px}
+.rm-linked-line strong{color:var(--acc);font-family:Roboto Mono,monospace;margin-right:4px}
+.rm-linked-sub{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace}
+.rm-drawer-form{display:grid;grid-template-columns:120px 1fr;gap:10px 12px;align-items:center;margin-bottom:20px}
+.rm-drawer-form label{font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.6px}
+.rm-field{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;padding:8px 10px;font-size:12px;font-family:inherit;outline:none}
+.rm-field:focus{border-color:var(--acc)}
+.rm-field-small{max-width:70px}
+.rm-hint{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-left:6px}
+
+.rm-block{margin-bottom:18px}
+.rm-textarea{width:100%;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:8px;padding:10px 12px;font-size:12px;font-family:inherit;outline:none;min-height:80px;resize:vertical;box-sizing:border-box}
+.rm-textarea:focus{border-color:var(--acc)}
+
+/* Initiatives list inside drawer */
+.rm-init-row{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surf2);border-radius:6px;margin-bottom:4px;font-size:11px}
+.rm-init-id{color:var(--acc);font-family:Roboto Mono,monospace;font-weight:600;flex-shrink:0;min-width:80px}
+.rm-init-title{flex:1;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.rm-init-prog{font-family:Roboto Mono,monospace;color:var(--mut);min-width:36px;text-align:right}
+.rm-init-del{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0 4px}
+
+/* Risks list */
+.rm-risk-row{display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(245,158,11,.08);border-radius:6px;margin-bottom:4px;font-size:11px}
+.rm-risk-icon{color:#f59e0b}
+.rm-risk-txt{flex:1;color:var(--txt)}
+.rm-risk-del{background:none;border:none;color:var(--mut);cursor:pointer;font-size:14px}
+.rm-risk-add{display:flex;gap:6px;margin-top:8px}
+.rm-risk-add input{flex:1;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none}
+
+.rm-drawer-foot{display:flex;gap:10px;justify-content:flex-end;padding-top:14px;border-top:1px solid var(--brd)}
+.rm-btn{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);padding:8px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .12s,border-color .12s}
+.rm-btn:hover{background:var(--surf);border-color:var(--mut)}
+.rm-btn-primary{background:var(--acc);color:#fff;border-color:var(--acc)}
+.rm-btn-primary:hover{filter:brightness(1.15);color:#fff;background:var(--acc)}
+.rm-btn-danger{background:transparent;color:#ef4444;border-color:rgba(239,68,68,.4)}
+.rm-btn-danger:hover{background:rgba(239,68,68,.08);border-color:#ef4444}
+
+/* New feature / theme modal */
+.rm-new-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9950;display:flex;align-items:center;justify-content:center;padding:24px}
+.rm-new-box{background:var(--surf);border:1px solid var(--brd);border-radius:14px;width:100%;max-width:560px;padding:28px 32px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.rm-new-close{position:absolute;top:14px;right:18px;background:var(--surf2);border:1px solid var(--brd);color:var(--mut);width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.rm-new-h{font-size:18px;font-weight:700;color:var(--txt);margin-bottom:6px;padding-right:32px}
+.rm-new-sub{font-size:12px;color:var(--mut);margin-bottom:18px;line-height:1.5}
+.rm-new-name{width:100%;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:10px;padding:12px 14px;font-size:14px;font-family:inherit;outline:none;margin-bottom:14px;box-sizing:border-box}
+.rm-new-name:focus{border-color:var(--acc)}
+.rm-new-row{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center;margin-bottom:10px}
+.rm-new-row label{font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.6px}
+.rm-new-row select,.rm-new-row input{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;padding:8px 10px;font-size:12px;font-family:inherit;outline:none}
+.rm-new-foot{display:flex;gap:10px;justify-content:flex-end;padding-top:16px;border-top:1px solid var(--brd);margin-top:16px}
+
+/* Color swatch picker */
+.rm-color-row{display:flex;gap:6px;align-items:center}
+.rm-color-swatch{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.rm-color-swatch.active{border-color:var(--txt);transform:scale(1.15)}
+
+/* Initiative picker mini-modal */
+.rm-init-picker-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px}
+.rm-init-picker{background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:14px;width:100%;max-width:480px;max-height:70vh;display:flex;flex-direction:column;gap:10px}
+.rm-init-search{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none}
+.rm-init-list-wrap{overflow-y:auto;flex:1}
+.rm-init-pick-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px}
+.rm-init-pick-row:hover{background:var(--surf2)}
+.rm-init-pick-title{flex:1;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+@media (max-width:720px){
+  .rm-wrap{padding:18px 14px 40px}
+  .rm-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .rm-tab{white-space:nowrap;flex-shrink:0}
+  .rm-tl-row{grid-template-columns:180px repeat(6, minmax(100px, 1fr))}
+  .rm-drawer{width:100%;padding:18px}
+  .rm-drawer-form,.rm-new-row{grid-template-columns:1fr}
+}
+
 </style>
 </head>
 <body>
@@ -979,6 +1148,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-strategy" onclick="go('strategy')"><div class="ni-l"><div class="dd" style="background:linear-gradient(45deg,var(--acc),var(--grn))"></div>Strategy</div></div>
     <div class="ni" id="nav-okr" onclick="go('okr')"><div class="ni-l"><div class="dd" style="background:var(--acc2)"></div>OKR Tracker</div></div>
     <div class="ni" id="nav-tasks" onclick="go('tasks')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#6c63ff)"></div>Tasks</div><div class="cnt" id="c-tasks"></div></div>
+    <div class="ni" id="nav-roadmaps" onclick="go('roadmaps')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f59e0b,#ec4899)"></div>Roadmaps</div></div>
     <div style="flex:1"></div>
     <!-- Legacy dept tabs (hidden, routes still work) -->
     <div class="ni" id="nav-Management" onclick="go('Management')" style="display:none"></div>
@@ -1553,6 +1723,7 @@ function renderAdmin(){
 }
 function render(){
   if(view==='tasks')renderTasksV2();
+  else if(view==='roadmaps')renderRoadmaps();
   else if(view==='dashboard')renderDash();
   else if(view==='log')renderLog();
   else if(view==='reminders')renderReminders();
@@ -6986,6 +7157,584 @@ function tmOpenDrawer(t, dept){
     }
   });
 })();
+
+
+// ════════════════════════════════════════════════════════════════════════
+// ROADMAPS MODULE — Phase 1+2+5 per ROADMAPS_DESIGN.md
+// 3 tabs: Now/Next/Later (default) · Timeline · Releases (stub)
+// Theme → Feature → Initiative (existing) → Task (existing)
+// ════════════════════════════════════════════════════════════════════════
+
+var RM_STATUSES=['Discovery','Planned','In Progress','Validation','Ready For Release','Released'];
+var RM_HORIZONS=['Now','Next','Later','Idea'];
+var RM_CONFIDENCE=['High','Medium','Low'];
+var RM_QUARTERS=['Q1 2026','Q2 2026','Q3 2026','Q4 2026','Q1 2027','Q2 2027'];
+
+function rmLoadThemes(){try{return JSON.parse(localStorage.getItem('rl_rm_themes_v1')||'{}');}catch(e){return{};}}
+function rmSaveThemes(t){localStorage.setItem('rl_rm_themes_v1',JSON.stringify(t));}
+function rmLoadFeatures(){try{return JSON.parse(localStorage.getItem('rl_rm_features_v1')||'{}');}catch(e){return{};}}
+function rmSaveFeatures(f){localStorage.setItem('rl_rm_features_v1',JSON.stringify(f));}
+function rmLoadUI(){try{return JSON.parse(localStorage.getItem('rl_rm_ui_v1')||'{}');}catch(e){return{};}}
+function rmSaveUI(u){localStorage.setItem('rl_rm_ui_v1',JSON.stringify(u));}
+function rmState(){var s=rmLoadUI();return{tab:s.tab||'nnl', expandedThemes:s.expandedThemes||{}};}
+function rmSetState(patch){var s=rmLoadUI();Object.keys(patch).forEach(function(k){s[k]=patch[k];});rmSaveUI(s);}
+
+// ── Seed default themes on first load (one-time) ───────────────────────
+function rmSeedIfEmpty(){
+  if(localStorage.getItem('rl_rm_seeded_v1'))return;
+  if(Object.keys(rmLoadThemes()).length>0){localStorage.setItem('rl_rm_seeded_v1','1');return;}
+  var themes={
+    'T-CX':{id:'T-CX',title:'Improve Customer Experience',description:'Reduce time-to-value and friction across the Swype B2B journey.',ownerEmail:'',color:'#6c63ff',order:0,createdAt:new Date().toISOString()},
+    'T-REL':{id:'T-REL',title:'Platform Reliability',description:'Reduce incidents and unplanned downtime across services.',ownerEmail:'',color:'#10b981',order:1,createdAt:new Date().toISOString()},
+    'T-COMP':{id:'T-COMP',title:'Compliance & Risk',description:'Meet regulatory commitments and reduce transactional risk.',ownerEmail:'',color:'#f59e0b',order:2,createdAt:new Date().toISOString()}
+  };
+  var features={
+    'F-001':{id:'F-001',themeId:'T-CX',title:'Faster card creation',description:'Reduce issuance time from 8 min to under 2 min.',status:'In Progress',horizon:'Now',targetQuarter:'Q3 2026',releaseId:'',ownerEmail:'',ownerName:'',confidence:'Medium',progressPct:65,linkedKRId:'CO-1-2',impact:4,effort:3,risks:['Waiting on issuer approval','Card stock supplier delays'],linkedInitiativeIds:[],createdAt:new Date().toISOString()},
+    'F-002':{id:'F-002',themeId:'T-CX',title:'Apple Wallet automation',description:'Automate provisioning into Apple Wallet at first use.',status:'Discovery',horizon:'Next',targetQuarter:'Q4 2026',releaseId:'',ownerEmail:'',ownerName:'',confidence:'Low',progressPct:12,linkedKRId:'CO-1-1',impact:5,effort:4,risks:['Apple Pay API approval timeline unclear'],linkedInitiativeIds:[],createdAt:new Date().toISOString()},
+    'F-003':{id:'F-003',themeId:'T-REL',title:'Service version upgrades',description:'Upgrade 4 services to approved Spring Boot version.',status:'Planned',horizon:'Now',targetQuarter:'Q3 2026',releaseId:'',ownerEmail:'',ownerName:'',confidence:'Medium',progressPct:23,linkedKRId:'ENG-3-1',impact:3,effort:3,risks:[],linkedInitiativeIds:[],createdAt:new Date().toISOString()},
+    'F-004':{id:'F-004',themeId:'T-COMP',title:'KYB/AML framework',description:'Complete Swype KYB/AML compliance framework reviewed by legal.',status:'In Progress',horizon:'Now',targetQuarter:'Q2 2026',releaseId:'',ownerEmail:'',ownerName:'',confidence:'Medium',progressPct:50,linkedKRId:'CO-3-2',impact:5,effort:3,risks:[],linkedInitiativeIds:[],createdAt:new Date().toISOString()}
+  };
+  rmSaveThemes(themes);rmSaveFeatures(features);
+  localStorage.setItem('rl_rm_seeded_v1','1');
+}
+
+// ── Get initiatives from existing strategy data ─────────────────────────
+function rmGetAllInitiatives(){
+  try{
+    var nodes=JSON.parse(localStorage.getItem('rl_strat_nodes_v1')||'{}');
+    var quarters=Object.keys(nodes);
+    var out=[];
+    quarters.forEach(function(q){
+      Object.values(nodes[q]||{}).forEach(function(n){
+        if(n.type==='Initiative')out.push({id:n.id,title:n.title,quarter:q,progress:n.progressPct||0,dept:n.dept||''});
+      });
+    });
+    return out;
+  }catch(e){return [];}
+}
+function rmGetInitiative(id){return rmGetAllInitiatives().find(function(i){return i.id===id;});}
+
+// ── Health computation ─────────────────────────────────────────────────
+function rmHealthBand(f){
+  if(f.status==='Released')return 'ok';
+  if(f.risks && f.risks.length>0)return f.confidence==='Low'?'risk':'warn';
+  if(f.confidence==='Low' && f.status!=='Discovery')return 'risk';
+  // Velocity-based forecast on progress vs quarter elapsed
+  var q=f.targetQuarter; if(!q)return 'warn';
+  var match=q.match(/Q(\d) (\d{4})/);
+  if(!match)return 'warn';
+  var qn=parseInt(match[1]),yy=parseInt(match[2]);
+  var monthEnd=qn*3-1; // 0-indexed end month
+  var endDate=new Date(yy,monthEnd+1,0).getTime();
+  var now=Date.now();
+  if(now>endDate && f.status!=='Released')return 'risk';
+  var qStartMonth=(qn-1)*3;
+  var startDate=new Date(yy,qStartMonth,1).getTime();
+  var elapsed=Math.max(0,Math.min(1,(now-startDate)/(endDate-startDate)));
+  var expected=elapsed*100;
+  var current=f.progressPct||0;
+  if(current>=expected-5)return 'ok';
+  if(current>=expected-25)return 'warn';
+  return 'risk';
+}
+
+// ── Aggregate progress from linked initiatives (if any) ────────────────
+function rmComputeProgress(f){
+  if(!f.linkedInitiativeIds || f.linkedInitiativeIds.length===0)return f.progressPct||0;
+  var initiatives=f.linkedInitiativeIds.map(rmGetInitiative).filter(Boolean);
+  if(initiatives.length===0)return f.progressPct||0;
+  return Math.round(initiatives.reduce(function(s,i){return s+(i.progress||0);},0)/initiatives.length);
+}
+
+// ── Counts for status strip ────────────────────────────────────────────
+function rmCounts(){
+  var features=Object.values(rmLoadFeatures());
+  var atRisk=features.filter(function(f){return rmHealthBand(f)==='risk' && f.status!=='Released';}).length;
+  var shipped=features.filter(function(f){return f.status==='Released';}).length;
+  // Forecast: on-track or released features targeted to current/next quarter / total
+  var now=new Date(),y=now.getFullYear(),m=now.getMonth(),q='Q'+(Math.floor(m/3)+1)+' '+y;
+  var current=features.filter(function(f){return f.targetQuarter===q;});
+  var ok=current.filter(function(f){return f.status==='Released' || rmHealthBand(f)==='ok';}).length;
+  var forecast=current.length?Math.round((ok/current.length)*100):0;
+  return {total:features.length, atRisk:atRisk, forecast:forecast, currentQuarter:q, shipped:shipped};
+}
+
+// ── MAIN RENDER ────────────────────────────────────────────────────────
+function renderRoadmaps(){
+  var main=document.getElementById('main');if(!main)return;main.innerHTML='';
+  rmSeedIfEmpty();
+  var st=rmState();
+  var wrap=document.createElement('div');wrap.className='rm-wrap';
+
+  // === Page header ===
+  var hdr=document.createElement('div');hdr.className='rm-hdr';
+  hdr.innerHTML='<div class="rm-title">Roadmaps</div>';
+  var newFeatBtn=document.createElement('button');newFeatBtn.className='rm-new-btn';
+  newFeatBtn.innerHTML='<span style="font-size:16px;line-height:1;font-weight:700">+</span> New feature';
+  newFeatBtn.onclick=function(){rmOpenNewFeatureModal();};
+  newFeatBtn.style.marginLeft='auto';
+  hdr.appendChild(newFeatBtn);
+  var newThemeBtn=document.createElement('button');newThemeBtn.className='rm-new-theme-btn';
+  newThemeBtn.innerHTML='+ Theme';
+  newThemeBtn.onclick=function(){rmOpenNewThemeModal();};
+  hdr.appendChild(newThemeBtn);
+  wrap.appendChild(hdr);
+
+  // === Status strip ===
+  var counts=rmCounts();
+  var strip=document.createElement('div');strip.className='rm-strip';
+  strip.innerHTML=
+    '<span class="rm-strip-item"><strong>'+counts.total+'</strong> features</span>'+
+    '<span class="rm-strip-sep">·</span>'+
+    '<span class="rm-strip-item rm-strip-risk"><strong>'+counts.atRisk+'</strong> at risk</span>'+
+    '<span class="rm-strip-sep">·</span>'+
+    '<span class="rm-strip-item"><strong>'+counts.forecast+'%</strong> '+counts.currentQuarter+' on-track</span>'+
+    '<span class="rm-strip-sep">·</span>'+
+    '<span class="rm-strip-item rm-strip-ok"><strong>'+counts.shipped+'</strong> shipped</span>';
+  wrap.appendChild(strip);
+
+  // === Tabs ===
+  var tabs=[{id:'nnl',label:'Now / Next / Later'},{id:'timeline',label:'Timeline'},{id:'releases',label:'Releases'}];
+  var tabBar=document.createElement('div');tabBar.className='rm-tabs';
+  tabs.forEach(function(t){
+    var b=document.createElement('button');b.className='rm-tab'+(t.id===st.tab?' active':'');
+    b.textContent=t.label;
+    b.onclick=function(){rmSetState({tab:t.id});renderRoadmaps();};
+    tabBar.appendChild(b);
+  });
+  wrap.appendChild(tabBar);
+
+  // === Tab content ===
+  var content=document.createElement('div');content.className='rm-content';wrap.appendChild(content);
+  if(st.tab==='nnl')rmRenderNNL(content);
+  else if(st.tab==='timeline')rmRenderTimeline(content);
+  else if(st.tab==='releases')rmRenderReleases(content);
+
+  main.appendChild(wrap);
+}
+
+// ── NOW / NEXT / LATER ─────────────────────────────────────────────────
+function rmRenderNNL(host){
+  var themes=rmLoadThemes();
+  var features=Object.values(rmLoadFeatures());
+  if(features.length===0){
+    var empty=document.createElement('div');empty.className='rm-empty';
+    empty.innerHTML='<div class="rm-empty-ic">🎯</div><strong>No roadmap features yet.</strong><br>Start with a <strong>Theme</strong> (a strategic grouping) and add Features underneath.';
+    host.appendChild(empty);return;
+  }
+  // Group by theme then horizon
+  var themeIds=Object.keys(themes).sort(function(a,b){return (themes[a].order||0)-(themes[b].order||0);});
+  themeIds.forEach(function(tid){
+    var theme=themes[tid];
+    var tf=features.filter(function(f){return f.themeId===tid;});
+    if(tf.length===0)return;
+    var sec=document.createElement('div');sec.className='rm-theme';
+    var th=document.createElement('div');th.className='rm-theme-h';
+    var st=rmState();var open=st.expandedThemes[tid]!==false;
+    th.innerHTML='<button class="rm-caret">'+(open?'▾':'▸')+'</button>'+
+      '<span class="rm-theme-dot" style="background:'+esc(theme.color||'#6c63ff')+'"></span>'+
+      '<span class="rm-theme-label">'+esc(theme.title).toUpperCase()+'</span>'+
+      '<span class="rm-theme-count">'+tf.length+' feature'+(tf.length===1?'':'s')+'</span>'+
+      '<button class="rm-theme-edit" data-tid="'+esc(tid)+'">✎</button>';
+    th.onclick=function(e){
+      if(e.target.classList.contains('rm-theme-edit')){e.stopPropagation();rmOpenThemeEdit(tid);return;}
+      var s=rmState();s.expandedThemes[tid]=!open;rmSetState({expandedThemes:s.expandedThemes});renderRoadmaps();
+    };
+    sec.appendChild(th);
+    if(open){
+      ['Now','Next','Later','Idea'].forEach(function(h){
+        var hf=tf.filter(function(f){return f.horizon===h;});
+        if(hf.length===0)return;
+        var hsec=document.createElement('div');hsec.className='rm-horizon';
+        hsec.innerHTML='<div class="rm-horizon-label">'+h.toUpperCase()+' <span class="rm-horizon-count">'+hf.length+'</span></div>';
+        var list=document.createElement('div');list.className='rm-feature-list';
+        hf.sort(function(a,b){return (b.impact/Math.max(1,b.effort))-(a.impact/Math.max(1,a.effort));}).forEach(function(f){
+          list.appendChild(rmRenderFeatureCard(f));
+        });
+        hsec.appendChild(list);
+        sec.appendChild(hsec);
+      });
+    }
+    host.appendChild(sec);
+  });
+  // Unassigned features (no theme)
+  var orphan=features.filter(function(f){return !f.themeId || !themes[f.themeId];});
+  if(orphan.length){
+    var sec=document.createElement('div');sec.className='rm-theme';
+    sec.innerHTML='<div class="rm-theme-h"><span class="rm-theme-label" style="color:var(--yel)">UNASSIGNED ('+orphan.length+')</span></div>';
+    var list=document.createElement('div');list.className='rm-feature-list';
+    orphan.forEach(function(f){list.appendChild(rmRenderFeatureCard(f));});
+    sec.appendChild(list);
+    host.appendChild(sec);
+  }
+}
+
+function rmRenderFeatureCard(f){
+  var health=rmHealthBand(f);
+  var prog=rmComputeProgress(f);
+  var card=document.createElement('div');card.className='rm-feature-card health-'+health;
+  var html=
+    '<div class="rm-feat-top">'+
+      '<span class="rm-dot dot-'+health+'"></span>'+
+      '<div class="rm-feat-title">'+esc(f.title)+'</div>'+
+      '<span class="rm-feat-id">'+f.id+'</span>'+
+    '</div>'+
+    '<div class="rm-feat-meta">'+
+      '<span><strong>'+prog+'%</strong></span>'+
+      '<span class="rm-feat-status">'+esc(f.status)+'</span>'+
+      '<span>'+esc(f.confidence||'')+' conf</span>'+
+      '<span>'+esc(f.targetQuarter||'unscheduled')+'</span>'+
+      (f.ownerName||f.ownerEmail?'<span>'+esc(f.ownerName||f.ownerEmail)+'</span>':'')+
+    '</div>';
+  if(f.linkedKRId){
+    var kr=tmGetKR(f.linkedKRId);
+    if(kr)html+='<div class="rm-feat-kr">🎯 '+esc(kr.id)+' '+esc(kr.title.slice(0,52))+(kr.title.length>52?'…':'')+'</div>';
+    else html+='<div class="rm-feat-kr">🎯 '+esc(f.linkedKRId)+'</div>';
+  }
+  if(f.risks && f.risks.length){
+    html+='<div class="rm-feat-risk">⚠ '+esc(f.risks[0])+'</div>';
+  }
+  card.innerHTML=html;
+  card.onclick=function(){rmOpenFeatureDrawer(f.id);};
+  return card;
+}
+
+// ── TIMELINE ────────────────────────────────────────────────────────────
+function rmRenderTimeline(host){
+  var themes=rmLoadThemes();
+  var features=Object.values(rmLoadFeatures());
+  if(features.length===0){
+    host.appendChild((function(){var e=document.createElement('div');e.className='rm-empty';e.innerHTML='<div class="rm-empty-ic">📅</div>Add features to see them on the timeline.';return e;})());
+    return;
+  }
+  var tl=document.createElement('div');tl.className='rm-timeline';
+  // Header row: quarters
+  var hr=document.createElement('div');hr.className='rm-tl-row rm-tl-head';
+  hr.appendChild((function(){var c=document.createElement('div');c.className='rm-tl-name';c.textContent='THEME';return c;})());
+  RM_QUARTERS.forEach(function(q){var c=document.createElement('div');c.className='rm-tl-q';c.textContent=q;hr.appendChild(c);});
+  tl.appendChild(hr);
+
+  Object.keys(themes).sort(function(a,b){return (themes[a].order||0)-(themes[b].order||0);}).forEach(function(tid){
+    var theme=themes[tid];
+    var tf=features.filter(function(f){return f.themeId===tid;});
+    if(tf.length===0)return;
+    // Theme row label
+    var trow=document.createElement('div');trow.className='rm-tl-row rm-tl-theme';
+    trow.innerHTML='<div class="rm-tl-name"><span class="rm-theme-dot" style="background:'+esc(theme.color)+'"></span>'+esc(theme.title)+'</div>';
+    RM_QUARTERS.forEach(function(){trow.appendChild((function(){var c=document.createElement('div');c.className='rm-tl-cell';return c;})());});
+    tl.appendChild(trow);
+    // Each feature as a row
+    tf.forEach(function(f){
+      var row=document.createElement('div');row.className='rm-tl-row';
+      row.innerHTML='<div class="rm-tl-name rm-tl-feat-name">'+esc(f.title)+'</div>';
+      RM_QUARTERS.forEach(function(q){
+        var c=document.createElement('div');c.className='rm-tl-cell';
+        if(f.targetQuarter===q){
+          var band=rmHealthBand(f);
+          var bar=document.createElement('div');bar.className='rm-tl-bar band-'+band;
+          bar.innerHTML='<span class="rm-tl-bar-title">'+esc(f.title.slice(0,28))+(f.title.length>28?'…':'')+'</span>'+
+            '<span class="rm-tl-bar-pct">'+rmComputeProgress(f)+'%</span>';
+          bar.onclick=function(){rmOpenFeatureDrawer(f.id);};
+          c.appendChild(bar);
+        }
+        row.appendChild(c);
+      });
+      tl.appendChild(row);
+    });
+  });
+  host.appendChild(tl);
+}
+
+// ── RELEASES (stub for Phase 3) ────────────────────────────────────────
+function rmRenderReleases(host){
+  var p=document.createElement('div');p.className='rm-empty';
+  p.innerHTML='<div class="rm-empty-ic">🚀</div><strong>Releases ships in Phase 3.</strong><br>Will surface upcoming versions, recent ships, and adoption metrics.';
+  host.appendChild(p);
+}
+
+// ── FEATURE DRAWER ─────────────────────────────────────────────────────
+function rmOpenFeatureDrawer(featureId){
+  var features=rmLoadFeatures();
+  var f=features[featureId];if(!f)return;
+  var themes=rmLoadThemes();
+
+  var ov=document.getElementById('rm-drawer-ov');
+  if(!ov){ov=document.createElement('div');ov.id='rm-drawer-ov';ov.className='rm-drawer-ov';document.body.appendChild(ov);}
+  ov.innerHTML='';
+  var box=document.createElement('div');box.className='rm-drawer';
+  var health=rmHealthBand(f);
+  var prog=rmComputeProgress(f);
+
+  var html=
+    '<button class="rm-drawer-close" id="rm-drawer-close">×</button>'+
+    '<div class="rm-drawer-h"><span class="rm-dot dot-'+health+'"></span><div><div class="rm-drawer-title">'+esc(f.title)+'</div><div class="rm-drawer-sub">'+f.id+' · '+esc((themes[f.themeId]||{}).title||'No theme')+'</div></div></div>'+
+    '<div class="rm-drawer-status">'+
+      '<span class="rm-pill pill-horizon">'+esc(f.horizon||'Idea')+'</span>'+
+      '<span class="rm-pill pill-status">'+esc(f.status)+'</span>'+
+      '<span class="rm-pill pill-conf">'+esc(f.confidence||'Medium')+' confidence</span>'+
+      '<span class="rm-pill">'+esc(f.targetQuarter||'unscheduled')+'</span>'+
+      '<span class="rm-pill rm-pill-prog">'+prog+'%</span>'+
+    '</div>';
+  if(f.linkedKRId){
+    var kr=tmGetKR(f.linkedKRId);
+    if(kr){
+      html+='<div class="rm-linked"><div class="rm-section-label">LINKED STRATEGY</div>'+
+        '<div class="rm-linked-line">🎯 <strong>'+esc(kr.id)+'</strong> '+esc(kr.title)+'</div>'+
+        '<div class="rm-linked-sub">↑ '+esc(kr.objectiveTitle)+' · '+esc(kr.dept)+'</div></div>';
+    }
+  }
+  html+='<div class="rm-drawer-form">'+
+    '<label>OWNER</label><select class="rm-field" data-f="ownerName">'+tmAssigneeOptions(f.ownerName||'')+'</select>'+
+    '<label>THEME</label><select class="rm-field" data-f="themeId">'+
+      '<option value="">— no theme —</option>'+
+      Object.keys(themes).map(function(tid){return '<option value="'+esc(tid)+'"'+(f.themeId===tid?' selected':'')+'>'+esc(themes[tid].title)+'</option>';}).join('')+
+    '</select>'+
+    '<label>STATUS</label><select class="rm-field" data-f="status">'+RM_STATUSES.map(function(s){return '<option'+(f.status===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>'+
+    '<label>HORIZON</label><select class="rm-field" data-f="horizon">'+RM_HORIZONS.map(function(h){return '<option'+(f.horizon===h?' selected':'')+'>'+h+'</option>';}).join('')+'</select>'+
+    '<label>TARGET</label><select class="rm-field" data-f="targetQuarter">'+
+      '<option value="">— unscheduled —</option>'+
+      RM_QUARTERS.map(function(q){return '<option'+(f.targetQuarter===q?' selected':'')+'>'+q+'</option>';}).join('')+
+    '</select>'+
+    '<label>CONFIDENCE</label><select class="rm-field" data-f="confidence">'+RM_CONFIDENCE.map(function(c){return '<option'+(f.confidence===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select>'+
+    '<label>IMPACT</label><input type="number" min="1" max="5" class="rm-field rm-field-small" data-f="impact" value="'+(f.impact||3)+'"> <span class="rm-hint">/ 5</span>'+
+    '<label>EFFORT</label><input type="number" min="1" max="5" class="rm-field rm-field-small" data-f="effort" value="'+(f.effort||3)+'"> <span class="rm-hint">/ 5  ·  ratio '+(((f.impact||3)/Math.max(1,f.effort||3)).toFixed(2))+'</span>'+
+    '<label>LINK TO OKR</label><div id="rm-kr-cell"></div>'+
+  '</div>';
+  // Description
+  html+='<div class="rm-block"><div class="rm-section-label">DESCRIPTION</div>'+
+    '<textarea class="rm-textarea" data-f="description" placeholder="What is this feature? Why does it matter?">'+esc(f.description||'')+'</textarea></div>';
+  // Linked initiatives
+  html+='<div class="rm-block"><div class="rm-section-label">LINKED INITIATIVES <span class="rm-section-hint">(rolls up progress)</span></div>'+
+    '<div id="rm-init-list"></div>'+
+    '<button type="button" class="rm-btn" id="rm-init-add">+ Link an initiative</button></div>';
+  // Risks
+  html+='<div class="rm-block"><div class="rm-section-label">RISKS</div>'+
+    '<div id="rm-risks-list"></div>'+
+    '<div class="rm-risk-add"><input id="rm-risk-input" placeholder="Add a risk and press Enter"><button type="button" class="rm-btn" id="rm-risk-add-btn">Add</button></div></div>';
+
+  html+='<div class="rm-drawer-foot">'+
+    '<button class="rm-btn rm-btn-danger" id="rm-drawer-del">Delete feature</button>'+
+    '<button class="rm-btn rm-btn-primary" id="rm-drawer-save">Save</button>'+
+  '</div>';
+  box.innerHTML=html;
+  ov.appendChild(box);
+
+  // Mount KR picker
+  var pendingKR=f.linkedKRId||'';
+  var krCell=box.querySelector('#rm-kr-cell');
+  if(krCell){var krBtn=tmRenderKRPickerButton(pendingKR,function(id){pendingKR=id;});krCell.appendChild(krBtn);}
+
+  // Render initiative list + add
+  var pendingInits=(f.linkedInitiativeIds||[]).slice();
+  function renderInitList(){
+    var list=box.querySelector('#rm-init-list');list.innerHTML='';
+    if(pendingInits.length===0){var e=document.createElement('div');e.className='rm-empty-inline';e.textContent='No initiatives linked yet.';list.appendChild(e);return;}
+    pendingInits.forEach(function(iid,idx){
+      var init=rmGetInitiative(iid);
+      var row=document.createElement('div');row.className='rm-init-row';
+      row.innerHTML='<span class="rm-init-id">'+esc(iid)+'</span>'+
+        '<span class="rm-init-title">'+esc(init?init.title:'(missing)')+'</span>'+
+        '<span class="rm-init-prog">'+(init?init.progress:0)+'%</span>'+
+        '<button type="button" class="rm-init-del" data-idx="'+idx+'">×</button>';
+      row.querySelector('.rm-init-del').onclick=function(){pendingInits.splice(idx,1);renderInitList();};
+      list.appendChild(row);
+    });
+  }
+  renderInitList();
+  box.querySelector('#rm-init-add').onclick=function(){
+    rmOpenInitiativePicker(function(iid){if(pendingInits.indexOf(iid)<0){pendingInits.push(iid);renderInitList();}});
+  };
+
+  // Render risks list + add
+  var pendingRisks=(f.risks||[]).slice();
+  function renderRisks(){
+    var list=box.querySelector('#rm-risks-list');list.innerHTML='';
+    pendingRisks.forEach(function(r,idx){
+      var row=document.createElement('div');row.className='rm-risk-row';
+      row.innerHTML='<span class="rm-risk-icon">⚠</span><span class="rm-risk-txt">'+esc(r)+'</span><button type="button" class="rm-risk-del" data-idx="'+idx+'">×</button>';
+      row.querySelector('.rm-risk-del').onclick=function(){pendingRisks.splice(idx,1);renderRisks();};
+      list.appendChild(row);
+    });
+  }
+  renderRisks();
+  box.querySelector('#rm-risk-add-btn').onclick=function(){
+    var inp=box.querySelector('#rm-risk-input');
+    var v=inp.value.trim();if(v){pendingRisks.push(v);inp.value='';renderRisks();}
+  };
+  box.querySelector('#rm-risk-input').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();box.querySelector('#rm-risk-add-btn').click();}});
+
+  // Save
+  box.querySelector('#rm-drawer-save').onclick=function(){
+    box.querySelectorAll('[data-f]').forEach(function(el){
+      var fkey=el.getAttribute('data-f');var v=el.value;
+      if(fkey==='impact'||fkey==='effort')v=Math.min(5,Math.max(1,parseInt(v)||3));
+      f[fkey]=v;
+    });
+    f.linkedKRId=pendingKR;
+    f.linkedInitiativeIds=pendingInits;
+    f.risks=pendingRisks;
+    f.updatedAt=new Date().toISOString();
+    features[f.id]=f;
+    rmSaveFeatures(features);
+    if(f.linkedKRId)tmSyncKRLink(f.id, '', f.linkedKRId);
+    logEntry('Updated feature '+f.id,'edit');
+    toast('Feature saved','ok');
+    ov.remove();
+    renderRoadmaps();
+  };
+  box.querySelector('#rm-drawer-del').onclick=function(){
+    if(!confirm('Delete this feature?'))return;
+    delete features[f.id];rmSaveFeatures(features);
+    logEntry('Deleted feature '+f.id,'del');toast('Deleted','ok');
+    ov.remove();renderRoadmaps();
+  };
+  box.querySelector('#rm-drawer-close').onclick=function(){ov.remove();};
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  function onEsc(e){if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',onEsc);}}
+  document.addEventListener('keydown',onEsc);
+}
+
+// ── Initiative picker (small searchable list) ──────────────────────────
+function rmOpenInitiativePicker(onSelect){
+  var ov=document.createElement('div');ov.className='rm-init-picker-ov';
+  var box=document.createElement('div');box.className='rm-init-picker';
+  var initiatives=rmGetAllInitiatives();
+  if(initiatives.length===0){
+    box.innerHTML='<div class="rm-empty-inline">No initiatives found. Create one in the Strategy module first.</div><button class="rm-btn" id="rm-init-picker-close">Close</button>';
+    ov.appendChild(box);document.body.appendChild(ov);
+    box.querySelector('#rm-init-picker-close').onclick=function(){ov.remove();};
+    ov.onclick=function(e){if(e.target===ov)ov.remove();};
+    return;
+  }
+  box.innerHTML='<input class="rm-init-search" placeholder="Search initiatives..." />'+
+    '<div class="rm-init-list-wrap" id="rm-init-search-list"></div>'+
+    '<button class="rm-btn" id="rm-init-picker-cancel">Cancel</button>';
+  ov.appendChild(box);document.body.appendChild(ov);
+  var inp=box.querySelector('.rm-init-search');
+  var list=box.querySelector('#rm-init-search-list');
+  function render(f){
+    list.innerHTML='';
+    var filt=(f||'').toLowerCase();
+    initiatives.filter(function(i){return !filt||i.id.toLowerCase().indexOf(filt)>=0||i.title.toLowerCase().indexOf(filt)>=0;}).slice(0,40).forEach(function(i){
+      var r=document.createElement('div');r.className='rm-init-pick-row';
+      r.innerHTML='<span class="rm-init-id">'+esc(i.id)+'</span><span class="rm-init-pick-title">'+esc(i.title)+'</span><span class="rm-init-prog">'+i.progress+'%</span>';
+      r.onclick=function(){onSelect(i.id);ov.remove();};
+      list.appendChild(r);
+    });
+  }
+  render('');
+  inp.addEventListener('input',function(){render(this.value);});
+  inp.focus();
+  box.querySelector('#rm-init-picker-cancel').onclick=function(){ov.remove();};
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+}
+
+// ── New Feature modal ──────────────────────────────────────────────────
+function rmOpenNewFeatureModal(){
+  var themes=rmLoadThemes();
+  var ov=document.createElement('div');ov.id='rm-new-ov';ov.className='rm-new-ov';
+  var box=document.createElement('div');box.className='rm-new-box';
+  var themeOpts=Object.keys(themes).map(function(tid){return '<option value="'+esc(tid)+'">'+esc(themes[tid].title)+'</option>';}).join('');
+  box.innerHTML='<button class="rm-new-close" id="rm-nf-close">×</button>'+
+    '<div class="rm-new-h">New feature</div>'+
+    '<div class="rm-new-sub">A discrete user-visible thing being built. Link to a theme and a strategic KR.</div>'+
+    '<input class="rm-new-name" id="rm-nf-title" placeholder="Feature name..."/>'+
+    '<div class="rm-new-row"><label>THEME</label><select id="rm-nf-theme"><option value="">— no theme —</option>'+themeOpts+'</select></div>'+
+    '<div class="rm-new-row"><label>HORIZON</label><select id="rm-nf-horizon">'+RM_HORIZONS.map(function(h){return '<option'+(h==='Next'?' selected':'')+'>'+h+'</option>';}).join('')+'</select></div>'+
+    '<div class="rm-new-row"><label>TARGET</label><select id="rm-nf-target"><option value="">— unscheduled —</option>'+RM_QUARTERS.map(function(q){return '<option>'+q+'</option>';}).join('')+'</select></div>'+
+    '<div class="rm-new-row"><label>OWNER</label><select id="rm-nf-owner">'+tmAssigneeOptions(currentUser?currentUser.name:'')+'</select></div>'+
+    '<div class="rm-new-foot"><button class="rm-btn" id="rm-nf-cancel">Cancel</button><button class="rm-btn rm-btn-primary" id="rm-nf-create">Create</button></div>';
+  ov.appendChild(box);document.body.appendChild(ov);
+  function close(){ov.remove();document.removeEventListener('keydown',onEsc);}
+  function onEsc(e){if(e.key==='Escape')close();}
+  document.addEventListener('keydown',onEsc);
+  ov.onclick=function(e){if(e.target===ov)close();};
+  box.querySelector('#rm-nf-close').onclick=close;
+  box.querySelector('#rm-nf-cancel').onclick=close;
+  function create(){
+    var title=(box.querySelector('#rm-nf-title').value||'').trim();
+    if(!title){toast('Title required','err');return;}
+    var features=rmLoadFeatures();
+    var seq=Object.keys(features).length+1;
+    var id='F-'+String(seq).padStart(3,'0');
+    while(features[id]){seq++;id='F-'+String(seq).padStart(3,'0');}
+    features[id]={
+      id:id, title:title,
+      themeId:box.querySelector('#rm-nf-theme').value||'',
+      horizon:box.querySelector('#rm-nf-horizon').value||'Next',
+      targetQuarter:box.querySelector('#rm-nf-target').value||'',
+      ownerName:box.querySelector('#rm-nf-owner').value||(currentUser?currentUser.name:''),
+      status:'Discovery', confidence:'Medium', progressPct:0, impact:3, effort:3,
+      risks:[], linkedInitiativeIds:[], linkedKRId:'',description:'',
+      createdAt:new Date().toISOString()
+    };
+    rmSaveFeatures(features);
+    logEntry('Feature '+id+' created: '+title,'add');
+    toast('Feature created','ok');
+    close();renderRoadmaps();
+    // Open drawer for editing
+    setTimeout(function(){rmOpenFeatureDrawer(id);},100);
+  }
+  box.querySelector('#rm-nf-create').onclick=create;
+  box.querySelector('#rm-nf-title').focus();
+  box.querySelector('#rm-nf-title').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();create();}});
+}
+
+// ── New Theme modal ────────────────────────────────────────────────────
+function rmOpenNewThemeModal(){rmOpenThemeEdit(null);}
+function rmOpenThemeEdit(themeId){
+  var themes=rmLoadThemes();
+  var existing=themeId?themes[themeId]:null;
+  var ov=document.createElement('div');ov.className='rm-new-ov';
+  var box=document.createElement('div');box.className='rm-new-box';
+  var colors=['#6c63ff','#10b981','#f59e0b','#ef4444','#3b82f6','#ec4899','#14b8a6'];
+  box.innerHTML='<button class="rm-new-close" id="rm-nt-close">×</button>'+
+    '<div class="rm-new-h">'+(existing?'Edit theme':'New theme')+'</div>'+
+    '<div class="rm-new-sub">A strategic grouping for features (e.g. Improve Customer Experience).</div>'+
+    '<input class="rm-new-name" id="rm-nt-title" placeholder="Theme name..." value="'+esc(existing?existing.title:'')+'"/>'+
+    '<textarea class="rm-textarea" id="rm-nt-desc" placeholder="What does this theme represent strategically?">'+esc(existing?(existing.description||''):'')+'</textarea>'+
+    '<div class="rm-new-row"><label>COLOR</label><div class="rm-color-row">'+colors.map(function(c){return '<button type="button" class="rm-color-swatch'+((existing?existing.color:'#6c63ff')===c?' active':'')+'" data-c="'+c+'" style="background:'+c+'"></button>';}).join('')+'</div></div>'+
+    '<div class="rm-new-foot">'+
+      (existing?'<button class="rm-btn rm-btn-danger" id="rm-nt-del">Delete</button>':'')+
+      '<button class="rm-btn" id="rm-nt-cancel">Cancel</button>'+
+      '<button class="rm-btn rm-btn-primary" id="rm-nt-save">'+(existing?'Save':'Create')+'</button>'+
+    '</div>';
+  ov.appendChild(box);document.body.appendChild(ov);
+  var selectedColor=existing?existing.color:'#6c63ff';
+  box.querySelectorAll('.rm-color-swatch').forEach(function(b){
+    b.onclick=function(){selectedColor=this.getAttribute('data-c');box.querySelectorAll('.rm-color-swatch').forEach(function(bb){bb.classList.remove('active');});this.classList.add('active');};
+  });
+  function close(){ov.remove();}
+  ov.onclick=function(e){if(e.target===ov)close();};
+  box.querySelector('#rm-nt-close').onclick=close;
+  box.querySelector('#rm-nt-cancel').onclick=close;
+  if(existing)box.querySelector('#rm-nt-del').onclick=function(){
+    if(!confirm('Delete theme? Features will be unassigned.'))return;
+    delete themes[themeId];rmSaveThemes(themes);
+    // Unassign features
+    var fts=rmLoadFeatures();
+    Object.values(fts).forEach(function(f){if(f.themeId===themeId)f.themeId='';});
+    rmSaveFeatures(fts);
+    logEntry('Deleted theme '+themeId,'del');toast('Theme deleted','ok');
+    close();renderRoadmaps();
+  };
+  box.querySelector('#rm-nt-save').onclick=function(){
+    var title=(box.querySelector('#rm-nt-title').value||'').trim();
+    if(!title){toast('Title required','err');return;}
+    var desc=(box.querySelector('#rm-nt-desc').value||'').trim();
+    if(existing){existing.title=title;existing.description=desc;existing.color=selectedColor;existing.updatedAt=new Date().toISOString();}
+    else{
+      var seq=Object.keys(themes).length+1;var id='T-'+String(seq).padStart(2,'0');
+      while(themes[id]){seq++;id='T-'+String(seq).padStart(2,'0');}
+      themes[id]={id:id,title:title,description:desc,ownerEmail:currentUser?currentUser.email:'',color:selectedColor,order:Object.keys(themes).length,createdAt:new Date().toISOString()};
+    }
+    rmSaveThemes(themes);
+    logEntry('Theme '+(existing?'updated':'created')+': '+title,existing?'edit':'add');
+    toast('Theme saved','ok');close();renderRoadmaps();
+  };
+  box.querySelector('#rm-nt-title').focus();
+}
+
 
 init();
 </script>
