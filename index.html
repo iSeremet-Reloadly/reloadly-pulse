@@ -891,6 +891,27 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
   .tm-drawer-form{grid-template-columns:1fr}
 }
 
+/* + New task — global header button + modal */
+.tm-new-btn{margin-left:auto;background:var(--acc);color:#fff;border:1px solid var(--acc);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.2px;transition:filter .12s}
+.tm-new-btn:hover{filter:brightness(1.15)}
+.tm-deptpicker{margin-left:8px}
+.tm-new-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9950;display:flex;align-items:center;justify-content:center;padding:24px}
+.tm-new-box{background:var(--surf);border:1px solid var(--brd);border-radius:14px;width:100%;max-width:560px;padding:28px 32px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.tm-new-close{position:absolute;top:14px;right:18px;background:var(--surf2);border:1px solid var(--brd);color:var(--mut);width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tm-new-close:hover{color:var(--txt)}
+.tm-new-h{font-size:18px;font-weight:700;color:var(--txt);margin-bottom:6px;padding-right:32px}
+.tm-new-sub{font-size:12px;color:var(--mut);margin-bottom:18px;line-height:1.5}
+.tm-new-name{width:100%;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:10px;padding:14px 16px;font-size:15px;font-family:inherit;outline:none;margin-bottom:12px;box-sizing:border-box}
+.tm-new-name:focus{border-color:var(--acc)}
+.tm-new-toggle{background:none;border:none;color:var(--mut);font-size:12px;cursor:pointer;padding:8px 0;font-family:inherit;margin-bottom:8px}
+.tm-new-toggle:hover{color:var(--txt)}
+.tm-new-details{margin-bottom:8px}
+.tm-new-row{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center;margin-bottom:10px}
+.tm-new-row label{font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.6px}
+.tm-new-row select,.tm-new-row input{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;padding:8px 10px;font-size:12px;font-family:inherit;outline:none}
+.tm-new-row select:focus,.tm-new-row input:focus{border-color:var(--acc)}
+.tm-new-foot{display:flex;gap:10px;justify-content:flex-end;padding-top:16px;border-top:1px solid var(--brd);margin-top:18px}
+
 </style>
 </head>
 <body>
@@ -6266,6 +6287,11 @@ function renderTasksV2(){
   // Header: title + dept dropdown
   var hdr=document.createElement('div');hdr.className='tm-hdr';
   hdr.innerHTML='<div class="tm-title">Tasks</div>';
+  // Global "+ New task" button — works on every tab
+  var newBtn=document.createElement('button');newBtn.className='tm-new-btn';
+  newBtn.innerHTML='+ New task';
+  newBtn.onclick=function(){tmOpenNewTaskModal();};
+  hdr.appendChild(newBtn);
   var deptSel=document.createElement('select');deptSel.className='tm-deptpicker';
   [{v:'All',l:'All departments'}].concat(DEPTS.map(function(d){return {v:d,l:d};})).forEach(function(o){
     var op=document.createElement('option');op.value=o.v;op.textContent=o.l;if(o.v===st.dept)op.selected=true;deptSel.appendChild(op);
@@ -6566,6 +6592,74 @@ function tmRenderManager(host, st){
 }
 
 // ── TASK DRAWER ────────────────────────────────────────────────────────
+
+function tmOpenNewTaskModal(){
+  var ov=document.getElementById('tm-new-ov');
+  if(!ov){ov=document.createElement('div');ov.id='tm-new-ov';ov.className='tm-new-ov';document.body.appendChild(ov);}
+  ov.innerHTML='';
+  var box=document.createElement('div');box.className='tm-new-box';
+  var st=tmState();
+  var defaultDept=st.dept!=='All'?st.dept:(currentUser&&currentUser.dept?currentUser.dept:DEPTS[0]);
+  var weekLater=new Date(Date.now()+7*86400000).toISOString().split('T')[0];
+
+  box.innerHTML=
+    '<button class="tm-new-close" id="tm-new-close">×</button>'+
+    '<div class="tm-new-h">Create a new task</div>'+
+    '<div class="tm-new-sub">Press Enter to create with sensible defaults, or expand details below.</div>'+
+    '<input class="tm-new-name" id="tm-new-name" placeholder="Describe the task..." />'+
+    '<button class="tm-new-toggle" id="tm-new-toggle">+ More details</button>'+
+    '<div class="tm-new-details" id="tm-new-details" style="display:none">'+
+      '<div class="tm-new-row"><label>OWNER</label><select id="tm-new-owner">'+assigneeOptions(currentUser?currentUser.name:'')+'</select></div>'+
+      '<div class="tm-new-row"><label>DEPARTMENT</label><select id="tm-new-dept">'+DEPTS.map(function(d){return '<option'+(d===defaultDept?' selected':'')+'>'+d+'</option>';}).join('')+'</select></div>'+
+      '<div class="tm-new-row"><label>PRIORITY</label><select id="tm-new-priority">'+TM_PRIORITIES.map(function(p){return '<option'+(p==='Planned'?' selected':'')+'>'+p+'</option>';}).join('')+'</select></div>'+
+      '<div class="tm-new-row"><label>DUE DATE</label><input type="date" id="tm-new-due" value="'+weekLater+'" /></div>'+
+    '</div>'+
+    '<div class="tm-new-foot">'+
+      '<button class="tm-btn" id="tm-new-cancel">Cancel</button>'+
+      '<button class="tm-btn tm-btn-primary" id="tm-new-create">Create task</button>'+
+    '</div>';
+  ov.appendChild(box);
+
+  function close(){ov.remove();document.removeEventListener('keydown',onEsc);}
+  function onEsc(e){if(e.key==='Escape')close();}
+  document.addEventListener('keydown',onEsc);
+  ov.onclick=function(e){if(e.target===ov)close();};
+
+  function create(){
+    var name=(document.getElementById('tm-new-name').value||'').trim();
+    if(!name){toast('Task description required','err');return;}
+    var detailsOpen=document.getElementById('tm-new-details').style.display!=='none';
+    var dept=detailsOpen?document.getElementById('tm-new-dept').value:defaultDept;
+    var owner=detailsOpen?document.getElementById('tm-new-owner').value:(currentUser?currentUser.name:'');
+    var priority=detailsOpen?document.getElementById('tm-new-priority').value:'Planned';
+    var due=detailsOpen?document.getElementById('tm-new-due').value:weekLater;
+    if(!data[dept])data[dept]=[];
+    var t={id:nextId(dept), name:name, assignee:owner,
+      priority:priority, status:'Not Started',
+      createdAt:new Date().toISOString(),
+      due:due, startDate:new Date().toISOString().split('T')[0],
+      progress:0, notes:'', lastUpdated:new Date().toISOString()};
+    data[dept].push(t);
+    autoSave();logEntry(t.id+' created via + New task','add');
+    toast(t.id+' added','ok');
+    close();
+    renderTasksV2();
+  }
+
+  document.getElementById('tm-new-close').onclick=close;
+  document.getElementById('tm-new-cancel').onclick=close;
+  document.getElementById('tm-new-create').onclick=create;
+  document.getElementById('tm-new-toggle').onclick=function(){
+    var d=document.getElementById('tm-new-details');
+    var open=d.style.display!=='none';
+    d.style.display=open?'none':'block';
+    this.textContent=open?'+ More details':'− Hide details';
+  };
+  var nameInp=document.getElementById('tm-new-name');
+  nameInp.focus();
+  nameInp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();create();}});
+}
+
 function tmOpenDrawer(t, dept){
   var ov=document.getElementById('tm-drawer-ov');
   if(!ov){
