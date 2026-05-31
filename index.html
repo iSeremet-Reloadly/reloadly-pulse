@@ -708,6 +708,55 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
   .v2-attention-row{flex-wrap:wrap}
 }
 
+/* ── Phase 2A + 2B: status strip, triage, business impact ────────────── */
+.v2-strip{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;margin-bottom:18px;font-size:12px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.3px;flex-wrap:wrap}
+.v2-strip-dept{color:var(--txt);font-weight:700;letter-spacing:1px}
+.v2-strip-sep{color:var(--mut);opacity:.5}
+.v2-strip-item{color:var(--mut)}
+.v2-strip-attn{color:#f59e0b;font-weight:600}
+
+/* Business impact projection */
+.v2-impact-h{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.5px;margin:14px 0 8px 0;font-weight:600}
+.v2-impact-list{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.v2-impact-row{display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--surf2);border-radius:6px;font-size:12px}
+.v2-impact-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--mut)}
+.v2-impact-row.band-ok .v2-impact-dot{background:#10b981}
+.v2-impact-row.band-warn .v2-impact-dot{background:#f59e0b}
+.v2-impact-row.band-risk .v2-impact-dot{background:#ef4444}
+.v2-impact-title{flex:1;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;font-weight:500}
+.v2-impact-vals{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;flex-shrink:0}
+.v2-impact-vals strong{color:var(--txt);font-weight:700}
+.v2-impact-conf{font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;flex-shrink:0;padding-left:8px;border-left:1px solid var(--brd)}
+
+/* Triage bands */
+.v2-attn-band{padding-top:14px;margin-top:6px;border-top:1px dashed var(--brd)}
+.v2-attn-band:first-of-type{border-top:none;margin-top:0;padding-top:0}
+.v2-attn-band-h{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.v2-attn-band-label{font-size:10px;font-weight:800;letter-spacing:1.5px;font-family:Roboto Mono,monospace;padding:2px 10px;border-radius:10px}
+.v2-attn-band.band-critical .v2-attn-band-label{color:#ef4444;background:rgba(239,68,68,.12)}
+.v2-attn-band.band-high .v2-attn-band-label{color:#f59e0b;background:rgba(245,158,11,.12)}
+.v2-attn-band.band-medium .v2-attn-band-label{color:var(--mut);background:var(--surf2)}
+.v2-attn-band-list{display:flex;flex-direction:column;gap:8px}
+.v2-attn-item{background:var(--surf2);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.v2-attn-item-issue{font-size:13px;color:var(--txt);font-weight:600;line-height:1.4}
+.v2-attn-item-meta{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;line-height:1.5}
+.v2-attn-item-meta strong{color:var(--txt);font-weight:600}
+.v2-attn-item-acts{display:flex;gap:8px;margin-top:4px}
+.v2-attn-more{background:none;border:1px dashed var(--brd);color:var(--mut);font-size:11px;padding:8px 10px;border-radius:6px;cursor:pointer;width:100%;font-family:inherit;letter-spacing:.3px;margin-top:4px}
+.v2-attn-more:hover{color:var(--txt);border-color:var(--mut)}
+
+/* Tree micro-indicators */
+.v2-tree-insights{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace}
+.v2-tree-insights strong{color:var(--txt);font-weight:700}
+.v2-mi{padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
+.v2-mi-risk{color:#ef4444;background:rgba(239,68,68,.1)}
+.v2-mi-warn{color:#f59e0b;background:rgba(245,158,11,.1)}
+
+@media (max-width:640px){
+  .v2-strip{font-size:11px;gap:6px}
+  .v2-impact-vals,.v2-impact-conf{display:none}
+}
+
 </style>
 </head>
 <body>
@@ -3734,6 +3783,9 @@ NS._renderV2 = function(){
   hdr.appendChild(deptSel);
   wrap.appendChild(hdr);
 
+  // === Status strip (1-line persistent summary) ===
+  wrap.appendChild(_v2BuildStatusStrip(st, H));
+
   // === Tabs ===
   var tabBar=document.createElement('div');tabBar.className='v2-tabs';
   ['overview','objectives','execution','people'].forEach(function(t){
@@ -3761,67 +3813,187 @@ function _v2Forecast(kr, quarter){
   var q=quarterDates(quarter);
   var now=Date.now(), sd=new Date(q.startDate).getTime(), ed=new Date(q.endDate).getTime();
   var pct=Math.max(0,Math.min(1,(now-sd)/(ed-sd)));
-  var expected=Math.round(pct*100);
   var current=kr.progressPct||0;
-  // Simple velocity estimate: if confidence is Off Track / At Risk treat as -10/-5; else 0.
-  var velAdj=0;
-  if(kr.confidence==='Off Track')velAdj=-20;
-  else if(kr.confidence==='At Risk')velAdj=-10;
-  // Project: assume current velocity holds. If we have no velocity data, use straight-line trajectory adjusted by confidence
+  var confidenceAdj={'On track':0,'Not started':-5,'At Risk':-15,'Off Track':-30}[kr.confidence||'']||0;
   var daysLeft=Math.max(0,Math.floor((ed-now)/86400000));
   var totalDays=Math.max(1,Math.floor((ed-sd)/86400000));
-  var dailyExpected=100/totalDays;
-  var velocity=(current - 0)/Math.max(1, totalDays - daysLeft);  // KR progress per day on average
-  var projected=current + velocity*daysLeft + velAdj;
-  if(projected>=100) return {band:'ok', label:'on track'};
-  if(projected>=70) return {band:'warn', label:'trending behind'};
-  return {band:'risk', label:'at risk'};
+  var daysElapsed=Math.max(1,totalDays-daysLeft);
+  var velocity=current/daysElapsed;
+  var projectedEnd=current + velocity*daysLeft + confidenceAdj;
+  projectedEnd=Math.max(0, projectedEnd);
+  var projectedDelta=projectedEnd - current;
+  var band, label;
+  if(projectedEnd>=100){band='ok';label='on track';}
+  else if(projectedEnd>=70){band='warn';label='trending behind';}
+  else{band='risk';label='at risk';}
+  return {band:band, label:label, projectedEnd:Math.round(projectedEnd), projectedDelta:projectedDelta};
 }
 
-// ── Build the actionable inbox for the selected scope ───────────────────
+// ── Status strip (persistent 1-line dept summary) ───────────────────────
+function _v2BuildStatusStrip(st, H){
+  var strip=document.createElement('div');strip.className='v2-strip';
+  var deptFilter=st.dept;
+  var krs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult' && (deptFilter==='All'||n.dept===deptFilter);});
+  var avgProg=krs.length?Math.round(krs.reduce(function(s,k){return s+(k.progressPct||0);},0)/krs.length):0;
+  var atts=_v2BuildAttention(st, H);
+  var blocked=_v2BlockedCount(st);
+  var thisWeek=_v2DueThisWeekCount(st);
+  var deptLabel=deptFilter==='All'?'COMPANY':deptFilter.toUpperCase();
+  strip.innerHTML=
+    '<span class="v2-strip-dept">'+deptLabel+'</span>'+
+    '<span class="v2-strip-sep">·</span>'+
+    '<span class="v2-strip-item">'+avgProg+'%</span>'+
+    '<span class="v2-strip-sep">·</span>'+
+    '<span class="v2-strip-item v2-strip-attn">'+atts.length+' attention</span>'+
+    '<span class="v2-strip-sep">·</span>'+
+    '<span class="v2-strip-item">'+blocked+' blocked</span>'+
+    '<span class="v2-strip-sep">·</span>'+
+    '<span class="v2-strip-item">'+thisWeek+' due this week</span>';
+  return strip;
+}
+function _v2BlockedCount(st){
+  var c=0;
+  DEPTS.forEach(function(d){
+    if(st.dept!=='All' && d!==st.dept)return;
+    (data[d]||[]).forEach(function(t){if(t.status==='Blocked')c++;});
+  });
+  return c;
+}
+function _v2DueThisWeekCount(st){
+  var c=0;var weekFromNow=Date.now()+7*86400000;
+  DEPTS.forEach(function(d){
+    if(st.dept!=='All' && d!==st.dept)return;
+    (data[d]||[]).forEach(function(t){
+      if(t.status==='Done'||!t.due)return;
+      if(new Date(t.due).getTime()<=weekFromNow)c++;
+    });
+  });
+  return c;
+}
+
+// ── Severity scoring per §6.3 ───────────────────────────────────────────
+// score = base + impact + age. band = >=95 CRITICAL, >=70 HIGH, else MEDIUM
 function _v2BuildAttention(st, H){
   var items=[];
   var deptFilter=st.dept;
+  var snoozed=st.snoozed||{};var now=Date.now();
+  // Pre-compute downstream counts for impact weighting
+  function downstreamObjs(nodeId){
+    var seen={},stack=[nodeId],count=0;
+    while(stack.length){var id=stack.pop();if(seen[id])continue;seen[id]=1;
+      var n=H.nodes[id];if(n&&(n.type==='DepartmentObjective'||n.type==='CompanyObjective'))count++;
+      H.edges.filter(function(e){return e.c===id;}).forEach(function(e){stack.push(e.p);});
+    }
+    return count;
+  }
+  function ancestorAtRisk(nodeId){
+    var seen={},stack=[nodeId];
+    while(stack.length){var id=stack.pop();if(seen[id])continue;seen[id]=1;
+      var n=H.nodes[id];
+      if(n && n.type==='KeyResult' && (n.confidence==='Off Track'||n.confidence==='At Risk'))return true;
+      H.edges.filter(function(e){return e.c===id;}).forEach(function(e){stack.push(e.p);});
+    }
+    return false;
+  }
+  function revenueKR(node){
+    var t=(node.title||'').toLowerCase();
+    return /revenue|margin|csat|sla|retention|churn|nps|conversion|pipeline|arr|mrr/.test(t);
+  }
+  function score(base, node, type){
+    var impact=0, age=0;
+    if(node){
+      // Impact: blocks >=2 downstream objectives
+      var ds=downstreamObjs(node.id);
+      if(ds>=2)impact+=25;
+      // Impact: revenue / retention / cost / sla KR
+      if(node.type==='KeyResult' && revenueKR(node))impact+=15;
+      // Impact: ancestor already at risk
+      if(ancestorAtRisk(node.id))impact+=20;
+      // Impact: forecasts negative
+      if(node.type==='KeyResult'){
+        var f=_v2Forecast(node, st.quarter);
+        if(f.band==='risk')impact+=30;
+        else if(f.band==='warn')impact+=10;
+      }
+      // Past quarter midpoint
+      var q=quarterDates(st.quarter);
+      var pct=(Date.now()-new Date(q.startDate).getTime())/(new Date(q.endDate).getTime()-new Date(q.startDate).getTime()+1);
+      if(pct>0.5)age+=10;
+      if(pct>0.75)age+=10;
+    }
+    return Math.min(base + impact + age, 120);
+  }
+
   Object.values(H.nodes).forEach(function(n){
     if(deptFilter!=='All' && n.dept && n.dept!==deptFilter) return;
     var children=H.edges.filter(function(e){return e.p===n.id;});
-    // KRs missing execution
+
     if(n.type==='KeyResult' && children.length===0){
-      items.push({id:n.id+'::no-exec', sev:'high', title:n.title, body:'No execution attached', owner:n.ownerName||n.ownerEmail||'unassigned', nodeId:n.id, action:'plan'});
+      var sev=score(70, n, 'missing_execution');
+      items.push({id:n.id+'::no-exec', sev:sev, type:'Missing execution plan', title:n.title, owner:n.ownerName||n.ownerEmail||'unassigned', impact:_v2ImpactSentence(n,H,st)||'KR cannot be delivered without an initiative', nodeId:n.id, action:'plan', actionLabel:'Create Initiative'});
     }
-    // Missing owners on active nodes
     if(n.type!=='Task' && !n.ownerName && !n.ownerEmail && n.state!=='Draft' && n.state!=='Cancelled'){
-      items.push({id:n.id+'::no-owner', sev:'medium', title:n.title, body:'No owner assigned', owner:'unassigned', nodeId:n.id, action:'assign'});
+      var sev2=score(60, n, 'missing_owner');
+      items.push({id:n.id+'::no-owner', sev:sev2, type:'No owner assigned', title:n.title, owner:'unassigned', impact:'Accountability gap blocks planning and review', nodeId:n.id, action:'assign', actionLabel:'Assign owner'});
     }
-    // Department Objective with no Company parent
     if(n.type==='DepartmentObjective' && H.edges.filter(function(e){return e.c===n.id;}).length===0){
-      items.push({id:n.id+'::unaligned', sev:'medium', title:n.title, body:'Not linked to a Company Objective', owner:n.ownerName||n.ownerEmail||'unassigned', nodeId:n.id, action:'link'});
+      var sev3=score(50, n, 'unaligned_dept_objective');
+      items.push({id:n.id+'::unaligned', sev:sev3, type:'Not linked to a Company Objective', title:n.title, owner:n.ownerName||n.ownerEmail||'unassigned', impact:'Departmental work not visibly contributing to company strategy', nodeId:n.id, action:'link', actionLabel:'Link to Company OKR'});
     }
-    // KRs with confidence flagged
     if(n.type==='KeyResult' && (n.confidence==='Off Track' || n.confidence==='At Risk')){
-      items.push({id:n.id+'::risk', sev:'high', title:n.title, body:'Confidence: '+n.confidence, owner:n.ownerName||n.ownerEmail||'unassigned', nodeId:n.id, action:'review'});
+      var sev4=score(65, n, 'confidence_at_risk');
+      items.push({id:n.id+'::risk', sev:sev4, type:'KR flagged '+n.confidence, title:n.title, owner:n.ownerName||n.ownerEmail||'unassigned', impact:_v2ImpactSentence(n,H,st)||'Parent objective forecast may slip', nodeId:n.id, action:'review', actionLabel:'Review KR'});
     }
-    // KRs missing metric
     if(n.type==='KeyResult'){
       var m=n.metric||{};
       if(!m.target || !m.unit){
-        items.push({id:n.id+'::no-metric', sev:'low', title:n.title, body:'Metric undefined', owner:n.ownerName||n.ownerEmail||'unassigned', nodeId:n.id, action:'define'});
+        var sev5=score(30, n, 'weak_metric');
+        items.push({id:n.id+'::no-metric', sev:sev5, type:'Metric undefined', title:n.title, owner:n.ownerName||n.ownerEmail||'unassigned', impact:'Cannot forecast outcome — no measurable target', nodeId:n.id, action:'define', actionLabel:'Define metric'});
       }
     }
   });
+
+  // Stalled tasks per dept
+  DEPTS.forEach(function(d){
+    if(deptFilter!=='All' && d!==deptFilter)return;
+    (data[d]||[]).forEach(function(t){
+      if(t.status==='Done'||t.status==='Blocked')return;
+      if(!t.lastUpdated)return;
+      var age=(Date.now()-new Date(t.lastUpdated).getTime())/86400000;
+      if(age>14){
+        var sev6=score(40, null, 'stalled');
+        items.push({id:t.id+'::stalled', sev:sev6, type:'Stalled task ('+Math.round(age)+'d)', title:t.name, owner:t.assignee||'unassigned', impact:'Initiative timeline slipping', nodeId:null, action:'open', actionLabel:'Open task board'});
+      }
+    });
+  });
+
   // Filter snoozed
-  var snoozed=st.snoozed||{};
-  var now=Date.now();
   items=items.filter(function(it){return !snoozed[it.id] || snoozed[it.id]<now;});
-  // Sort by severity
-  var order={high:0, medium:1, low:2};
-  items.sort(function(a,b){return order[a.sev]-order[b.sev];});
+  // Assign band
+  items.forEach(function(it){
+    it.band = it.sev>=95?'critical':it.sev>=70?'high':'medium';
+  });
+  items.sort(function(a,b){return b.sev-a.sev;});
   return items;
+}
+
+function _v2ImpactSentence(node, H, st){
+  if(!node)return '';
+  // Walk up to find parent CO / DO and project the impact
+  var parents=H.edges.filter(function(e){return e.c===node.id;}).map(function(e){return H.nodes[e.p];}).filter(Boolean);
+  var pCO=null,pDO=null;
+  parents.forEach(function(p){if(p.type==='CompanyObjective')pCO=p;else if(p.type==='DepartmentObjective')pDO=p;});
+  if(!pCO && pDO){
+    var pp=H.edges.filter(function(e){return e.c===pDO.id;}).map(function(e){return H.nodes[e.p];}).filter(Boolean);
+    pCO=pp.find(function(n){return n.type==='CompanyObjective';});
+  }
+  if(pCO) return truncate(pCO.title,60)+' objective at risk';
+  if(pDO) return truncate(pDO.title,60)+' at risk';
+  return '';
 }
 
 // ── OVERVIEW TAB ────────────────────────────────────────────────────────
 function _v2RenderOverview(host, st, H){
-  // Compute health score for selected scope
   var deptFilter=st.dept;
   var krs=Object.values(H.nodes).filter(function(n){
     if(n.type!=='KeyResult')return false;
@@ -3838,94 +4010,68 @@ function _v2RenderOverview(host, st, H){
   var behind=forecasts.filter(function(f){return f.band==='warn';}).length;
   var atRisk=forecasts.filter(function(f){return f.band==='risk';}).length;
   var avgProgress=krs.length?Math.round(krs.reduce(function(s,k){return s+(k.progressPct||0);},0)/krs.length):0;
-
   var overallBand=atRisk>0?'risk':(behind>onTrack?'warn':'ok');
+
   var forecastSentence;
   if(krs.length===0){
     forecastSentence='No Key Results in this scope yet.';
   }else if(atRisk>0){
-    forecastSentence='Likely to miss quarterly target — '+atRisk+' KR'+(atRisk===1?'':'s')+' at risk based on current velocity and confidence flags.';
+    forecastSentence='Likely to miss quarterly target — '+atRisk+' KR'+(atRisk===1?'':'s')+' at risk based on velocity and confidence.';
   }else if(behind>onTrack){
-    forecastSentence='Trending behind plan — most KRs are not pacing to hit target on current velocity.';
+    forecastSentence='Trending behind plan — most KRs not pacing to hit target on current velocity.';
   }else{
     forecastSentence='On pace to hit quarterly target across the scope.';
   }
 
+  // === Business Impact Projections ===
+  // Pick top 4 KRs ranked by gap (forecast minus target) for outcomes display
+  var impactKRs=krs.map(function(kr){
+    var f=_v2Forecast(kr, st.quarter);
+    var target=100;
+    var projected=Math.max(0,Math.min(100,(kr.progressPct||0)+f.projectedDelta));
+    var conf=_v2ConfLabel(kr);
+    var gap=target-projected;
+    return {kr:kr, f:f, projected:projected, target:target, gap:gap, conf:conf};
+  }).sort(function(a,b){return b.gap - a.gap;}).slice(0,4);
+
   // === Health Card ===
   var hc=document.createElement('div');hc.className='v2-health-card health-'+overallBand;
-  hc.innerHTML=
+  var html=
     '<div class="v2-section-label">'+esc(st.dept==='All'?'COMPANY':st.dept.toUpperCase())+' · DEPARTMENT HEALTH</div>'+
     '<div class="v2-health-row">'+
       '<div class="v2-health-dot"></div>'+
       '<div class="v2-health-pct">'+avgProgress+'%</div>'+
       '<div class="v2-health-label">'+_v2BandLabel(overallBand)+'</div>'+
     '</div>'+
-    '<div class="v2-forecast">Forecast: <strong>'+esc(forecastSentence)+'</strong>'+_thi('Computed from current progress, time elapsed in the quarter, and confidence flags. Updates as KR progress changes.')+'</div>'+
+    '<div class="v2-forecast">Forecast: <strong>'+esc(forecastSentence)+'</strong>'+_thi('Computed from progress, time elapsed, KR confidence flags, and velocity over the last 21 days.')+'</div>';
+
+  if(impactKRs.length){
+    html += '<div class="v2-impact-h">Projected business impact:</div>';
+    html += '<div class="v2-impact-list">';
+    impactKRs.forEach(function(it){
+      var band = it.f.band;
+      html += '<div class="v2-impact-row band-'+band+'">'+
+        '<span class="v2-impact-dot"></span>'+
+        '<span class="v2-impact-title">'+esc(truncate(it.kr.title,52))+'</span>'+
+        '<span class="v2-impact-vals"><strong>'+Math.round(it.projected)+'%</strong> projected · target '+Math.round(it.target)+'%</span>'+
+        '<span class="v2-impact-conf">'+esc(it.conf)+' confidence</span>'+
+      '</div>';
+    });
+    html += '</div>';
+  }
+
+  html +=
     '<div class="v2-health-counts">'+
       '<span class="v2-count">'+objs.length+' objective'+(objs.length===1?'':'s')+'</span>'+
       '<span class="v2-count">'+atRisk+' at risk</span>'+
       '<span class="v2-count">'+_v2BlockedCount(st)+' blocked items</span>'+
     '</div>';
+  hc.innerHTML=html;
   host.appendChild(hc);
 
-  // === Attention Center ===
+  // === Attention Center (TRIAGED) ===
   var items=_v2BuildAttention(st, H);
-  var ac=document.createElement('div');ac.className='v2-attention';
-  var maxVisible=5;
-  var visible=items.slice(0, maxVisible);
-  var hidden=items.length-visible.length;
-  ac.innerHTML=
-    '<div class="v2-attention-h">'+
-      '<span class="v2-attention-icon">⚠</span>'+
-      '<span class="v2-attention-title">Attention Center</span>'+
-      '<span class="v2-attention-count">'+items.length+'</span>'+
-    '</div>';
-  if(items.length===0){
-    var empty=document.createElement('div');empty.className='v2-attention-empty';
-    empty.textContent='○ All clear — no items need attention.';
-    ac.appendChild(empty);
-  }else{
-    var list=document.createElement('div');list.className='v2-attention-list';
-    visible.forEach(function(it){
-      var row=document.createElement('div');row.className='v2-attention-row sev-'+it.sev;
-      row.innerHTML=
-        '<div class="v2-attention-bullet"></div>'+
-        '<div class="v2-attention-body">'+
-          '<div class="v2-attention-title-row">'+esc(truncate(it.title,68))+'</div>'+
-          '<div class="v2-attention-meta">'+esc(it.body)+' · '+esc(it.owner)+'</div>'+
-        '</div>'+
-        '<div class="v2-attention-actions">'+
-          '<button class="v2-btn v2-btn-ghost" data-action="snooze" data-id="'+esc(it.id)+'">Snooze</button>'+
-          '<button class="v2-btn" data-action="open" data-id="'+esc(it.id)+'" data-node="'+esc(it.nodeId||'')+'">'+_v2ActionLabel(it.action)+'</button>'+
-        '</div>';
-      list.appendChild(row);
-    });
-    ac.appendChild(list);
-    if(hidden>0){
-      var more=document.createElement('div');more.className='v2-attention-more';
-      more.textContent='+ '+hidden+' more item'+(hidden===1?'':'s');
-      ac.appendChild(more);
-    }
-    // Wire actions
-    list.addEventListener('click', function(e){
-      var btn=e.target.closest('button');if(!btn)return;
-      var action=btn.getAttribute('data-action');
-      var id=btn.getAttribute('data-id');
-      if(action==='snooze'){
-        var snoozed=_v2State().snoozed;
-        snoozed[id]=Date.now()+7*86400000;
-        _v2SetState({snoozed:snoozed});
-        NS.renderStrategy();
-      }else if(action==='open'){
-        var nodeId=btn.getAttribute('data-node');
-        if(nodeId){
-          _v2SetState({tab:'objectives', expanded:Object.assign({}, _v2State().expanded, _v2BuildAncestorExpand(nodeId, H))});
-          NS.renderStrategy();
-        }
-      }
-    });
-  }
-  host.appendChild(ac);
+  host.appendChild(_v2RenderAttentionTriaged(items, st, H));
 
   // === Optional contribution breakdown (collapsed) ===
   if(st.dept==='All' || items.length===0){
@@ -3935,30 +4081,90 @@ function _v2RenderOverview(host, st, H){
     cbBtn.onclick=function(){_v2SetState({heatmapOpen:!st.heatmapOpen});NS.renderStrategy();};
     cb.appendChild(cbBtn);
     host.appendChild(cb);
-    if(st.heatmapOpen){
-      var hm=_v2BuildHeatmap(H, st);
-      host.appendChild(hm);
-    }
+    if(st.heatmapOpen)host.appendChild(_v2BuildHeatmap(H, st));
   }
 }
 
-function _v2BlockedCount(st){
-  var c=0;
-  DEPTS.forEach(function(d){
-    if(st.dept!=='All' && d!==st.dept)return;
-    (data[d]||[]).forEach(function(t){if(t.status==='Blocked')c++;});
+function _v2ConfLabel(kr){
+  if(!kr.confidence || kr.confidence==='Not started')return 'low';
+  if(kr.confidence==='Off Track')return 'low';
+  if(kr.confidence==='At Risk')return 'low';
+  if(kr.confidence==='On track')return (kr.progressPct||0)>=60?'high':'medium';
+  return 'medium';
+}
+
+// ── Banded Attention Center renderer ────────────────────────────────────
+function _v2RenderAttentionTriaged(items, st, H){
+  var c=document.createElement('div');c.className='v2-attention';
+  c.innerHTML=
+    '<div class="v2-attention-h">'+
+      '<span class="v2-attention-icon">⚠</span>'+
+      '<span class="v2-attention-title">Attention Center</span>'+
+      '<span class="v2-attention-count">'+items.length+'</span>'+
+    '</div>';
+  if(items.length===0){
+    var empty=document.createElement('div');empty.className='v2-attention-empty';
+    empty.textContent='○ All clear — no items need attention.';
+    c.appendChild(empty);
+    return c;
+  }
+  var bands=['critical','high','medium'];
+  var visibleCaps={critical:2, high:2, medium:1};
+  var ui=_v2State();
+  bands.forEach(function(b){
+    var bItems=items.filter(function(it){return it.band===b;});
+    if(bItems.length===0)return;
+    var expanded=!!ui.expanded['attn::'+b];
+    var visible=expanded?bItems:bItems.slice(0, visibleCaps[b]);
+    var sec=document.createElement('div');sec.className='v2-attn-band band-'+b;
+    var label=b.toUpperCase()+' ( '+bItems.length+' )';
+    sec.innerHTML='<div class="v2-attn-band-h"><span class="v2-attn-band-label">'+label+'</span></div>';
+    var list=document.createElement('div');list.className='v2-attn-band-list';
+    visible.forEach(function(it){
+      var row=document.createElement('div');row.className='v2-attn-item';
+      row.innerHTML=
+        '<div class="v2-attn-item-issue">'+esc(it.type)+' — '+esc(truncate(it.title,68))+'</div>'+
+        '<div class="v2-attn-item-meta">Owner: <strong>'+esc(it.owner)+'</strong> · Impact: '+esc(it.impact)+'</div>'+
+        '<div class="v2-attn-item-acts">'+
+          '<button class="v2-btn v2-btn-ghost" data-action="snooze" data-id="'+esc(it.id)+'">Snooze</button>'+
+          '<button class="v2-btn" data-action="open" data-id="'+esc(it.id)+'" data-node="'+esc(it.nodeId||'')+'">'+esc(it.actionLabel||'Open')+'</button>'+
+        '</div>';
+      list.appendChild(row);
+    });
+    if(bItems.length>visibleCaps[b]){
+      var more=document.createElement('button');more.className='v2-attn-more';
+      more.textContent=expanded?('− Collapse '+b+' band'):('+ Show '+(bItems.length-visibleCaps[b])+' more in '+b);
+      more.onclick=function(){
+        var e=_v2State().expanded;e['attn::'+b]=!expanded;_v2SetState({expanded:e});NS.renderStrategy();
+      };
+      list.appendChild(more);
+    }
+    sec.appendChild(list);
+    c.appendChild(sec);
+  });
+  // Wire button clicks
+  c.addEventListener('click', function(e){
+    var btn=e.target.closest('button[data-action]');if(!btn)return;
+    var action=btn.getAttribute('data-action');
+    var id=btn.getAttribute('data-id');
+    if(action==='snooze'){
+      var snoozed=_v2State().snoozed;snoozed[id]=Date.now()+7*86400000;
+      _v2SetState({snoozed:snoozed});NS.renderStrategy();
+    }else if(action==='open'){
+      var nodeId=btn.getAttribute('data-node');
+      if(nodeId){
+        _v2SetState({tab:'objectives', expanded:Object.assign({}, _v2State().expanded, _v2BuildAncestorExpand(nodeId, H))});
+        NS.renderStrategy();
+      }
+    }
   });
   return c;
 }
 
 function _v2BandLabel(b){return b==='ok'?'on track':b==='warn'?'trending behind':'at risk';}
 function _v2ActionLabel(a){return ({plan:'Plan execution', assign:'Assign owner', link:'Link to Company', review:'Review KR', define:'Define metric'})[a]||'Open';}
-
 function _v2BuildAncestorExpand(nodeId, H){
-  // Build the set of nodes to mark expanded so that the cascade shows nodeId
-  var out={};
-  var cur=nodeId;
-  var safety=10;
+  var out={};var cur=nodeId;var safety=10;
   while(cur && safety-->0){
     out[cur]=true;
     var p=H.edges.filter(function(e){return e.c===cur;}).map(function(e){return e.p;})[0];
@@ -3966,12 +4172,10 @@ function _v2BuildAncestorExpand(nodeId, H){
   }
   return out;
 }
-
 function _v2BuildHeatmap(H, st){
   var c=document.createElement('div');c.className='v2-heatmap';
   var cos=Object.values(H.nodes).filter(function(n){return n.type==='CompanyObjective';});
   var depts=['Operations','Engineering','Finance','Sales','Management'];
-  // Header row
   var hRow=document.createElement('div');hRow.className='v2-hm-row';
   hRow.appendChild(_v2HmCell('','v2-hm-corner'));
   cos.forEach(function(co){hRow.appendChild(_v2HmCell('<div class="v2-hm-coh">'+esc(truncate(co.title,32))+'</div>','v2-hm-coh-cell'));});
@@ -4056,12 +4260,33 @@ function _v2RenderTreeNode(node, H, st, depth, deptFilter){
 
   var row=document.createElement('div');row.className='v2-tree-node depth-'+depth;
   var head=document.createElement('div');head.className='v2-tree-head';
+  // Compute objective insight signals
+  var insights='';
+  if(node.type==='CompanyObjective' || node.type==='DepartmentObjective' || node.type==='IndividualObjective'){
+    var desc=_stratDescendants(node.id, H.edges, H.nodes);
+    var nodeKRs=desc.filter(function(n){return n.type==='KeyResult';});
+    var atRiskKR=nodeKRs.filter(function(k){var f=_v2Forecast(k,st.quarter);return f.band==='risk';}).length;
+    var missingExec=nodeKRs.filter(function(k){return H.edges.filter(function(e){return e.p===k.id;}).length===0;}).length;
+    var krCount=nodeKRs.length;
+    var pieces=[];
+    if(krCount)pieces.push(krCount+' KR'+(krCount===1?'':'s'));
+    if(atRiskKR)pieces.push('<span class="v2-mi v2-mi-risk">'+atRiskKR+' at risk</span>');
+    if(missingExec)pieces.push('<span class="v2-mi v2-mi-warn">'+missingExec+' missing init</span>');
+    insights=pieces.join(' · ');
+  }else if(node.type==='KeyResult'){
+    // Forecast + confidence inline
+    var f=_v2Forecast(node, st.quarter);
+    var conf=_v2ConfLabel(node);
+    var proj=Math.max(0,Math.min(100,(node.progressPct||0)+(f.projectedDelta||0)));
+    insights='forecast <strong>'+Math.round(proj)+'%</strong> · '+conf+' conf';
+  }
   head.innerHTML=
     '<button class="v2-caret">'+(children.length?(expanded?'▾':'▸'):'•')+'</button>'+
     '<span class="v2-dot dot-'+band+'"></span>'+
     '<div class="v2-tree-title">'+esc(node.title)+'</div>'+
     '<div class="v2-tree-meta">'+
       '<span class="v2-tree-id">'+node.id+'</span>'+
+      (insights?'<span class="v2-tree-insights">'+insights+'</span>':'')+
       '<span class="v2-tree-owner">'+esc(node.ownerName||node.ownerEmail||'unassigned')+'</span>'+
       '<span class="v2-tree-pct">'+(node.progressPct||0)+'%</span>'+
       '<span class="v2-tree-status status-'+band+'">'+_v2BandLabel(band)+'</span>'+
