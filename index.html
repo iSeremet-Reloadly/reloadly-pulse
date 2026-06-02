@@ -1152,6 +1152,42 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 #help-btn{color:#10b981;border-color:rgba(16,185,129,.4)}
 #help-btn:hover{background:rgba(16,185,129,.12);color:#10b981}
 
+/* Full in-app guide modal */
+.guide-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9930;display:flex;align-items:stretch;justify-content:center;padding:32px}
+.guide-box{background:var(--surf);border:1px solid var(--brd);border-radius:14px;width:100%;max-width:1100px;display:grid;grid-template-columns:260px 1fr;overflow:hidden;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:calc(100vh - 64px)}
+.guide-toc{background:var(--surf2);padding:22px 18px;overflow-y:auto;border-right:1px solid var(--brd)}
+.guide-eyebrow{font-size:10px;font-weight:700;color:#10b981;font-family:'Roboto Mono',monospace;letter-spacing:1.4px;margin-bottom:6px}
+.guide-toc-title{font-size:18px;font-weight:800;color:var(--txt);margin-bottom:18px;letter-spacing:-.3px}
+.guide-toc-list{display:flex;flex-direction:column;gap:2px}
+.guide-toc-link{font-size:13px;color:var(--mut);padding:7px 10px;border-radius:6px;cursor:pointer;text-decoration:none;transition:color .12s,background .12s;border-left:2px solid transparent}
+.guide-toc-link:hover{color:var(--txt);background:var(--surf)}
+.guide-toc-link.active{color:#10b981;background:rgba(16,185,129,.1);border-left-color:#10b981;font-weight:600}
+.guide-close{position:absolute;top:14px;right:18px;background:var(--surf2);border:1px solid var(--brd);color:var(--mut);width:32px;height:32px;border-radius:8px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
+.guide-close:hover{color:var(--txt);background:var(--bg)}
+.guide-body{padding:32px 40px;overflow-y:auto;line-height:1.6}
+.guide-body .guide-section{margin-bottom:36px;scroll-margin-top:24px}
+.guide-body h2{font-size:24px;font-weight:800;color:var(--txt);margin:0 0 14px 0;letter-spacing:-.3px}
+.guide-body h4{font-size:15px;font-weight:700;color:var(--txt);margin:20px 0 10px 0}
+.guide-body p{font-size:13px;color:var(--txt);margin:0 0 12px 0;line-height:1.65}
+.guide-body p.guide-lead{font-size:15px;color:var(--txt);margin-bottom:14px;line-height:1.6}
+.guide-ul,.guide-ol{padding-left:22px;margin:8px 0 14px 0}
+.guide-ul li,.guide-ol li{font-size:13px;color:var(--txt);line-height:1.65;margin-bottom:8px}
+.guide-ol li::marker{color:#10b981;font-weight:700}
+.guide-ul li{list-style-type:disc}
+.guide-ul li::marker{color:#10b981}
+.guide-callout{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.22);border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13px;color:var(--txt);line-height:1.55}
+.guide-callout-label{font-size:10px;font-weight:700;color:#10b981;font-family:'Roboto Mono',monospace;letter-spacing:1px;margin-bottom:4px}
+.guide-table{width:100%;border-collapse:collapse;margin:10px 0 16px 0;font-size:13px}
+.guide-table th{text-align:left;padding:10px 12px;background:var(--surf2);color:var(--txt);font-weight:700;font-size:12px;width:200px;border-bottom:1px solid var(--brd);vertical-align:top}
+.guide-table td{padding:10px 12px;border-bottom:1px solid var(--brd);color:var(--txt);line-height:1.55;vertical-align:top}
+.guide-footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--brd);text-align:center;color:var(--mut);font-size:11px;font-style:italic;font-family:'Roboto Mono',monospace;letter-spacing:.3px}
+@media (max-width:760px){
+  .guide-ov{padding:0}
+  .guide-box{grid-template-columns:1fr;max-height:100vh;border-radius:0;border:none}
+  .guide-toc{display:none}
+  .guide-body{padding:20px 18px}
+}
+
 </style>
 </head>
 <body>
@@ -1190,7 +1226,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-perf" onclick="go('perf')"><div class="ni-l"><div class="dd" style="background:#8b5cf6"></div>Performance</div></div>
     <div class="ni" id="nav-reminders" onclick="go('reminders')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Reminders</div><div class="cnt" id="c-reminders"></div></div>
     <div class="ni" id="nav-log" onclick="go('log')"><div class="ni-l"><div class="dd" style="background:var(--mut)"></div>Activity Log</div><div class="cnt" id="c-log">0</div></div>
-    <div class="ni" id="nav-help" onclick="window.open('Reloadly_Pulse_HowToUse.pdf','_blank')" title="Open the full PDF user guide in a new tab"><div class="ni-l"><div class="dd" style="background:#10b981"></div>How to Use</div><div class="cnt" style="font-size:9px;color:var(--mut)">↗</div></div>
+    <div class="ni" id="nav-help" onclick="showFullGuide()" title="Open the full Pulse user guide"><div class="ni-l"><div class="dd" style="background:#10b981"></div>How to Use</div></div>
     <div class="ni" id="nav-admin" onclick="go('admin')" style="display:none"><div class="ni-l"><div class="dd" style="background:var(--acc)"></div>User Management</div></div>
   </div>
   <div class="main" id="main"></div>
@@ -7955,7 +7991,7 @@ function showHelp(){
     '<ol class="help-steps">'+stepsHTML+'</ol>'+
     (tipsHTML?'<div class="help-section-label">TIPS</div>'+tipsHTML:'')+
     '<div class="help-foot">'+
-      '<a class="help-link" href="Reloadly_Pulse_HowToUse.pdf" target="_blank">Open the full user guide ↗</a>'+
+      '<a class="help-link" href="#" onclick="document.getElementById(\'help-drawer-ov\').remove();showFullGuide();return false;">Open the full user guide ↗</a>'+
     '</div>';
   ov.appendChild(box);
   setTimeout(function(){ ov.classList.add('open'); }, 10);
@@ -7963,6 +7999,268 @@ function showHelp(){
   ov.onclick = function(e){ if(e.target===ov){ ov.classList.remove('open'); setTimeout(function(){ ov.remove(); }, 200); } };
   function onEsc(e){ if(e.key==='Escape'){ ov.classList.remove('open'); setTimeout(function(){ ov.remove(); }, 200); document.removeEventListener('keydown', onEsc); } }
   document.addEventListener('keydown', onEsc);
+}
+
+
+// ════════════════════════════════════════════════════════════════════════
+// FULL IN-APP GUIDE — opens from sidebar "How to Use"
+// Sticky TOC + scrollable content. Same content as the PDF, but in-app.
+// ════════════════════════════════════════════════════════════════════════
+function showFullGuide(){
+  var existing = document.getElementById('guide-full-ov');
+  if(existing){existing.remove();}
+  var ov = document.createElement('div');
+  ov.id = 'guide-full-ov';
+  ov.className = 'guide-ov';
+  document.body.appendChild(ov);
+  var box = document.createElement('div');
+  box.className = 'guide-box';
+  ov.appendChild(box);
+
+  var sections = [
+    {id:'welcome',label:'Welcome'},
+    {id:'quick',label:'Quick reference'},
+    {id:'first10',label:'Your first 10 minutes'},
+    {id:'strategy',label:'Strategy'},
+    {id:'okr',label:'OKR Tracker'},
+    {id:'tasks',label:'Tasks'},
+    {id:'mytasks',label:'My Tasks'},
+    {id:'roadmaps',label:'Roadmaps'},
+    {id:'perf',label:'Performance'},
+    {id:'roles',label:'By role'},
+    {id:'faq',label:'FAQ'},
+    {id:'keys',label:'Keyboard shortcuts'},
+  ];
+
+  var toc = document.createElement('div'); toc.className = 'guide-toc';
+  toc.innerHTML = '<div class="guide-eyebrow">RELOADLY PULSE</div><div class="guide-toc-title">How to use</div><div class="guide-toc-list">' +
+    sections.map(function(s,i){
+      return '<a class="guide-toc-link'+(i===0?' active':'')+'" data-target="g-'+s.id+'">'+s.label+'</a>';
+    }).join('') + '</div>';
+  box.appendChild(toc);
+
+  var close = document.createElement('button');
+  close.className = 'guide-close';
+  close.innerHTML = '×';
+  close.onclick = function(){ ov.remove(); document.removeEventListener('keydown', onEsc); };
+  box.appendChild(close);
+
+  var body = document.createElement('div');
+  body.className = 'guide-body';
+  body.innerHTML =
+    sect('welcome','Welcome to Reloadly Pulse',
+      '<p class="guide-lead">Reloadly Pulse is our internal strategy + execution platform. Everyone at Reloadly uses it. This guide gets you productive in 10 minutes — what each module does, what to do as your role, and the everyday workflows that keep us aligned.</p>'+
+      '<p>Built in-house. No license fees. No data leaves Reloadly.</p>'+
+      callout('What this replaces','The five department spreadsheets and the standalone OKR sheet that everyone juggled before. Pulse unifies them, plus adds Roadmaps and Performance into one home.')
+    ) +
+
+    sect('quick','Quick reference',
+      '<p>The sidebar maps to these modules:</p>'+
+      table([
+        ['Dashboard','Company-wide overview of task counts, charts, and recent activity.'],
+        ['Strategy','OKR cascade from Company → Department → Individual. Forecast, attention center, mindmap.'],
+        ['OKR Tracker','Quarterly OKR creation and progress editing. The source of truth for what we are committed to.'],
+        ['Tasks','Unified task management. My Work · Team · Board · Timeline · Manager. Quick-add (press N).'],
+        ['Roadmaps','Product roadmap. Now / Next / Later + Timeline. Features link to KRs and Initiatives.'],
+        ['My Tasks','Shortcut to Tasks page filtered to your personal list.'],
+        ['Performance','Performance reviews, scorecards, 9-box, org tree.'],
+        ['Reminders','Upcoming task and reminder feed.'],
+        ['Activity Log','Audit trail of every action across the platform.'],
+      ])
+    ) +
+
+    sect('first10','Your first 10 minutes',
+      ol([
+        'Sign in at <strong>reloadly-tasks.github.io/task-manager</strong> with your Reloadly email.',
+        'Click <strong>My Tasks</strong> in the left sidebar. This is your home base — focus card at top, then Today / Overdue / This Week / Later.',
+        'Press <strong>N</strong> anywhere on the Tasks page to add a task. Describe it, hit Enter. The defaults are smart.',
+        'Click <strong>Strategy → People</strong> and find yourself. Click <strong>+ Set Individual OKR</strong>. Pick a parent KR. Add 1–N Key Results.',
+        'Click <strong>Roadmaps → Now / Next / Later</strong> for the company-wide product story this quarter.',
+      ])
+    ) +
+
+    sect('strategy','Strategy',
+      '<p>How company OKRs cascade to every team and every person. Use this view to set commitments, see what is at risk, and find what needs your attention.</p>'+
+      '<h4>The four viewpoint tabs</h4>'+
+      ul([
+        '<strong>Overview</strong> — department health card, forecast sentence, and the Attention Center inbox. Start here.',
+        '<strong>Objectives</strong> — the strategy tree. Click an objective to expand its KRs; click a KR to expand its initiatives.',
+        '<strong>Tasks</strong> — this dept\'s task surface. Same data as the Tasks module but scoped here.',
+        '<strong>People</strong> — team roster with each person\'s KRs, Individual OKRs, and a button to set new ones.',
+      ])+
+      '<h4>How to set an Individual OKR</h4>'+
+      ol([
+        'Strategy → People → find yourself → click <strong>+ Set Individual OKR</strong>.',
+        'Pick a parent: a Department Objective or a Company Objective.',
+        'Title the objective and add 1–N Key Results (baseline, target, unit, direction, confidence).',
+        'Save. Progress now rolls up into the cascade your manager and the CEO see.',
+      ])+
+      callout('Tip','The Attention Center on Overview triages issues into Critical / High / Medium. Tackle critical first. Snooze defers an item 7 days; Resolve closes it.')
+    ) +
+
+    sect('okr','OKR Tracker',
+      '<p>Where the quarterly OKRs are created and edited. Strategy reads from here; you write here when planning a new quarter.</p>'+
+      '<h4>Common actions</h4>'+
+      ul([
+        '<strong>Open a new quarter</strong> — select the quarter from the dropdown; copy forward from previous or start fresh.',
+        '<strong>Edit an objective or KR</strong> — click the title (admins only) to rename, click the % field to update progress.',
+        '<strong>Link tasks to a KR</strong> — click the Link Tasks button on any KR; pick tasks owned by anyone.',
+      ])+
+      callout('Note','OKR Tracker writes are non-destructive — every Strategy view reflects what you change here within seconds.')
+    ) +
+
+    sect('tasks','Tasks',
+      '<p>Replaces the old department spreadsheets. One unified page with five views. Department becomes a dropdown filter, not a tab.</p>'+
+      '<h4>The five tabs</h4>'+
+      ul([
+        '<strong>My Work</strong> (default) — Focus card picks your single most important task. Below: Today / Overdue / This Week / Later. Passes the 3-second test.',
+        '<strong>Team</strong> — all open tasks in the selected dept, grouped by Owner (or Status / Priority / Due).',
+        '<strong>Board</strong> — Kanban: Not Started · In Progress · Blocked · Done.',
+        '<strong>Timeline</strong> — Gantt-lite horizontal view. Ships next phase.',
+        '<strong>Manager</strong> — analytics: status, priority, avg progress, workload. Admins only.',
+      ])+
+      '<h4>Creating a task</h4>'+
+      ol([
+        'Press <strong>N</strong> anywhere on the Tasks page, OR click the bright <strong>+ New task</strong> button in the header.',
+        'Type the task description. Smart defaults fill in (you as owner, your dept, Planned priority, due in 7 days).',
+        'Click <strong>+ More details</strong> to expand Owner / Department / Priority / Due / Link to OKR.',
+        'Hit Enter (or Create task). It lands on your My Work list under the right horizon group.',
+      ])+
+      '<h4>Editing a task</h4>'+
+      ol([
+        'Click any task card → slide-in drawer.',
+        'Edit Owner, Priority, Due, Status, Progress, Notes (comfortable size), or Link to OKR via the searchable picker.',
+        'Save. Card reflects the change immediately.',
+      ])+
+      '<h4>Priority + Health</h4>'+
+      ul([
+        '<strong>Priority</strong> (you set this): Urgent · This Week · Planned · Backlog. Replaces Critical / High / Medium / Low.',
+        '<strong>Health</strong> (computed): 🟢 On Track · 🟡 Due Soon · 🔴 Overdue · ⚫ Blocked. Dot color comes from due date + status.',
+      ])+
+      callout('Pro tip','The Focus card uses a scoring algorithm: blocked × 100 + overdue × 60 + due today × 40 + Urgent × 30. It tells you, with no debate, the one thing to do next.')
+    ) +
+
+    sect('mytasks','My Tasks',
+      '<p>Shortcut into Tasks → My Work tab, filtered to your personal list. One click home.</p>'+
+      ol([
+        'Start with the Focus card — your single most important task right now.',
+        'Then sweep Overdue → Today → This Week → Later.',
+        'Press <strong>N</strong> to add anything you remember.',
+        'Click any card to edit, mark blocked, or change due date.',
+      ])+
+      callout('Tip','Snooze a task to push due 1 day forward without changing anything else.')
+    ) +
+
+    sect('roadmaps','Roadmaps',
+      '<p>Product roadmap module. Where Features are planned, scheduled, and linked to strategy.</p>'+
+      '<h4>The hierarchy</h4>'+
+      '<p>Theme → Feature → Initiative → Task. Themes group features strategically. Features are the discrete things shipped. Initiatives + Tasks come from Strategy / Tasks — no duplicate hierarchies.</p>'+
+      '<h4>The three tabs</h4>'+
+      ul([
+        '<strong>Now / Next / Later</strong> (default) — features bucketed by horizon under their themes.',
+        '<strong>Timeline</strong> — horizontal Gantt with quarter columns and theme swimlanes.',
+        '<strong>Releases</strong> — placeholder for upcoming/recent versions. Ships next phase.',
+      ])+
+      '<h4>Creating a feature</h4>'+
+      ol([
+        'Click <strong>+ New feature</strong> (bright green button, top-right).',
+        'Title it. Pick a theme, horizon, target quarter, owner. Create.',
+        'Drawer opens automatically. Add description, impact + effort (1–5 each), risks, link to a KR, link to existing initiatives, confidence level.',
+        'Save. The feature appears in Now/Next/Later and Timeline.',
+      ])+
+      callout('Why this matters','Every feature linked to a KR means leadership can see strategy → roadmap → delivery → outcomes as one chain. That is the whole point of Pulse.')
+    ) +
+
+    sect('perf','Performance',
+      '<p>Performance reviews, scorecards, 9-box talent matrix, and the org tree. Pulse keeps Performance but ties it back to OKR delivery, not feelings.</p>'+
+      '<h4>Most-used flows</h4>'+
+      ul([
+        '<strong>Run a review</strong> — Performance → Reviews → Create review. Workflow: Draft → Self → Manager → Peer → Calibration → Locked.',
+        '<strong>Read your scorecard</strong> — Performance → My Profile.',
+        '<strong>See the org</strong> — Performance → Org Tree.',
+      ])
+    ) +
+
+    sect('roles','By role',
+      '<p>Same product, different daily flows. Find your role for the workflow that takes ~5 minutes per day.</p>'+
+      table([
+        ['Individual contributor','My Tasks (daily focus) → Strategy / Individual (set + track your OKRs) → Roadmaps (read-only context).'],
+        ['Team lead','Tasks / Team and Tasks / Board (squad view) → Strategy / Department (your dept\'s chain) → Roadmaps / Now-Next-Later.'],
+        ['Department head','Strategy / Department (forecast, attention center) → Tasks / Manager (workload + analytics) → Roadmaps (delivery plan).'],
+        ['Executive (COO / CRO / CEO)','Strategy / Company (health, forecast, top attention items) → Roadmaps (Now / Next / Later) → Performance (talent picture).'],
+      ])
+    ) +
+
+    sect('faq','FAQ',
+      '<h4>Where is my data stored?</h4>'+
+      '<p>For now, in your browser\'s localStorage. Strategy nodes, tasks, themes, and features live in keys like rl_strat_nodes_v1, rl_tasks_v4, rl_rm_themes_v1. When Reloadly cloud sync ships, it migrates automatically — nothing you need to do.</p>'+
+      '<h4>Two browsers, two views?</h4>'+
+      '<p>Yes. Until cloud sync ships, each browser is its own copy. Use the same browser on the same laptop for now. This is the single biggest motivator for the Reloadly-backend phase.</p>'+
+      '<h4>What changed if I am used to Task Manager?</h4>'+
+      ul([
+        'The 5 dept tabs are gone. One unified Tasks page replaces them.',
+        'Priority labels: Critical → Urgent, High → This Week, Medium → Planned, Low → Backlog. Old data migrates automatically.',
+        'Charts moved to the Manager tab (admin-only). Employees see action, not analytics.',
+        'Cards replaced spreadsheet rows. Click a card → drawer for editing.',
+      ])+
+      '<h4>How do I report a bug?</h4>'+
+      '<p>Ping Dren. Bugs get fixed within the day for anything user-facing.</p>'+
+      '<h4>Is there mobile?</h4>'+
+      '<p>The current build is responsive. A true mobile-first layout ships next phase — bottom nav, swipe-to-complete, FAB for new tasks.</p>'
+    ) +
+
+    sect('keys','Keyboard shortcuts',
+      ul([
+        '<strong>N</strong> — new task (anywhere on the Tasks page)',
+        '<strong>Esc</strong> — close any open drawer or modal',
+        '<strong>Enter</strong> — submit Quick Add input or save modal title',
+      ])+
+      '<p style="margin-top:24px;color:var(--mut);font-style:italic">More shortcuts coming as the product matures.</p>'+
+      '<div class="guide-footer">Reloadly Pulse  ·  Designed at Reloadly  ·  Built for Reloadly</div>'
+    );
+  box.appendChild(body);
+
+  // TOC clicks
+  toc.querySelectorAll('.guide-toc-link').forEach(function(a){
+    a.onclick = function(){
+      var target = document.getElementById(this.getAttribute('data-target'));
+      if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+    };
+  });
+
+  // Scroll spy — highlight active TOC entry
+  body.addEventListener('scroll', function(){
+    var bodyTop = body.scrollTop;
+    var current = null;
+    sections.forEach(function(s){
+      var el = document.getElementById('g-'+s.id);
+      if(el && el.offsetTop - 80 <= bodyTop) current = s.id;
+    });
+    if(current){
+      toc.querySelectorAll('.guide-toc-link').forEach(function(a){
+        a.classList.toggle('active', a.getAttribute('data-target') === 'g-'+current);
+      });
+    }
+  });
+
+  function onEsc(e){ if(e.key==='Escape'){ ov.remove(); document.removeEventListener('keydown', onEsc); } }
+  document.addEventListener('keydown', onEsc);
+  ov.onclick = function(e){ if(e.target===ov){ ov.remove(); document.removeEventListener('keydown', onEsc); } };
+}
+
+// Helpers for section rendering
+function sect(id, title, html){
+  return '<section id="g-'+id+'" class="guide-section"><h2>'+esc(title)+'</h2>'+html+'</section>';
+}
+function ul(items){ return '<ul class="guide-ul">'+items.map(function(i){return '<li>'+i+'</li>';}).join('')+'</ul>'; }
+function ol(items){ return '<ol class="guide-ol">'+items.map(function(i){return '<li>'+i+'</li>';}).join('')+'</ol>'; }
+function table(rows){
+  return '<table class="guide-table">'+rows.map(function(r){
+    return '<tr><th>'+esc(r[0])+'</th><td>'+r[1]+'</td></tr>';
+  }).join('')+'</table>';
+}
+function callout(label, text){
+  return '<div class="guide-callout"><div class="guide-callout-label">'+esc(label)+'</div><div>'+esc(text)+'</div></div>';
 }
 
 init();
