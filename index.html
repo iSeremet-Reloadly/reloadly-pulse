@@ -4275,6 +4275,12 @@ NS._renderV2 = function(){
   deptOpts.forEach(function(o){var op=document.createElement('option');op.value=o.v;op.textContent=o.l;if(o.v===st.dept)op.selected=true;deptSel.appendChild(op);});
   deptSel.onchange=function(){_v2SetState({dept:this.value});NS.renderStrategy();};
   hdr.appendChild(deptSel);
+  var mmBtn=document.createElement('button');mmBtn.className='strat-guide-btn v2-mm-btn';
+  mmBtn.innerHTML='🗺️ Mindmap';
+  mmBtn.title='Open the interactive strategic mindmap. Pivot by quarter or team member; click any node to refocus.';
+  mmBtn.style.cssText='margin-left:10px;background:linear-gradient(135deg,rgba(108,99,255,.18),rgba(9,250,163,.12));border-color:var(--acc);padding:8px 14px;font-size:11px';
+  mmBtn.onclick=function(){if(NS.openMindmap){NS.openMindmap();}else{alert('Mindmap is loading — please try again in a moment.');}};
+  hdr.appendChild(mmBtn);
   wrap.appendChild(hdr);
 
   // === Status strip (1-line persistent summary) ===
