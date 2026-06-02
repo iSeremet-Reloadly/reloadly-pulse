@@ -1131,6 +1131,27 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
   .rm-drawer-form,.rm-new-row{grid-template-columns:1fr}
 }
 
+/* Contextual Help drawer */
+.help-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9920;display:flex;align-items:stretch;justify-content:flex-end;opacity:0;transition:opacity .18s;pointer-events:none}
+.help-ov.open{opacity:1;pointer-events:auto}
+.help-drawer{width:440px;max-width:96vw;background:var(--surf);border-left:1px solid var(--brd);padding:28px 32px;overflow-y:auto;box-shadow:-8px 0 32px rgba(0,0,0,.45);position:relative;transform:translateX(20px);transition:transform .22s ease-out}
+.help-ov.open .help-drawer{transform:translateX(0)}
+.help-close{position:absolute;top:14px;right:18px;background:var(--surf2);border:1px solid var(--brd);color:var(--mut);width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.help-close:hover{color:var(--txt);background:var(--bg)}
+.help-eyebrow{font-size:10px;font-weight:700;color:#10b981;font-family:'Roboto Mono',monospace;letter-spacing:1.4px;margin-bottom:8px}
+.help-title{font-size:24px;font-weight:800;color:var(--txt);margin-bottom:10px;letter-spacing:-.3px;padding-right:40px}
+.help-intro{font-size:13px;color:var(--txt);line-height:1.55;margin-bottom:22px}
+.help-section-label{font-size:10px;font-weight:700;color:var(--mut);font-family:'Roboto Mono',monospace;letter-spacing:1.2px;text-transform:uppercase;margin:18px 0 10px 0}
+.help-steps{padding-left:22px;margin:0 0 14px 0}
+.help-steps li{font-size:13px;color:var(--txt);line-height:1.55;margin-bottom:8px;padding-left:4px}
+.help-steps li::marker{color:#10b981;font-weight:700}
+.help-tip{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.22);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--txt);line-height:1.5;margin-bottom:8px}
+.help-foot{margin-top:24px;padding-top:16px;border-top:1px solid var(--brd);text-align:center}
+.help-link{font-size:12px;color:var(--mut);text-decoration:none;font-family:'Roboto Mono',monospace;letter-spacing:.3px;padding:8px 14px;border-radius:6px;display:inline-block;transition:color .12s,background .12s}
+.help-link:hover{color:#10b981;background:rgba(16,185,129,.08)}
+#help-btn{color:#10b981;border-color:rgba(16,185,129,.4)}
+#help-btn:hover{background:rgba(16,185,129,.12);color:#10b981}
+
 </style>
 </head>
 <body>
@@ -1141,6 +1162,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <span class="as-dot" id="as-dot"></span>
     <span id="as-lbl" style="font-family:'Roboto Mono',monospace;font-size:9px;color:var(--mut)"></span>
     <button class="hbtn xl" id="export-btn" onclick="exportExcel()" style="display:none">&#11015; EXPORT XLS</button>
+    <button class="hbtn" id="help-btn" onclick="showHelp()" title="How to use this page (?)" style="font-size:14px;font-weight:700;width:30px;justify-content:center">?</button>
     <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark">🌙 DARK</button>
     <button class="hbtn" id="bell-btn" onclick="go('reminders')" style="position:relative">&#128276;<span id="remind-hdr-cnt" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:8px;min-width:14px;height:14px;border-radius:7px;line-height:14px;text-align:center;padding:0 2px"></span></button>
     <button class="hbtn" onclick="go('log')">&#128203; LOG</button>
@@ -1165,10 +1187,10 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-Sales" onclick="go('Sales')" style="display:none"></div>
     <div class="ni" id="nav-mytasks" onclick="go('mytasks')" style="display:none"></div>
     <div class="sb-lbl">TOOLS</div>
-    <div class="ni" id="nav-help" onclick="window.open('Reloadly_Pulse_HowToUse.pdf','_blank')" title="Open the user guide in a new tab"><div class="ni-l"><div class="dd" style="background:#10b981"></div>How to Use</div><div class="cnt" style="font-size:9px;color:var(--mut)">↗</div></div>
     <div class="ni" id="nav-perf" onclick="go('perf')"><div class="ni-l"><div class="dd" style="background:#8b5cf6"></div>Performance</div></div>
     <div class="ni" id="nav-reminders" onclick="go('reminders')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Reminders</div><div class="cnt" id="c-reminders"></div></div>
     <div class="ni" id="nav-log" onclick="go('log')"><div class="ni-l"><div class="dd" style="background:var(--mut)"></div>Activity Log</div><div class="cnt" id="c-log">0</div></div>
+    <div class="ni" id="nav-help" onclick="window.open('Reloadly_Pulse_HowToUse.pdf','_blank')" title="Open the full PDF user guide in a new tab"><div class="ni-l"><div class="dd" style="background:#10b981"></div>How to Use</div><div class="cnt" style="font-size:9px;color:var(--mut)">↗</div></div>
     <div class="ni" id="nav-admin" onclick="go('admin')" style="display:none"><div class="ni-l"><div class="dd" style="background:var(--acc)"></div>User Management</div></div>
   </div>
   <div class="main" id="main"></div>
@@ -7770,6 +7792,178 @@ function rmOpenThemeEdit(themeId){
   box.querySelector('#rm-nt-title').focus();
 }
 
+
+
+// ════════════════════════════════════════════════════════════════════════
+// CONTEXTUAL HELP — per-page slide-in guide
+// ════════════════════════════════════════════════════════════════════════
+var HELP_CONTENT = {
+  dashboard: {
+    title: 'Dashboard',
+    intro: 'Company-wide overview of task counts, charts, and recent activity. Best for execs glancing at health.',
+    steps: [
+      'Read the top stat cards: total tasks, completed, blocked.',
+      'Each department card shows its open / done / blocked breakdown.',
+      'Scroll down for charts: status by dept, priority distribution, completion rate.',
+      'Charts are administrative — for daily action use My Tasks instead.'
+    ],
+    tips: [
+      'If you want your personal list, click My Tasks in the sidebar.',
+      'Dashboard refreshes whenever you edit any task anywhere in Pulse.'
+    ]
+  },
+  strategy: {
+    title: 'Strategy',
+    intro: 'How company OKRs cascade to every team and every person. Set commitments, see what is at risk, find what needs your attention.',
+    steps: [
+      'Pick your scope from the department dropdown in the page header.',
+      'Read the persistent status strip — Department · score · attention · blocked · forecast.',
+      'Overview tab: read the health card forecast then triage the Attention Center inbox.',
+      'Objectives tab: expand objectives → KRs → initiatives inline. No modal.',
+      'People tab: click + Set Individual OKR on any teammate to create personal commitments.'
+    ],
+    tips: [
+      'Attention Center triages into Critical / High / Medium. Tackle Critical first.',
+      'Snooze defers an item 7 days; Resolve closes it and logs the action.',
+      'Click any KR chip on any view to walk back into the cascade.'
+    ]
+  },
+  okr: {
+    title: 'OKR Tracker',
+    intro: 'Where quarterly objectives and key results are created and edited. Strategy reads from here; you write here when planning a new quarter.',
+    steps: [
+      'Switch the active quarter via the dropdown at the top.',
+      'Edit objective or KR titles inline (admin only).',
+      'Update KR progress by clicking the % field.',
+      'Click Link Tasks on any KR to attach existing tasks to it.'
+    ],
+    tips: [
+      'OKR Tracker is non-destructive — every Strategy view updates within seconds.',
+      'Copy a quarter forward to carry objectives over and zero out progress.'
+    ]
+  },
+  tasks: {
+    title: 'Tasks',
+    intro: 'Unified task management. One page with five views replaces the old per-dept spreadsheets.',
+    steps: [
+      'My Work (default) — Focus card at top picks the one thing to do next. Below: Today / Overdue / This Week / Later groups.',
+      'Press N anywhere to add a task, or click + New task in the header. Smart defaults fill in.',
+      'Click any card → drawer for editing (owner, priority, due, status, progress, notes, link to OKR).',
+      'Team view groups by Owner / Status / Priority / Due.',
+      'Board view is Kanban: Not Started · In Progress · Blocked · Done.'
+    ],
+    tips: [
+      'Priority is what you set: Urgent · This Week · Planned · Backlog.',
+      'Health (the dot color) is computed automatically from due date + status.',
+      'Linking a task to a KR keeps it in sync with the OKR Tracker.'
+    ]
+  },
+  mytasks: {
+    title: 'My Tasks',
+    intro: 'Shortcut into Tasks → My Work tab, filtered to your personal list. One click home.',
+    steps: [
+      'Start with the Focus card — your single most important task right now.',
+      'Then sweep Overdue → Today → This Week → Later.',
+      'Press N to add anything you remember.',
+      'Click any card to edit, mark blocked, or change due date.'
+    ],
+    tips: [
+      'The Focus algorithm scores Blocked × 100 + Overdue × 60 + Today × 40 + Urgent × 30.',
+      'Snooze a task to push due 1 day forward without changing anything else.'
+    ]
+  },
+  roadmaps: {
+    title: 'Roadmaps',
+    intro: 'Product roadmap. Themes group features; features link to KRs and Initiatives so leadership sees strategy → delivery.',
+    steps: [
+      'Now / Next / Later (default) — features bucketed under their themes by horizon.',
+      'Click + New feature (bright green) to add one. Title + theme + horizon + target quarter.',
+      'Drawer opens — set impact + effort (1–5), confidence, link to a KR, link to existing initiatives.',
+      'Timeline tab: same features on a quarter-by-quarter Gantt-lite.'
+    ],
+    tips: [
+      'Every feature linked to a KR creates the chain Strategy → Roadmap → Delivery.',
+      'Cards in Now/Next/Later sort by impact ÷ effort within each bucket.'
+    ]
+  },
+  perf: {
+    title: 'Performance',
+    intro: 'Performance reviews, scorecards, talent matrix, org tree. Tied directly to OKR delivery.',
+    steps: [
+      'Reviews tab — Create review → pick cycle, reviewee, type. Walks through Draft → Self → Manager → Peer → Calibration → Locked.',
+      'My Profile — your own competency scores and review history.',
+      'Talent Matrix — 9-box of performance vs potential, filterable by dept.',
+      'Org Tree — visual reporting hierarchy.'
+    ],
+    tips: [
+      'Profile changes (skills, manager) re-render the directory the moment you close the modal.',
+      'Evidence is pulled automatically from the task board into the review.'
+    ]
+  },
+  reminders: {
+    title: 'Reminders',
+    intro: 'Upcoming task feed surfaced as small chips with countdowns.',
+    steps: [
+      'Filter by department or priority using the dropdowns at the top.',
+      'Each chip shows task id, owner, dept, and how soon it is due.',
+      'Click any reminder to jump to the task in its department board.'
+    ],
+    tips: ['Enable browser notifications (bell button in the header) to get desktop alerts.']
+  },
+  log: {
+    title: 'Activity Log',
+    intro: 'Audit trail of every meaningful action across Pulse — task creation, edits, deletes, OKR changes, review state transitions.',
+    steps: [
+      'Search via the input at the top — matches against message text.',
+      'Filter by action type (add / edit / del) using the dropdown.',
+      'Click any entry to jump to the related item if available.',
+      'Export to CSV for sharing or backup.'
+    ],
+    tips: ['Activity Log auto-prunes after 1000 entries. Export periodically if you need long history.']
+  },
+  admin: {
+    title: 'User Management',
+    intro: 'Admin-only. Add and edit Pulse users, set roles, archive departed teammates.',
+    steps: [
+      'Click + Add user. Email + name + role + dept + permission level.',
+      'Edit any row inline — name, role, department, permissions.',
+      'Archive a user to hide them from pickers without losing historical data.',
+      'Toggle isAdmin on a user to grant them the Manager + admin views.'
+    ],
+    tips: ['Archived users still own their historical tasks and OKRs — nothing is destroyed.']
+  }
+};
+
+function showHelp(){
+  var key = (typeof view !== 'undefined' && view) ? view : 'dashboard';
+  // Department dept names route through renderDept, but help key is generic
+  if(['Management','Operations','Finance','Engineering','Sales'].indexOf(key) >= 0) key = 'tasks';
+  var content = HELP_CONTENT[key] || HELP_CONTENT.dashboard;
+
+  var ov = document.getElementById('help-drawer-ov');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'help-drawer-ov'; ov.className = 'help-ov'; document.body.appendChild(ov); }
+  ov.innerHTML = '';
+  var box = document.createElement('div'); box.className = 'help-drawer';
+  var stepsHTML = content.steps.map(function(s,i){return '<li>'+esc(s)+'</li>';}).join('');
+  var tipsHTML = content.tips.map(function(t){return '<div class="help-tip">💡 '+esc(t)+'</div>';}).join('');
+  box.innerHTML =
+    '<button class="help-close" id="help-close">×</button>'+
+    '<div class="help-eyebrow">HOW TO USE</div>'+
+    '<div class="help-title">'+esc(content.title)+'</div>'+
+    '<div class="help-intro">'+esc(content.intro)+'</div>'+
+    '<div class="help-section-label">STEP BY STEP</div>'+
+    '<ol class="help-steps">'+stepsHTML+'</ol>'+
+    (tipsHTML?'<div class="help-section-label">TIPS</div>'+tipsHTML:'')+
+    '<div class="help-foot">'+
+      '<a class="help-link" href="Reloadly_Pulse_HowToUse.pdf" target="_blank">Open the full user guide ↗</a>'+
+    '</div>';
+  ov.appendChild(box);
+  setTimeout(function(){ ov.classList.add('open'); }, 10);
+  box.querySelector('#help-close').onclick = function(){ ov.classList.remove('open'); setTimeout(function(){ ov.remove(); }, 200); };
+  ov.onclick = function(e){ if(e.target===ov){ ov.classList.remove('open'); setTimeout(function(){ ov.remove(); }, 200); } };
+  function onEsc(e){ if(e.key==='Escape'){ ov.classList.remove('open'); setTimeout(function(){ ov.remove(); }, 200); document.removeEventListener('keydown', onEsc); } }
+  document.addEventListener('keydown', onEsc);
+}
 
 init();
 </script>
