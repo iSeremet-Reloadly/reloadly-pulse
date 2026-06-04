@@ -9173,6 +9173,33 @@ var SUP=(function(){
 .pp-summary b{font-family:'Roboto Mono',monospace}
 .pp-warn-row{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3);padding:8px 12px;border-radius:6px;font-size:11px;color:var(--yel);margin-bottom:8px}
 .pp-empty-mini{text-align:center;padding:24px 8px;color:var(--mut);font-size:11px;font-family:'Roboto Mono',monospace}
+/* === Tier export tiles (the primary CTA in the proposal builder) === */
+.pp-tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:18px}
+.pp-tile{background:var(--surf);border:1.5px solid var(--brd);border-radius:14px;padding:20px 22px;cursor:pointer;transition:all .18s ease;position:relative;overflow:hidden}
+.pp-tile:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,.35)}
+.pp-tile.t1{border-color:rgba(16,185,129,.5)}
+.pp-tile.t1:hover{border-color:#10b981;background:linear-gradient(135deg,rgba(16,185,129,.08),transparent 60%)}
+.pp-tile.t2{border-color:rgba(6,182,212,.5)}
+.pp-tile.t2:hover{border-color:#06b6d4;background:linear-gradient(135deg,rgba(6,182,212,.08),transparent 60%)}
+.pp-tile.t3{border-color:rgba(108,99,255,.5)}
+.pp-tile.t3:hover{border-color:#6c63ff;background:linear-gradient(135deg,rgba(108,99,255,.08),transparent 60%)}
+.pp-tile.disabled{opacity:.45;cursor:not-allowed}
+.pp-tile.disabled:hover{transform:none;box-shadow:none;background:var(--surf)}
+.pp-tile-badge{position:absolute;top:14px;right:14px;font-size:9px;padding:3px 8px;border-radius:5px;font-weight:800;font-family:'Roboto Mono',monospace;letter-spacing:.5px;background:var(--surf2);color:var(--mut)}
+.pp-tile.t1 .pp-tile-badge{background:rgba(16,185,129,.18);color:#10b981}
+.pp-tile.t2 .pp-tile-badge{background:rgba(6,182,212,.18);color:#06b6d4}
+.pp-tile.t3 .pp-tile-badge{background:rgba(108,99,255,.18);color:#6c63ff}
+.pp-tile-name{font-size:18px;font-weight:800;letter-spacing:-.2px;margin-bottom:4px}
+.pp-tile-vol{font-size:10px;color:var(--mut);font-family:'Roboto Mono',monospace;margin-bottom:14px;letter-spacing:.4px}
+.pp-tile-stat{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--brd);font-size:11px}
+.pp-tile-stat:last-of-type{border-bottom:none}
+.pp-tile-stat span{color:var(--mut);font-family:'Roboto Mono',monospace;font-size:10px}
+.pp-tile-stat b{font-family:'Roboto Mono',monospace;font-weight:800;font-size:13px}
+.pp-tile-cta{margin-top:14px;padding:10px 14px;border-radius:8px;text-align:center;font-size:11px;font-weight:800;font-family:'Roboto Mono',monospace;letter-spacing:.6px;background:var(--surf2);color:var(--txt);transition:all .15s}
+.pp-tile.t1:hover .pp-tile-cta{background:#10b981;color:#fff}
+.pp-tile.t2:hover .pp-tile-cta{background:#06b6d4;color:#fff}
+.pp-tile.t3:hover .pp-tile-cta{background:#6c63ff;color:#fff}
+.pp-tile-hint{font-size:10px;color:var(--mut);font-family:'Roboto Mono',monospace;margin-top:10px;line-height:1.4}
 </style>
 <script>
 // ====================== Pricing Proposal Generator (Sales) ======================
@@ -9358,15 +9385,17 @@ var PP=(function(){
     var titleBlock=document.createElement('div');titleBlock.innerHTML='<div class="sup-title">'+_esc(pr.customer||'Untitled proposal')+'</div><div class="sup-sub">'+pr.id+' · '+(pr.status==='sent'?'Sent':'Draft')+'</div>';
     hdr.appendChild(back);hdr.appendChild(titleBlock);
     var tools=document.createElement('div');tools.className='sup-toolbar';
-    var exI=document.createElement('button');exI.className='sup-btn';exI.innerHTML='⤓ Internal Excel';
-    exI.onclick=function(){NS.exportProposal(pr.id,'internal');};
-    var exC=document.createElement('button');exC.className='sup-btn primary';exC.innerHTML='⤓ Customer Excel';
-    exC.onclick=function(){NS.exportProposal(pr.id,'customer');};
+    var exI=document.createElement('button');exI.className='sup-btn';exI.innerHTML='⤓ Internal (Ops)';
+    exI.title='All tiers + supplier detail. For internal sales/ops handover.';
+    exI.onclick=function(){NS.exportProposal(pr.id,'internal',null);};
     var sentToggle=document.createElement('button');sentToggle.className='sup-btn';sentToggle.textContent=pr.status==='sent'?'Mark as Draft':'Mark as Sent';
     sentToggle.onclick=function(){pr.status=pr.status==='sent'?'draft':'sent';pr.updatedAt=Date.now();NS.saveProposals(ps);NS.renderProposals();};
-    tools.appendChild(exI);tools.appendChild(exC);tools.appendChild(sentToggle);
+    tools.appendChild(exI);tools.appendChild(sentToggle);
     hdr.appendChild(tools);
     wrap.appendChild(hdr);
+
+    // === Tier export tiles — primary CTA ===
+    wrap.appendChild(_renderTierTiles(pr,ps));
 
     // Two-column layout
     var grid=document.createElement('div');grid.className='pp-builder-grid';
@@ -9480,6 +9509,45 @@ var PP=(function(){
     _redrawPreview();
   }
 
+  function _renderTierTiles(pr,ps){
+    var box=document.createElement('div');
+    var head=document.createElement('div');head.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px';
+    head.innerHTML='<div><div style="font-size:13px;font-weight:800">Export customer proposal</div><div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">Pick a tier — each tile generates a customer-ready Excel for that volume commitment.</div></div>';
+    box.appendChild(head);
+    var grid=document.createElement('div');grid.className='pp-tile-grid';
+    var tiers=pr.tiers||NS.loadTiers();
+    var products=SUP.loadProducts();
+    var lines=_proposalLines(pr,products);
+    var avail=lines.filter(function(l){return l.available;}).length;
+    var noLines=!lines.length;
+    tiers.forEach(function(t,idx){
+      var cls=idx===0?'t1':idx===1?'t2':'t3';
+      var tile=document.createElement('div');tile.className='pp-tile '+cls+(noLines?' disabled':'');
+      // Compute average customer discount for this tier (across available lines)
+      var sumD=0,n=0;
+      lines.forEach(function(l){var v=l.tierDiscounts[t.id];if(v!=null){sumD+=v;n++;}});
+      var avgPct=n?((sumD/n)*100):0;
+      var volMin=(t.volMin||0).toLocaleString();
+      var volMax=t.volMax==null?'∞':t.volMax.toLocaleString();
+      tile.innerHTML=
+        '<div class="pp-tile-badge">'+_esc(t.id||('T'+(idx+1)))+'</div>'
+        +'<div class="pp-tile-name">'+_esc(t.name)+'</div>'
+        +'<div class="pp-tile-vol">VOLUME: $'+volMin+' – $'+volMax+' / mo</div>'
+        +'<div class="pp-tile-stat"><span>MARGIN</span><b>'+(t.marginPts||0)+' pts</b></div>'
+        +'<div class="pp-tile-stat"><span>AVG CUSTOMER DISCOUNT</span><b>'+(n?avgPct.toFixed(2):'—')+'%</b></div>'
+        +'<div class="pp-tile-stat"><span>LINES IN PROPOSAL</span><b>'+lines.length.toLocaleString()+'</b></div>'
+        +(avail<lines.length?'<div class="pp-tile-stat"><span>UNAVAILABLE</span><b style="color:var(--red)">'+(lines.length-avail)+'</b></div>':'')
+        +'<div class="pp-tile-cta">⤓ EXPORT '+_esc((t.name||'Tier').toUpperCase())+' PROPOSAL</div>'
+        +(noLines?'<div class="pp-tile-hint">Add products first — the proposal is empty.</div>':'');
+      if(!noLines){
+        tile.onclick=function(){NS.exportProposal(pr.id,'customer',t.id);};
+      }
+      grid.appendChild(tile);
+    });
+    box.appendChild(grid);
+    return box;
+  }
+
   function _renderCatalogueFilters(pr,ps,products){
     var box=document.createElement('div');
     var isos=Array.from(new Set(products.map(function(p){return p.iso;}).filter(Boolean))).sort();
@@ -9576,22 +9644,34 @@ var PP=(function(){
     if(lines.length>300){var more=document.createElement('div');more.className='pp-empty-mini';more.textContent='Preview shows first 300 of '+lines.length+'. Export includes all.';w.appendChild(more);}
   }
 
-  NS.exportProposal=function(draftId,mode){
+  NS.exportProposal=function(draftId,mode,tierId){
     var pr=NS.loadProposals()[draftId];if(!pr){alert('Proposal not found.');return;}
     if(typeof XLSX==='undefined'){alert('Excel writer not loaded.');return;}
     var products=SUP.loadProducts();
     var lines=_proposalLines(pr,products);
-    var tiers=pr.tiers||NS.loadTiers();
+    var allTiers=pr.tiers||NS.loadTiers();
+    // If tierId given, single-tier customer export; else, all tiers.
+    var tiers=tierId?allTiers.filter(function(t){return t.id===tierId;}):allTiers;
+    if(tierId&&!tiers.length){alert('Tier not found.');return;}
+    var singleTier=tiers.length===1&&tierId;
 
     var wb=XLSX.utils.book_new();
     // Cover
-    var cover=[['Pricing Proposal'],['Customer',pr.customer||'(unnamed)'],['Proposal ID',pr.id],['Status',pr.status||'draft'],['Mode',pr.mode==='cart'?'Cart (picked products)':'Catalogue (filter-based)'],['Generated',new Date().toLocaleString()],[],['Line count',lines.length],['Lines with supplier',lines.filter(function(l){return l.available;}).length],['Lines without supplier',lines.filter(function(l){return !l.available;}).length],[],['Tier','Volume min ($/mo)','Volume max ($/mo)','Margin (pts)']];
-    tiers.forEach(function(t){cover.push([t.name,t.volMin,t.volMax==null?'∞':t.volMax,t.marginPts]);});
+    var cover=[['Pricing Proposal'],['Customer',pr.customer||'(unnamed)'],['Proposal ID',pr.id],['Status',pr.status||'draft'],['Mode',pr.mode==='cart'?'Cart (picked products)':'Catalogue (filter-based)'],['Generated',new Date().toLocaleString()]];
+    if(singleTier){
+      var t=tiers[0];
+      cover.push([],['Tier',t.name],['Volume min ($/mo)',t.volMin||0],['Volume max ($/mo)',t.volMax==null?'∞':t.volMax],['Margin (pts)',t.marginPts]);
+    }
+    cover.push([],['Line count',lines.length],['Lines with supplier',lines.filter(function(l){return l.available;}).length],['Lines without supplier',lines.filter(function(l){return !l.available;}).length]);
+    if(!singleTier){
+      cover.push([],['Tier','Volume min ($/mo)','Volume max ($/mo)','Margin (pts)']);
+      allTiers.forEach(function(t){cover.push([t.name,t.volMin,t.volMax==null?'∞':t.volMax,t.marginPts]);});
+    }
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(cover),'Cover');
 
     // Customer sheet (no internal data)
     var cHdr=['SKU ID','Brand','Country','Currency'];
-    tiers.forEach(function(t){cHdr.push(t.name+' Discount %');});
+    tiers.forEach(function(t){cHdr.push((singleTier?'Discount %':t.name+' Discount %'));});
     cHdr.push('Fixed Fee','Notes');
     var cRows=[cHdr];
     lines.forEach(function(l){
@@ -9600,27 +9680,29 @@ var PP=(function(){
       row.push(0,l.available?'':'UNAVAILABLE — no supplier currently configured');
       cRows.push(row);
     });
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(cRows),'Customer Pricing');
+    var sheetName=singleTier?_xlsxSafe(tiers[0].name+' Pricing'):'Customer Pricing';
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(cRows),sheetName);
 
     if(mode==='internal'){
-      // Internal sheet with ops detail
+      // Internal sheet with ops detail — always shows all tiers regardless of tierId
       var iHdr=['SKU ID','Brand','Country','Currency','Status','Primary Supplier','Supplier Discount %'];
-      tiers.forEach(function(t){iHdr.push(t.name+' Discount %');iHdr.push(t.name+' Margin (pts)');});
+      allTiers.forEach(function(t){iHdr.push(t.name+' Discount %');iHdr.push(t.name+' Margin (pts)');});
       iHdr.push('Available','Notes');
       var iRows=[iHdr];
       lines.forEach(function(l){
         var row=[l.id,l.title,l.iso,l.currency||'',l.status||'',l.supplier||'',l.supplierDiscount!=null?+(l.supplierDiscount*100).toFixed(2):''];
-        tiers.forEach(function(t){var v=l.tierDiscounts[t.id];row.push(v!=null?+(v*100).toFixed(2):'');row.push(t.marginPts);});
+        allTiers.forEach(function(t){var v=l.tierDiscounts[t.id];row.push(v!=null?+(v*100).toFixed(2):'');row.push(t.marginPts);});
         row.push(l.available?'YES':'NO',l.available?'':'No available supplier');
         iRows.push(row);
       });
       XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(iRows),'Internal — Ops View');
     }
 
-    var label=mode==='customer'?'Customer':'Internal';
+    var label=singleTier?_xlsxSafe(tiers[0].name).replace(/\s+/g,''):(mode==='customer'?'Customer':'Internal');
     var custSlug=(pr.customer||'proposal').replace(/[^A-Za-z0-9]+/g,'_').slice(0,30)||'proposal';
     XLSX.writeFile(wb,'Proposal_'+label+'_'+custSlug+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
   };
+  function _xlsxSafe(s){return String(s||'').replace(/[\\\/\?\*\[\]:]/g,'').slice(0,28);}
 
   function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   return NS;
