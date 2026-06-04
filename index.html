@@ -8668,15 +8668,20 @@ var SUP=(function(){
     overrides=overrides||{};admin=admin||NS.loadAdmin();
     var ov=overrides[p.id]||{};
     var excluded=ov.excluded||[];
+    var manualRates=ov.manualRates||{};
     var candidates=[];
-    Object.keys(p.rates).forEach(function(sup){
-      var r=p.rates[sup];
+    // Merge imported + manual rates. Manual takes precedence on conflict.
+    var merged={};
+    Object.keys(p.rates||{}).forEach(function(sup){merged[sup]={rate:p.rates[sup].rate,ok:p.rates[sup].ok,conf:p.rates[sup].conf,source:'imported'};});
+    Object.keys(manualRates).forEach(function(sup){var rate=manualRates[sup];if(rate==null)return;var c=rate<=0.30?100:rate<=0.50?70:30;merged[sup]={rate:rate,ok:true,conf:c,source:'manual'};});
+    Object.keys(merged).forEach(function(sup){
+      var r=merged[sup];
       if(!r.ok)return;
       if(excluded.indexOf(sup)>=0)return;
       var pref=admin.preferredOrder.indexOf(sup);
       if(pref<0)pref=999;
       var rel=admin.reliability[sup]||50;
-      candidates.push({supplier:sup,rate:r.rate,conf:r.conf,pref:pref,rel:rel});
+      candidates.push({supplier:sup,rate:r.rate,conf:r.conf,pref:pref,rel:rel,source:r.source});
     });
     // Sort: discount mode → highest rate wins; cost mode → lowest wins
     var mode=admin.mode||'discount';
@@ -9079,18 +9084,27 @@ var SUP=(function(){
 
     // Ranking list with override actions
     var rs=document.createElement('div');rs.className='sup-sec';
-    rs.innerHTML='<div class="sup-sec-h">ALL SUPPLIERS — RANKED</div>';
+    var rsHdr=document.createElement('div');rsHdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px';
+    rsHdr.innerHTML='<div class="sup-sec-h" style="margin-bottom:0">ALL SUPPLIERS — RANKED</div>';
+    var addManualBtn=document.createElement('button');addManualBtn.className='sup-mini';addManualBtn.style.cssText='font-size:10px;padding:4px 9px';
+    addManualBtn.innerHTML='+ Map a supplier manually';
+    addManualBtn.title='Manually set a supplier rate for this product (when the auto-import missed it)';
+    addManualBtn.onclick=function(){_renderManualMappingForm(p,addManualBtn);};
+    rsHdr.appendChild(addManualBtn);
+    rs.appendChild(rsHdr);
     var rl=document.createElement('div');rl.className='sup-ranklist';
     // Build full picture: include excluded + unavailable so admin can see and toggle
     var allSups=Object.keys(p.rates);
     var ovLocal=overrides[p.id]||{excluded:[]};
+    var manualRates=ovLocal.manualRates||{};
     // Compute display list: ranked first, then excluded, then unavailable
     var seen={};
     ranked.forEach(function(r,idx){
       seen[r.supplier]=true;
+      var isManual=manualRates[r.supplier]!=null;
       var row=document.createElement('div');row.className='sup-rankrow'+(ovLocal.lockedPrimary===r.supplier?' locked':'');
       row.innerHTML='<span class="sup-rank '+(idx===0?'r1':idx===1?'r2':idx===2?'r3':'')+'" style="min-width:34px;text-align:center">#'+(idx+1)+'</span>'
-        +'<span class="sup-rankrow-name">'+r.supplier+'</span>'
+        +'<span class="sup-rankrow-name">'+r.supplier+(isManual?' <span class="sup-flag info" style="font-size:8px;margin-left:6px">MANUAL</span>':'')+'</span>'
         +'<span class="sup-rankrow-rate">'+(r.rate*100).toFixed(2)+'%</span>';
       var acts=document.createElement('span');acts.className='sup-rankrow-act';
       var lockBtn=document.createElement('button');lockBtn.className='sup-mini';lockBtn.textContent=ovLocal.lockedPrimary===r.supplier?'🔒 Locked':'🔒 Lock #1';
@@ -9108,6 +9122,21 @@ var SUP=(function(){
         o[p.id]=po;NS.saveOverrides(o);NS.openDetail(p.id);NS.renderPricing();
       };
       acts.appendChild(exBtn);
+      if(isManual){
+        var edBtn=document.createElement('button');edBtn.className='sup-mini';edBtn.textContent='✎ Edit';
+        edBtn.title='Edit this manual rate';
+        edBtn.onclick=function(){_renderManualMappingForm(p,null,r.supplier);};
+        acts.appendChild(edBtn);
+        var clrBtn=document.createElement('button');clrBtn.className='sup-mini danger';clrBtn.textContent='↺ Clear';
+        clrBtn.title='Remove this manual mapping';
+        clrBtn.onclick=function(){
+          var o=NS.loadOverrides();var po=o[p.id]||{};po.manualRates=po.manualRates||{};
+          delete po.manualRates[r.supplier];
+          if(!Object.keys(po.manualRates).length)delete po.manualRates;
+          o[p.id]=po;NS.saveOverrides(o);NS.openDetail(p.id);NS.renderPricing();
+        };
+        acts.appendChild(clrBtn);
+      }
       row.appendChild(acts);
       rl.appendChild(row);
     });
@@ -9127,14 +9156,24 @@ var SUP=(function(){
       };
       acts.appendChild(unBtn);row.appendChild(acts);rl.appendChild(row);
     });
-    // Unavailable
-    allSups.forEach(function(sup){
+    // Unavailable (from imported data) — also include suppliers never mentioned in p.rates,
+    // so the user can manually map any of the 12 known suppliers even if absent from the import.
+    var SUPPLIERS_ALL=['Bamboo','Globetopper','EZPin','Blackhawk','Neocurrency','Phaze','Tillo','Runa','SVS','CardCash','iRewardify','Fluz'];
+    var unavailListed={};allSups.forEach(function(sup){unavailListed[sup]=true;});
+    SUPPLIERS_ALL.forEach(function(sup){if(!unavailListed[sup])unavailListed[sup]=true;});
+    Object.keys(unavailListed).forEach(function(sup){
       if(seen[sup])return;
       var rt=p.rates[sup];
       var row=document.createElement('div');row.className='sup-rankrow';row.style.opacity='.5';
+      var status=rt?rt.status:(allSups.indexOf(sup)<0?'not in source':'—');
       row.innerHTML='<span class="sup-flag" style="min-width:34px;text-align:center;background:rgba(100,100,122,.18);color:var(--mut)">N/A</span>'
         +'<span class="sup-rankrow-name">'+sup+'</span>'
-        +'<span class="sup-rankrow-rate sup-mut">'+(rt?rt.status:'—')+'</span>';
+        +'<span class="sup-rankrow-rate sup-mut">'+status+'</span>';
+      // Allow direct "Map manually" from any unavailable supplier
+      var mapBtn=document.createElement('button');mapBtn.className='sup-mini';mapBtn.textContent='✎ Map';mapBtn.title='Add a manual rate for this supplier';
+      mapBtn.style.cssText+=';margin-left:auto';
+      mapBtn.onclick=function(){_renderManualMappingForm(p,null,sup);};
+      row.appendChild(mapBtn);
       rl.appendChild(row);
     });
     rs.appendChild(rl);
@@ -9157,6 +9196,67 @@ var SUP=(function(){
 
     ovEl.appendChild(dr);document.body.appendChild(ovEl);
   };
+
+  // Manual supplier-mapping form: opens an inline modal-on-modal inside the detail drawer
+  function _renderManualMappingForm(p, anchorEl, presetSupplier){
+    var SUPPLIERS=['Bamboo','Globetopper','EZPin','Blackhawk','Neocurrency','Phaze','Tillo','Runa','SVS','CardCash','iRewardify','Fluz'];
+    var existing=document.getElementById('sup-manual-form-ov');if(existing)existing.remove();
+    var ov=NS.loadOverrides();var po=ov[p.id]||{};var manualRates=po.manualRates||{};
+    var presetRate=presetSupplier&&manualRates[presetSupplier]!=null?manualRates[presetSupplier]:null;
+    var isEdit=presetSupplier!=null;
+    // Build a small floating panel inside the drawer area
+    var ovEl=document.createElement('div');ovEl.id='sup-manual-form-ov';
+    ovEl.style.cssText='position:fixed;inset:0;background:rgba(8,8,12,.6);z-index:9995;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)';
+    ovEl.onclick=function(e){if(e.target===ovEl)ovEl.remove();};
+    var form=document.createElement('div');
+    form.style.cssText='background:var(--bg);border:1px solid var(--brd);border-radius:14px;padding:22px 26px;width:min(440px,92vw);box-shadow:0 24px 60px rgba(0,0,0,.5)';
+    var title=document.createElement('div');title.style.cssText='font-size:16px;font-weight:800;margin-bottom:4px';
+    title.textContent=isEdit?'Edit manual mapping':'Map a supplier manually';
+    form.appendChild(title);
+    var sub=document.createElement('div');sub.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:18px;line-height:1.55';
+    sub.innerHTML='Use this when the auto-importer missed a supplier you know offers a rate on <b>'+_esc(p.title||p.id)+'</b>. Manual rates take precedence over imported ones and survive future supplier file uploads.';
+    form.appendChild(sub);
+    // Supplier label/select
+    var lbl1=document.createElement('div');lbl1.style.cssText='font-size:9px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:5px;letter-spacing:.4px';
+    lbl1.textContent='SUPPLIER';form.appendChild(lbl1);
+    var sel=document.createElement('select');sel.className='sup-fin';sel.style.cssText='width:100%;padding:8px 11px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:7px;font-size:12px;font-family:inherit;outline:none;margin-bottom:14px';
+    SUPPLIERS.forEach(function(s){var op=document.createElement('option');op.value=s;op.textContent=s;if(s===presetSupplier)op.selected=true;sel.appendChild(op);});
+    if(isEdit)sel.disabled=true;
+    form.appendChild(sel);
+    // Rate input
+    var lbl2=document.createElement('div');lbl2.style.cssText='font-size:9px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:5px;letter-spacing:.4px';
+    lbl2.textContent='SUPPLIER DISCOUNT %';form.appendChild(lbl2);
+    var rateWrap=document.createElement('div');rateWrap.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px';
+    var rate=document.createElement('input');rate.type='number';rate.step='0.01';rate.min='0';rate.max='100';rate.placeholder='e.g. 1.5';
+    if(presetRate!=null)rate.value=(presetRate*100).toFixed(2);
+    rate.style.cssText='flex:1;padding:8px 11px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:7px;font-size:14px;font-family:Roboto Mono,monospace;outline:none;text-align:right';
+    var pct=document.createElement('span');pct.textContent='%';pct.style.cssText='font-family:Roboto Mono,monospace;font-size:14px;color:var(--mut)';
+    rateWrap.appendChild(rate);rateWrap.appendChild(pct);
+    form.appendChild(rateWrap);
+    var hint=document.createElement('div');hint.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:18px;line-height:1.4';
+    hint.textContent='Enter as a percentage (e.g. 1.5 means 1.5% discount from supplier to Reloadly).';
+    form.appendChild(hint);
+    // Buttons
+    var btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
+    var cancel=document.createElement('button');cancel.className='sup-btn ghost';cancel.textContent='Cancel';
+    cancel.onclick=function(){ovEl.remove();};
+    var save=document.createElement('button');save.className='sup-btn primary';save.textContent=isEdit?'Save changes':'Add mapping';
+    save.onclick=function(){
+      var v=parseFloat(rate.value);
+      if(isNaN(v)||v<0){rate.focus();rate.style.borderColor='var(--red)';return;}
+      var asDecimal=v/100;
+      var o=NS.loadOverrides();var po=o[p.id]||{};po.manualRates=po.manualRates||{};
+      po.manualRates[sel.value]=asDecimal;
+      o[p.id]=po;NS.saveOverrides(o);
+      ovEl.remove();
+      if(typeof toast==='function')toast(sel.value+' set to '+v.toFixed(2)+'%','ok');
+      NS.openDetail(p.id);NS.renderPricing();
+    };
+    btnRow.appendChild(cancel);btnRow.appendChild(save);
+    form.appendChild(btnRow);
+    ovEl.appendChild(form);document.body.appendChild(ovEl);
+    setTimeout(function(){rate.focus();rate.select();},30);
+  }
 
   function _buildReason(p,ranked,overrides,admin){
     var ov=overrides[p.id]||{};
