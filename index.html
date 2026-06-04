@@ -8323,6 +8323,67 @@ function callout(label, text){
 
 </script>
 <style>
+/* === Background-work loading overlay === */
+.busy-ov{position:fixed;inset:0;background:rgba(8,8,12,.78);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:busy-fade .15s ease}
+@keyframes busy-fade{from{opacity:0}to{opacity:1}}
+.busy-spinner{width:54px;height:54px;border:4px solid rgba(255,255,255,.08);border-top-color:var(--acc);border-right-color:var(--grn);border-radius:50%;animation:busy-spin .9s linear infinite;margin-bottom:18px}
+@keyframes busy-spin{to{transform:rotate(360deg)}}
+.busy-msg{font-size:14px;font-weight:800;color:#fff;max-width:420px;text-align:center;line-height:1.5;margin-bottom:6px;letter-spacing:-.2px}
+.busy-sub{font-size:11px;color:rgba(255,255,255,.55);font-family:'Roboto Mono',monospace;letter-spacing:.4px;text-align:center;max-width:420px;line-height:1.5}
+.busy-prog{margin-top:14px;width:240px;height:4px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;display:none}
+.busy-prog i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--grn));border-radius:3px;width:0;transition:width .2s ease}
+.busy-ov.has-prog .busy-prog{display:block}
+</style>
+<script>
+// Loading overlay — global so any module can call it
+window.showBusy = function(msg, sub){
+  var ov = document.getElementById('busy-ov');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'busy-ov';
+    ov.className = 'busy-ov';
+    ov.innerHTML = '<div class="busy-spinner"></div><div class="busy-msg" id="busy-msg"></div><div class="busy-sub" id="busy-sub"></div><div class="busy-prog"><i id="busy-prog-bar"></i></div>';
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  ov.classList.remove('has-prog');
+  document.getElementById('busy-msg').textContent = msg || 'Working…';
+  document.getElementById('busy-sub').textContent = sub || '';
+  document.getElementById('busy-prog-bar').style.width = '0%';
+};
+window.updateBusy = function(msg, sub){
+  var m = document.getElementById('busy-msg'); if(m && msg!=null) m.textContent = msg;
+  var s = document.getElementById('busy-sub'); if(s && sub!=null) s.textContent = sub;
+};
+window.busyProgress = function(pct){
+  var ov = document.getElementById('busy-ov'); if(!ov) return;
+  ov.classList.add('has-prog');
+  var b = document.getElementById('busy-prog-bar'); if(b) b.style.width = Math.max(0,Math.min(100,pct))+'%';
+};
+window.hideBusy = function(){
+  var ov = document.getElementById('busy-ov');
+  if(ov) ov.style.display = 'none';
+};
+// withBusy(msg, sub, fn) — show overlay, defer fn to next paint, hide on return/throw.
+// Returns a promise that resolves to fn's return value.
+window.withBusy = function(msg, sub, fn){
+  showBusy(msg, sub);
+  return new Promise(function(resolve, reject){
+    // 30ms gives the browser a paint cycle before fn starts
+    setTimeout(function(){
+      try {
+        var r = fn();
+        if(r && typeof r.then === 'function'){
+          r.then(function(v){hideBusy();resolve(v);}, function(e){hideBusy();reject(e);});
+        } else {
+          hideBusy(); resolve(r);
+        }
+      } catch(e) { hideBusy(); reject(e); }
+    }, 30);
+  });
+};
+</script>
+<style>
 /* === Pricing / Supplier Ranking module === */
 .sup-wrap{padding:24px 28px;max-width:1600px;margin:0 auto}
 .sup-hdr{display:flex;align-items:baseline;gap:14px;margin-bottom:18px;flex-wrap:wrap}
@@ -9127,13 +9188,17 @@ var SUP=(function(){
   }
   function _handleFile(file){
     if(typeof XLSX==='undefined'){alert('Excel reader not loaded — please refresh and retry.');return;}
+    if(window.showBusy) showBusy('Reading file', file.name);
     var reader=new FileReader();
     reader.onload=function(e){
+      if(window.showBusy) showBusy('Parsing supplier analysis', 'Decoding workbook — large files may take a few seconds');
+      setTimeout(function(){
       try{
         var data=new Uint8Array(e.target.result);
         var wb=XLSX.read(data,{type:'array'});
+        if(window.updateBusy) updateBusy('Normalising rates', 'Reading every supplier column and parsing discounts');
         var products=NS.parseWorkbook(wb,file.name);
-        if(!products.length){alert('No products parsed from the Reloadly tab.');return;}
+        if(!products.length){if(window.hideBusy)hideBusy();alert('No products parsed from the Reloadly tab.');return;}
         // Snapshot previous primary BEFORE overwriting products
         var meta=NS.loadMeta();
         var oldProducts=NS.loadProducts();
@@ -9152,12 +9217,15 @@ var SUP=(function(){
         NS.saveMeta(meta);
         NS.saveProducts(products);
         if(typeof toast==='function')toast('Loaded '+products.length+' products','ok');
+        if(window.hideBusy) hideBusy();
         NS.renderPricing();
       }catch(err){
+        if(window.hideBusy) hideBusy();
         alert('Failed to parse file: '+(err&&err.message?err.message:err));
       }
+      }, 30);
     };
-    reader.onerror=function(){alert('Failed to read file.');};
+    reader.onerror=function(){if(window.hideBusy) hideBusy();alert('Failed to read file.');};
     reader.readAsArrayBuffer(file);
   }
 
@@ -9166,6 +9234,8 @@ var SUP=(function(){
     if(typeof XLSX==='undefined'){alert('Excel writer not loaded.');return;}
     var products=NS.loadProducts(),overrides=NS.loadOverrides(),admin=NS.loadAdmin(),meta=NS.loadMeta();
     if(!products.length){alert('Nothing to export.');return;}
+    if(window.showBusy) showBusy('Generating Excel export', products.length.toLocaleString()+' products being written');
+    setTimeout(function(){ try {
     var rows=[['Product ID','Product Name','Country','ISO','Status','Primary Supplier','Primary Supplier Rate','Secondary Supplier','Secondary Supplier Rate','Third Supplier','Third Supplier Rate','Supplier Count Available','Best Commercial Rate','Manual Override','Notes']];
     products.forEach(function(p){
       var ranked=NS.rankProduct(p,overrides,admin);
@@ -9194,6 +9264,9 @@ var SUP=(function(){
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Summary');
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Supplier Ranking');
     XLSX.writeFile(wb,'Pricing_SupplierRanking_'+new Date().toISOString().slice(0,10)+'.xlsx');
+    if(window.hideBusy) hideBusy();
+    } catch(e) { if(window.hideBusy)hideBusy(); alert('Export failed: '+(e.message||e)); }
+    }, 30);
   };
 
 
@@ -9517,15 +9590,21 @@ var SUP=(function(){
     var fi=document.createElement('input');fi.type='file';fi.id='imp-catalog-input';fi.accept='.xlsx,.xls';fi.style.display='none';
     fi.onchange=function(e){
       var f=e.target.files&&e.target.files[0];if(!f)return;
+      if(window.showBusy) showBusy('Reading Reloadly catalogue', f.name);
       var rd=new FileReader();
       rd.onload=function(ev){
+        if(window.updateBusy) updateBusy('Parsing master SKU list', 'Detecting id / title / iso_name / status columns');
+        setTimeout(function(){
         try{
           var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
           var cat=NS.parseReloadlyCatalogue(wb,f.name);
-          if(!cat.length){alert('No rows parsed.');return;}
-          var s=NS.loadImportState();s.catalog=cat;s.catalogFile=f.name;s.step=2;NS.saveImportState(s);
+          if(!cat.length){if(window.hideBusy)hideBusy();alert('No rows parsed.');return;}
+          if(window.updateBusy) updateBusy('Loaded '+cat.length.toLocaleString()+' products', 'Moving to step 2');
+          var st2=NS.loadImportState();st2.catalog=cat;st2.catalogFile=f.name;st2.step=2;NS.saveImportState(st2);
+          if(window.hideBusy) hideBusy();
           NS.renderPricing();
-        }catch(err){alert('Failed: '+(err.message||err));}
+        }catch(err){if(window.hideBusy)hideBusy();alert('Failed: '+(err.message||err));}
+        },30);
       };
       rd.readAsArrayBuffer(f);
     };
@@ -9563,16 +9642,27 @@ var SUP=(function(){
       var fi=document.createElement('input');fi.type='file';fi.id='imp-sup-input';fi.accept='.xlsx,.xls';fi.style.display='none';
       fi.onchange=function(e){
         var f=e.target.files&&e.target.files[0];if(!f)return;
+        if(window.showBusy) showBusy('Reading '+st.supplier+' file', f.name);
         var rd=new FileReader();
         rd.onload=function(ev){
+          if(window.updateBusy) updateBusy('Parsing supplier file', 'Auto-detecting columns and normalising rates');
+          setTimeout(function(){
           try{
             var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
             var sup=NS.parseSupplierFile(wb,st.supplier,f.name);
-            if(!sup.rows.length){alert('No supplier rows parsed.');return;}
-            var matches=NS.runMatching(st.catalog,sup);
-            var s=NS.loadImportState();s.supData=sup;s.matches=matches;s.step=3;NS.saveImportState(s);
-            NS.renderPricing();
-          }catch(err){alert('Failed: '+(err.message||err));}
+            if(!sup.rows.length){if(window.hideBusy)hideBusy();alert('No supplier rows parsed.');return;}
+            if(window.updateBusy) updateBusy('Matching '+sup.rows.length.toLocaleString()+' '+st.supplier+' rows', 'Fuzzy-matching brand + country to your Reloadly catalogue — this is the slow step');
+            setTimeout(function(){
+            try{
+              var matches=NS.runMatching(st.catalog,sup);
+              if(window.updateBusy) updateBusy('Match complete', 'Bucketing results by confidence');
+              var s2=NS.loadImportState();s2.supData=sup;s2.matches=matches;s2.step=3;NS.saveImportState(s2);
+              if(window.hideBusy) hideBusy();
+              NS.renderPricing();
+            }catch(err2){if(window.hideBusy)hideBusy();alert('Matching failed: '+(err2.message||err2));}
+            },30);
+          }catch(err){if(window.hideBusy)hideBusy();alert('Failed: '+(err.message||err));}
+          },30);
         };
         rd.readAsArrayBuffer(f);
       };
@@ -9731,6 +9821,9 @@ var SUP=(function(){
     back.onclick=function(){var s=NS.loadImportState();s.step=2;NS.saveImportState(s);NS.renderPricing();};
     var apply=document.createElement('button');apply.className='sup-btn primary';apply.innerHTML='✓ Apply '+acceptedCount.toLocaleString()+' matches and finish';
     apply.onclick=function(){
+      if(window.showBusy) showBusy('Applying matches', acceptedCount.toLocaleString()+' accepted — rolling up multi-denomination rates');
+      setTimeout(function(){
+      try{
       var s=NS.loadImportState();
       var cat=s.catalog;
       // Merge with existing products if any — preserve other suppliers' columns
@@ -9759,8 +9852,11 @@ var SUP=(function(){
       NS.saveMeta(meta);
       NS.saveProducts(cat);
       NS.clearImportState();
+      if(window.hideBusy) hideBusy();
       if(typeof toast==='function')toast(s.supplier+' applied — '+acceptedCount.toLocaleString()+' matches','ok');
       NS.renderPricing();
+      }catch(applyErr){if(window.hideBusy)hideBusy();alert('Apply failed: '+(applyErr.message||applyErr));}
+      },30);
     };
     foot.appendChild(back);foot.appendChild(apply);
     card.appendChild(foot);
@@ -10306,6 +10402,8 @@ var PP=(function(){
   NS.exportProposal=function(draftId,mode,tierId){
     var pr=NS.loadProposals()[draftId];if(!pr){alert('Proposal not found.');return;}
     if(typeof XLSX==='undefined'){alert('Excel writer not loaded.');return;}
+    if(window.showBusy) showBusy('Building proposal Excel', 'Computing tier discounts and writing the workbook');
+    setTimeout(function(){ try {
     var products=SUP.loadProducts();
     var lines=_proposalLines(pr,products);
     var allTiers=pr.tiers||NS.loadTiers();
@@ -10360,6 +10458,9 @@ var PP=(function(){
     var label=singleTier?_xlsxSafe(tiers[0].name).replace(/\s+/g,''):(mode==='customer'?'Customer':'Internal');
     var custSlug=(pr.customer||'proposal').replace(/[^A-Za-z0-9]+/g,'_').slice(0,30)||'proposal';
     XLSX.writeFile(wb,'Proposal_'+label+'_'+custSlug+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+    if(window.hideBusy) hideBusy();
+    } catch(e) { if(window.hideBusy)hideBusy(); alert('Export failed: '+(e.message||e)); }
+    }, 30);
   };
   function _xlsxSafe(s){return String(s||'').replace(/[\\\/\?\*\[\]:]/g,'').slice(0,28);}
 
@@ -10684,15 +10785,21 @@ var PP=(function(){
     var fi=document.createElement('input');fi.type='file';fi.id='imp-catalog-input';fi.accept='.xlsx,.xls';fi.style.display='none';
     fi.onchange=function(e){
       var f=e.target.files&&e.target.files[0];if(!f)return;
+      if(window.showBusy) showBusy('Reading Reloadly catalogue', f.name);
       var rd=new FileReader();
       rd.onload=function(ev){
+        if(window.updateBusy) updateBusy('Parsing master SKU list', 'Detecting id / title / iso_name / status columns');
+        setTimeout(function(){
         try{
           var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
           var cat=NS.parseReloadlyCatalogue(wb,f.name);
-          if(!cat.length){alert('No rows parsed.');return;}
-          var s=NS.loadImportState();s.catalog=cat;s.catalogFile=f.name;s.step=2;NS.saveImportState(s);
+          if(!cat.length){if(window.hideBusy)hideBusy();alert('No rows parsed.');return;}
+          if(window.updateBusy) updateBusy('Loaded '+cat.length.toLocaleString()+' products', 'Moving to step 2');
+          var st2=NS.loadImportState();st2.catalog=cat;st2.catalogFile=f.name;st2.step=2;NS.saveImportState(st2);
+          if(window.hideBusy) hideBusy();
           NS.renderPricing();
-        }catch(err){alert('Failed: '+(err.message||err));}
+        }catch(err){if(window.hideBusy)hideBusy();alert('Failed: '+(err.message||err));}
+        },30);
       };
       rd.readAsArrayBuffer(f);
     };
@@ -10730,16 +10837,27 @@ var PP=(function(){
       var fi=document.createElement('input');fi.type='file';fi.id='imp-sup-input';fi.accept='.xlsx,.xls';fi.style.display='none';
       fi.onchange=function(e){
         var f=e.target.files&&e.target.files[0];if(!f)return;
+        if(window.showBusy) showBusy('Reading '+st.supplier+' file', f.name);
         var rd=new FileReader();
         rd.onload=function(ev){
+          if(window.updateBusy) updateBusy('Parsing supplier file', 'Auto-detecting columns and normalising rates');
+          setTimeout(function(){
           try{
             var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
             var sup=NS.parseSupplierFile(wb,st.supplier,f.name);
-            if(!sup.rows.length){alert('No supplier rows parsed.');return;}
-            var matches=NS.runMatching(st.catalog,sup);
-            var s=NS.loadImportState();s.supData=sup;s.matches=matches;s.step=3;NS.saveImportState(s);
-            NS.renderPricing();
-          }catch(err){alert('Failed: '+(err.message||err));}
+            if(!sup.rows.length){if(window.hideBusy)hideBusy();alert('No supplier rows parsed.');return;}
+            if(window.updateBusy) updateBusy('Matching '+sup.rows.length.toLocaleString()+' '+st.supplier+' rows', 'Fuzzy-matching brand + country to your Reloadly catalogue — this is the slow step');
+            setTimeout(function(){
+            try{
+              var matches=NS.runMatching(st.catalog,sup);
+              if(window.updateBusy) updateBusy('Match complete', 'Bucketing results by confidence');
+              var s2=NS.loadImportState();s2.supData=sup;s2.matches=matches;s2.step=3;NS.saveImportState(s2);
+              if(window.hideBusy) hideBusy();
+              NS.renderPricing();
+            }catch(err2){if(window.hideBusy)hideBusy();alert('Matching failed: '+(err2.message||err2));}
+            },30);
+          }catch(err){if(window.hideBusy)hideBusy();alert('Failed: '+(err.message||err));}
+          },30);
         };
         rd.readAsArrayBuffer(f);
       };
@@ -10898,6 +11016,9 @@ var PP=(function(){
     back.onclick=function(){var s=NS.loadImportState();s.step=2;NS.saveImportState(s);NS.renderPricing();};
     var apply=document.createElement('button');apply.className='sup-btn primary';apply.innerHTML='✓ Apply '+acceptedCount.toLocaleString()+' matches and finish';
     apply.onclick=function(){
+      if(window.showBusy) showBusy('Applying matches', acceptedCount.toLocaleString()+' accepted — rolling up multi-denomination rates');
+      setTimeout(function(){
+      try{
       var s=NS.loadImportState();
       var cat=s.catalog;
       // Merge with existing products if any — preserve other suppliers' columns
@@ -10926,8 +11047,11 @@ var PP=(function(){
       NS.saveMeta(meta);
       NS.saveProducts(cat);
       NS.clearImportState();
+      if(window.hideBusy) hideBusy();
       if(typeof toast==='function')toast(s.supplier+' applied — '+acceptedCount.toLocaleString()+' matches','ok');
       NS.renderPricing();
+      }catch(applyErr){if(window.hideBusy)hideBusy();alert('Apply failed: '+(applyErr.message||applyErr));}
+      },30);
     };
     foot.appendChild(back);foot.appendChild(apply);
     card.appendChild(foot);
