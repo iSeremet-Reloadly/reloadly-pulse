@@ -9537,56 +9537,71 @@ var SUP=(function(){
   };
 
   // --- Matching ----------------------------------------------
-  NS.runMatching = function(catalog, supData){
-    var rows=supData.rows;
-    var byIso={};catalog.forEach(function(p){var k=p.iso||'_';if(!byIso[k])byIso[k]=[];byIso[k].push(p);});
-    // To save work: group supplier rows by (brand, iso) — many denominations share the same brand
-    var combos={};
-    rows.forEach(function(r,i){
-      if(!r.brand&&!r.product)return;
-      var key=(r.brand||r.product)+'|'+(r.iso||'');
-      if(!combos[key])combos[key]={brand:r.brand||r.product,iso:r.iso,rowIdxs:[]};
-      combos[key].rowIdxs.push(i);
-    });
-    var matches=new Array(rows.length);
-    Object.keys(combos).forEach(function(key){
-      var combo=combos[key];
-      var pool=combo.iso&&byIso[combo.iso]?byIso[combo.iso]:catalog;
-      var best=null;
-      for(var i=0;i<pool.length;i++){
-        var s=_brandScore(pool[i].title, combo.brand, true);
-        if(!best||s>best.score)best={score:s,product:pool[i]};
-      }
-      if(!best||best.score<50){
-        // try wider search penalised
-        for(var j=0;j<catalog.length;j++){
-          if(catalog[j].iso===combo.iso)continue;
-          var s2=_brandScore(catalog[j].title, combo.brand, false);
-          if(!best||s2>best.score)best={score:s2,product:catalog[j]};
-        }
-      }
-      var bucket;
-      if(!best||best.score<50)bucket='none';
-      else if(best.score>=85)bucket='high';
-      else if(best.score>=65)bucket='mid';
-      else bucket='low';
-      combo.rowIdxs.forEach(function(idx){
-        var preMapped = rows[idx].reloadlyId;
-        if(preMapped){
-          var target=catalog.find(function(p){return p.id===preMapped;});
-          if(target){matches[idx]={productId:target.id,score:100,bucket:'high',source:'pre',candidate:target.title,decision:'accept'};return;}
-        }
-        matches[idx]={
-          productId:best?best.product.id:null,
-          score:best?best.score:0,
-          bucket:bucket,
-          source:'auto',
-          candidate:best?best.product.title:null,
-          decision:(bucket==='high'||bucket==='mid')?'accept':'skip'
-        };
+  // Async chunked matcher with progress callback. Returns a Promise.
+  // ~9M comparisons for Bamboo (10k x 10k) is too slow to run sync on the main thread,
+  // so we process N combos per tick and yield via setTimeout(0) so the browser repaints.
+  NS.runMatching = function(catalog, supData, onProgress){
+    return new Promise(function(resolve){
+      var rows=supData.rows;
+      var byIso={};catalog.forEach(function(p){var k=p.iso||'_';if(!byIso[k])byIso[k]=[];byIso[k].push(p);});
+      var combos={};
+      rows.forEach(function(r,i){
+        if(!r.brand&&!r.product)return;
+        var key=(r.brand||r.product)+'|'+(r.iso||'');
+        if(!combos[key])combos[key]={brand:r.brand||r.product,iso:r.iso,rowIdxs:[]};
+        combos[key].rowIdxs.push(i);
       });
+      var keys=Object.keys(combos);
+      var matches=new Array(rows.length);
+      var idx=0;
+      var CHUNK=30;
+      if(onProgress)onProgress(0,keys.length,'0 of '+keys.length.toLocaleString()+' brands');
+      function step(){
+        var end=Math.min(keys.length,idx+CHUNK);
+        for(;idx<end;idx++){
+          var combo=combos[keys[idx]];
+          var pool=combo.iso&&byIso[combo.iso]?byIso[combo.iso]:catalog;
+          var best=null;
+          for(var i=0;i<pool.length;i++){
+            var s=_brandScore(pool[i].title, combo.brand, true);
+            if(!best||s>best.score)best={score:s,product:pool[i]};
+          }
+          if(!best||best.score<50){
+            for(var j=0;j<catalog.length;j++){
+              if(catalog[j].iso===combo.iso)continue;
+              var s2=_brandScore(catalog[j].title, combo.brand, false);
+              if(!best||s2>best.score)best={score:s2,product:catalog[j]};
+            }
+          }
+          var bucket;
+          if(!best||best.score<50)bucket='none';
+          else if(best.score>=85)bucket='high';
+          else if(best.score>=65)bucket='mid';
+          else bucket='low';
+          combo.rowIdxs.forEach(function(rowIdx){
+            var preMapped = rows[rowIdx].reloadlyId;
+            if(preMapped){
+              var target=catalog.find(function(p){return p.id===preMapped;});
+              if(target){matches[rowIdx]={productId:target.id,score:100,bucket:'high',source:'pre',candidate:target.title,decision:'accept'};return;}
+            }
+            matches[rowIdx]={
+              productId:best?best.product.id:null,
+              score:best?best.score:0,
+              bucket:bucket,
+              source:'auto',
+              candidate:best?best.product.title:null,
+              decision:(bucket==='high'||bucket==='mid')?'accept':'skip'
+            };
+          });
+        }
+        if(onProgress){
+          var pct=Math.round(idx/keys.length*100);
+          onProgress(idx, keys.length, idx.toLocaleString()+' of '+keys.length.toLocaleString()+' brands ('+pct+'%)');
+        }
+        if(idx<keys.length){setTimeout(step, 0);} else {resolve(matches);}
+      }
+      setTimeout(step, 0);
     });
-    return matches;
   };
 
   // --- Apply matches -----------------------------------------
@@ -9754,16 +9769,20 @@ var SUP=(function(){
             var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
             var sup=NS.parseSupplierFile(wb,st.supplier,f.name);
             if(!sup.rows.length){if(window.hideBusy)hideBusy();alert('No supplier rows parsed.');return;}
-            if(window.updateBusy) updateBusy('Matching '+sup.rows.length.toLocaleString()+' '+st.supplier+' rows', 'Fuzzy-matching brand + country to your Reloadly catalogue — this is the slow step');
-            setTimeout(function(){
-            try{
-              var matches=NS.runMatching(st.catalog,sup);
-              if(window.updateBusy) updateBusy('Match complete', 'Bucketing results by confidence');
-              var s2=NS.loadImportState();s2.supData=sup;s2.matches=matches;s2.step=3;NS.saveImportState(s2);
-              if(window.hideBusy) hideBusy();
-              NS.renderPricing();
-            }catch(err2){if(window.hideBusy)hideBusy();alert('Matching failed: '+(err2.message||err2));}
-            },30);
+            if(window.updateBusy) updateBusy('Matching '+sup.rows.length.toLocaleString()+' '+st.supplier+' rows', 'Fuzzy-matching brand + country to your Reloadly catalogue');
+            // Async chunked matcher with progress updates so the page stays responsive
+            NS.runMatching(st.catalog, sup, function(done,total,msg){
+              if(window.busyProgress) busyProgress(Math.round(done/Math.max(1,total)*100));
+              if(window.updateBusy) updateBusy('Matching '+sup.rows.length.toLocaleString()+' rows', msg);
+            }).then(function(matches){
+              try{
+                if(window.updateBusy) updateBusy('Match complete', 'Bucketing results by confidence');
+                if(window.busyProgress) busyProgress(100);
+                var s2=NS.loadImportState();s2.supData=sup;s2.matches=matches;s2.step=3;NS.saveImportState(s2);
+                if(window.hideBusy) hideBusy();
+                NS.renderPricing();
+              }catch(err3){if(window.hideBusy)hideBusy();alert('Match render failed: '+(err3.message||err3));}
+            }).catch(function(err2){if(window.hideBusy)hideBusy();alert('Matching failed: '+(err2.message||err2));});
           }catch(err){if(window.hideBusy)hideBusy();alert('Failed: '+(err.message||err));}
           },30);
         };
