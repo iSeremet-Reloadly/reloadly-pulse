@@ -9967,13 +9967,21 @@ var PP=(function(){
   // Currency lookup for common ISOs (extend as needed; sales can override per-line)
   var CCY={'US':'USD','GB':'GBP','FR':'EUR','DE':'EUR','ES':'EUR','IT':'EUR','NL':'EUR','BE':'EUR','AT':'EUR','IE':'EUR','PT':'EUR','GR':'EUR','FI':'EUR','LV':'EUR','LT':'EUR','EE':'EUR','SK':'EUR','SI':'EUR','LU':'EUR','MT':'EUR','CY':'EUR','CA':'CAD','AU':'AUD','NZ':'NZD','CH':'CHF','SE':'SEK','NO':'NOK','DK':'DKK','PL':'PLN','CZ':'CZK','HU':'HUF','RO':'RON','BG':'BGN','HR':'EUR','AE':'AED','SA':'SAR','QA':'QAR','BH':'BHD','OM':'OMR','KW':'KWD','EG':'EGP','MA':'MAD','TR':'TRY','IL':'ILS','ZA':'ZAR','NG':'NGN','KE':'KES','GH':'GHS','UG':'UGX','TZ':'TZS','RW':'RWF','CI':'XOF','SN':'XOF','CM':'XAF','MX':'MXN','BR':'BRL','AR':'ARS','CL':'CLP','CO':'COP','PE':'PEN','UY':'UYU','PY':'PYG','BO':'BOB','VE':'VES','DO':'DOP','JM':'JMD','PA':'PAB','CR':'CRC','GT':'GTQ','HN':'HNL','SV':'USD','NI':'NIO','HT':'HTG','JP':'JPY','CN':'CNY','HK':'HKD','TW':'TWD','KR':'KRW','SG':'SGD','MY':'MYR','TH':'THB','PH':'PHP','ID':'IDR','VN':'VND','IN':'INR','PK':'PKR','BD':'BDT','LK':'LKR','NP':'NPR','UZ':'UZS','KZ':'KZT','IQ':'IQD','LB':'LBP','JO':'JOD','SY':'SYP','SZ':'SZL','BW':'BWP','MZ':'MZN','NA':'NAD','AO':'AOA','ZW':'ZWG','MU':'MUR','LK':'LKR'};
   function defaultTiers(){return [
-    {id:'T1',name:'Tier 1',volMin:0,volMax:10000,marginPts:1.5},
-    {id:'T2',name:'Tier 2',volMin:10000,volMax:50000,marginPts:1.0},
-    {id:'T3',name:'Tier 3',volMin:50000,volMax:null,marginPts:0.5}
+    {id:'T1',name:'Tier 1',volMin:0,volMax:10000,marginType:'share',sharePct:25,marginPts:1.5},
+    {id:'T2',name:'Tier 2',volMin:10000,volMax:50000,marginType:'share',sharePct:50,marginPts:1.0},
+    {id:'T3',name:'Tier 3',volMin:50000,volMax:null,marginType:'share',sharePct:75,marginPts:0.5}
   ];}
+  // Backfill marginType on existing tiers loaded before the share mode existed
+  function _normaliseTier(t){
+    if(!t)return t;
+    if(!t.marginType)t.marginType='pts';
+    if(t.marginType==='share'&&typeof t.sharePct!=='number')t.sharePct=50;
+    if(t.marginType==='pts'&&typeof t.marginPts!=='number')t.marginPts=1.0;
+    return t;
+  }
   function loadJSON(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
   function saveJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
-  NS.loadTiers=function(){var t=loadJSON(K.tiers,null);if(!t){t=defaultTiers();saveJSON(K.tiers,t);}return t;};
+  NS.loadTiers=function(){var t=loadJSON(K.tiers,null);if(!t){t=defaultTiers();saveJSON(K.tiers,t);}t.forEach(_normaliseTier);return t;};
   NS.saveTiers=function(t){saveJSON(K.tiers,t);};
   NS.loadProposals=function(){return loadJSON(K.proposals,{});};
   NS.saveProposals=function(p){saveJSON(K.proposals,p);};
@@ -9990,11 +9998,25 @@ var PP=(function(){
     return {available:true,supplier:ranked[0].supplier,supplierDiscount:ranked[0].rate,ranked:ranked};
   }
 
-  function customerDiscount(supplierDiscount, marginPts){
-    // supplierDiscount = decimal (0.05 = 5%); marginPts in percentage points (1.0 = 1pt = 0.01)
+  function customerDiscount(supplierDiscount, tier){
+    // supplierDiscount = decimal (0.05 = 5%); tier = {marginType, marginPts, sharePct}
     if(supplierDiscount==null)return null;
-    var cust=supplierDiscount - (marginPts/100);
+    if(!tier)return supplierDiscount;
+    var t=_normaliseTier(Object.assign({},tier));
+    var cust;
+    if(t.marginType==='share'){
+      // Customer gets X% of supplier discount; Reloadly keeps (100 - X)%
+      cust = supplierDiscount * (Math.max(0,Math.min(100,t.sharePct||0)) / 100);
+    } else {
+      cust = supplierDiscount - ((t.marginPts||0)/100);
+    }
     return Math.max(0, cust);
+  }
+  // Reloadly's actual retained margin for sanity checks / internal export
+  function reloadlyMargin(supplierDiscount, tier){
+    if(supplierDiscount==null)return null;
+    var c=customerDiscount(supplierDiscount,tier);
+    return supplierDiscount - c;
   }
 
   NS.renderProposals=function(){
@@ -10071,7 +10093,7 @@ var PP=(function(){
     var hdr=document.createElement('div');hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:12px';
     hdr.innerHTML='<div class="pp-card-h" style="margin-bottom:0">VOLUME TIERS · DEFAULT MARGINS</div>';
     var addBtn=document.createElement('button');addBtn.className='sup-mini';addBtn.textContent='+ Add tier';
-    addBtn.onclick=function(){var t=NS.loadTiers();var n=t.length+1;t.push({id:'T'+n,name:'Tier '+n,volMin:0,volMax:null,marginPts:1.0});NS.saveTiers(t);NS.renderProposals();};
+    addBtn.onclick=function(){var t=NS.loadTiers();var n=t.length+1;t.push({id:'T'+n,name:'Tier '+n,volMin:0,volMax:null,marginType:'share',sharePct:50,marginPts:1.0});NS.saveTiers(t);NS.renderProposals();};
     hdr.appendChild(addBtn);
     card.appendChild(hdr);
     var sub=document.createElement('div');sub.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:14px;line-height:1.55';
@@ -10094,7 +10116,19 @@ var PP=(function(){
       }
       tc.appendChild(row('VOL MIN ($/mo)',t.volMin,0,function(v){t.volMin=parseInt(v)||0;NS.saveTiers(tiers);}));
       tc.appendChild(row('VOL MAX ($/mo)',t.volMax,0,function(v){t.volMax=v===''?null:(parseInt(v)||null);NS.saveTiers(tiers);},'(blank=∞)'));
-      tc.appendChild(row('MARGIN',t.marginPts,0,function(v){t.marginPts=parseFloat(v)||0;NS.saveTiers(tiers);},'pts'));
+      // Mode selector
+      var modeR=document.createElement('div');modeR.className='pp-tier-row';
+      var modeL=document.createElement('label');modeL.textContent='MARGIN MODE';modeR.appendChild(modeL);
+      var modeSel=document.createElement('select');modeSel.style.cssText='background:var(--surf);border:1px solid var(--brd);color:var(--txt);padding:4px 7px;border-radius:5px;font-size:10px;font-family:Roboto Mono,monospace;outline:none';
+      [['share','Share of discount'],['pts','Fixed points']].forEach(function(o){var op=document.createElement('option');op.value=o[0];op.textContent=o[1];if(o[0]===t.marginType)op.selected=true;modeSel.appendChild(op);});
+      modeSel.onchange=function(){t.marginType=this.value;NS.saveTiers(tiers);NS.renderProposals();};
+      modeR.appendChild(modeSel);
+      tc.appendChild(modeR);
+      if(t.marginType==='share'){
+        tc.appendChild(row('CUSTOMER SHARE',t.sharePct,0,function(v){var n=parseFloat(v);t.sharePct=isNaN(n)?0:Math.max(0,Math.min(100,n));NS.saveTiers(tiers);NS.renderProposals();},'% of discount'));
+      } else {
+        tc.appendChild(row('MARGIN',t.marginPts,0,function(v){t.marginPts=parseFloat(v)||0;NS.saveTiers(tiers);NS.renderProposals();},'pts'));
+      }
       if(tiers.length>1){
         var del=document.createElement('button');del.className='pp-tier-del';del.innerHTML='&times;';del.title='Remove tier';
         del.onclick=function(){if(confirm('Remove '+t.name+'?')){tiers.splice(idx,1);NS.saveTiers(tiers);NS.renderProposals();}};
@@ -10236,9 +10270,11 @@ var PP=(function(){
       var r=document.createElement('div');r.className='pp-row';
       r.innerHTML='<span><b>'+_esc(t.name)+'</b> <span class="sup-mut" style="font-size:10px;font-family:Roboto Mono,monospace">'+(t.volMin||0).toLocaleString()+'–'+(t.volMax?t.volMax.toLocaleString():'∞')+' $/mo</span></span>';
       var rt=document.createElement('span');rt.style.cssText='display:flex;align-items:center;gap:4px';
-      var i=document.createElement('input');i.type='number';i.step='0.1';i.value=t.marginPts;i.style.cssText='width:64px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:5px;font-family:Roboto Mono,monospace;font-size:11px;text-align:right;outline:none';
-      i.onchange=function(){t.marginPts=parseFloat(this.value)||0;pr.tiers=ts;pr.updatedAt=Date.now();NS.saveProposals(ps);_redrawPreview();};
-      rt.appendChild(i);rt.appendChild(document.createTextNode('pts'));
+      var i=document.createElement('input');i.type='number';i.step='0.1';
+      if(t.marginType==='share'){i.value=t.sharePct;i.min=0;i.max=100;}else{i.value=t.marginPts;}
+      i.style.cssText='width:64px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:5px;font-family:Roboto Mono,monospace;font-size:11px;text-align:right;outline:none';
+      i.onchange=function(){var v=parseFloat(this.value)||0;if(t.marginType==='share'){t.sharePct=Math.max(0,Math.min(100,v));}else{t.marginPts=v;}pr.tiers=ts;pr.updatedAt=Date.now();NS.saveProposals(ps);_redrawPreview();};
+      rt.appendChild(i);rt.appendChild(document.createTextNode(t.marginType==='share'?'% share':'pts'));
       r.appendChild(rt);
       tierP.appendChild(r);
     });
@@ -10287,7 +10323,7 @@ var PP=(function(){
         '<div class="pp-tile-badge">'+_esc(t.id||('T'+(idx+1)))+'</div>'
         +'<div class="pp-tile-name">'+_esc(t.name)+'</div>'
         +'<div class="pp-tile-vol">VOLUME: $'+volMin+' – $'+volMax+' / mo</div>'
-        +'<div class="pp-tile-stat"><span>MARGIN</span><b>'+(t.marginPts||0)+' pts</b></div>'
+        +'<div class="pp-tile-stat"><span>'+(t.marginType==='share'?'CUSTOMER SHARE':'MARGIN')+'</span><b>'+(t.marginType==='share'?(t.sharePct||0)+'% of discount':(t.marginPts||0)+' pts')+'</b></div>'
         +'<div class="pp-tile-stat"><span>AVG CUSTOMER DISCOUNT</span><b>'+(n?avgPct.toFixed(2):'—')+'%</b></div>'
         +'<div class="pp-tile-stat"><span>LINES IN PROPOSAL</span><b>'+lines.length.toLocaleString()+'</b></div>'
         +(avail<lines.length?'<div class="pp-tile-stat"><span>UNAVAILABLE</span><b style="color:var(--red)">'+(lines.length-avail)+'</b></div>':'')
@@ -10352,7 +10388,7 @@ var PP=(function(){
         supplier:op.supplier,supplierDiscount:op.supplierDiscount,available:op.available,
         tierDiscounts:{}
       };
-      tiers.forEach(function(t){line.tierDiscounts[t.id]=customerDiscount(op.supplierDiscount,t.marginPts);});
+      tiers.forEach(function(t){line.tierDiscounts[t.id]=customerDiscount(op.supplierDiscount,t);line.reloadlyMargins=line.reloadlyMargins||{};line.reloadlyMargins[t.id]=reloadlyMargin(op.supplierDiscount,t);});
       return line;
     });
   }
@@ -10417,12 +10453,20 @@ var PP=(function(){
     var cover=[['Pricing Proposal'],['Customer',pr.customer||'(unnamed)'],['Proposal ID',pr.id],['Status',pr.status||'draft'],['Mode',pr.mode==='cart'?'Cart (picked products)':'Catalogue (filter-based)'],['Generated',new Date().toLocaleString()]];
     if(singleTier){
       var t=tiers[0];
-      cover.push([],['Tier',t.name],['Volume min ($/mo)',t.volMin||0],['Volume max ($/mo)',t.volMax==null?'∞':t.volMax],['Margin (pts)',t.marginPts]);
+      if(t.marginType==='share'){
+        cover.push([],['Tier',t.name],['Volume min ($/mo)',t.volMin||0],['Volume max ($/mo)',t.volMax==null?'∞':t.volMax],['Margin model','Share of supplier discount'],['Customer share %',t.sharePct||0],['Reloadly keeps %',100-(t.sharePct||0)]);
+      } else {
+        cover.push([],['Tier',t.name],['Volume min ($/mo)',t.volMin||0],['Volume max ($/mo)',t.volMax==null?'∞':t.volMax],['Margin model','Fixed points'],['Margin (pts)',t.marginPts||0]);
+      }
     }
     cover.push([],['Line count',lines.length],['Lines with supplier',lines.filter(function(l){return l.available;}).length],['Lines without supplier',lines.filter(function(l){return !l.available;}).length]);
     if(!singleTier){
-      cover.push([],['Tier','Volume min ($/mo)','Volume max ($/mo)','Margin (pts)']);
-      allTiers.forEach(function(t){cover.push([t.name,t.volMin,t.volMax==null?'∞':t.volMax,t.marginPts]);});
+      cover.push([],['Tier','Volume min ($/mo)','Volume max ($/mo)','Margin mode','Margin value']);
+      allTiers.forEach(function(t){
+        var modeLbl=t.marginType==='share'?'Share of discount':'Fixed points';
+        var val=t.marginType==='share'?(t.sharePct||0)+'%':(t.marginPts||0)+' pts';
+        cover.push([t.name,t.volMin,t.volMax==null?'∞':t.volMax,modeLbl,val]);
+      });
     }
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(cover),'Cover');
 
@@ -10448,7 +10492,7 @@ var PP=(function(){
       var iRows=[iHdr];
       lines.forEach(function(l){
         var row=[l.id,l.title,countryName(l.iso)||'',l.currency||'',l.status||'',l.supplier||'',l.supplierDiscount!=null?+(l.supplierDiscount*100).toFixed(2):''];
-        allTiers.forEach(function(t){var v=l.tierDiscounts[t.id];row.push(v!=null?+(v*100).toFixed(2):'');row.push(t.marginPts);});
+        allTiers.forEach(function(t){var v=l.tierDiscounts[t.id];row.push(v!=null?+(v*100).toFixed(2):'');row.push(t.marginType==='share'?(t.sharePct||0)+'% share':(t.marginPts||0)+' pts');});
         row.push(l.available?'YES':'NO',l.available?'':'No available supplier');
         iRows.push(row);
       });
