@@ -9197,6 +9197,36 @@ var SUP=(function(){
     ovEl.appendChild(dr);document.body.appendChild(ovEl);
   };
 
+  // Suggest matching rows from a supplier's stored row snapshot for a given product
+  NS.suggestSupplierRows = function(p, supplierName){
+    if(!p||!supplierName)return [];
+    var store;try{var v=localStorage.getItem('rl_sup_supplier_rows_v1');store=v?JSON.parse(v):{};}catch(e){return [];}
+    var rows=store[supplierName]||[];if(!rows.length)return [];
+    var combos={};
+    rows.forEach(function(r){
+      var key=(r.brand||'')+'|'+(r.iso||'');
+      if(!combos[key])combos[key]={brand:r.brand,iso:r.iso,rates:[]};
+      if(r.discount!=null)combos[key].rates.push(r.discount);
+    });
+    var pIso=p.iso||'';
+    var candidates=[];
+    Object.keys(combos).forEach(function(k){
+      var c=combos[k];
+      var sameIso = c.iso && pIso && c.iso===pIso;
+      var noIso = !c.iso || !pIso;
+      var score = _brandScore(p.title, c.brand, sameIso||noIso);
+      if(score<40)return;
+      var vals=c.rates.slice().sort(function(a,b){return a-b;});
+      var med=vals[Math.floor(vals.length/2)];
+      candidates.push({brand:c.brand, iso:c.iso, score:score, medianRate:med, denomCount:vals.length, sameIso:sameIso});
+    });
+    candidates.sort(function(a,b){
+      if(a.sameIso!==b.sameIso)return a.sameIso?-1:1;
+      return b.score-a.score;
+    });
+    return candidates.slice(0,5);
+  };
+
   // Manual supplier-mapping form: opens an inline modal-on-modal inside the detail drawer
   function _renderManualMappingForm(p, anchorEl, presetSupplier){
     var SUPPLIERS=['Bamboo','Globetopper','EZPin','Blackhawk','Neocurrency','Phaze','Tillo','Runa','SVS','CardCash','iRewardify','Fluz'];
@@ -9209,7 +9239,7 @@ var SUP=(function(){
     ovEl.style.cssText='position:fixed;inset:0;background:rgba(8,8,12,.6);z-index:9995;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)';
     ovEl.onclick=function(e){if(e.target===ovEl)ovEl.remove();};
     var form=document.createElement('div');
-    form.style.cssText='background:var(--bg);border:1px solid var(--brd);border-radius:14px;padding:22px 26px;width:min(440px,92vw);box-shadow:0 24px 60px rgba(0,0,0,.5)';
+    form.style.cssText='background:var(--bg);border:1px solid var(--brd);border-radius:14px;padding:22px 26px;width:min(540px,92vw);max-height:88vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.5)';
     var title=document.createElement('div');title.style.cssText='font-size:16px;font-weight:800;margin-bottom:4px';
     title.textContent=isEdit?'Edit manual mapping':'Map a supplier manually';
     form.appendChild(title);
@@ -9223,6 +9253,42 @@ var SUP=(function(){
     SUPPLIERS.forEach(function(s){var op=document.createElement('option');op.value=s;op.textContent=s;if(s===presetSupplier)op.selected=true;sel.appendChild(op);});
     if(isEdit)sel.disabled=true;
     form.appendChild(sel);
+    // === Suggested brand matches from the supplier's stored rows ===
+    var sugWrap=document.createElement('div');sugWrap.style.cssText='margin-bottom:16px';
+    form.appendChild(sugWrap);
+    function _renderSuggestions(){
+      sugWrap.innerHTML='';
+      var supName=sel.value;
+      var suggestions=NS.suggestSupplierRows(p, supName);
+      if(!suggestions.length){
+        sugWrap.innerHTML='<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;padding:10px 12px;background:var(--surf2);border:1px dashed var(--brd);border-radius:7px;text-align:center">No '+_esc(supName)+' rows available to suggest. Either no file was imported for this supplier, or no candidate brand scored above threshold. Enter the rate manually below.</div>';
+        return;
+      }
+      var hdr=document.createElement('div');hdr.style.cssText='font-size:9px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:6px;letter-spacing:.4px;display:flex;justify-content:space-between;align-items:baseline';
+      hdr.innerHTML='<span>SUGGESTED FROM '+_esc(supName).toUpperCase()+' FILE</span><span style="font-weight:400;text-transform:none">click to apply</span>';
+      sugWrap.appendChild(hdr);
+      suggestions.forEach(function(sg){
+        var card=document.createElement('div');
+        card.style.cssText='display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:9px 12px;background:var(--surf2);border:1px solid var(--brd);border-radius:7px;margin-bottom:6px;cursor:pointer;transition:border-color .15s';
+        card.onmouseenter=function(){card.style.borderColor='var(--acc)';};
+        card.onmouseleave=function(){card.style.borderColor='var(--brd)';};
+        var scoreCls=sg.score>=85?'high':sg.score>=65?'mid':'low';
+        var ratePct=(sg.medianRate*100).toFixed(2);
+        var country=sg.iso?(countryName(sg.iso)||sg.iso):'no country';
+        card.innerHTML='<div><div style="font-weight:700;font-size:12px">'+_esc(sg.brand)+'</div><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">'+_esc(country)+' · '+sg.denomCount+' denom'+(sg.denomCount!==1?'s':'')+'</div></div>'
+          +'<div><div style="font-family:Roboto Mono,monospace;font-weight:800;font-size:13px;text-align:right">'+ratePct+'%</div></div>'
+          +'<div><span class="imp-conf '+scoreCls+'" style="font-size:10px">'+sg.score+'</span></div>';
+        card.onclick=function(){
+          rate.value=ratePct;
+          rate.style.borderColor='var(--grn)';
+          setTimeout(function(){rate.style.borderColor='var(--brd)';},400);
+          rate.focus();
+        };
+        sugWrap.appendChild(card);
+      });
+    }
+    sel.onchange=function(){_renderSuggestions();};
+    setTimeout(_renderSuggestions, 0);
     // Rate input
     var lbl2=document.createElement('div');lbl2.style.cssText='font-size:9px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:5px;letter-spacing:.4px';
     lbl2.textContent='SUPPLIER DISCOUNT %';form.appendChild(lbl2);
@@ -9234,7 +9300,7 @@ var SUP=(function(){
     rateWrap.appendChild(rate);rateWrap.appendChild(pct);
     form.appendChild(rateWrap);
     var hint=document.createElement('div');hint.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:18px;line-height:1.4';
-    hint.textContent='Enter as a percentage (e.g. 1.5 means 1.5% discount from supplier to Reloadly).';
+    hint.textContent='Pick a suggestion above or enter as a percentage (e.g. 1.5 means 1.5% discount from supplier to Reloadly).';
     form.appendChild(hint);
     // Buttons
     var btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
@@ -10000,6 +10066,17 @@ var SUP=(function(){
         }
       });
       NS.applyMatches(cat,s.supData,s.matches,{rollup:'median'});
+      // Persist a compact snapshot of supplier rows so the detail drawer can suggest
+      // candidates when the user manually maps a supplier.
+      try {
+        var supRowsStore = (function(){try{var v=localStorage.getItem('rl_sup_supplier_rows_v1');return v?JSON.parse(v):{};}catch(e){return {};}})();
+        supRowsStore[s.supplier] = s.supData.rows
+          .filter(function(r){return r.discount!=null && (r.brand||r.product);})
+          .map(function(r){return {brand:r.brand||r.product, iso:r.iso||'', discount:r.discount, denomination:r.denomination};});
+        try{localStorage.setItem('rl_sup_supplier_rows_v1', JSON.stringify(supRowsStore));}catch(qe){
+          console.warn('Supplier row store quota exceeded:', qe.message);
+        }
+      } catch(persistErr) {/* non-fatal */}
       // Snapshot previous primary BEFORE saving
       var meta=NS.loadMeta();
       var oldOverrides=NS.loadOverrides();var oldAdmin=NS.loadAdmin();
