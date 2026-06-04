@@ -8399,7 +8399,7 @@ window.withBusy = function(msg, sub, fn){
 .sup-empty-ic{font-size:48px;margin-bottom:14px;opacity:.7}
 .sup-empty-t{font-size:18px;font-weight:700;margin-bottom:8px}
 .sup-empty-s{font-size:12px;color:var(--mut);margin-bottom:18px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.6}
-.sup-drop{border:2px dashed var(--acc);border-radius:12px;padding:30px;margin:18px auto;max-width:520px;background:rgba(6,182,212,.05);cursor:pointer;transition:all .15s}
+.sup-drop{display:block;text-align:center;border:2px dashed var(--acc);border-radius:12px;padding:36px 30px;margin:18px auto;max-width:520px;background:rgba(6,182,212,.05);cursor:pointer;transition:all .15s;box-sizing:border-box}
 .sup-drop:hover{background:rgba(6,182,212,.12)}
 .sup-drop.over{background:rgba(6,182,212,.22);border-color:var(--grn)}
 .sup-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
@@ -9572,20 +9572,23 @@ var SUP=(function(){
       +'<div class="imp-sub">The master SKU list. Needs <b>id</b>, <b>title</b>, <b>iso_name</b> (or <b>country</b>), and <b>status</b> columns. ~10,000 rows is typical.</div>';
     var existing=NS.loadProducts();
     if(existing.length){
-      var info=document.createElement('div');info.style.cssText='padding:10px 14px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px;font-size:11px;margin-bottom:14px;color:var(--acc)';
-      info.innerHTML='You already have <b>'+existing.length.toLocaleString()+'</b> products loaded. Adding a supplier file will merge into this catalogue (existing supplier columns and overrides preserved). Click <b>Use existing catalogue</b> below to skip this step.';
+      var info=document.createElement('div');info.style.cssText='padding:12px 16px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px;font-size:11px;margin-bottom:14px;color:var(--acc);line-height:1.55';
+      info.innerHTML='You already have <b>'+existing.length.toLocaleString()+'</b> products loaded. Adding a supplier file will merge into this catalogue (existing supplier columns and overrides preserved).';
       card.appendChild(info);
+      var existBar=document.createElement('div');existBar.style.cssText='display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 18px;background:var(--surf2);border:1px solid var(--brd);border-radius:10px;margin-bottom:18px';
       var useBtn=document.createElement('button');useBtn.className='sup-btn primary';useBtn.innerHTML='→ Use existing catalogue ('+existing.length.toLocaleString()+' products)';
-      useBtn.style.marginRight='10px';
       useBtn.onclick=function(){
         var s=NS.loadImportState();s.catalog=existing;s.step=2;NS.saveImportState(s);NS.renderPricing();
       };
-      card.appendChild(useBtn);
-      var sep=document.createElement('span');sep.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin:0 6px';sep.textContent=' or replace it with a fresh catalogue: ';
-      card.appendChild(sep);
+      existBar.appendChild(useBtn);
+      var sep=document.createElement('span');sep.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace';
+      sep.textContent='— or replace it by dropping a fresh catalogue below —';
+      existBar.appendChild(sep);
+      card.appendChild(existBar);
     }
     var drop=document.createElement('label');drop.className='sup-drop';drop.htmlFor='imp-catalog-input';
-    drop.innerHTML='<div style="font-size:32px;margin-bottom:8px">📋</div><div style="font-weight:700;margin-bottom:4px">Click or drop your Reloadly catalogue (.xlsx)</div>';
+    drop.style.maxWidth='620px';
+    drop.innerHTML='<div style="font-size:36px;margin-bottom:10px">📋</div><div style="font-weight:800;font-size:14px;margin-bottom:6px">Click or drop your Reloadly catalogue (.xlsx)</div><div style="font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace">Auto-detects id, title, iso_name (or country), status columns</div>';
     card.appendChild(drop);
     var fi=document.createElement('input');fi.type='file';fi.id='imp-catalog-input';fi.accept='.xlsx,.xls';fi.style.display='none';
     fi.onchange=function(e){
