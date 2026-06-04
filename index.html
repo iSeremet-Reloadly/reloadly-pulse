@@ -9415,11 +9415,51 @@ var SUP=(function(){
   var _PUNCT_RE = /[^a-z0-9]+/g;
   var _WS_RE = /\s+/g;
   var _normCache = {};
+  // Brand alias dictionary: maps every known variation to a single canonical token
+  // so 'App Store & iTunes', 'AppStore and iTunes', 'Apple Gift Card', 'iTunes'
+  // all reduce to ['apple'] before scoring. Keys MUST be lowercase, whole words.
+  // Extend by adding entries; the regex sorts by length so multi-word phrases win.
+  var _BRAND_ALIASES = {
+    'app store and itunes':'apple', 'appstore and itunes':'apple',
+    'app store':'apple', 'appstore':'apple', 'itunes':'apple',
+    'apple gift card':'apple', 'apple music':'applemusic',
+    'google play':'googleplay', 'play store':'googleplay', 'playstore':'googleplay',
+    'play station':'playstation', 'playstation':'playstation',
+    'psn':'playstation', 'ps store':'playstation', 'ps plus':'playstation',
+    'ps5':'playstation', 'ps4':'playstation',
+    'xbox live':'xbox', 'xbox game pass':'xbox', 'microsoft xbox':'xbox',
+    'nintendo eshop':'nintendo', 'nintendo switch':'nintendo',
+    'eshop':'nintendo', 'switch':'nintendo',
+    'free fire':'freefire', 'garena':'freefire', 'garena free fire':'freefire',
+    'v bucks':'fortnite', 'vbucks':'fortnite', 'v-bucks':'fortnite',
+    'world of warcraft':'blizzard', 'battle net':'blizzard', 'battlenet':'blizzard',
+    'league of legends':'riot', 'riot games':'riot', 'riot access':'riot',
+    'valorant':'riot', 'razer gold':'razer',
+    'mobile legends':'mobilelegends', 'pubg mobile':'pubg', 'pubg':'pubg',
+    'disney plus':'disney', 'disney +':'disney',
+    'tinder plus':'tinder', 'tinder gold':'tinder',
+    'visa reward':'visa', 'visa gift':'visa',
+    'amazon pay':'amazon', 'amazon.com':'amazon',
+    'uber eats':'uber', 'mc donalds':'mcdonalds', 'mcdonald s':'mcdonalds',
+    'star bucks':'starbucks'
+  };
+  var _BRAND_ALIAS_RE = (function(){
+    var keys = Object.keys(_BRAND_ALIASES).sort(function(a,b){return b.length-a.length;});
+    var pat = keys.map(function(k){return k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\s+/g,'\\s+');}).join('|');
+    return new RegExp('\\b(' + pat + ')\\b','gi');
+  })();
+  function _applyAliases(t){
+    return t.replace(_BRAND_ALIAS_RE, function(m){
+      var key = m.toLowerCase().replace(/\s+/g,' ').trim();
+      return _BRAND_ALIASES[key] || _BRAND_ALIASES[key.replace(/\s+/g,'')] || m;
+    });
+  }
   function _normBrand(s){
     if(!s)return '';
     if(_normCache[s])return _normCache[s];
     var t=String(s).toLowerCase();
     t=t.replace(_CCY_RE,' ');
+    t=_applyAliases(t);
     t=t.replace(_COUNTRY_RE,' ');
     t=t.replace(_GENERIC_RE,' ');
     t=t.replace(_2L_RE,' ');
