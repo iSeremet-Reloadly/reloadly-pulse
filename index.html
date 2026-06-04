@@ -8415,6 +8415,53 @@ function callout(label, text){
 .sup-tab:hover{color:var(--txt)}
 .sup-notes-ta{width:100%;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);padding:8px 10px;border-radius:6px;font-size:11px;font-family:inherit;outline:none;min-height:60px;resize:vertical}
 .sup-notes-ta:focus{border-color:var(--acc)}
+/* === Import wizard === */
+.imp-stepper{display:flex;align-items:center;gap:8px;margin-bottom:22px;flex-wrap:wrap}
+.imp-step{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surf);border:1px solid var(--brd);border-radius:8px;font-size:11px;font-family:'Roboto Mono',monospace;font-weight:700;letter-spacing:.4px;color:var(--mut)}
+.imp-step.active{background:var(--acc);color:#fff;border-color:var(--acc)}
+.imp-step.done{background:rgba(16,185,129,.08);color:var(--grn);border-color:rgba(16,185,129,.4)}
+.imp-step-n{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.18);display:inline-flex;align-items:center;justify-content:center;font-size:10px}
+.imp-step.done .imp-step-n{background:var(--grn);color:#fff}
+.imp-arrow{color:var(--mut)}
+.imp-card{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:22px 26px;margin-bottom:18px}
+.imp-card h3{margin:0 0 6px 0;font-size:18px;font-weight:800}
+.imp-card .imp-sub{font-size:12px;color:var(--mut);font-family:'Roboto Mono',monospace;line-height:1.6;margin-bottom:18px}
+.imp-card .imp-sub b{color:var(--txt)}
+.imp-buckets{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.imp-bucket{padding:16px 18px;border-radius:12px;border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;transition:all .15s}
+.imp-bucket:hover{transform:translateY(-1px)}
+.imp-bucket.high{border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.05)}
+.imp-bucket.mid{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.05)}
+.imp-bucket.low{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.05)}
+.imp-bucket.none{border-color:rgba(100,100,122,.5);background:rgba(100,100,122,.05)}
+.imp-bucket.active{box-shadow:0 0 0 2px var(--acc)}
+.imp-bucket-n{font-size:28px;font-weight:800;margin-bottom:4px;line-height:1}
+.imp-bucket-l{font-size:10px;font-weight:700;color:var(--mut);font-family:'Roboto Mono',monospace;letter-spacing:.4px;margin-bottom:6px;text-transform:uppercase}
+.imp-bucket-s{font-size:10px;color:var(--mut);line-height:1.4}
+.imp-tablewrap{background:var(--surf);border:1px solid var(--brd);border-radius:12px;overflow:hidden;max-height:540px;overflow-y:auto}
+.imp-table{width:100%;border-collapse:collapse;font-size:11px}
+.imp-table th{background:var(--surf2);text-align:left;padding:9px 12px;font-size:9px;color:var(--mut);font-family:'Roboto Mono',monospace;font-weight:700;letter-spacing:.4px;border-bottom:1px solid var(--brd);white-space:nowrap;position:sticky;top:0;z-index:2}
+.imp-table td{padding:8px 12px;border-bottom:1px solid var(--brd);vertical-align:middle}
+.imp-table tr:hover td{background:var(--surf2)}
+.imp-conf{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;font-family:'Roboto Mono',monospace}
+.imp-conf.high{background:rgba(16,185,129,.18);color:var(--grn)}
+.imp-conf.mid{background:rgba(245,158,11,.18);color:var(--yel)}
+.imp-conf.low{background:rgba(239,68,68,.18);color:var(--red)}
+.imp-conf.none{background:rgba(100,100,122,.18);color:var(--mut)}
+.imp-target{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);padding:5px 9px;border-radius:5px;font-size:11px;font-family:inherit;outline:none;min-width:260px}
+.imp-target:focus{border-color:var(--acc)}
+.imp-action{display:inline-flex;gap:5px}
+.imp-action-btn{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);padding:3px 8px;border-radius:5px;font-size:10px;font-family:'Roboto Mono',monospace;cursor:pointer;font-weight:700}
+.imp-action-btn:hover{border-color:var(--acc);color:var(--acc)}
+.imp-action-btn.danger:hover{border-color:var(--red);color:var(--red)}
+.imp-action-btn.accept{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4);color:var(--grn)}
+.imp-action-btn.reject{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.4);color:var(--red)}
+.imp-supplier-pick{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px}
+.imp-supplier-chip{padding:14px 16px;text-align:center;background:var(--surf2);border:1.5px solid var(--brd);border-radius:10px;cursor:pointer;font-weight:700;font-size:12px;transition:all .15s}
+.imp-supplier-chip:hover{border-color:var(--acc);transform:translateY(-2px)}
+.imp-supplier-chip.selected{border-color:var(--acc);background:rgba(108,99,255,.12);color:var(--acc)}
+.imp-supplier-chip input{width:100%;background:none;border:none;color:var(--txt);text-align:center;font-weight:700;font-size:12px;outline:none}
+
 </style>
 <script>
 // === Global ISO 3166-1 alpha-2 → country name lookup ===
@@ -8632,8 +8679,13 @@ var SUP=(function(){
     hdr.innerHTML='<div><div class="sup-title">Pricing & Supplier Ranking</div><div class="sup-sub">Best supplier per product · Auto-ranked from uploaded analysis</div></div>';
     var tools=document.createElement('div');tools.className='sup-toolbar';
     var upBtn=document.createElement('button');upBtn.className='sup-btn primary';upBtn.innerHTML='⤴ Upload analysis';
+    upBtn.title='Upload a pre-consolidated supplier-analysis Excel (Reloadly tab with all suppliers as columns).';
     upBtn.onclick=function(){_promptUpload();};
     tools.appendChild(upBtn);
+    var addBtn=document.createElement('button');addBtn.className='sup-btn';addBtn.innerHTML='+ Add supplier file';
+    addBtn.title='Add another supplier file (e.g. Bamboo, Globetopper) and auto-match into the existing catalogue.';
+    addBtn.onclick=function(){NS.startImport();};
+    tools.appendChild(addBtn);
     if(products.length){
       var exBtn=document.createElement('button');exBtn.className='sup-btn';exBtn.innerHTML='⤓ Export Excel';
       exBtn.onclick=function(){NS.exportXLSX();};
@@ -8649,7 +8701,14 @@ var SUP=(function(){
       var em=document.createElement('div');em.className='sup-empty';
       em.innerHTML='<div class="sup-empty-ic">📊</div>'
         +'<div class="sup-empty-t">No supplier analysis loaded yet</div>'
-        +'<div class="sup-empty-s">Upload your Supplier Analysis Excel file. The system will parse every product in the <b>Reloadly</b> tab, normalise supplier rates, ignore unavailable suppliers, and rank the rest by best commercial value.</div>';
+        +'<div class="sup-empty-s">Two ways to load data. <b>Recommended:</b> upload your Reloadly catalogue + each supplier\'s own file separately, and the tool auto-matches SKUs. <b>Or:</b> upload a pre-consolidated analysis file with all suppliers as columns.</div>';
+      var primaryBtn=document.createElement('button');primaryBtn.className='sup-btn primary';primaryBtn.style.cssText='margin:6px 0 18px;padding:12px 22px;font-size:12px';
+      primaryBtn.innerHTML='⤴ Build from supplier files (recommended)';
+      primaryBtn.onclick=function(){NS.startImport();};
+      em.appendChild(primaryBtn);
+      var sepDiv=document.createElement('div');sepDiv.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin:6px 0';
+      sepDiv.textContent='— OR —';
+      em.appendChild(sepDiv);
       var drop=document.createElement('label');drop.className='sup-drop';drop.htmlFor='sup-file-input';
       drop.innerHTML='<div style="font-size:32px;margin-bottom:8px">⤴</div><div style="font-weight:700;margin-bottom:6px">Click or drop your .xlsx file here</div><div style="font-size:11px;color:var(--mut)">Expected sheet: <b>Reloadly</b> with columns: id, title, iso_name, status + supplier columns</div>';
       em.appendChild(drop);
@@ -9125,6 +9184,584 @@ var SUP=(function(){
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Summary');
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Supplier Ranking');
     XLSX.writeFile(wb,'Pricing_SupplierRanking_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  };
+
+
+  // ============================================================
+  // SOURCE IMPORTER — Reloadly catalogue + per-supplier files
+  // ============================================================
+  var IMP_KEY = 'rl_sup_import_v1';
+  NS.loadImportState = function(){try{var v=localStorage.getItem(IMP_KEY);return v?JSON.parse(v):null;}catch(e){return null;}};
+  NS.saveImportState = function(st){try{localStorage.setItem(IMP_KEY,JSON.stringify(st));}catch(e){}};
+  NS.clearImportState = function(){try{localStorage.removeItem(IMP_KEY);}catch(e){}};
+
+  // --- helpers -----------------------------------------------
+  var ALIAS_TO_ISO = {
+    'usa':'US','u.s.a.':'US','united states of america':'US','united states':'US',
+    'uk':'GB','u.k.':'GB','great britain':'GB','united kingdom':'GB',
+    'uae':'AE','u.a.e.':'AE','united arab emirates':'AE',
+    'south korea':'KR','republic of korea':'KR','korea, republic of':'KR',
+    'north korea':'KP','vietnam':'VN','viet nam':'VN','russia':'RU','russian federation':'RU',
+    'iran':'IR','syria':'SY','tanzania':'TZ','united republic of tanzania':'TZ',
+    'czech republic':'CZ','czechia':'CZ','ivory coast':'CI','cape verde':'CV',
+    'swaziland':'SZ','eswatini':'SZ','macedonia':'MK','holland':'NL','netherlands':'NL',
+    'türkiye':'TR','turkey':'TR','venezuela':'VE','bolivia':'BO','taiwan':'TW'
+  };
+  function _isoFromName(name){
+    if(!name)return '';
+    var n=String(name).trim().toLowerCase();
+    if(window.ISO_NAMES){
+      for(var k in window.ISO_NAMES){if(window.ISO_NAMES[k].toLowerCase()===n)return k;}
+    }
+    return ALIAS_TO_ISO[n]||'';
+  }
+
+  // Precompiled brand-normalisation regexes
+  var _COUNTRY_RE = (function(){
+    var names = [];
+    if(window.ISO_NAMES){for(var k in window.ISO_NAMES)names.push(window.ISO_NAMES[k]);}
+    Object.keys(ALIAS_TO_ISO).forEach(function(a){names.push(a);});
+    names.sort(function(a,b){return b.length-a.length;});
+    var escaped = names.map(function(n){return n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');});
+    return new RegExp('\\b(' + escaped.join('|') + ')\\b','gi');
+  })();
+  var _CCY_RE = /\b(usd|eur|gbp|aed|sar|cny|jpy|inr|brl|mxn|cad|aud|sgd|hkd|krw|qar|kwd|jod|egp|mad|try|pln|czk|huf|ngn|kes|zar|thb|idr|vnd|php|myr|chf|sek|nok|dkk|pkr|lkr|bdt|npr|ron|bgn|uah|iqd|lbp)\b/g;
+  var _GENERIC_RE = /\b(gift\s?card|egift|e-gift|card|reward|voucher|prepaid|topup|top.?up|recharge|standard|merchant|mobile|virtual|brand)\b/g;
+  var _2L_RE = /\b[a-z]{2}\b/g;
+  var _NUM_RE = /\b\d+(\.\d+)?\b/g;
+  var _PUNCT_RE = /[^a-z0-9]+/g;
+  var _WS_RE = /\s+/g;
+  var _normCache = {};
+  function _normBrand(s){
+    if(!s)return '';
+    if(_normCache[s])return _normCache[s];
+    var t=String(s).toLowerCase();
+    t=t.replace(_CCY_RE,' ');
+    t=t.replace(_COUNTRY_RE,' ');
+    t=t.replace(_GENERIC_RE,' ');
+    t=t.replace(_2L_RE,' ');
+    t=t.replace(_NUM_RE,' ');
+    t=t.replace(_PUNCT_RE,' ');
+    t=t.replace(_WS_RE,' ').trim();
+    _normCache[s]=t;
+    return t;
+  }
+  function _brandTokens(s){return _normBrand(s).split(' ').filter(function(t){return t.length>=2;});}
+  function _brandScore(reloadlyTitle, supplierBrand, isoMatch){
+    var a=_brandTokens(reloadlyTitle), b=_brandTokens(supplierBrand);
+    if(!a.length||!b.length)return 0;
+    var aSet={};a.forEach(function(t){aSet[t]=true;});
+    var hits=0;b.forEach(function(t){if(aSet[t])hits++;});
+    var bs=Math.round(hits/Math.min(a.length,b.length)*100);
+    return isoMatch?bs:Math.round(bs*0.3);
+  }
+  function _parseDiscountVal(v){
+    if(v==null||v==='')return null;
+    if(typeof v==='number'){if(isNaN(v)||v<0)return null;return v>1?v/100:v;}
+    var t=String(v).trim();
+    if(!t||t==='-')return null;
+    if(/not avail|inactive|invalid|unavailable/i.test(t))return null;
+    var pct=/%$/.test(t);
+    var x=t.replace(/[%,\s]/g,'');
+    var n=parseFloat(x);
+    if(isNaN(n)||n<0)return null;
+    return pct?n/100:(n>1?n/100:n);
+  }
+  function _aoaFromWB(wb,preferred){
+    var sheet=null;
+    if(preferred&&wb.Sheets[preferred])sheet=wb.Sheets[preferred];
+    else sheet=wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(sheet,{header:1,defval:null,raw:true});
+  }
+  function _findCol(header, regexes){
+    for(var i=0;i<header.length;i++){
+      var h=String(header[i]||'').trim().toLowerCase();
+      for(var j=0;j<regexes.length;j++){if(regexes[j].test(h))return i;}
+    }
+    return -1;
+  }
+
+  // --- Reloadly catalogue parse ------------------------------
+  NS.parseReloadlyCatalogue = function(wb, fileName){
+    var aoa=_aoaFromWB(wb,'Reloadly');
+    if(!aoa.length)throw new Error('Empty sheet');
+    var header=aoa[0]||[];
+    var cId=_findCol(header,[/^id$/i,/product.?id/i,/sku.?id/i]);
+    var cTitle=_findCol(header,[/^title$/i,/^name$/i,/^product.?name$/i,/^brand$/i]);
+    var cIso=_findCol(header,[/^iso/i,/^iso_name$/i,/^country/i]);
+    var cStat=_findCol(header,[/^status$/i,/^state$/i]);
+    if(cId<0||cTitle<0)throw new Error('Catalogue needs id and title columns');
+    var out=[];
+    for(var r=1;r<aoa.length;r++){
+      var row=aoa[r];if(!row||!row.length)continue;
+      var pid=row[cId];if(pid==null||pid==='')continue;
+      var iso=String((cIso>=0?row[cIso]:'')||'').trim().toUpperCase();
+      if(iso&&iso.length>2)iso=_isoFromName(iso)||iso;
+      out.push({
+        id:String(typeof pid==='number'?Math.round(pid):pid),
+        title:String(row[cTitle]||'').trim(),
+        iso:iso,
+        status:String((cStat>=0?row[cStat]:'ACTIVE')||'ACTIVE').trim().toUpperCase(),
+        rates:{}
+      });
+    }
+    return out;
+  };
+
+  // --- Supplier file parse -----------------------------------
+  NS.parseSupplierFile = function(wb, supplierName, fileName){
+    var aoa=_aoaFromWB(wb);
+    if(!aoa.length)throw new Error('Empty supplier sheet');
+    // Some files have decorative rows before the real header.  Find first row that has at least 3 string headers.
+    var headerRow=0;
+    for(var i=0;i<Math.min(aoa.length,12);i++){
+      var nonNull=0;
+      for(var j=0;j<(aoa[i]||[]).length;j++){if(typeof aoa[i][j]==='string'&&aoa[i][j].trim())nonNull++;}
+      if(nonNull>=3){headerRow=i;break;}
+    }
+    var header=aoa[headerRow]||[];
+    var cReId=_findCol(header,[/reloadly.?id/i]);
+    var cBrand=_findCol(header,[/^brand$/i,/merchant/i]);
+    var cProduct=_findCol(header,[/^product$/i,/^name$/i,/^product.?name$/i]);
+    var cRegion=_findCol(header,[/^region$/i,/^country$/i]);
+    var cIso=_findCol(header,[/^iso$/i]);
+    var cCcy=_findCol(header,[/^currency$/i,/^ccy$/i]);
+    var cDenom=_findCol(header,[/denomination/i,/^value$/i,/^face/i,/^from$/i]);
+    var cDisc=_findCol(header,[/^discount$/i,/^rate$/i,/sellingmargin/i,/client.?discount/i,/^discount.?buying.?price$/i]);
+    var cFee=_findCol(header,[/^fee$/i,/issuance.?fee/i]);
+    var rows=[];
+    for(var r=headerRow+1;r<aoa.length;r++){
+      var row=aoa[r];if(!row||!row.length)continue;
+      var brand=(cBrand>=0?row[cBrand]:'')||'';
+      var product=(cProduct>=0?row[cProduct]:'')||'';
+      brand=String(brand).trim();product=String(product).trim();
+      if(!brand&&!product)continue;
+      var reId=cReId>=0?row[cReId]:null;
+      var region=String((cRegion>=0?row[cRegion]:'')||'').trim();
+      var rawIso=String((cIso>=0?row[cIso]:'')||'').trim().toUpperCase();
+      var iso=rawIso;
+      if(!iso&&region){iso=_isoFromName(region)||(region.length===2?region.toUpperCase():'');}
+      rows.push({
+        reloadlyId: reId!=null&&reId!==''?String(reId).trim():null,
+        brand:brand, product:product, region:region, iso:iso,
+        currency:String((cCcy>=0?row[cCcy]:'')||'').trim(),
+        denomination:cDenom>=0?row[cDenom]:null,
+        discount:_parseDiscountVal(cDisc>=0?row[cDisc]:null),
+        fee:cFee>=0?row[cFee]:null
+      });
+    }
+    return {supplier:supplierName, fileName:fileName, rows:rows};
+  };
+
+  // --- Matching ----------------------------------------------
+  NS.runMatching = function(catalog, supData){
+    var rows=supData.rows;
+    var byIso={};catalog.forEach(function(p){var k=p.iso||'_';if(!byIso[k])byIso[k]=[];byIso[k].push(p);});
+    // To save work: group supplier rows by (brand, iso) — many denominations share the same brand
+    var combos={};
+    rows.forEach(function(r,i){
+      if(!r.brand&&!r.product)return;
+      var key=(r.brand||r.product)+'|'+(r.iso||'');
+      if(!combos[key])combos[key]={brand:r.brand||r.product,iso:r.iso,rowIdxs:[]};
+      combos[key].rowIdxs.push(i);
+    });
+    var matches=new Array(rows.length);
+    Object.keys(combos).forEach(function(key){
+      var combo=combos[key];
+      var pool=combo.iso&&byIso[combo.iso]?byIso[combo.iso]:catalog;
+      var best=null;
+      for(var i=0;i<pool.length;i++){
+        var s=_brandScore(pool[i].title, combo.brand, true);
+        if(!best||s>best.score)best={score:s,product:pool[i]};
+      }
+      if(!best||best.score<50){
+        // try wider search penalised
+        for(var j=0;j<catalog.length;j++){
+          if(catalog[j].iso===combo.iso)continue;
+          var s2=_brandScore(catalog[j].title, combo.brand, false);
+          if(!best||s2>best.score)best={score:s2,product:catalog[j]};
+        }
+      }
+      var bucket;
+      if(!best||best.score<50)bucket='none';
+      else if(best.score>=85)bucket='high';
+      else if(best.score>=65)bucket='mid';
+      else bucket='low';
+      combo.rowIdxs.forEach(function(idx){
+        var preMapped = rows[idx].reloadlyId;
+        if(preMapped){
+          var target=catalog.find(function(p){return p.id===preMapped;});
+          if(target){matches[idx]={productId:target.id,score:100,bucket:'high',source:'pre',candidate:target.title,decision:'accept'};return;}
+        }
+        matches[idx]={
+          productId:best?best.product.id:null,
+          score:best?best.score:0,
+          bucket:bucket,
+          source:'auto',
+          candidate:best?best.product.title:null,
+          decision:(bucket==='high'||bucket==='mid')?'accept':'skip'
+        };
+      });
+    });
+    return matches;
+  };
+
+  // --- Apply matches -----------------------------------------
+  NS.applyMatches = function(catalog, supData, matches, options){
+    options=options||{};var rollup=options.rollup||'median';
+    var supplier=supData.supplier;
+    var groups={};
+    matches.forEach(function(m,i){
+      if(!m||m.decision!=='accept'||!m.productId)return;
+      var d=supData.rows[i].discount;
+      if(d==null)return;
+      if(!groups[m.productId])groups[m.productId]=[];
+      groups[m.productId].push(d);
+    });
+    var byId={};catalog.forEach(function(p){byId[p.id]=p;});
+    Object.keys(groups).forEach(function(pid){
+      var vals=groups[pid].slice().sort(function(a,b){return a-b;});
+      var roll;
+      if(rollup==='min')roll=vals[0];
+      else if(rollup==='max')roll=vals[vals.length-1];
+      else roll=vals[Math.floor(vals.length/2)]; // median
+      var p=byId[pid];if(!p)return;
+      p.rates=p.rates||{};
+      p.rates[supplier]={
+        raw:roll, ok:true, status:'available', rate:roll,
+        conf:roll<=0.30?100:roll<=0.50?70:30,
+        denomCount:vals.length, denomMin:vals[0], denomMax:vals[vals.length-1]
+      };
+    });
+    return catalog;
+  };
+
+  // --- Wizard UI ---------------------------------------------
+  NS.startImport = function(){
+    NS.saveImportState({step:1,catalog:null,supplier:null,supData:null,matches:null});
+    NS.renderPricing();
+  };
+  NS.cancelImport = function(){
+    if(confirm('Cancel import? Current progress will be lost.')){NS.clearImportState();NS.renderPricing();}
+  };
+
+  NS.renderImport = function(){
+    var main=document.getElementById('main');if(!main)return;main.innerHTML='';
+    var st=NS.loadImportState();if(!st){NS.renderPricing();return;}
+    var wrap=document.createElement('div');wrap.className='sup-wrap';
+
+    // Header
+    var hdr=document.createElement('div');hdr.className='sup-hdr';
+    hdr.innerHTML='<div><div class="sup-title">Build from supplier files</div><div class="sup-sub">Reloadly catalogue + supplier files → ranked supplier matrix</div></div>';
+    var tools=document.createElement('div');tools.className='sup-toolbar';
+    var cancel=document.createElement('button');cancel.className='sup-btn ghost';cancel.innerHTML='✕ Cancel';
+    cancel.onclick=NS.cancelImport;
+    tools.appendChild(cancel);
+    hdr.appendChild(tools);
+    wrap.appendChild(hdr);
+
+    // Stepper
+    var sp=document.createElement('div');sp.className='imp-stepper';
+    [
+      {n:1,l:'Reloadly catalogue'},
+      {n:2,l:'Supplier file'},
+      {n:3,l:'Review matches'},
+      {n:4,l:'Apply'}
+    ].forEach(function(s,i){
+      var cls=(st.step===s.n?'active':(st.step>s.n?'done':''));
+      var b=document.createElement('div');b.className='imp-step '+cls;
+      b.innerHTML='<span class="imp-step-n">'+(st.step>s.n?'✓':s.n)+'</span><span>'+s.l+'</span>';
+      sp.appendChild(b);
+      if(i<3){var a=document.createElement('span');a.className='imp-arrow';a.textContent='›';sp.appendChild(a);}
+    });
+    wrap.appendChild(sp);
+
+    if(st.step===1)_impStep1(wrap,st);
+    else if(st.step===2)_impStep2(wrap,st);
+    else if(st.step===3)_impStep3(wrap,st);
+
+    main.appendChild(wrap);
+  };
+
+  function _impStep1(wrap,st){
+    var card=document.createElement('div');card.className='imp-card';
+    card.innerHTML='<h3>Step 1 — Upload Reloadly catalogue</h3>'
+      +'<div class="imp-sub">The master SKU list. Needs <b>id</b>, <b>title</b>, <b>iso_name</b> (or <b>country</b>), and <b>status</b> columns. ~10,000 rows is typical.</div>';
+    var existing=NS.loadProducts();
+    if(existing.length){
+      var info=document.createElement('div');info.style.cssText='padding:10px 14px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px;font-size:11px;margin-bottom:14px;color:var(--acc)';
+      info.innerHTML='You already have <b>'+existing.length.toLocaleString()+'</b> products loaded. Adding a supplier file will merge into this catalogue (existing supplier columns and overrides preserved). Click <b>Use existing catalogue</b> below to skip this step.';
+      card.appendChild(info);
+      var useBtn=document.createElement('button');useBtn.className='sup-btn primary';useBtn.innerHTML='→ Use existing catalogue ('+existing.length.toLocaleString()+' products)';
+      useBtn.style.marginRight='10px';
+      useBtn.onclick=function(){
+        var s=NS.loadImportState();s.catalog=existing;s.step=2;NS.saveImportState(s);NS.renderPricing();
+      };
+      card.appendChild(useBtn);
+      var sep=document.createElement('span');sep.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin:0 6px';sep.textContent=' or replace it with a fresh catalogue: ';
+      card.appendChild(sep);
+    }
+    var drop=document.createElement('label');drop.className='sup-drop';drop.htmlFor='imp-catalog-input';
+    drop.innerHTML='<div style="font-size:32px;margin-bottom:8px">📋</div><div style="font-weight:700;margin-bottom:4px">Click or drop your Reloadly catalogue (.xlsx)</div>';
+    card.appendChild(drop);
+    var fi=document.createElement('input');fi.type='file';fi.id='imp-catalog-input';fi.accept='.xlsx,.xls';fi.style.display='none';
+    fi.onchange=function(e){
+      var f=e.target.files&&e.target.files[0];if(!f)return;
+      var rd=new FileReader();
+      rd.onload=function(ev){
+        try{
+          var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+          var cat=NS.parseReloadlyCatalogue(wb,f.name);
+          if(!cat.length){alert('No rows parsed.');return;}
+          var s=NS.loadImportState();s.catalog=cat;s.catalogFile=f.name;s.step=2;NS.saveImportState(s);
+          NS.renderPricing();
+        }catch(err){alert('Failed: '+(err.message||err));}
+      };
+      rd.readAsArrayBuffer(f);
+    };
+    card.appendChild(fi);
+    wrap.appendChild(card);
+  }
+
+  function _impStep2(wrap,st){
+    var SUPPLIERS=['Bamboo','Globetopper','EZPin','Blackhawk','Neocurrency','Phaze','Tillo','Runa','SVS','CardCash','iRewardify','Fluz'];
+    var card=document.createElement('div');card.className='imp-card';
+    card.innerHTML='<h3>Step 2 — Pick supplier and upload their file</h3>'
+      +'<div class="imp-sub">Catalogue loaded: <b>'+(st.catalog||[]).length.toLocaleString()+'</b> products. Choose which supplier this file belongs to so we can populate the right column. Pick a name below or type a custom one.</div>';
+    var picker=document.createElement('div');picker.className='imp-supplier-pick';
+    SUPPLIERS.forEach(function(name){
+      var c=document.createElement('div');c.className='imp-supplier-chip'+(st.supplier===name?' selected':'');
+      c.textContent=name;c.onclick=function(){var s=NS.loadImportState();s.supplier=name;NS.saveImportState(s);NS.renderPricing();};
+      picker.appendChild(c);
+    });
+    var custom=document.createElement('div');custom.className='imp-supplier-chip';
+    custom.style.cssText+=';display:flex;align-items:center;gap:6px';
+    custom.innerHTML='<span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">Custom:</span>';
+    var ci=document.createElement('input');ci.placeholder='Name…';ci.value=(st.supplier&&SUPPLIERS.indexOf(st.supplier)<0)?st.supplier:'';
+    ci.onkeydown=function(e){if(e.key==='Enter'){var v=this.value.trim();if(!v)return;var s=NS.loadImportState();s.supplier=v;NS.saveImportState(s);NS.renderPricing();}};
+    custom.appendChild(ci);picker.appendChild(custom);
+    card.appendChild(picker);
+
+    if(!st.supplier){
+      var nope=document.createElement('div');nope.style.cssText='padding:12px;background:var(--surf2);border-radius:8px;font-size:11px;color:var(--mut);text-align:center';
+      nope.textContent='Pick a supplier above to enable upload.';
+      card.appendChild(nope);
+    }else{
+      var drop=document.createElement('label');drop.className='sup-drop';drop.htmlFor='imp-sup-input';
+      drop.innerHTML='<div style="font-size:32px;margin-bottom:8px">🗂️</div><div style="font-weight:700;margin-bottom:4px">Drop <b>'+_esc(st.supplier)+'</b>\'s supplier file here</div><div style="font-size:11px;color:var(--mut)">We\'ll auto-detect the column layout (brand, product, region, currency, discount/rate, fee, denomination)</div>';
+      card.appendChild(drop);
+      var fi=document.createElement('input');fi.type='file';fi.id='imp-sup-input';fi.accept='.xlsx,.xls';fi.style.display='none';
+      fi.onchange=function(e){
+        var f=e.target.files&&e.target.files[0];if(!f)return;
+        var rd=new FileReader();
+        rd.onload=function(ev){
+          try{
+            var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+            var sup=NS.parseSupplierFile(wb,st.supplier,f.name);
+            if(!sup.rows.length){alert('No supplier rows parsed.');return;}
+            var matches=NS.runMatching(st.catalog,sup);
+            var s=NS.loadImportState();s.supData=sup;s.matches=matches;s.step=3;NS.saveImportState(s);
+            NS.renderPricing();
+          }catch(err){alert('Failed: '+(err.message||err));}
+        };
+        rd.readAsArrayBuffer(f);
+      };
+      card.appendChild(fi);
+    }
+    var back=document.createElement('button');back.className='sup-btn ghost';back.style.marginTop='14px';back.innerHTML='← Back';
+    back.onclick=function(){var s=NS.loadImportState();s.step=1;NS.saveImportState(s);NS.renderPricing();};
+    card.appendChild(back);
+    wrap.appendChild(card);
+  }
+
+  function _impStep3(wrap,st){
+    // Compute bucket counts
+    var counts={high:0,mid:0,low:0,none:0};
+    var acceptedCount=0;
+    (st.matches||[]).forEach(function(m){if(!m)return;counts[m.bucket]=(counts[m.bucket]||0)+1;if(m.decision==='accept')acceptedCount++;});
+    // Active bucket filter (from UI state on this view)
+    if(!st.bucketFilter)st.bucketFilter='mid';
+
+    var card=document.createElement('div');card.className='imp-card';
+    card.innerHTML='<h3>Step 3 — Review matches</h3>'
+      +'<div class="imp-sub">'
+      +'<b>'+st.supData.rows.length.toLocaleString()+'</b> rows from <b>'+_esc(st.supplier)+'</b> matched against your '+st.catalog.length.toLocaleString()+'-product Reloadly catalogue. '
+      +'<b>HIGH</b> matches are pre-accepted, <b>MID</b> too. <b>LOW</b> and <b>NONE</b> are skipped — open them and accept the ones that look right.'
+      +'</div>';
+    // Buckets
+    var bg=document.createElement('div');bg.className='imp-buckets';
+    [['high','Auto-applied','Score ≥ 85'],['mid','One-click confirm','65–84'],['low','Manual review','50–64'],['none','No good match','< 50 or none']].forEach(function(b){
+      var d=document.createElement('div');d.className='imp-bucket '+b[0]+(st.bucketFilter===b[0]?' active':'');
+      d.innerHTML='<div class="imp-bucket-n">'+counts[b[0]]+'</div><div class="imp-bucket-l">'+b[1]+'</div><div class="imp-bucket-s">'+b[2]+'</div>';
+      d.onclick=function(){var s=NS.loadImportState();s.bucketFilter=b[0];NS.saveImportState(s);NS.renderPricing();};
+      bg.appendChild(d);
+    });
+    card.appendChild(bg);
+
+    // Bulk actions for current filter
+    var bulk=document.createElement('div');bulk.style.cssText='display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap';
+    bulk.innerHTML='<span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-right:6px">VIEWING: '+st.bucketFilter.toUpperCase()+'</span>';
+    var bAcc=document.createElement('button');bAcc.className='sup-mini';bAcc.textContent='Accept all in '+st.bucketFilter.toUpperCase();
+    bAcc.onclick=function(){
+      var s=NS.loadImportState();var ms=s.matches;
+      for(var i=0;i<ms.length;i++){if(ms[i]&&ms[i].bucket===s.bucketFilter&&ms[i].productId)ms[i].decision='accept';}
+      NS.saveImportState(s);NS.renderPricing();
+    };
+    var bSk=document.createElement('button');bSk.className='sup-mini danger';bSk.textContent='Skip all in '+st.bucketFilter.toUpperCase();
+    bSk.onclick=function(){
+      var s=NS.loadImportState();var ms=s.matches;
+      for(var i=0;i<ms.length;i++){if(ms[i]&&ms[i].bucket===s.bucketFilter)ms[i].decision='skip';}
+      NS.saveImportState(s);NS.renderPricing();
+    };
+    bulk.appendChild(bAcc);bulk.appendChild(bSk);
+    var stats=document.createElement('span');stats.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-left:auto';
+    stats.textContent='ACCEPTED: '+acceptedCount.toLocaleString()+' of '+st.supData.rows.length.toLocaleString();
+    bulk.appendChild(stats);
+    card.appendChild(bulk);
+
+    // Filtered rows (de-duplicate by brand+iso for review — many rows are denominations of same brand)
+    var seen={};
+    var brandRows=[];
+    (st.matches||[]).forEach(function(m,i){
+      if(!m||m.bucket!==st.bucketFilter)return;
+      var row=st.supData.rows[i];
+      var key=(row.brand||row.product)+'|'+(row.iso||'');
+      if(seen[key])return;
+      seen[key]=true;
+      brandRows.push({idx:i,row:row,m:m,key:key});
+    });
+
+    var tw=document.createElement('div');tw.className='imp-tablewrap';
+    var tbl=document.createElement('table');tbl.className='imp-table';
+    tbl.innerHTML='<thead><tr>'
+      +'<th>SUPPLIER BRAND</th><th>COUNTRY</th><th>DISC</th><th>SUGGESTED RELOADLY PRODUCT</th><th>SCORE</th><th>ACTION</th>'
+      +'</tr></thead>';
+    var tb=document.createElement('tbody');tbl.appendChild(tb);
+    // Catalogue index for pick-different dropdown
+    var allByIso={};st.catalog.forEach(function(p){var k=p.iso||'_';if(!allByIso[k])allByIso[k]=[];allByIso[k].push(p);});
+
+    brandRows.slice(0,200).forEach(function(br){
+      var tr=document.createElement('tr');
+      var dvalues=[];
+      // Collect ALL discount values for this brand+iso (across denominations)
+      (st.matches||[]).forEach(function(mm,ii){if(!mm)return;var rr=st.supData.rows[ii];if((rr.brand||rr.product)===br.row.brand && (rr.iso||'')===(br.row.iso||'') && rr.discount!=null)dvalues.push(rr.discount);});
+      dvalues.sort(function(a,b){return a-b;});
+      var med=dvalues.length?dvalues[Math.floor(dvalues.length/2)]:null;
+      var spread=dvalues.length>1?' ('+(dvalues[0]*100).toFixed(2)+'%–'+(dvalues[dvalues.length-1]*100).toFixed(2)+'%)':'';
+      var brandTxt=br.row.brand||br.row.product;
+      var country=br.row.iso?(countryName(br.row.iso)||br.row.iso):(br.row.region||'—');
+      var conf=br.m.score;var cls=br.m.bucket;
+      tr.innerHTML='<td><b>'+_esc(brandTxt)+'</b><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+dvalues.length+' denomination'+(dvalues.length!==1?'s':'')+'</div></td>'
+        +'<td>'+_esc(country)+'</td>'
+        +'<td><span class="sup-rate">'+(med!=null?(med*100).toFixed(2)+'%':'—')+'</span><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+spread+'</div></td>';
+      // Suggested target
+      var sugTd=document.createElement('td');
+      var pool=allByIso[br.row.iso||'_']||st.catalog;
+      var sel=document.createElement('select');sel.className='imp-target';
+      var blank=document.createElement('option');blank.value='';blank.textContent='-- skip this brand --';sel.appendChild(blank);
+      // Show top 30 of pool for performance + always include current candidate
+      var seenP={};
+      var topPool=pool.slice(0,30);
+      if(br.m.productId&&!topPool.find(function(x){return x.id===br.m.productId;})){
+        var cur=st.catalog.find(function(x){return x.id===br.m.productId;});
+        if(cur)topPool.unshift(cur);
+      }
+      topPool.forEach(function(p){if(seenP[p.id])return;seenP[p.id]=true;var op=document.createElement('option');op.value=p.id;op.textContent=p.title+' ['+p.id+']';if(p.id===br.m.productId)op.selected=true;sel.appendChild(op);});
+      sugTd.appendChild(sel);
+      tr.appendChild(sugTd);
+      tr.innerHTML+='<td><span class="imp-conf '+cls+'">'+conf+'</span></td>';
+      // Action buttons
+      var actTd=document.createElement('td');
+      var act=document.createElement('div');act.className='imp-action';
+      var aA=document.createElement('button');aA.className='imp-action-btn'+(br.m.decision==='accept'?' accept':'');aA.textContent='✓';aA.title='Accept this match';
+      var aS=document.createElement('button');aS.className='imp-action-btn'+(br.m.decision==='skip'?' reject':'');aS.textContent='✕';aS.title='Skip — don\'t use any match';
+      aA.onclick=function(){
+        var s=NS.loadImportState();var ms=s.matches;
+        // Apply to ALL rows sharing this brand+iso (denominations)
+        for(var i=0;i<ms.length;i++){
+          var rr=s.supData.rows[i];
+          if((rr.brand||rr.product)===br.row.brand && (rr.iso||'')===(br.row.iso||'')){
+            ms[i].decision='accept';
+            ms[i].productId=sel.value||null;
+          }
+        }
+        NS.saveImportState(s);NS.renderPricing();
+      };
+      aS.onclick=function(){
+        var s=NS.loadImportState();var ms=s.matches;
+        for(var i=0;i<ms.length;i++){
+          var rr=s.supData.rows[i];
+          if((rr.brand||rr.product)===br.row.brand && (rr.iso||'')===(br.row.iso||'')){ms[i].decision='skip';}
+        }
+        NS.saveImportState(s);NS.renderPricing();
+      };
+      sel.onchange=function(){
+        var s=NS.loadImportState();var ms=s.matches;
+        for(var i=0;i<ms.length;i++){
+          var rr=s.supData.rows[i];
+          if((rr.brand||rr.product)===br.row.brand && (rr.iso||'')===(br.row.iso||'')){ms[i].productId=this.value||null;}
+        }
+        NS.saveImportState(s);
+      };
+      act.appendChild(aA);act.appendChild(aS);actTd.appendChild(act);
+      tr.appendChild(actTd);
+      tb.appendChild(tr);
+    });
+    if(!brandRows.length){
+      var tr=document.createElement('tr');var td=document.createElement('td');td.colSpan=6;td.style.cssText='text-align:center;padding:30px;color:var(--mut)';td.textContent='No rows in this bucket.';tr.appendChild(td);tb.appendChild(tr);
+    }else if(brandRows.length>200){
+      var tr=document.createElement('tr');var td=document.createElement('td');td.colSpan=6;td.style.cssText='text-align:center;padding:14px;color:var(--mut);font-size:10px;font-family:Roboto Mono,monospace';td.textContent='Showing first 200 of '+brandRows.length+'. Use bulk Accept/Skip buttons above to act on the whole bucket.';tr.appendChild(td);tb.appendChild(tr);
+    }
+    tw.appendChild(tbl);
+    card.appendChild(tw);
+
+    // Apply button
+    var foot=document.createElement('div');foot.style.cssText='display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap';
+    var back=document.createElement('button');back.className='sup-btn ghost';back.innerHTML='← Back';
+    back.onclick=function(){var s=NS.loadImportState();s.step=2;NS.saveImportState(s);NS.renderPricing();};
+    var apply=document.createElement('button');apply.className='sup-btn primary';apply.innerHTML='✓ Apply '+acceptedCount.toLocaleString()+' matches and finish';
+    apply.onclick=function(){
+      var s=NS.loadImportState();
+      var cat=s.catalog;
+      // Merge with existing products if any — preserve other suppliers' columns
+      var existing=NS.loadProducts();
+      var byId={};existing.forEach(function(p){byId[p.id]=p;});
+      cat.forEach(function(p){
+        if(byId[p.id]){
+          // Use existing product's rates as base (preserves other suppliers)
+          p.rates=byId[p.id].rates||{};
+          // Update metadata from new catalogue
+          existing.find?null:null;
+        }
+      });
+      NS.applyMatches(cat,s.supData,s.matches,{rollup:'median'});
+      // Snapshot previous primary BEFORE saving
+      var meta=NS.loadMeta();
+      var oldOverrides=NS.loadOverrides();var oldAdmin=NS.loadAdmin();
+      var prev={};
+      existing.forEach(function(op){var r=NS.rankProduct(op,oldOverrides,oldAdmin);if(r.length)prev[op.id]={supplier:r[0].supplier,rate:r[0].rate};});
+      if(!existing.length&&meta.previousPrimary)prev=meta.previousPrimary;
+      meta.lastUpload=new Date().toISOString();
+      meta.fileName=(meta.fileName?meta.fileName+' + ':'')+(s.supData.fileName||s.supplier);
+      meta.previousPrimary=prev;
+      meta.sources=meta.sources||[];
+      meta.sources.push({supplier:s.supplier,fileName:s.supData.fileName,at:meta.lastUpload,rowCount:s.supData.rows.length,acceptedCount:acceptedCount});
+      NS.saveMeta(meta);
+      NS.saveProducts(cat);
+      NS.clearImportState();
+      if(typeof toast==='function')toast(s.supplier+' applied — '+acceptedCount.toLocaleString()+' matches','ok');
+      NS.renderPricing();
+    };
+    foot.appendChild(back);foot.appendChild(apply);
+    card.appendChild(foot);
+    wrap.appendChild(card);
+  }
+
+  // --- Hook: re-route renderPricing into wizard when active --
+  var _origRenderPricing = NS.renderPricing;
+  NS.renderPricing = function(){
+    if(NS.loadImportState())return NS.renderImport();
+    return _origRenderPricing.apply(this,arguments);
   };
 
   function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -9715,6 +10352,584 @@ var PP=(function(){
     XLSX.writeFile(wb,'Proposal_'+label+'_'+custSlug+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
   };
   function _xlsxSafe(s){return String(s||'').replace(/[\\\/\?\*\[\]:]/g,'').slice(0,28);}
+
+
+  // ============================================================
+  // SOURCE IMPORTER — Reloadly catalogue + per-supplier files
+  // ============================================================
+  var IMP_KEY = 'rl_sup_import_v1';
+  NS.loadImportState = function(){try{var v=localStorage.getItem(IMP_KEY);return v?JSON.parse(v):null;}catch(e){return null;}};
+  NS.saveImportState = function(st){try{localStorage.setItem(IMP_KEY,JSON.stringify(st));}catch(e){}};
+  NS.clearImportState = function(){try{localStorage.removeItem(IMP_KEY);}catch(e){}};
+
+  // --- helpers -----------------------------------------------
+  var ALIAS_TO_ISO = {
+    'usa':'US','u.s.a.':'US','united states of america':'US','united states':'US',
+    'uk':'GB','u.k.':'GB','great britain':'GB','united kingdom':'GB',
+    'uae':'AE','u.a.e.':'AE','united arab emirates':'AE',
+    'south korea':'KR','republic of korea':'KR','korea, republic of':'KR',
+    'north korea':'KP','vietnam':'VN','viet nam':'VN','russia':'RU','russian federation':'RU',
+    'iran':'IR','syria':'SY','tanzania':'TZ','united republic of tanzania':'TZ',
+    'czech republic':'CZ','czechia':'CZ','ivory coast':'CI','cape verde':'CV',
+    'swaziland':'SZ','eswatini':'SZ','macedonia':'MK','holland':'NL','netherlands':'NL',
+    'türkiye':'TR','turkey':'TR','venezuela':'VE','bolivia':'BO','taiwan':'TW'
+  };
+  function _isoFromName(name){
+    if(!name)return '';
+    var n=String(name).trim().toLowerCase();
+    if(window.ISO_NAMES){
+      for(var k in window.ISO_NAMES){if(window.ISO_NAMES[k].toLowerCase()===n)return k;}
+    }
+    return ALIAS_TO_ISO[n]||'';
+  }
+
+  // Precompiled brand-normalisation regexes
+  var _COUNTRY_RE = (function(){
+    var names = [];
+    if(window.ISO_NAMES){for(var k in window.ISO_NAMES)names.push(window.ISO_NAMES[k]);}
+    Object.keys(ALIAS_TO_ISO).forEach(function(a){names.push(a);});
+    names.sort(function(a,b){return b.length-a.length;});
+    var escaped = names.map(function(n){return n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');});
+    return new RegExp('\\b(' + escaped.join('|') + ')\\b','gi');
+  })();
+  var _CCY_RE = /\b(usd|eur|gbp|aed|sar|cny|jpy|inr|brl|mxn|cad|aud|sgd|hkd|krw|qar|kwd|jod|egp|mad|try|pln|czk|huf|ngn|kes|zar|thb|idr|vnd|php|myr|chf|sek|nok|dkk|pkr|lkr|bdt|npr|ron|bgn|uah|iqd|lbp)\b/g;
+  var _GENERIC_RE = /\b(gift\s?card|egift|e-gift|card|reward|voucher|prepaid|topup|top.?up|recharge|standard|merchant|mobile|virtual|brand)\b/g;
+  var _2L_RE = /\b[a-z]{2}\b/g;
+  var _NUM_RE = /\b\d+(\.\d+)?\b/g;
+  var _PUNCT_RE = /[^a-z0-9]+/g;
+  var _WS_RE = /\s+/g;
+  var _normCache = {};
+  function _normBrand(s){
+    if(!s)return '';
+    if(_normCache[s])return _normCache[s];
+    var t=String(s).toLowerCase();
+    t=t.replace(_CCY_RE,' ');
+    t=t.replace(_COUNTRY_RE,' ');
+    t=t.replace(_GENERIC_RE,' ');
+    t=t.replace(_2L_RE,' ');
+    t=t.replace(_NUM_RE,' ');
+    t=t.replace(_PUNCT_RE,' ');
+    t=t.replace(_WS_RE,' ').trim();
+    _normCache[s]=t;
+    return t;
+  }
+  function _brandTokens(s){return _normBrand(s).split(' ').filter(function(t){return t.length>=2;});}
+  function _brandScore(reloadlyTitle, supplierBrand, isoMatch){
+    var a=_brandTokens(reloadlyTitle), b=_brandTokens(supplierBrand);
+    if(!a.length||!b.length)return 0;
+    var aSet={};a.forEach(function(t){aSet[t]=true;});
+    var hits=0;b.forEach(function(t){if(aSet[t])hits++;});
+    var bs=Math.round(hits/Math.min(a.length,b.length)*100);
+    return isoMatch?bs:Math.round(bs*0.3);
+  }
+  function _parseDiscountVal(v){
+    if(v==null||v==='')return null;
+    if(typeof v==='number'){if(isNaN(v)||v<0)return null;return v>1?v/100:v;}
+    var t=String(v).trim();
+    if(!t||t==='-')return null;
+    if(/not avail|inactive|invalid|unavailable/i.test(t))return null;
+    var pct=/%$/.test(t);
+    var x=t.replace(/[%,\s]/g,'');
+    var n=parseFloat(x);
+    if(isNaN(n)||n<0)return null;
+    return pct?n/100:(n>1?n/100:n);
+  }
+  function _aoaFromWB(wb,preferred){
+    var sheet=null;
+    if(preferred&&wb.Sheets[preferred])sheet=wb.Sheets[preferred];
+    else sheet=wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(sheet,{header:1,defval:null,raw:true});
+  }
+  function _findCol(header, regexes){
+    for(var i=0;i<header.length;i++){
+      var h=String(header[i]||'').trim().toLowerCase();
+      for(var j=0;j<regexes.length;j++){if(regexes[j].test(h))return i;}
+    }
+    return -1;
+  }
+
+  // --- Reloadly catalogue parse ------------------------------
+  NS.parseReloadlyCatalogue = function(wb, fileName){
+    var aoa=_aoaFromWB(wb,'Reloadly');
+    if(!aoa.length)throw new Error('Empty sheet');
+    var header=aoa[0]||[];
+    var cId=_findCol(header,[/^id$/i,/product.?id/i,/sku.?id/i]);
+    var cTitle=_findCol(header,[/^title$/i,/^name$/i,/^product.?name$/i,/^brand$/i]);
+    var cIso=_findCol(header,[/^iso/i,/^iso_name$/i,/^country/i]);
+    var cStat=_findCol(header,[/^status$/i,/^state$/i]);
+    if(cId<0||cTitle<0)throw new Error('Catalogue needs id and title columns');
+    var out=[];
+    for(var r=1;r<aoa.length;r++){
+      var row=aoa[r];if(!row||!row.length)continue;
+      var pid=row[cId];if(pid==null||pid==='')continue;
+      var iso=String((cIso>=0?row[cIso]:'')||'').trim().toUpperCase();
+      if(iso&&iso.length>2)iso=_isoFromName(iso)||iso;
+      out.push({
+        id:String(typeof pid==='number'?Math.round(pid):pid),
+        title:String(row[cTitle]||'').trim(),
+        iso:iso,
+        status:String((cStat>=0?row[cStat]:'ACTIVE')||'ACTIVE').trim().toUpperCase(),
+        rates:{}
+      });
+    }
+    return out;
+  };
+
+  // --- Supplier file parse -----------------------------------
+  NS.parseSupplierFile = function(wb, supplierName, fileName){
+    var aoa=_aoaFromWB(wb);
+    if(!aoa.length)throw new Error('Empty supplier sheet');
+    // Some files have decorative rows before the real header.  Find first row that has at least 3 string headers.
+    var headerRow=0;
+    for(var i=0;i<Math.min(aoa.length,12);i++){
+      var nonNull=0;
+      for(var j=0;j<(aoa[i]||[]).length;j++){if(typeof aoa[i][j]==='string'&&aoa[i][j].trim())nonNull++;}
+      if(nonNull>=3){headerRow=i;break;}
+    }
+    var header=aoa[headerRow]||[];
+    var cReId=_findCol(header,[/reloadly.?id/i]);
+    var cBrand=_findCol(header,[/^brand$/i,/merchant/i]);
+    var cProduct=_findCol(header,[/^product$/i,/^name$/i,/^product.?name$/i]);
+    var cRegion=_findCol(header,[/^region$/i,/^country$/i]);
+    var cIso=_findCol(header,[/^iso$/i]);
+    var cCcy=_findCol(header,[/^currency$/i,/^ccy$/i]);
+    var cDenom=_findCol(header,[/denomination/i,/^value$/i,/^face/i,/^from$/i]);
+    var cDisc=_findCol(header,[/^discount$/i,/^rate$/i,/sellingmargin/i,/client.?discount/i,/^discount.?buying.?price$/i]);
+    var cFee=_findCol(header,[/^fee$/i,/issuance.?fee/i]);
+    var rows=[];
+    for(var r=headerRow+1;r<aoa.length;r++){
+      var row=aoa[r];if(!row||!row.length)continue;
+      var brand=(cBrand>=0?row[cBrand]:'')||'';
+      var product=(cProduct>=0?row[cProduct]:'')||'';
+      brand=String(brand).trim();product=String(product).trim();
+      if(!brand&&!product)continue;
+      var reId=cReId>=0?row[cReId]:null;
+      var region=String((cRegion>=0?row[cRegion]:'')||'').trim();
+      var rawIso=String((cIso>=0?row[cIso]:'')||'').trim().toUpperCase();
+      var iso=rawIso;
+      if(!iso&&region){iso=_isoFromName(region)||(region.length===2?region.toUpperCase():'');}
+      rows.push({
+        reloadlyId: reId!=null&&reId!==''?String(reId).trim():null,
+        brand:brand, product:product, region:region, iso:iso,
+        currency:String((cCcy>=0?row[cCcy]:'')||'').trim(),
+        denomination:cDenom>=0?row[cDenom]:null,
+        discount:_parseDiscountVal(cDisc>=0?row[cDisc]:null),
+        fee:cFee>=0?row[cFee]:null
+      });
+    }
+    return {supplier:supplierName, fileName:fileName, rows:rows};
+  };
+
+  // --- Matching ----------------------------------------------
+  NS.runMatching = function(catalog, supData){
+    var rows=supData.rows;
+    var byIso={};catalog.forEach(function(p){var k=p.iso||'_';if(!byIso[k])byIso[k]=[];byIso[k].push(p);});
+    // To save work: group supplier rows by (brand, iso) — many denominations share the same brand
+    var combos={};
+    rows.forEach(function(r,i){
+      if(!r.brand&&!r.product)return;
+      var key=(r.brand||r.product)+'|'+(r.iso||'');
+      if(!combos[key])combos[key]={brand:r.brand||r.product,iso:r.iso,rowIdxs:[]};
+      combos[key].rowIdxs.push(i);
+    });
+    var matches=new Array(rows.length);
+    Object.keys(combos).forEach(function(key){
+      var combo=combos[key];
+      var pool=combo.iso&&byIso[combo.iso]?byIso[combo.iso]:catalog;
+      var best=null;
+      for(var i=0;i<pool.length;i++){
+        var s=_brandScore(pool[i].title, combo.brand, true);
+        if(!best||s>best.score)best={score:s,product:pool[i]};
+      }
+      if(!best||best.score<50){
+        // try wider search penalised
+        for(var j=0;j<catalog.length;j++){
+          if(catalog[j].iso===combo.iso)continue;
+          var s2=_brandScore(catalog[j].title, combo.brand, false);
+          if(!best||s2>best.score)best={score:s2,product:catalog[j]};
+        }
+      }
+      var bucket;
+      if(!best||best.score<50)bucket='none';
+      else if(best.score>=85)bucket='high';
+      else if(best.score>=65)bucket='mid';
+      else bucket='low';
+      combo.rowIdxs.forEach(function(idx){
+        var preMapped = rows[idx].reloadlyId;
+        if(preMapped){
+          var target=catalog.find(function(p){return p.id===preMapped;});
+          if(target){matches[idx]={productId:target.id,score:100,bucket:'high',source:'pre',candidate:target.title,decision:'accept'};return;}
+        }
+        matches[idx]={
+          productId:best?best.product.id:null,
+          score:best?best.score:0,
+          bucket:bucket,
+          source:'auto',
+          candidate:best?best.product.title:null,
+          decision:(bucket==='high'||bucket==='mid')?'accept':'skip'
+        };
+      });
+    });
+    return matches;
+  };
+
+  // --- Apply matches -----------------------------------------
+  NS.applyMatches = function(catalog, supData, matches, options){
+    options=options||{};var rollup=options.rollup||'median';
+    var supplier=supData.supplier;
+    var groups={};
+    matches.forEach(function(m,i){
+      if(!m||m.decision!=='accept'||!m.productId)return;
+      var d=supData.rows[i].discount;
+      if(d==null)return;
+      if(!groups[m.productId])groups[m.productId]=[];
+      groups[m.productId].push(d);
+    });
+    var byId={};catalog.forEach(function(p){byId[p.id]=p;});
+    Object.keys(groups).forEach(function(pid){
+      var vals=groups[pid].slice().sort(function(a,b){return a-b;});
+      var roll;
+      if(rollup==='min')roll=vals[0];
+      else if(rollup==='max')roll=vals[vals.length-1];
+      else roll=vals[Math.floor(vals.length/2)]; // median
+      var p=byId[pid];if(!p)return;
+      p.rates=p.rates||{};
+      p.rates[supplier]={
+        raw:roll, ok:true, status:'available', rate:roll,
+        conf:roll<=0.30?100:roll<=0.50?70:30,
+        denomCount:vals.length, denomMin:vals[0], denomMax:vals[vals.length-1]
+      };
+    });
+    return catalog;
+  };
+
+  // --- Wizard UI ---------------------------------------------
+  NS.startImport = function(){
+    NS.saveImportState({step:1,catalog:null,supplier:null,supData:null,matches:null});
+    NS.renderPricing();
+  };
+  NS.cancelImport = function(){
+    if(confirm('Cancel import? Current progress will be lost.')){NS.clearImportState();NS.renderPricing();}
+  };
+
+  NS.renderImport = function(){
+    var main=document.getElementById('main');if(!main)return;main.innerHTML='';
+    var st=NS.loadImportState();if(!st){NS.renderPricing();return;}
+    var wrap=document.createElement('div');wrap.className='sup-wrap';
+
+    // Header
+    var hdr=document.createElement('div');hdr.className='sup-hdr';
+    hdr.innerHTML='<div><div class="sup-title">Build from supplier files</div><div class="sup-sub">Reloadly catalogue + supplier files → ranked supplier matrix</div></div>';
+    var tools=document.createElement('div');tools.className='sup-toolbar';
+    var cancel=document.createElement('button');cancel.className='sup-btn ghost';cancel.innerHTML='✕ Cancel';
+    cancel.onclick=NS.cancelImport;
+    tools.appendChild(cancel);
+    hdr.appendChild(tools);
+    wrap.appendChild(hdr);
+
+    // Stepper
+    var sp=document.createElement('div');sp.className='imp-stepper';
+    [
+      {n:1,l:'Reloadly catalogue'},
+      {n:2,l:'Supplier file'},
+      {n:3,l:'Review matches'},
+      {n:4,l:'Apply'}
+    ].forEach(function(s,i){
+      var cls=(st.step===s.n?'active':(st.step>s.n?'done':''));
+      var b=document.createElement('div');b.className='imp-step '+cls;
+      b.innerHTML='<span class="imp-step-n">'+(st.step>s.n?'✓':s.n)+'</span><span>'+s.l+'</span>';
+      sp.appendChild(b);
+      if(i<3){var a=document.createElement('span');a.className='imp-arrow';a.textContent='›';sp.appendChild(a);}
+    });
+    wrap.appendChild(sp);
+
+    if(st.step===1)_impStep1(wrap,st);
+    else if(st.step===2)_impStep2(wrap,st);
+    else if(st.step===3)_impStep3(wrap,st);
+
+    main.appendChild(wrap);
+  };
+
+  function _impStep1(wrap,st){
+    var card=document.createElement('div');card.className='imp-card';
+    card.innerHTML='<h3>Step 1 — Upload Reloadly catalogue</h3>'
+      +'<div class="imp-sub">The master SKU list. Needs <b>id</b>, <b>title</b>, <b>iso_name</b> (or <b>country</b>), and <b>status</b> columns. ~10,000 rows is typical.</div>';
+    var existing=NS.loadProducts();
+    if(existing.length){
+      var info=document.createElement('div');info.style.cssText='padding:10px 14px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px;font-size:11px;margin-bottom:14px;color:var(--acc)';
+      info.innerHTML='You already have <b>'+existing.length.toLocaleString()+'</b> products loaded. Adding a supplier file will merge into this catalogue (existing supplier columns and overrides preserved). Click <b>Use existing catalogue</b> below to skip this step.';
+      card.appendChild(info);
+      var useBtn=document.createElement('button');useBtn.className='sup-btn primary';useBtn.innerHTML='→ Use existing catalogue ('+existing.length.toLocaleString()+' products)';
+      useBtn.style.marginRight='10px';
+      useBtn.onclick=function(){
+        var s=NS.loadImportState();s.catalog=existing;s.step=2;NS.saveImportState(s);NS.renderPricing();
+      };
+      card.appendChild(useBtn);
+      var sep=document.createElement('span');sep.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin:0 6px';sep.textContent=' or replace it with a fresh catalogue: ';
+      card.appendChild(sep);
+    }
+    var drop=document.createElement('label');drop.className='sup-drop';drop.htmlFor='imp-catalog-input';
+    drop.innerHTML='<div style="font-size:32px;margin-bottom:8px">📋</div><div style="font-weight:700;margin-bottom:4px">Click or drop your Reloadly catalogue (.xlsx)</div>';
+    card.appendChild(drop);
+    var fi=document.createElement('input');fi.type='file';fi.id='imp-catalog-input';fi.accept='.xlsx,.xls';fi.style.display='none';
+    fi.onchange=function(e){
+      var f=e.target.files&&e.target.files[0];if(!f)return;
+      var rd=new FileReader();
+      rd.onload=function(ev){
+        try{
+          var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+          var cat=NS.parseReloadlyCatalogue(wb,f.name);
+          if(!cat.length){alert('No rows parsed.');return;}
+          var s=NS.loadImportState();s.catalog=cat;s.catalogFile=f.name;s.step=2;NS.saveImportState(s);
+          NS.renderPricing();
+        }catch(err){alert('Failed: '+(err.message||err));}
+      };
+      rd.readAsArrayBuffer(f);
+    };
+    card.appendChild(fi);
+    wrap.appendChild(card);
+  }
+
+  function _impStep2(wrap,st){
+    var SUPPLIERS=['Bamboo','Globetopper','EZPin','Blackhawk','Neocurrency','Phaze','Tillo','Runa','SVS','CardCash','iRewardify','Fluz'];
+    var card=document.createElement('div');card.className='imp-card';
+    card.innerHTML='<h3>Step 2 — Pick supplier and upload their file</h3>'
+      +'<div class="imp-sub">Catalogue loaded: <b>'+(st.catalog||[]).length.toLocaleString()+'</b> products. Choose which supplier this file belongs to so we can populate the right column. Pick a name below or type a custom one.</div>';
+    var picker=document.createElement('div');picker.className='imp-supplier-pick';
+    SUPPLIERS.forEach(function(name){
+      var c=document.createElement('div');c.className='imp-supplier-chip'+(st.supplier===name?' selected':'');
+      c.textContent=name;c.onclick=function(){var s=NS.loadImportState();s.supplier=name;NS.saveImportState(s);NS.renderPricing();};
+      picker.appendChild(c);
+    });
+    var custom=document.createElement('div');custom.className='imp-supplier-chip';
+    custom.style.cssText+=';display:flex;align-items:center;gap:6px';
+    custom.innerHTML='<span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">Custom:</span>';
+    var ci=document.createElement('input');ci.placeholder='Name…';ci.value=(st.supplier&&SUPPLIERS.indexOf(st.supplier)<0)?st.supplier:'';
+    ci.onkeydown=function(e){if(e.key==='Enter'){var v=this.value.trim();if(!v)return;var s=NS.loadImportState();s.supplier=v;NS.saveImportState(s);NS.renderPricing();}};
+    custom.appendChild(ci);picker.appendChild(custom);
+    card.appendChild(picker);
+
+    if(!st.supplier){
+      var nope=document.createElement('div');nope.style.cssText='padding:12px;background:var(--surf2);border-radius:8px;font-size:11px;color:var(--mut);text-align:center';
+      nope.textContent='Pick a supplier above to enable upload.';
+      card.appendChild(nope);
+    }else{
+      var drop=document.createElement('label');drop.className='sup-drop';drop.htmlFor='imp-sup-input';
+      drop.innerHTML='<div style="font-size:32px;margin-bottom:8px">🗂️</div><div style="font-weight:700;margin-bottom:4px">Drop <b>'+_esc(st.supplier)+'</b>\'s supplier file here</div><div style="font-size:11px;color:var(--mut)">We\'ll auto-detect the column layout (brand, product, region, currency, discount/rate, fee, denomination)</div>';
+      card.appendChild(drop);
+      var fi=document.createElement('input');fi.type='file';fi.id='imp-sup-input';fi.accept='.xlsx,.xls';fi.style.display='none';
+      fi.onchange=function(e){
+        var f=e.target.files&&e.target.files[0];if(!f)return;
+        var rd=new FileReader();
+        rd.onload=function(ev){
+          try{
+            var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+            var sup=NS.parseSupplierFile(wb,st.supplier,f.name);
+            if(!sup.rows.length){alert('No supplier rows parsed.');return;}
+            var matches=NS.runMatching(st.catalog,sup);
+            var s=NS.loadImportState();s.supData=sup;s.matches=matches;s.step=3;NS.saveImportState(s);
+            NS.renderPricing();
+          }catch(err){alert('Failed: '+(err.message||err));}
+        };
+        rd.readAsArrayBuffer(f);
+      };
+      card.appendChild(fi);
+    }
+    var back=document.createElement('button');back.className='sup-btn ghost';back.style.marginTop='14px';back.innerHTML='← Back';
+    back.onclick=function(){var s=NS.loadImportState();s.step=1;NS.saveImportState(s);NS.renderPricing();};
+    card.appendChild(back);
+    wrap.appendChild(card);
+  }
+
+  function _impStep3(wrap,st){
+    // Compute bucket counts
+    var counts={high:0,mid:0,low:0,none:0};
+    var acceptedCount=0;
+    (st.matches||[]).forEach(function(m){if(!m)return;counts[m.bucket]=(counts[m.bucket]||0)+1;if(m.decision==='accept')acceptedCount++;});
+    // Active bucket filter (from UI state on this view)
+    if(!st.bucketFilter)st.bucketFilter='mid';
+
+    var card=document.createElement('div');card.className='imp-card';
+    card.innerHTML='<h3>Step 3 — Review matches</h3>'
+      +'<div class="imp-sub">'
+      +'<b>'+st.supData.rows.length.toLocaleString()+'</b> rows from <b>'+_esc(st.supplier)+'</b> matched against your '+st.catalog.length.toLocaleString()+'-product Reloadly catalogue. '
+      +'<b>HIGH</b> matches are pre-accepted, <b>MID</b> too. <b>LOW</b> and <b>NONE</b> are skipped — open them and accept the ones that look right.'
+      +'</div>';
+    // Buckets
+    var bg=document.createElement('div');bg.className='imp-buckets';
+    [['high','Auto-applied','Score ≥ 85'],['mid','One-click confirm','65–84'],['low','Manual review','50–64'],['none','No good match','< 50 or none']].forEach(function(b){
+      var d=document.createElement('div');d.className='imp-bucket '+b[0]+(st.bucketFilter===b[0]?' active':'');
+      d.innerHTML='<div class="imp-bucket-n">'+counts[b[0]]+'</div><div class="imp-bucket-l">'+b[1]+'</div><div class="imp-bucket-s">'+b[2]+'</div>';
+      d.onclick=function(){var s=NS.loadImportState();s.bucketFilter=b[0];NS.saveImportState(s);NS.renderPricing();};
+      bg.appendChild(d);
+    });
+    card.appendChild(bg);
+
+    // Bulk actions for current filter
+    var bulk=document.createElement('div');bulk.style.cssText='display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap';
+    bulk.innerHTML='<span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-right:6px">VIEWING: '+st.bucketFilter.toUpperCase()+'</span>';
+    var bAcc=document.createElement('button');bAcc.className='sup-mini';bAcc.textContent='Accept all in '+st.bucketFilter.toUpperCase();
+    bAcc.onclick=function(){
+      var s=NS.loadImportState();var ms=s.matches;
+      for(var i=0;i<ms.length;i++){if(ms[i]&&ms[i].bucket===s.bucketFilter&&ms[i].productId)ms[i].decision='accept';}
+      NS.saveImportState(s);NS.renderPricing();
+    };
+    var bSk=document.createElement('button');bSk.className='sup-mini danger';bSk.textContent='Skip all in '+st.bucketFilter.toUpperCase();
+    bSk.onclick=function(){
+      var s=NS.loadImportState();var ms=s.matches;
+      for(var i=0;i<ms.length;i++){if(ms[i]&&ms[i].bucket===s.bucketFilter)ms[i].decision='skip';}
+      NS.saveImportState(s);NS.renderPricing();
+    };
+    bulk.appendChild(bAcc);bulk.appendChild(bSk);
+    var stats=document.createElement('span');stats.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-left:auto';
+    stats.textContent='ACCEPTED: '+acceptedCount.toLocaleString()+' of '+st.supData.rows.length.toLocaleString();
+    bulk.appendChild(stats);
+    card.appendChild(bulk);
+
+    // Filtered rows (de-duplicate by brand+iso for review — many rows are denominations of same brand)
+    var seen={};
+    var brandRows=[];
+    (st.matches||[]).forEach(function(m,i){
+      if(!m||m.bucket!==st.bucketFilter)return;
+      var row=st.supData.rows[i];
+      var key=(row.brand||row.product)+'|'+(row.iso||'');
+      if(seen[key])return;
+      seen[key]=true;
+      brandRows.push({idx:i,row:row,m:m,key:key});
+    });
+
+    var tw=document.createElement('div');tw.className='imp-tablewrap';
+    var tbl=document.createElement('table');tbl.className='imp-table';
+    tbl.innerHTML='<thead><tr>'
+      +'<th>SUPPLIER BRAND</th><th>COUNTRY</th><th>DISC</th><th>SUGGESTED RELOADLY PRODUCT</th><th>SCORE</th><th>ACTION</th>'
+      +'</tr></thead>';
+    var tb=document.createElement('tbody');tbl.appendChild(tb);
+    // Catalogue index for pick-different dropdown
+    var allByIso={};st.catalog.forEach(function(p){var k=p.iso||'_';if(!allByIso[k])allByIso[k]=[];allByIso[k].push(p);});
+
+    brandRows.slice(0,200).forEach(function(br){
+      var tr=document.createElement('tr');
+      var dvalues=[];
+      // Collect ALL discount values for this brand+iso (across denominations)
+      (st.matches||[]).forEach(function(mm,ii){if(!mm)return;var rr=st.supData.rows[ii];if((rr.brand||rr.product)===br.row.brand && (rr.iso||'')===(br.row.iso||'') && rr.discount!=null)dvalues.push(rr.discount);});
+      dvalues.sort(function(a,b){return a-b;});
+      var med=dvalues.length?dvalues[Math.floor(dvalues.length/2)]:null;
+      var spread=dvalues.length>1?' ('+(dvalues[0]*100).toFixed(2)+'%–'+(dvalues[dvalues.length-1]*100).toFixed(2)+'%)':'';
+      var brandTxt=br.row.brand||br.row.product;
+      var country=br.row.iso?(countryName(br.row.iso)||br.row.iso):(br.row.region||'—');
+      var conf=br.m.score;var cls=br.m.bucket;
+      tr.innerHTML='<td><b>'+_esc(brandTxt)+'</b><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+dvalues.length+' denomination'+(dvalues.length!==1?'s':'')+'</div></td>'
+        +'<td>'+_esc(country)+'</td>'
+        +'<td><span class="sup-rate">'+(med!=null?(med*100).toFixed(2)+'%':'—')+'</span><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+spread+'</div></td>';
+      // Suggested target
+      var sugTd=document.createElement('td');
+      var pool=allByIso[br.row.iso||'_']||st.catalog;
+      var sel=document.createElement('select');sel.className='imp-target';
+      var blank=document.createElement('option');blank.value='';blank.textContent='-- skip this brand --';sel.appendChild(blank);
+      // Show top 30 of pool for performance + always include current candidate
+      var seenP={};
+      var topPool=pool.slice(0,30);
+      if(br.m.productId&&!topPool.find(function(x){return x.id===br.m.productId;})){
+        var cur=st.catalog.find(function(x){return x.id===br.m.productId;});
+        if(cur)topPool.unshift(cur);
+      }
+      topPool.forEach(function(p){if(seenP[p.id])return;seenP[p.id]=true;var op=document.createElement('option');op.value=p.id;op.textContent=p.title+' ['+p.id+']';if(p.id===br.m.productId)op.selected=true;sel.appendChild(op);});
+      sugTd.appendChild(sel);
+      tr.appendChild(sugTd);
+      tr.innerHTML+='<td><span class="imp-conf '+cls+'">'+conf+'</span></td>';
+      // Action buttons
+      var actTd=document.createElement('td');
+      var act=document.createElement('div');act.className='imp-action';
+      var aA=document.createElement('button');aA.className='imp-action-btn'+(br.m.decision==='accept'?' accept':'');aA.textContent='✓';aA.title='Accept this match';
+      var aS=document.createElement('button');aS.className='imp-action-btn'+(br.m.decision==='skip'?' reject':'');aS.textContent='✕';aS.title='Skip — don\'t use any match';
+      aA.onclick=function(){
+        var s=NS.loadImportState();var ms=s.matches;
+        // Apply to ALL rows sharing this brand+iso (denominations)
+        for(var i=0;i<ms.length;i++){
+          var rr=s.supData.rows[i];
+          if((rr.brand||rr.product)===br.row.brand && (rr.iso||'')===(br.row.iso||'')){
+            ms[i].decision='accept';
+            ms[i].productId=sel.value||null;
+          }
+        }
+        NS.saveImportState(s);NS.renderPricing();
+      };
+      aS.onclick=function(){
+        var s=NS.loadImportState();var ms=s.matches;
+        for(var i=0;i<ms.length;i++){
+          var rr=s.supData.rows[i];
+          if((rr.brand||rr.product)===br.row.brand && (rr.iso||'')===(br.row.iso||'')){ms[i].decision='skip';}
+        }
+        NS.saveImportState(s);NS.renderPricing();
+      };
+      sel.onchange=function(){
+        var s=NS.loadImportState();var ms=s.matches;
+        for(var i=0;i<ms.length;i++){
+          var rr=s.supData.rows[i];
+          if((rr.brand||rr.product)===br.row.brand && (rr.iso||'')===(br.row.iso||'')){ms[i].productId=this.value||null;}
+        }
+        NS.saveImportState(s);
+      };
+      act.appendChild(aA);act.appendChild(aS);actTd.appendChild(act);
+      tr.appendChild(actTd);
+      tb.appendChild(tr);
+    });
+    if(!brandRows.length){
+      var tr=document.createElement('tr');var td=document.createElement('td');td.colSpan=6;td.style.cssText='text-align:center;padding:30px;color:var(--mut)';td.textContent='No rows in this bucket.';tr.appendChild(td);tb.appendChild(tr);
+    }else if(brandRows.length>200){
+      var tr=document.createElement('tr');var td=document.createElement('td');td.colSpan=6;td.style.cssText='text-align:center;padding:14px;color:var(--mut);font-size:10px;font-family:Roboto Mono,monospace';td.textContent='Showing first 200 of '+brandRows.length+'. Use bulk Accept/Skip buttons above to act on the whole bucket.';tr.appendChild(td);tb.appendChild(tr);
+    }
+    tw.appendChild(tbl);
+    card.appendChild(tw);
+
+    // Apply button
+    var foot=document.createElement('div');foot.style.cssText='display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap';
+    var back=document.createElement('button');back.className='sup-btn ghost';back.innerHTML='← Back';
+    back.onclick=function(){var s=NS.loadImportState();s.step=2;NS.saveImportState(s);NS.renderPricing();};
+    var apply=document.createElement('button');apply.className='sup-btn primary';apply.innerHTML='✓ Apply '+acceptedCount.toLocaleString()+' matches and finish';
+    apply.onclick=function(){
+      var s=NS.loadImportState();
+      var cat=s.catalog;
+      // Merge with existing products if any — preserve other suppliers' columns
+      var existing=NS.loadProducts();
+      var byId={};existing.forEach(function(p){byId[p.id]=p;});
+      cat.forEach(function(p){
+        if(byId[p.id]){
+          // Use existing product's rates as base (preserves other suppliers)
+          p.rates=byId[p.id].rates||{};
+          // Update metadata from new catalogue
+          existing.find?null:null;
+        }
+      });
+      NS.applyMatches(cat,s.supData,s.matches,{rollup:'median'});
+      // Snapshot previous primary BEFORE saving
+      var meta=NS.loadMeta();
+      var oldOverrides=NS.loadOverrides();var oldAdmin=NS.loadAdmin();
+      var prev={};
+      existing.forEach(function(op){var r=NS.rankProduct(op,oldOverrides,oldAdmin);if(r.length)prev[op.id]={supplier:r[0].supplier,rate:r[0].rate};});
+      if(!existing.length&&meta.previousPrimary)prev=meta.previousPrimary;
+      meta.lastUpload=new Date().toISOString();
+      meta.fileName=(meta.fileName?meta.fileName+' + ':'')+(s.supData.fileName||s.supplier);
+      meta.previousPrimary=prev;
+      meta.sources=meta.sources||[];
+      meta.sources.push({supplier:s.supplier,fileName:s.supData.fileName,at:meta.lastUpload,rowCount:s.supData.rows.length,acceptedCount:acceptedCount});
+      NS.saveMeta(meta);
+      NS.saveProducts(cat);
+      NS.clearImportState();
+      if(typeof toast==='function')toast(s.supplier+' applied — '+acceptedCount.toLocaleString()+' matches','ok');
+      NS.renderPricing();
+    };
+    foot.appendChild(back);foot.appendChild(apply);
+    card.appendChild(foot);
+    wrap.appendChild(card);
+  }
+
+  // --- Hook: re-route renderPricing into wizard when active --
+  var _origRenderPricing = NS.renderPricing;
+  NS.renderPricing = function(){
+    if(NS.loadImportState())return NS.renderImport();
+    return _origRenderPricing.apply(this,arguments);
+  };
 
   function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   return NS;
