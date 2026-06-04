@@ -8417,6 +8417,17 @@ function callout(label, text){
 .sup-notes-ta:focus{border-color:var(--acc)}
 </style>
 <script>
+// === Global ISO 3166-1 alpha-2 → country name lookup ===
+window.ISO_NAMES = {
+  AF:"Afghanistan",AL:"Albania",DZ:"Algeria",AS:"American Samoa",AD:"Andorra",AO:"Angola",AI:"Anguilla",AQ:"Antarctica",AG:"Antigua and Barbuda",AR:"Argentina",AM:"Armenia",AW:"Aruba",AU:"Australia",AT:"Austria",AZ:"Azerbaijan",BS:"Bahamas",BH:"Bahrain",BD:"Bangladesh",BB:"Barbados",BY:"Belarus",BE:"Belgium",BZ:"Belize",BJ:"Benin",BM:"Bermuda",BT:"Bhutan",BO:"Bolivia",BA:"Bosnia and Herzegovina",BW:"Botswana",BV:"Bouvet Island",BR:"Brazil",IO:"British Indian Ocean Territory",BN:"Brunei",BG:"Bulgaria",BF:"Burkina Faso",BI:"Burundi",CV:"Cabo Verde",KH:"Cambodia",CM:"Cameroon",CA:"Canada",KY:"Cayman Islands",CF:"Central African Republic",TD:"Chad",CL:"Chile",CN:"China",CX:"Christmas Island",CC:"Cocos (Keeling) Islands",CO:"Colombia",KM:"Comoros",CG:"Congo",CD:"Congo (DRC)",CK:"Cook Islands",CR:"Costa Rica",CI:"Côte d'Ivoire",HR:"Croatia",CU:"Cuba",CW:"Curaçao",CY:"Cyprus",CZ:"Czechia",DK:"Denmark",DJ:"Djibouti",DM:"Dominica",DO:"Dominican Republic",EC:"Ecuador",EG:"Egypt",SV:"El Salvador",GQ:"Equatorial Guinea",ER:"Eritrea",EE:"Estonia",SZ:"Eswatini",ET:"Ethiopia",FK:"Falkland Islands",FO:"Faroe Islands",FJ:"Fiji",FI:"Finland",FR:"France",GF:"French Guiana",PF:"French Polynesia",TF:"French Southern Territories",GA:"Gabon",GM:"Gambia",GE:"Georgia",DE:"Germany",GH:"Ghana",GI:"Gibraltar",GR:"Greece",GL:"Greenland",GD:"Grenada",GP:"Guadeloupe",GU:"Guam",GT:"Guatemala",GG:"Guernsey",GN:"Guinea",GW:"Guinea-Bissau",GY:"Guyana",HT:"Haiti",HM:"Heard Island and McDonald Islands",VA:"Vatican City",HN:"Honduras",HK:"Hong Kong",HU:"Hungary",IS:"Iceland",IN:"India",ID:"Indonesia",IR:"Iran",IQ:"Iraq",IE:"Ireland",IM:"Isle of Man",IL:"Israel",IT:"Italy",JM:"Jamaica",JP:"Japan",JE:"Jersey",JO:"Jordan",KZ:"Kazakhstan",KE:"Kenya",KI:"Kiribati",KP:"North Korea",KR:"South Korea",KW:"Kuwait",KG:"Kyrgyzstan",LA:"Laos",LV:"Latvia",LB:"Lebanon",LS:"Lesotho",LR:"Liberia",LY:"Libya",LI:"Liechtenstein",LT:"Lithuania",LU:"Luxembourg",MO:"Macao",MG:"Madagascar",MW:"Malawi",MY:"Malaysia",MV:"Maldives",ML:"Mali",MT:"Malta",MH:"Marshall Islands",MQ:"Martinique",MR:"Mauritania",MU:"Mauritius",YT:"Mayotte",MX:"Mexico",FM:"Micronesia",MD:"Moldova",MC:"Monaco",MN:"Mongolia",ME:"Montenegro",MS:"Montserrat",MA:"Morocco",MZ:"Mozambique",MM:"Myanmar",NA:"Namibia",NR:"Nauru",NP:"Nepal",NL:"Netherlands",NC:"New Caledonia",NZ:"New Zealand",NI:"Nicaragua",NE:"Niger",NG:"Nigeria",NU:"Niue",NF:"Norfolk Island",MK:"North Macedonia",MP:"Northern Mariana Islands",NO:"Norway",OM:"Oman",PK:"Pakistan",PW:"Palau",PS:"Palestine",PA:"Panama",PG:"Papua New Guinea",PY:"Paraguay",PE:"Peru",PH:"Philippines",PN:"Pitcairn",PL:"Poland",PT:"Portugal",PR:"Puerto Rico",QA:"Qatar",RE:"Réunion",RO:"Romania",RU:"Russia",RW:"Rwanda",BL:"Saint Barthélemy",SH:"Saint Helena",KN:"Saint Kitts and Nevis",LC:"Saint Lucia",MF:"Saint Martin",PM:"Saint Pierre and Miquelon",VC:"Saint Vincent and the Grenadines",WS:"Samoa",SM:"San Marino",ST:"São Tomé and Príncipe",SA:"Saudi Arabia",SN:"Senegal",RS:"Serbia",SC:"Seychelles",SL:"Sierra Leone",SG:"Singapore",SX:"Sint Maarten",SK:"Slovakia",SI:"Slovenia",SB:"Solomon Islands",SO:"Somalia",ZA:"South Africa",GS:"South Georgia and the South Sandwich Islands",SS:"South Sudan",ES:"Spain",LK:"Sri Lanka",SD:"Sudan",SR:"Suriname",SJ:"Svalbard and Jan Mayen",SE:"Sweden",CH:"Switzerland",SY:"Syria",TW:"Taiwan",TJ:"Tajikistan",TZ:"Tanzania",TH:"Thailand",TL:"Timor-Leste",TG:"Togo",TK:"Tokelau",TO:"Tonga",TT:"Trinidad and Tobago",TN:"Tunisia",TR:"Türkiye",TM:"Turkmenistan",TC:"Turks and Caicos Islands",TV:"Tuvalu",UG:"Uganda",UA:"Ukraine",AE:"United Arab Emirates",GB:"United Kingdom",US:"United States",UM:"U.S. Outlying Islands",UY:"Uruguay",UZ:"Uzbekistan",VU:"Vanuatu",VE:"Venezuela",VN:"Vietnam",VG:"British Virgin Islands",VI:"U.S. Virgin Islands",WF:"Wallis and Futuna",EH:"Western Sahara",YE:"Yemen",ZM:"Zambia",ZW:"Zimbabwe"
+};
+window.countryName = function(iso){
+  if(!iso) return '';
+  var k = String(iso).trim().toUpperCase();
+  return window.ISO_NAMES[k] || k;
+};
+</script>
+<script>
 // ====================== Pricing / Supplier Ranking module ======================
 var SUP=(function(){
   var NS={};
@@ -8773,7 +8784,7 @@ var SUP=(function(){
       }
       tr.appendChild(cell('<span class="sup-pid">'+_esc(p.id)+'</span>'));
       tr.appendChild(cell('<b>'+_esc(p.title||'(untitled)')+'</b>'));
-      tr.appendChild(cell('<span class="sup-pid">'+_esc(p.iso||'—')+'</span>'));
+      tr.appendChild(cell('<span title="'+_esc(p.iso||'')+'">'+_esc(countryName(p.iso)||'—')+'</span>'));
       tr.appendChild(cell('<span class="sup-statpill '+(p.status==='ACTIVE'?'act':p.status?'ina':'unk')+'">'+_esc(p.status||'—')+'</span>'));
       tr.appendChild(cell(rankCell(0,'r1')));
       tr.appendChild(cell(rateFmt(ranked[0]?ranked[0].rate:null)));
@@ -8911,7 +8922,7 @@ var SUP=(function(){
     ovEl.onclick=function(e){if(e.target===ovEl)ovEl.remove();};
     var dr=document.createElement('div');dr.className='sup-drawer';
     var hd=document.createElement('div');hd.className='sup-drawer-hdr';
-    hd.innerHTML='<div><div class="sup-drawer-t">'+_esc(p.title||'(untitled)')+'</div><div class="sup-drawer-s">ID '+_esc(p.id)+' · '+_esc(p.iso||'—')+' · '+_esc(p.status||'—')+'</div></div>';
+    hd.innerHTML='<div><div class="sup-drawer-t">'+_esc(p.title||'(untitled)')+'</div><div class="sup-drawer-s">ID '+_esc(p.id)+' · '+_esc(countryName(p.iso)||'—')+' · '+_esc(p.status||'—')+'</div></div>';
     var x=document.createElement('button');x.className='sup-drawer-x';x.innerHTML='&times;';x.onclick=function(){ovEl.remove();};
     hd.appendChild(x);dr.appendChild(hd);
 
@@ -9086,7 +9097,7 @@ var SUP=(function(){
     if(typeof XLSX==='undefined'){alert('Excel writer not loaded.');return;}
     var products=NS.loadProducts(),overrides=NS.loadOverrides(),admin=NS.loadAdmin(),meta=NS.loadMeta();
     if(!products.length){alert('Nothing to export.');return;}
-    var rows=[['Product ID','Product Name','Country','Status','Primary Supplier','Primary Supplier Rate','Secondary Supplier','Secondary Supplier Rate','Third Supplier','Third Supplier Rate','Supplier Count Available','Best Commercial Rate','Manual Override','Notes']];
+    var rows=[['Product ID','Product Name','Country','ISO','Status','Primary Supplier','Primary Supplier Rate','Secondary Supplier','Secondary Supplier Rate','Third Supplier','Third Supplier Rate','Supplier Count Available','Best Commercial Rate','Manual Override','Notes']];
     products.forEach(function(p){
       var ranked=NS.rankProduct(p,overrides,admin);
       var ov=overrides[p.id]||{};
@@ -9100,7 +9111,7 @@ var SUP=(function(){
       function r(i){return ranked[i]?ranked[i].supplier:'';}
       function rt(i){return ranked[i]?(ranked[i].rate):'';}
       rows.push([
-        p.id,p.title,p.iso,p.status,
+        p.id,p.title,countryName(p.iso),p.iso,p.status,
         r(0),rt(0),r(1),rt(1),r(2),rt(2),
         ranked.length,
         ranked.length?ranked[0].rate:'',
@@ -9436,7 +9447,7 @@ var PP=(function(){
           var op=opsDecisionFor(p);
           var row=document.createElement('div');row.className='pp-search-row';
           row.innerHTML='<span class="sup-pid">'+_esc(p.id)+'</span>'
-            +'<div><b>'+_esc(p.title)+'</b><div class="pp-prop-sub">'+_esc(p.iso)+' · '+(op.supplier||'no supplier')+'</div></div>'
+            +'<div><b>'+_esc(p.title)+'</b><div class="pp-prop-sub">'+_esc(countryName(p.iso))+' · '+(op.supplier||'no supplier')+'</div></div>'
             +'<span class="sup-pid">'+(op.supplierDiscount!=null?(op.supplierDiscount*100).toFixed(2)+'%':'—')+'</span>'
             +(inCart?'<span class="sup-flag ok">IN</span>':'<button class="sup-mini">+ Add</button>');
           var addBtn=row.querySelector('button');
@@ -9459,7 +9470,7 @@ var PP=(function(){
           var p=products.find(function(x){return x.id===pid;});if(!p)return;
           var row=document.createElement('div');row.className='pp-cart-row';
           var op=opsDecisionFor(p);
-          row.innerHTML='<div><b>'+_esc(p.title)+'</b><div class="pp-prop-sub">'+p.id+' · '+_esc(p.iso)+' · '+(op.supplier||'no supplier')+'</div></div>'
+          row.innerHTML='<div><b>'+_esc(p.title)+'</b><div class="pp-prop-sub">'+p.id+' · '+_esc(countryName(p.iso))+' · '+(op.supplier||'no supplier')+'</div></div>'
             +'<span class="sup-pid">'+(op.supplierDiscount!=null?(op.supplierDiscount*100).toFixed(2)+'%':'—')+'</span>'
             +'<button class="pp-cart-rm">&times;</button>';
           row.querySelector('button').onclick=function(){pr.cart=(pr.cart||[]).filter(function(x){return x!==pid;});pr.updatedAt=Date.now();NS.saveProposals(ps);_redrawCart();_redrawPreview();};
@@ -9550,10 +9561,11 @@ var PP=(function(){
 
   function _renderCatalogueFilters(pr,ps,products){
     var box=document.createElement('div');
-    var isos=Array.from(new Set(products.map(function(p){return p.iso;}).filter(Boolean))).sort();
+    var isos=Array.from(new Set(products.map(function(p){return p.iso;}).filter(Boolean)));
+    isos.sort(function(a,b){return (countryName(a)||a).localeCompare(countryName(b)||b);});
     var cSel=document.createElement('select');cSel.className='pp-fin';
     cSel.appendChild(_opt('All','All countries',pr.filter.country==='All'));
-    isos.forEach(function(c){cSel.appendChild(_opt(c,c,pr.filter.country===c));});
+    isos.forEach(function(c){cSel.appendChild(_opt(c,countryName(c)||c,pr.filter.country===c));});
     cSel.onchange=function(){pr.filter.country=this.value;pr.updatedAt=Date.now();NS.saveProposals(ps);NS.renderProposals();};
     box.appendChild(_lbl('COUNTRY'));box.appendChild(cSel);
 
@@ -9622,14 +9634,14 @@ var PP=(function(){
     if(!lines.length){var em=document.createElement('div');em.className='pp-empty-mini';em.textContent='No products selected yet.';w.appendChild(em);return;}
     var tw=document.createElement('div');tw.style.cssText='overflow:auto;max-height:580px;border:1px solid var(--brd);border-radius:8px';
     var tbl=document.createElement('table');tbl.className='pp-prev-table';
-    var thead='<thead><tr><th>SKU ID</th><th>BRAND</th><th>CTRY</th><th>CCY</th><th>SUPP</th><th>SUPP %</th>';
+    var thead='<thead><tr><th>SKU ID</th><th>BRAND</th><th>COUNTRY</th><th>CCY</th><th>SUPP</th><th>SUPP %</th>';
     tiers.forEach(function(t){thead+='<th>'+_esc(t.name)+' %</th>';});
     thead+='<th>STATUS</th></tr></thead>';
     tbl.innerHTML=thead;
     var tb=document.createElement('tbody');tbl.appendChild(tb);
     lines.slice(0,300).forEach(function(l){
       var tr=document.createElement('tr');
-      var html='<td class="mut">'+_esc(l.id)+'</td><td><b>'+_esc(l.title||'')+'</b></td><td class="mut">'+_esc(l.iso||'')+'</td><td class="mut">'+_esc(l.currency||'—')+'</td>'
+      var html='<td class="mut">'+_esc(l.id)+'</td><td><b>'+_esc(l.title||'')+'</b></td><td class="mut" title="'+_esc(l.iso||'')+'">'+_esc(countryName(l.iso)||'')+'</td><td class="mut">'+_esc(l.currency||'—')+'</td>'
         +'<td class="mut">'+(l.supplier||'—')+'</td>'
         +'<td class="num">'+(l.supplierDiscount!=null?(l.supplierDiscount*100).toFixed(2)+'%':'—')+'</td>';
       tiers.forEach(function(t){
@@ -9675,7 +9687,7 @@ var PP=(function(){
     cHdr.push('Fixed Fee','Notes');
     var cRows=[cHdr];
     lines.forEach(function(l){
-      var row=[l.id,l.title,l.iso,l.currency||''];
+      var row=[l.id,l.title,countryName(l.iso)||'',l.currency||''];
       tiers.forEach(function(t){var v=l.tierDiscounts[t.id];row.push(v!=null?+(v*100).toFixed(2):'—');});
       row.push(0,l.available?'':'UNAVAILABLE — no supplier currently configured');
       cRows.push(row);
@@ -9690,7 +9702,7 @@ var PP=(function(){
       iHdr.push('Available','Notes');
       var iRows=[iHdr];
       lines.forEach(function(l){
-        var row=[l.id,l.title,l.iso,l.currency||'',l.status||'',l.supplier||'',l.supplierDiscount!=null?+(l.supplierDiscount*100).toFixed(2):''];
+        var row=[l.id,l.title,countryName(l.iso)||'',l.currency||'',l.status||'',l.supplier||'',l.supplierDiscount!=null?+(l.supplierDiscount*100).toFixed(2):''];
         allTiers.forEach(function(t){var v=l.tierDiscounts[t.id];row.push(v!=null?+(v*100).toFixed(2):'');row.push(t.marginPts);});
         row.push(l.available?'YES':'NO',l.available?'':'No available supplier');
         iRows.push(row);
