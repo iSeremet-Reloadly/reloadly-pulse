@@ -1213,6 +1213,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-okr" onclick="go('okr')"><div class="ni-l"><div class="dd" style="background:var(--acc2)"></div>OKR Tracker</div></div>
     <div class="ni" id="nav-tasks" onclick="go('tasks')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#6c63ff)"></div>Tasks</div><div class="cnt" id="c-tasks"></div></div>
     <div class="ni" id="nav-roadmaps" onclick="go('roadmaps')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f59e0b,#ec4899)"></div>Roadmaps</div></div>
+    <div class="ni" id="nav-pricing" onclick="go('pricing')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#06b6d4,#3b82f6)"></div>Pricing</div><div class="cnt" id="c-pricing"></div></div>
     <div style="flex:1"></div>
     <div class="ni" id="nav-mytasks-v2" onclick="goMyTasks()"><div class="ni-l"><div class="dd" style="background:var(--acc2)"></div>My Tasks</div><div class="cnt" id="c-mytasks-v2"></div></div>
     <!-- Legacy dept tabs (hidden, routes still work) -->
@@ -1852,6 +1853,7 @@ function render(){
   else if(view==='okr')renderOKR();
   else if(view==='perf')renderPerf();
   else if(view==='strategy')STRAT.renderStrategy();
+  else if(view==='pricing')SUP.renderPricing();
   else renderDept(view);
 }
 function go(v){
@@ -8307,6 +8309,816 @@ function callout(label, text){
   return '<div class="guide-callout"><div class="guide-callout-label">'+esc(label)+'</div><div>'+esc(text)+'</div></div>';
 }
 
+</script>
+<style>
+/* === Pricing / Supplier Ranking module === */
+.sup-wrap{padding:24px 28px;max-width:1600px;margin:0 auto}
+.sup-hdr{display:flex;align-items:baseline;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.sup-title{font-size:22px;font-weight:800;letter-spacing:-.3px}
+.sup-sub{font-size:12px;color:var(--mut);font-family:'Roboto Mono',monospace}
+.sup-toolbar{display:flex;gap:10px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.sup-btn{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;font-family:'Roboto Mono',monospace;cursor:pointer;letter-spacing:.4px;display:inline-flex;align-items:center;gap:6px}
+.sup-btn:hover{background:var(--acc);color:#fff;border-color:var(--acc)}
+.sup-btn.primary{background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-color:#06b6d4}
+.sup-btn.primary:hover{filter:brightness(1.1)}
+.sup-btn.ghost{background:transparent}
+.sup-empty{background:var(--surf);border:2px dashed var(--brd);border-radius:14px;padding:60px 30px;text-align:center;margin-top:24px}
+.sup-empty-ic{font-size:48px;margin-bottom:14px;opacity:.7}
+.sup-empty-t{font-size:18px;font-weight:700;margin-bottom:8px}
+.sup-empty-s{font-size:12px;color:var(--mut);margin-bottom:18px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.6}
+.sup-drop{border:2px dashed var(--acc);border-radius:12px;padding:30px;margin:18px auto;max-width:520px;background:rgba(6,182,212,.05);cursor:pointer;transition:all .15s}
+.sup-drop:hover{background:rgba(6,182,212,.12)}
+.sup-drop.over{background:rgba(6,182,212,.22);border-color:var(--grn)}
+.sup-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+.sup-kpi{background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:14px 16px}
+.sup-kpi-l{font-size:9px;color:var(--mut);font-family:'Roboto Mono',monospace;font-weight:700;letter-spacing:.6px;margin-bottom:6px}
+.sup-kpi-v{font-size:24px;font-weight:800}
+.sup-kpi-s{font-size:10px;color:var(--mut);margin-top:3px;font-family:'Roboto Mono',monospace}
+.sup-kpi.warn .sup-kpi-v{color:var(--yel)}
+.sup-kpi.risk .sup-kpi-v{color:var(--red)}
+.sup-kpi.ok .sup-kpi-v{color:var(--grn)}
+.sup-filters{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;padding:10px 14px;background:var(--surf);border:1px solid var(--brd);border-radius:10px}
+.sup-flbl{font-size:9px;color:var(--mut);font-family:'Roboto Mono',monospace;font-weight:700}
+.sup-fin{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);padding:6px 10px;border-radius:6px;font-size:11px;font-family:inherit;outline:none}
+.sup-fin:focus{border-color:var(--acc)}
+.sup-tablewrap{background:var(--surf);border:1px solid var(--brd);border-radius:12px;overflow:hidden}
+.sup-table{width:100%;border-collapse:collapse;font-size:11px}
+.sup-table th{background:var(--surf2);text-align:left;padding:10px 12px;font-size:9px;color:var(--mut);font-family:'Roboto Mono',monospace;font-weight:700;letter-spacing:.5px;border-bottom:1px solid var(--brd);white-space:nowrap;position:sticky;top:0;z-index:2}
+.sup-table td{padding:9px 12px;border-bottom:1px solid var(--brd);vertical-align:middle}
+.sup-table tr:last-child td{border-bottom:none}
+.sup-table tr.row:hover td{background:var(--surf2);cursor:pointer}
+.sup-table tr.row.locked td{background:rgba(245,158,11,.05)}
+.sup-rank{display:inline-flex;align-items:center;gap:5px;padding:2px 6px;border-radius:5px;font-weight:700;font-size:10px;font-family:'Roboto Mono',monospace}
+.sup-rank.r1{background:rgba(16,185,129,.18);color:var(--grn)}
+.sup-rank.r2{background:rgba(108,99,255,.18);color:var(--acc)}
+.sup-rank.r3{background:rgba(100,100,122,.18);color:var(--mut)}
+.sup-rate{font-family:'Roboto Mono',monospace;font-weight:700}
+.sup-mut{color:var(--mut)}
+.sup-pid{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--mut)}
+.sup-flag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;font-family:'Roboto Mono',monospace;margin-right:3px;letter-spacing:.5px}
+.sup-flag.risk{background:rgba(239,68,68,.18);color:var(--red)}
+.sup-flag.warn{background:rgba(245,158,11,.18);color:var(--yel)}
+.sup-flag.ok{background:rgba(16,185,129,.18);color:var(--grn)}
+.sup-flag.info{background:rgba(108,99,255,.18);color:var(--acc)}
+.sup-flag.lock{background:rgba(245,158,11,.28);color:var(--yel)}
+.sup-conf{display:inline-flex;align-items:center;gap:4px;font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700}
+.sup-conf-bar{width:36px;height:6px;background:var(--surf2);border-radius:3px;overflow:hidden;border:1px solid var(--brd)}
+.sup-conf-bar i{display:block;height:100%}
+.sup-drawer-ov{position:fixed;inset:0;background:rgba(8,8,12,.7);z-index:9990;display:flex;justify-content:flex-end}
+.sup-drawer{width:min(640px,90vw);height:100vh;background:var(--bg);border-left:1px solid var(--brd);padding:24px 28px;overflow:auto;box-shadow:-12px 0 40px rgba(0,0,0,.5)}
+.sup-drawer-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--brd);gap:14px}
+.sup-drawer-t{font-size:16px;font-weight:800;line-height:1.3}
+.sup-drawer-s{font-size:10px;color:var(--mut);font-family:'Roboto Mono',monospace;margin-top:3px}
+.sup-drawer-x{background:none;border:1px solid var(--brd);color:var(--mut);width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:16px;flex-shrink:0}
+.sup-drawer-x:hover{color:var(--txt);border-color:var(--mut)}
+.sup-sec{margin-bottom:20px}
+.sup-sec-h{font-size:10px;font-weight:700;color:var(--mut);font-family:'Roboto Mono',monospace;letter-spacing:.6px;margin-bottom:10px}
+.sup-ranklist{display:flex;flex-direction:column;gap:8px}
+.sup-rankrow{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surf);border:1px solid var(--brd);border-radius:8px}
+.sup-rankrow.excluded{opacity:.45;text-decoration:line-through}
+.sup-rankrow.locked{border-color:var(--yel);background:rgba(245,158,11,.05)}
+.sup-rankrow-name{font-weight:700;flex:1}
+.sup-rankrow-rate{font-family:'Roboto Mono',monospace;font-weight:700;font-size:12px}
+.sup-rankrow-act{display:flex;gap:4px;align-items:center}
+.sup-mini{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);padding:3px 8px;border-radius:5px;font-size:9px;font-family:'Roboto Mono',monospace;cursor:pointer;font-weight:700}
+.sup-mini:hover{border-color:var(--acc);color:var(--acc)}
+.sup-mini.danger:hover{border-color:var(--red);color:var(--red)}
+.sup-reason{font-size:11px;color:var(--mut);line-height:1.55;padding:10px 12px;background:var(--surf2);border-radius:7px;font-family:'Roboto Mono',monospace}
+.sup-reason b{color:var(--txt)}
+.sup-flagsrow{display:flex;flex-wrap:wrap;gap:5px}
+.sup-page-nav{display:flex;gap:6px;justify-content:center;align-items:center;margin-top:14px;font-size:11px;font-family:'Roboto Mono',monospace}
+.sup-page-nav button{background:var(--surf);border:1px solid var(--brd);color:var(--txt);padding:5px 11px;border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit}
+.sup-page-nav button:hover{border-color:var(--acc);color:var(--acc)}
+.sup-page-nav button:disabled{opacity:.4;cursor:not-allowed}
+.sup-page-nav .cur{color:var(--mut)}
+.sup-admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.sup-admin-card{background:var(--surf2);border:1px solid var(--brd);border-radius:8px;padding:12px 14px}
+.sup-admin-card label{display:block;font-size:9px;font-weight:700;color:var(--mut);font-family:'Roboto Mono',monospace;margin-bottom:6px;letter-spacing:.4px}
+.sup-admin-card input[type=number]{width:60px;padding:4px 6px;background:var(--surf);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-family:'Roboto Mono',monospace;font-size:10px;text-align:right;outline:none}
+.sup-admin-card input[type=number]:focus{border-color:var(--acc)}
+.sup-admin-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px}
+.sup-statpill{font-size:8px;padding:2px 6px;border-radius:4px;font-weight:700;font-family:'Roboto Mono',monospace;letter-spacing:.4px}
+.sup-statpill.act{background:rgba(16,185,129,.18);color:var(--grn)}
+.sup-statpill.ina{background:rgba(100,100,122,.18);color:var(--mut)}
+.sup-statpill.unk{background:rgba(108,99,255,.12);color:var(--acc)}
+.sup-meta-bar{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--mut);font-family:'Roboto Mono',monospace;padding:8px 0;margin-bottom:12px}
+.sup-meta-bar b{color:var(--txt)}
+.sup-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:14px}
+.sup-detail-cell{background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px 12px}
+.sup-detail-cell .l{font-size:8px;font-weight:700;color:var(--mut);font-family:'Roboto Mono',monospace;margin-bottom:4px;letter-spacing:.4px}
+.sup-detail-cell .v{font-size:13px;font-weight:700}
+.sup-tabbar{display:flex;gap:0;border-bottom:1px solid var(--brd);margin-bottom:16px}
+.sup-tab{background:none;border:none;color:var(--mut);padding:9px 16px;font-size:11px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;font-family:'Roboto Mono',monospace;letter-spacing:.4px}
+.sup-tab.active{color:var(--txt);border-color:var(--acc)}
+.sup-tab:hover{color:var(--txt)}
+.sup-notes-ta{width:100%;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);padding:8px 10px;border-radius:6px;font-size:11px;font-family:inherit;outline:none;min-height:60px;resize:vertical}
+.sup-notes-ta:focus{border-color:var(--acc)}
+</style>
+<script>
+// ====================== Pricing / Supplier Ranking module ======================
+var SUP=(function(){
+  var NS={};
+  var K={
+    products:'rl_sup_products_v1',
+    overrides:'rl_sup_overrides_v1',
+    meta:'rl_sup_meta_v1',
+    admin:'rl_sup_admin_v1',
+    ui:'rl_sup_ui_v1'
+  };
+  var SUPPLIERS=['Bamboo','Globetopper','EZPin','Blackhawk','Neocurrency','Phaze','Tillo','Runa','SVS','CardCash','iRewardify','Fluz'];
+  var SUPPLIER_ALIASES={ 'ezpin':'EZPin' };
+  // Default admin config: preferred order matches SUPPLIERS, reliability 80% all
+  function defaultAdmin(){
+    var r={};SUPPLIERS.forEach(function(s){r[s]=80;});
+    return {
+      preferredOrder:SUPPLIERS.slice(),
+      reliability:r,
+      lowConfThreshold:60,
+      materialChangePct:25,
+      mode:'discount' // 'discount' or 'cost' — for this file, discount-based
+    };
+  }
+  function loadJSON(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+  function saveJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+  NS.loadProducts=function(){return loadJSON(K.products,[]);};
+  NS.saveProducts=function(p){saveJSON(K.products,p);};
+  NS.loadOverrides=function(){return loadJSON(K.overrides,{});};
+  NS.saveOverrides=function(o){saveJSON(K.overrides,o);};
+  NS.loadMeta=function(){return loadJSON(K.meta,{lastUpload:null,fileName:null,previousPrimary:{}});};
+  NS.saveMeta=function(m){saveJSON(K.meta,m);};
+  NS.loadAdmin=function(){var a=loadJSON(K.admin,null);if(!a){a=defaultAdmin();saveJSON(K.admin,a);}return a;};
+  NS.saveAdmin=function(a){saveJSON(K.admin,a);};
+  NS.loadUI=function(){return loadJSON(K.ui,{search:'',country:'All',status:'All',riskOnly:false,page:0,pageSize:50,tab:'review'});};
+  NS.saveUI=function(u){saveJSON(K.ui,u);};
+
+  // ===== Parsing =====
+  function normaliseRate(v){
+    // Returns {ok:bool, rate:number, status:'available'|'unavailable'|'blank'}
+    if(v===null||v===undefined||v==='')return {ok:false,status:'blank'};
+    if(typeof v==='number'){
+      if(isNaN(v))return {ok:false,status:'blank'};
+      if(v<0)return {ok:false,status:'invalid'};
+      return {ok:true,rate:v,status:'available'};
+    }
+    var t=String(v).trim().toLowerCase();
+    if(!t)return {ok:false,status:'blank'};
+    if(t==='not available'||t==='n/a'||t==='na'||t==='inactive'||t==='invalid'||t==='unavailable')return {ok:false,status:'unavailable'};
+    if(t==='out of stock'||t==='oos')return {ok:false,status:'oos'};
+    // Try parse as percentage / number
+    var pct=false;
+    var x=t.replace(/[,\s]/g,'');
+    if(x.endsWith('%')){pct=true;x=x.slice(0,-1);}
+    var n=parseFloat(x);
+    if(isNaN(n))return {ok:false,status:'unavailable'};
+    if(pct)n=n/100;
+    return {ok:true,rate:n,status:'available'};
+  }
+  function rateConfidence(rate){
+    // Discount mode: sane discounts are 0.001..0.30 (0.1%..30%).
+    // 0.3..0.5 unusual. >0.5 likely data error.
+    if(rate==null||isNaN(rate))return 0;
+    if(rate<=0)return 40;
+    if(rate<=0.30)return 100;
+    if(rate<=0.50)return 70;
+    return 30;
+  }
+  NS.parseWorkbook=function(wb,fileName){
+    if(!wb||!wb.Sheets)throw new Error('Empty workbook');
+    var sheet=wb.Sheets['Reloadly']||wb.Sheets[wb.SheetNames[0]];
+    if(!sheet)throw new Error('No usable sheet');
+    var aoa=XLSX.utils.sheet_to_json(sheet,{header:1,defval:null,raw:true});
+    if(!aoa.length)throw new Error('Empty sheet');
+    var header=aoa[0]||[];
+    // Locate columns
+    function colIdx(name){
+      var ln=name.toLowerCase();
+      for(var i=0;i<header.length;i++){if(String(header[i]||'').trim().toLowerCase()===ln)return i;}
+      return -1;
+    }
+    var cId=colIdx('id'),cTitle=colIdx('title'),cIso=colIdx('iso_name'),cStat=colIdx('status'),cBest=colIdx('best priced');
+    if(cId<0||cTitle<0)throw new Error('Required columns id/title not found');
+    // Build supplier column mapping with alias normalisation
+    var supCols={};
+    header.forEach(function(h,i){
+      if(!h)return;
+      var raw=String(h).trim();
+      var canon=null;
+      // Match suppliers case-insensitively, with alias fallback
+      for(var s=0;s<SUPPLIERS.length;s++){
+        if(raw.toLowerCase()===SUPPLIERS[s].toLowerCase()){canon=SUPPLIERS[s];break;}
+      }
+      if(!canon&&SUPPLIER_ALIASES[raw.toLowerCase()])canon=SUPPLIER_ALIASES[raw.toLowerCase()];
+      if(canon)supCols[canon]=i;
+    });
+    var products=[];
+    for(var r=1;r<aoa.length;r++){
+      var row=aoa[r];if(!row||row.length===0)continue;
+      var pid=row[cId];if(pid==null||pid==='')continue;
+      var p={
+        id:String(typeof pid==='number'?Math.round(pid):pid),
+        title:String(row[cTitle]||'').trim(),
+        iso:String(row[cIso]||'').trim().toUpperCase(),
+        status:String(row[cStat]||'').trim().toUpperCase(),
+        rates:{}, // supplier -> {rate, status, conf}
+        bestPriced:cBest>=0?(row[cBest]==null?'':String(row[cBest]).trim()):''
+      };
+      Object.keys(supCols).forEach(function(sup){
+        var v=row[supCols[sup]];
+        var n=normaliseRate(v);
+        p.rates[sup]={raw:v,ok:n.ok,status:n.status,rate:n.ok?n.rate:null,conf:n.ok?rateConfidence(n.rate):0};
+      });
+      products.push(p);
+    }
+    return products;
+  };
+
+  // ===== Ranking =====
+  NS.rankProduct=function(p,overrides,admin){
+    overrides=overrides||{};admin=admin||NS.loadAdmin();
+    var ov=overrides[p.id]||{};
+    var excluded=ov.excluded||[];
+    var candidates=[];
+    Object.keys(p.rates).forEach(function(sup){
+      var r=p.rates[sup];
+      if(!r.ok)return;
+      if(excluded.indexOf(sup)>=0)return;
+      var pref=admin.preferredOrder.indexOf(sup);
+      if(pref<0)pref=999;
+      var rel=admin.reliability[sup]||50;
+      candidates.push({supplier:sup,rate:r.rate,conf:r.conf,pref:pref,rel:rel});
+    });
+    // Sort: discount mode → highest rate wins; cost mode → lowest wins
+    var mode=admin.mode||'discount';
+    candidates.sort(function(a,b){
+      if(mode==='discount'){if(a.rate!==b.rate)return b.rate-a.rate;}
+      else{if(a.rate!==b.rate)return a.rate-b.rate;}
+      if(a.pref!==b.pref)return a.pref-b.pref;
+      if(a.rel!==b.rel)return b.rel-a.rel;
+      return a.supplier.localeCompare(b.supplier);
+    });
+    // Honour locked primary
+    if(ov.lockedPrimary){
+      var li=-1;
+      for(var i=0;i<candidates.length;i++){if(candidates[i].supplier===ov.lockedPrimary){li=i;break;}}
+      if(li>0){var locked=candidates.splice(li,1)[0];candidates.unshift(locked);}
+    }
+    return candidates;
+  };
+
+  // ===== Risk / confidence =====
+  NS.computeRisk=function(p,ranked,meta,admin){
+    var flags=[];
+    if(!ranked.length){flags.push({lvl:'risk',k:'NO_SUPPLIER',l:'No supplier'});return flags;}
+    if(ranked.length===1)flags.push({lvl:'warn',k:'SINGLE_SRC',l:'Single source'});
+    if(ranked.length<3)flags.push({lvl:'info',k:'NO_FALLBACK',l:'Limited fallback'});
+    var primaryConf=ranked[0].conf||0;
+    if(primaryConf<(admin.lowConfThreshold||60))flags.push({lvl:'warn',k:'LOW_CONF',l:'Low confidence'});
+    // Material rate change vs previous snapshot
+    var prev=(meta.previousPrimary||{})[p.id];
+    if(prev&&prev.supplier===ranked[0].supplier&&prev.rate!=null){
+      var delta=Math.abs(ranked[0].rate-prev.rate)/Math.max(0.0001,Math.abs(prev.rate))*100;
+      if(delta>=(admin.materialChangePct||25))flags.push({lvl:'warn',k:'RATE_CHANGE',l:'Rate Δ '+delta.toFixed(0)+'%'});
+    }
+    if(prev&&prev.supplier&&prev.supplier!==ranked[0].supplier)flags.push({lvl:'info',k:'PRIMARY_CHANGED',l:'Primary changed'});
+    // Inactive product
+    if(p.status&&p.status!=='ACTIVE')flags.push({lvl:'info',k:'INACTIVE',l:p.status});
+    return flags;
+  };
+  NS.aggregateConfidence=function(ranked){
+    if(!ranked.length)return 0;
+    var top=ranked.slice(0,3);
+    var avg=top.reduce(function(s,r){return s+(r.conf||0);},0)/top.length;
+    return Math.round(avg);
+  };
+
+  // ===== KPIs =====
+  NS.computeKPIs=function(){
+    var products=NS.loadProducts(),overrides=NS.loadOverrides(),admin=NS.loadAdmin(),meta=NS.loadMeta();
+    var k={total:products.length,withPrimary:0,withSecondary:0,withThird:0,singleSource:0,none:0,manualReview:0,primaryChanged:0,locked:0};
+    products.forEach(function(p){
+      var ranked=NS.rankProduct(p,overrides,admin);
+      if(ranked.length>=1)k.withPrimary++;else k.none++;
+      if(ranked.length>=2)k.withSecondary++;
+      if(ranked.length>=3)k.withThird++;
+      if(ranked.length===1)k.singleSource++;
+      var conf=NS.aggregateConfidence(ranked);
+      if(ranked.length&&conf<(admin.lowConfThreshold||60))k.manualReview++;
+      var prev=(meta.previousPrimary||{})[p.id];
+      if(prev&&ranked.length&&prev.supplier&&prev.supplier!==ranked[0].supplier)k.primaryChanged++;
+      if((overrides[p.id]||{}).lockedPrimary)k.locked++;
+    });
+    return k;
+  };
+
+  // ===== Renderer =====
+  NS.renderPricing=function(){
+    var main=document.getElementById('main');if(!main)return;main.innerHTML='';
+    var products=NS.loadProducts();
+    var wrap=document.createElement('div');wrap.className='sup-wrap';
+    var hdr=document.createElement('div');hdr.className='sup-hdr';
+    hdr.innerHTML='<div><div class="sup-title">Pricing & Supplier Ranking</div><div class="sup-sub">Best supplier per product · Auto-ranked from uploaded analysis</div></div>';
+    var tools=document.createElement('div');tools.className='sup-toolbar';
+    var upBtn=document.createElement('button');upBtn.className='sup-btn primary';upBtn.innerHTML='⤴ Upload analysis';
+    upBtn.onclick=function(){_promptUpload();};
+    tools.appendChild(upBtn);
+    if(products.length){
+      var exBtn=document.createElement('button');exBtn.className='sup-btn';exBtn.innerHTML='⤓ Export Excel';
+      exBtn.onclick=function(){NS.exportXLSX();};
+      tools.appendChild(exBtn);
+      var clrBtn=document.createElement('button');clrBtn.className='sup-btn ghost';clrBtn.innerHTML='✕ Clear data';
+      clrBtn.onclick=function(){if(confirm('Clear all supplier ranking data? Overrides will also be cleared.')){localStorage.removeItem(K.products);localStorage.removeItem(K.overrides);localStorage.removeItem(K.meta);NS.renderPricing();}};
+      tools.appendChild(clrBtn);
+    }
+    hdr.appendChild(tools);
+    wrap.appendChild(hdr);
+
+    if(!products.length){
+      var em=document.createElement('div');em.className='sup-empty';
+      em.innerHTML='<div class="sup-empty-ic">📊</div>'
+        +'<div class="sup-empty-t">No supplier analysis loaded yet</div>'
+        +'<div class="sup-empty-s">Upload your Supplier Analysis Excel file. The system will parse every product in the <b>Reloadly</b> tab, normalise supplier rates, ignore unavailable suppliers, and rank the rest by best commercial value.</div>';
+      var drop=document.createElement('label');drop.className='sup-drop';drop.htmlFor='sup-file-input';
+      drop.innerHTML='<div style="font-size:32px;margin-bottom:8px">⤴</div><div style="font-weight:700;margin-bottom:6px">Click or drop your .xlsx file here</div><div style="font-size:11px;color:var(--mut)">Expected sheet: <b>Reloadly</b> with columns: id, title, iso_name, status + supplier columns</div>';
+      em.appendChild(drop);
+      var fi=document.createElement('input');fi.type='file';fi.id='sup-file-input';fi.accept='.xlsx,.xls';fi.style.display='none';
+      fi.onchange=function(e){if(e.target.files&&e.target.files[0])_handleFile(e.target.files[0]);};
+      em.appendChild(fi);
+      ['dragenter','dragover'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add('over');});});
+      ['dragleave','drop'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove('over');});});
+      drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('over');if(e.dataTransfer.files&&e.dataTransfer.files[0])_handleFile(e.dataTransfer.files[0]);});
+      wrap.appendChild(em);
+      main.appendChild(wrap);
+      return;
+    }
+
+    // Meta bar
+    var meta=NS.loadMeta();
+    var mb=document.createElement('div');mb.className='sup-meta-bar';
+    mb.innerHTML='<span>SOURCE: <b>'+_esc(meta.fileName||'—')+'</b></span>'
+      +'<span>UPLOADED: <b>'+(meta.lastUpload?new Date(meta.lastUpload).toLocaleString():'—')+'</b></span>'
+      +'<span>PRODUCTS: <b>'+products.length.toLocaleString()+'</b></span>'
+      +'<span>MODE: <b>'+(NS.loadAdmin().mode==='discount'?'Discount (higher wins)':'Cost (lower wins)')+'</b></span>';
+    wrap.appendChild(mb);
+
+    // KPIs
+    var k=NS.computeKPIs();
+    var kpis=document.createElement('div');kpis.className='sup-kpis';
+    function kpi(l,v,sub,cls){var c=document.createElement('div');c.className='sup-kpi '+(cls||'');c.innerHTML='<div class="sup-kpi-l">'+l+'</div><div class="sup-kpi-v">'+v+'</div><div class="sup-kpi-s">'+sub+'</div>';return c;}
+    kpis.appendChild(kpi('TOTAL ANALYSED',k.total.toLocaleString(),'products'));
+    kpis.appendChild(kpi('PRIMARY OK',k.withPrimary.toLocaleString(),Math.round(k.withPrimary/Math.max(1,k.total)*100)+'% coverage','ok'));
+    kpis.appendChild(kpi('SECONDARY',k.withSecondary.toLocaleString(),'have backup'));
+    kpis.appendChild(kpi('THIRD',k.withThird.toLocaleString(),'have 3+ options'));
+    kpis.appendChild(kpi('SINGLE SOURCE',k.singleSource.toLocaleString(),'risk to mitigate','warn'));
+    kpis.appendChild(kpi('NO SUPPLIER',k.none.toLocaleString(),'unfulfillable','risk'));
+    kpis.appendChild(kpi('MANUAL REVIEW',k.manualReview.toLocaleString(),'low confidence','warn'));
+    kpis.appendChild(kpi('PRIMARY CHANGED',k.primaryChanged.toLocaleString(),'since last upload','info'));
+    wrap.appendChild(kpis);
+
+    // Tabs
+    var ui=NS.loadUI();
+    var tbar=document.createElement('div');tbar.className='sup-tabbar';
+    [{id:'review',l:'Ranking Review'},{id:'admin',l:'Admin Controls'},{id:'help',l:'How ranking works'}].forEach(function(t){
+      var b=document.createElement('button');b.className='sup-tab'+(t.id===ui.tab?' active':'');b.textContent=t.l;
+      b.onclick=function(){ui.tab=t.id;NS.saveUI(ui);NS.renderPricing();};
+      tbar.appendChild(b);
+    });
+    wrap.appendChild(tbar);
+
+    if(ui.tab==='admin'){wrap.appendChild(_renderAdmin());}
+    else if(ui.tab==='help'){wrap.appendChild(_renderHelp());}
+    else {_renderReview(wrap,ui);}
+
+    main.appendChild(wrap);
+  };
+
+  function _renderReview(wrap, ui){
+    var products=NS.loadProducts(),overrides=NS.loadOverrides(),admin=NS.loadAdmin(),meta=NS.loadMeta();
+
+    // Filters
+    var fbar=document.createElement('div');fbar.className='sup-filters';
+    var sIn=document.createElement('input');sIn.className='sup-fin';sIn.placeholder='Search product or ID…';sIn.value=ui.search||'';sIn.style.minWidth='200px';
+    var sLbl=document.createElement('span');sLbl.className='sup-flbl';sLbl.textContent='FIND';
+    fbar.appendChild(sLbl);fbar.appendChild(sIn);
+    // Country
+    var cSel=document.createElement('select');cSel.className='sup-fin';
+    var isos=Array.from(new Set(products.map(function(p){return p.iso;}).filter(Boolean))).sort();
+    var allOpt=document.createElement('option');allOpt.value='All';allOpt.textContent='All countries';cSel.appendChild(allOpt);
+    isos.forEach(function(c){var op=document.createElement('option');op.value=c;op.textContent=c;if(c===ui.country)op.selected=true;cSel.appendChild(op);});
+    var cLbl=document.createElement('span');cLbl.className='sup-flbl';cLbl.textContent='COUNTRY';
+    fbar.appendChild(cLbl);fbar.appendChild(cSel);
+    // Status
+    var stSel=document.createElement('select');stSel.className='sup-fin';
+    ['All','ACTIVE','INACTIVE'].forEach(function(s){var op=document.createElement('option');op.value=s;op.textContent=s;if(s===ui.status)op.selected=true;stSel.appendChild(op);});
+    var stLbl=document.createElement('span');stLbl.className='sup-flbl';stLbl.textContent='STATUS';
+    fbar.appendChild(stLbl);fbar.appendChild(stSel);
+    // Risk only
+    var rLbl=document.createElement('label');rLbl.style.cssText='display:flex;align-items:center;gap:5px;font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;cursor:pointer';
+    var rIn=document.createElement('input');rIn.type='checkbox';rIn.checked=!!ui.riskOnly;
+    rLbl.appendChild(rIn);rLbl.appendChild(document.createTextNode(' RISK ONLY'));
+    fbar.appendChild(rLbl);
+    sIn.oninput=function(){ui.search=this.value;ui.page=0;NS.saveUI(ui);_renderReview(_clearTail(wrap,fbar),ui);};
+    cSel.onchange=function(){ui.country=this.value;ui.page=0;NS.saveUI(ui);_renderReview(_clearTail(wrap,fbar),ui);};
+    stSel.onchange=function(){ui.status=this.value;ui.page=0;NS.saveUI(ui);_renderReview(_clearTail(wrap,fbar),ui);};
+    rIn.onchange=function(){ui.riskOnly=this.checked;ui.page=0;NS.saveUI(ui);_renderReview(_clearTail(wrap,fbar),ui);};
+    wrap.appendChild(fbar);
+
+    // Filter products
+    var q=(ui.search||'').trim().toLowerCase();
+    var filt=products.filter(function(p){
+      if(q&&p.id.toLowerCase().indexOf(q)<0&&p.title.toLowerCase().indexOf(q)<0)return false;
+      if(ui.country!=='All'&&p.iso!==ui.country)return false;
+      if(ui.status!=='All'&&p.status!==ui.status)return false;
+      if(ui.riskOnly){
+        var ranked=NS.rankProduct(p,overrides,admin);
+        var flags=NS.computeRisk(p,ranked,meta,admin);
+        if(!flags.some(function(f){return f.lvl==='risk'||f.lvl==='warn';}))return false;
+      }
+      return true;
+    });
+    var count=document.createElement('div');count.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin:8px 0';
+    count.textContent='Showing '+filt.length.toLocaleString()+' of '+products.length.toLocaleString()+' products';
+    wrap.appendChild(count);
+
+    // Paginate
+    var ps=ui.pageSize||50;
+    var pages=Math.max(1,Math.ceil(filt.length/ps));
+    if(ui.page>=pages)ui.page=pages-1;
+    var page=filt.slice(ui.page*ps,(ui.page+1)*ps);
+
+    // Table
+    var tw=document.createElement('div');tw.className='sup-tablewrap';
+    var tbl=document.createElement('table');tbl.className='sup-table';
+    tbl.innerHTML='<thead><tr>'
+      +'<th>ID</th><th>PRODUCT</th><th>COUNTRY</th><th>STATUS</th>'
+      +'<th>PRIMARY</th><th>RATE</th>'
+      +'<th>SECONDARY</th><th>RATE</th>'
+      +'<th>THIRD</th><th>RATE</th>'
+      +'<th>AVAIL</th><th>CONF</th><th>FLAGS</th>'
+      +'</tr></thead>';
+    var tb=document.createElement('tbody');tbl.appendChild(tb);
+    page.forEach(function(p){
+      var ranked=NS.rankProduct(p,overrides,admin);
+      var flags=NS.computeRisk(p,ranked,meta,admin);
+      var conf=NS.aggregateConfidence(ranked);
+      var locked=!!(overrides[p.id]||{}).lockedPrimary;
+      var tr=document.createElement('tr');tr.className='row'+(locked?' locked':'');
+      function cell(html){var td=document.createElement('td');td.innerHTML=html;return td;}
+      function rateFmt(r){if(r==null)return '<span class="sup-mut">—</span>';return '<span class="sup-rate">'+(r*100).toFixed(2)+'%</span>';}
+      function rankCell(idx,cls){
+        if(!ranked[idx])return '<span class="sup-mut">—</span>';
+        var sup=ranked[idx].supplier;
+        return '<span class="sup-rank '+cls+'">'+sup+'</span>'+(locked&&idx===0?' <span class="sup-flag lock">LOCK</span>':'');
+      }
+      tr.appendChild(cell('<span class="sup-pid">'+_esc(p.id)+'</span>'));
+      tr.appendChild(cell('<b>'+_esc(p.title||'(untitled)')+'</b>'));
+      tr.appendChild(cell('<span class="sup-pid">'+_esc(p.iso||'—')+'</span>'));
+      tr.appendChild(cell('<span class="sup-statpill '+(p.status==='ACTIVE'?'act':p.status?'ina':'unk')+'">'+_esc(p.status||'—')+'</span>'));
+      tr.appendChild(cell(rankCell(0,'r1')));
+      tr.appendChild(cell(rateFmt(ranked[0]?ranked[0].rate:null)));
+      tr.appendChild(cell(rankCell(1,'r2')));
+      tr.appendChild(cell(rateFmt(ranked[1]?ranked[1].rate:null)));
+      tr.appendChild(cell(rankCell(2,'r3')));
+      tr.appendChild(cell(rateFmt(ranked[2]?ranked[2].rate:null)));
+      tr.appendChild(cell('<span class="sup-pid">'+ranked.length+'/'+Object.keys(p.rates).length+'</span>'));
+      var ccol=conf>=80?'var(--grn)':conf>=60?'var(--yel)':'var(--red)';
+      tr.appendChild(cell('<span class="sup-conf"><span class="sup-conf-bar"><i style="width:'+conf+'%;background:'+ccol+'"></i></span>'+conf+'</span>'));
+      tr.appendChild(cell('<div class="sup-flagsrow">'+flags.slice(0,3).map(function(f){return '<span class="sup-flag '+f.lvl+'">'+f.l+'</span>';}).join('')+'</div>'));
+      tr.onclick=function(){NS.openDetail(p.id);};
+      tb.appendChild(tr);
+    });
+    if(!page.length){
+      var tr=document.createElement('tr');var td=document.createElement('td');td.colSpan=13;td.style.cssText='text-align:center;padding:30px;color:var(--mut)';td.textContent='No products match these filters.';tr.appendChild(td);tb.appendChild(tr);
+    }
+    tw.appendChild(tbl);
+    wrap.appendChild(tw);
+
+    // Pagination
+    if(pages>1){
+      var nav=document.createElement('div');nav.className='sup-page-nav';
+      var prev=document.createElement('button');prev.textContent='‹ Prev';prev.disabled=ui.page<=0;prev.onclick=function(){ui.page=Math.max(0,ui.page-1);NS.saveUI(ui);_renderReview(_clearTail(wrap,fbar),ui);};
+      var next=document.createElement('button');next.textContent='Next ›';next.disabled=ui.page>=pages-1;next.onclick=function(){ui.page=Math.min(pages-1,ui.page+1);NS.saveUI(ui);_renderReview(_clearTail(wrap,fbar),ui);};
+      var cur=document.createElement('span');cur.className='cur';cur.textContent='Page '+(ui.page+1)+' of '+pages;
+      nav.appendChild(prev);nav.appendChild(cur);nav.appendChild(next);
+      wrap.appendChild(nav);
+    }
+  }
+  function _clearTail(wrap, keepEl){
+    // Remove all siblings after keepEl, then return wrap so caller can re-add
+    var n=keepEl;var toRemove=[];
+    while(n.nextSibling){toRemove.push(n.nextSibling);n=n.nextSibling;}
+    toRemove.forEach(function(x){x.parentNode.removeChild(x);});
+    // also remove filter bar so we redraw from scratch
+    keepEl.parentNode.removeChild(keepEl);
+    return wrap;
+  }
+
+  function _renderAdmin(){
+    var admin=NS.loadAdmin();
+    var w=document.createElement('div');
+    var grid=document.createElement('div');grid.className='sup-admin-grid';
+
+    // Mode
+    var mc=document.createElement('div');mc.className='sup-admin-card';
+    mc.innerHTML='<label>RANKING MODE</label>';
+    var sel=document.createElement('select');sel.className='sup-fin';
+    [['discount','Discount based — higher wins'],['cost','Cost based — lower wins']].forEach(function(o){var op=document.createElement('option');op.value=o[0];op.textContent=o[1];if(o[0]===admin.mode)op.selected=true;sel.appendChild(op);});
+    sel.onchange=function(){admin.mode=this.value;NS.saveAdmin(admin);NS.renderPricing();};
+    mc.appendChild(sel);
+    grid.appendChild(mc);
+
+    // Low conf threshold
+    var lcc=document.createElement('div');lcc.className='sup-admin-card';
+    lcc.innerHTML='<label>LOW-CONFIDENCE THRESHOLD</label>';
+    var lci=document.createElement('input');lci.type='number';lci.min=0;lci.max=100;lci.value=admin.lowConfThreshold||60;
+    lci.onchange=function(){admin.lowConfThreshold=parseInt(this.value)||60;NS.saveAdmin(admin);};
+    lcc.appendChild(lci);lcc.appendChild(document.createTextNode(' / 100'));
+    grid.appendChild(lcc);
+
+    // Material change %
+    var mcc=document.createElement('div');mcc.className='sup-admin-card';
+    mcc.innerHTML='<label>MATERIAL RATE CHANGE (%)</label>';
+    var mci=document.createElement('input');mci.type='number';mci.min=1;mci.max=100;mci.value=admin.materialChangePct||25;
+    mci.onchange=function(){admin.materialChangePct=parseInt(this.value)||25;NS.saveAdmin(admin);};
+    mcc.appendChild(mci);mcc.appendChild(document.createTextNode(' % rel.'));
+    grid.appendChild(mcc);
+
+    w.appendChild(grid);
+
+    // Preferred order + reliability per supplier
+    var p2=document.createElement('div');p2.style.cssText='margin-top:16px';
+    p2.innerHTML='<div class="sup-sec-h">PREFERRED ORDER & RELIABILITY</div>'
+      +'<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:8px">Tiebreaker after rate. Drag preference up/down with the arrows. Reliability 0–100 affects further tiebreaks.</div>';
+    var list=document.createElement('div');list.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:8px';
+    admin.preferredOrder.forEach(function(sup,idx){
+      var row=document.createElement('div');row.className='sup-admin-row';
+      var rel=admin.reliability[sup]||80;
+      row.innerHTML='<span><b>'+(idx+1)+'.</b> '+sup+'</span>';
+      var actions=document.createElement('span');actions.style.cssText='display:flex;gap:6px;align-items:center';
+      var inp=document.createElement('input');inp.type='number';inp.min=0;inp.max=100;inp.value=rel;inp.style.cssText='width:54px;padding:3px 5px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-family:Roboto Mono,monospace;font-size:10px;text-align:right';
+      inp.onchange=function(){admin.reliability[sup]=parseInt(this.value)||0;NS.saveAdmin(admin);};
+      actions.appendChild(inp);
+      var up=document.createElement('button');up.className='sup-mini';up.textContent='↑';up.disabled=(idx===0);
+      up.onclick=function(){if(idx===0)return;var a=admin.preferredOrder;var t=a[idx-1];a[idx-1]=a[idx];a[idx]=t;NS.saveAdmin(admin);NS.renderPricing();};
+      var dn=document.createElement('button');dn.className='sup-mini';dn.textContent='↓';dn.disabled=(idx===admin.preferredOrder.length-1);
+      dn.onclick=function(){if(idx===admin.preferredOrder.length-1)return;var a=admin.preferredOrder;var t=a[idx+1];a[idx+1]=a[idx];a[idx]=t;NS.saveAdmin(admin);NS.renderPricing();};
+      actions.appendChild(up);actions.appendChild(dn);
+      row.appendChild(actions);
+      list.appendChild(row);
+    });
+    p2.appendChild(list);
+    w.appendChild(p2);
+
+    // Reset
+    var rst=document.createElement('div');rst.style.cssText='margin-top:18px';
+    var rb=document.createElement('button');rb.className='sup-btn ghost';rb.textContent='⟲ Reset admin config to defaults';
+    rb.onclick=function(){if(confirm('Reset all admin config to defaults?')){localStorage.removeItem(K.admin);NS.renderPricing();}};
+    rst.appendChild(rb);
+    w.appendChild(rst);
+
+    return w;
+  }
+
+  function _renderHelp(){
+    var w=document.createElement('div');
+    w.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px 22px;font-size:12px;line-height:1.65;color:var(--mut);max-width:880px';
+    w.innerHTML=
+      '<div style="font-size:14px;font-weight:800;color:var(--txt);margin-bottom:10px">How the ranking is computed</div>'
+      +'<div style="margin-bottom:14px"><b style="color:var(--txt)">1. Availability filter.</b> The system reads every supplier column on the Reloadly tab. A supplier is treated as <i>available</i> only if its cell contains a positive numeric rate. Cells reading "Not Available", "Inactive", "Invalid", "Out of stock", or blank are ignored.</div>'
+      +'<div style="margin-bottom:14px"><b style="color:var(--txt)">2. Manual exclusions.</b> Suppliers explicitly excluded for a product (set in the detail drawer) are dropped before ranking.</div>'
+      +'<div style="margin-bottom:14px"><b style="color:var(--txt)">3. Primary sort.</b> In <i>discount</i> mode (the default for this file), the highest rate wins. In <i>cost</i> mode, the lowest rate wins. You can switch in <i>Admin Controls</i>.</div>'
+      +'<div style="margin-bottom:14px"><b style="color:var(--txt)">4. Tiebreakers.</b> Equal rates fall through to preferred supplier priority, then reliability score, then alphabetical (deterministic).</div>'
+      +'<div style="margin-bottom:14px"><b style="color:var(--txt)">5. Locked primary override.</b> If an admin has locked a supplier as primary for a product, that supplier is forced to rank 1 — provided it is available and not excluded.</div>'
+      +'<div style="margin-bottom:14px"><b style="color:var(--txt)">6. Confidence score.</b> Per-rate confidence: rates ≤30% are scored 100, 30–50% scored 70, &gt;50% scored 30 (likely data entry errors — many of your sheet values like 0.95 or 1.0 are flagged here). Product confidence is the average of the top three ranked suppliers.</div>'
+      +'<div style="margin-bottom:14px"><b style="color:var(--txt)">7. Risk flags.</b> <i>Single source</i> if only one supplier remains. <i>No supplier</i> if none. <i>Low confidence</i> if aggregate confidence is below the threshold. <i>Primary changed</i> / <i>Rate Δ</i> if the previous upload had a different primary or a materially different rate.</div>'
+      +'<div><b style="color:var(--txt)">8. Pricing proposal fallback.</b> The proposal step always uses the Primary supplier unless it is unavailable, out of stock, or the admin has locked someone else — then it falls through Secondary → Third. Products with no available supplier are marked unavailable.</div>';
+    return w;
+  }
+
+  // ===== Detail drawer =====
+  NS.openDetail=function(productId){
+    var products=NS.loadProducts(),overrides=NS.loadOverrides(),admin=NS.loadAdmin(),meta=NS.loadMeta();
+    var p=null;for(var i=0;i<products.length;i++){if(products[i].id===productId){p=products[i];break;}}
+    if(!p)return;
+    var ov=overrides[p.id]||{};
+    var ranked=NS.rankProduct(p,overrides,admin);
+    var flags=NS.computeRisk(p,ranked,meta,admin);
+    var conf=NS.aggregateConfidence(ranked);
+
+    var existing=document.getElementById('sup-drawer-ov');if(existing)existing.remove();
+    var ovEl=document.createElement('div');ovEl.id='sup-drawer-ov';ovEl.className='sup-drawer-ov';
+    ovEl.onclick=function(e){if(e.target===ovEl)ovEl.remove();};
+    var dr=document.createElement('div');dr.className='sup-drawer';
+    var hd=document.createElement('div');hd.className='sup-drawer-hdr';
+    hd.innerHTML='<div><div class="sup-drawer-t">'+_esc(p.title||'(untitled)')+'</div><div class="sup-drawer-s">ID '+_esc(p.id)+' · '+_esc(p.iso||'—')+' · '+_esc(p.status||'—')+'</div></div>';
+    var x=document.createElement('button');x.className='sup-drawer-x';x.innerHTML='&times;';x.onclick=function(){ovEl.remove();};
+    hd.appendChild(x);dr.appendChild(hd);
+
+    // Summary cells
+    var dg=document.createElement('div');dg.className='sup-detail-grid';
+    function cell(l,v){var c=document.createElement('div');c.className='sup-detail-cell';c.innerHTML='<div class="l">'+l+'</div><div class="v">'+v+'</div>';return c;}
+    dg.appendChild(cell('PRIMARY',ranked[0]?ranked[0].supplier:'<span class="sup-mut">none</span>'));
+    dg.appendChild(cell('PRIMARY RATE',ranked[0]?(ranked[0].rate*100).toFixed(2)+'%':'—'));
+    dg.appendChild(cell('AVAILABLE',ranked.length+' / '+Object.keys(p.rates).length));
+    dg.appendChild(cell('CONFIDENCE',conf+' / 100'));
+    dr.appendChild(dg);
+
+    if(flags.length){
+      var fl=document.createElement('div');fl.style.cssText='margin-bottom:14px';
+      fl.innerHTML='<div class="sup-sec-h">RISK FLAGS</div><div class="sup-flagsrow">'+flags.map(function(f){return '<span class="sup-flag '+f.lvl+'">'+f.l+'</span>';}).join('')+'</div>';
+      dr.appendChild(fl);
+    }
+
+    // Reason
+    var why=_buildReason(p,ranked,overrides,admin);
+    var ws=document.createElement('div');ws.className='sup-sec';
+    ws.innerHTML='<div class="sup-sec-h">WHY THIS RANKING</div><div class="sup-reason">'+why+'</div>';
+    dr.appendChild(ws);
+
+    // Ranking list with override actions
+    var rs=document.createElement('div');rs.className='sup-sec';
+    rs.innerHTML='<div class="sup-sec-h">ALL SUPPLIERS — RANKED</div>';
+    var rl=document.createElement('div');rl.className='sup-ranklist';
+    // Build full picture: include excluded + unavailable so admin can see and toggle
+    var allSups=Object.keys(p.rates);
+    var ovLocal=overrides[p.id]||{excluded:[]};
+    // Compute display list: ranked first, then excluded, then unavailable
+    var seen={};
+    ranked.forEach(function(r,idx){
+      seen[r.supplier]=true;
+      var row=document.createElement('div');row.className='sup-rankrow'+(ovLocal.lockedPrimary===r.supplier?' locked':'');
+      row.innerHTML='<span class="sup-rank '+(idx===0?'r1':idx===1?'r2':idx===2?'r3':'')+'" style="min-width:34px;text-align:center">#'+(idx+1)+'</span>'
+        +'<span class="sup-rankrow-name">'+r.supplier+'</span>'
+        +'<span class="sup-rankrow-rate">'+(r.rate*100).toFixed(2)+'%</span>';
+      var acts=document.createElement('span');acts.className='sup-rankrow-act';
+      var lockBtn=document.createElement('button');lockBtn.className='sup-mini';lockBtn.textContent=ovLocal.lockedPrimary===r.supplier?'🔒 Locked':'🔒 Lock #1';
+      lockBtn.onclick=function(){
+        var o=NS.loadOverrides();var po=o[p.id]||{};
+        if(po.lockedPrimary===r.supplier){delete po.lockedPrimary;}else{po.lockedPrimary=r.supplier;}
+        o[p.id]=po;NS.saveOverrides(o);NS.openDetail(p.id);NS.renderPricing();
+      };
+      acts.appendChild(lockBtn);
+      var exBtn=document.createElement('button');exBtn.className='sup-mini danger';exBtn.textContent='✕ Exclude';
+      exBtn.onclick=function(){
+        var o=NS.loadOverrides();var po=o[p.id]||{};po.excluded=po.excluded||[];
+        if(po.excluded.indexOf(r.supplier)<0)po.excluded.push(r.supplier);
+        if(po.lockedPrimary===r.supplier)delete po.lockedPrimary;
+        o[p.id]=po;NS.saveOverrides(o);NS.openDetail(p.id);NS.renderPricing();
+      };
+      acts.appendChild(exBtn);
+      row.appendChild(acts);
+      rl.appendChild(row);
+    });
+    // Excluded
+    (ovLocal.excluded||[]).forEach(function(sup){
+      if(seen[sup])return;seen[sup]=true;
+      var rt=p.rates[sup];
+      var row=document.createElement('div');row.className='sup-rankrow excluded';
+      row.innerHTML='<span class="sup-flag warn" style="min-width:34px;text-align:center">EXC</span>'
+        +'<span class="sup-rankrow-name">'+sup+'</span>'
+        +'<span class="sup-rankrow-rate">'+(rt&&rt.ok?(rt.rate*100).toFixed(2)+'%':'—')+'</span>';
+      var acts=document.createElement('span');acts.className='sup-rankrow-act';
+      var unBtn=document.createElement('button');unBtn.className='sup-mini';unBtn.textContent='↺ Restore';
+      unBtn.onclick=function(){
+        var o=NS.loadOverrides();var po=o[p.id]||{};po.excluded=(po.excluded||[]).filter(function(s){return s!==sup;});
+        o[p.id]=po;NS.saveOverrides(o);NS.openDetail(p.id);NS.renderPricing();
+      };
+      acts.appendChild(unBtn);row.appendChild(acts);rl.appendChild(row);
+    });
+    // Unavailable
+    allSups.forEach(function(sup){
+      if(seen[sup])return;
+      var rt=p.rates[sup];
+      var row=document.createElement('div');row.className='sup-rankrow';row.style.opacity='.5';
+      row.innerHTML='<span class="sup-flag" style="min-width:34px;text-align:center;background:rgba(100,100,122,.18);color:var(--mut)">N/A</span>'
+        +'<span class="sup-rankrow-name">'+sup+'</span>'
+        +'<span class="sup-rankrow-rate sup-mut">'+(rt?rt.status:'—')+'</span>';
+      rl.appendChild(row);
+    });
+    rs.appendChild(rl);
+    dr.appendChild(rs);
+
+    // Notes
+    var ns=document.createElement('div');ns.className='sup-sec';
+    ns.innerHTML='<div class="sup-sec-h">ADMIN NOTES</div>';
+    var ta=document.createElement('textarea');ta.className='sup-notes-ta';ta.value=ovLocal.note||'';ta.placeholder='Reason for override, supplier rule, contact context…';
+    ta.onchange=function(){var o=NS.loadOverrides();var po=o[p.id]||{};po.note=ta.value;o[p.id]=po;NS.saveOverrides(o);};
+    ns.appendChild(ta);
+    dr.appendChild(ns);
+
+    // Clear override
+    if(ovLocal.lockedPrimary||(ovLocal.excluded&&ovLocal.excluded.length)){
+      var clr=document.createElement('button');clr.className='sup-btn ghost';clr.style.marginTop='10px';clr.textContent='Clear all overrides for this product';
+      clr.onclick=function(){var o=NS.loadOverrides();delete o[p.id];NS.saveOverrides(o);NS.openDetail(p.id);NS.renderPricing();};
+      dr.appendChild(clr);
+    }
+
+    ovEl.appendChild(dr);document.body.appendChild(ovEl);
+  };
+
+  function _buildReason(p,ranked,overrides,admin){
+    var ov=overrides[p.id]||{};
+    var parts=[];
+    if(!ranked.length){parts.push('<b>No available supplier.</b> All entries in the Reloadly tab are Not Available, blank, or excluded for this product.');return parts.join(' ');}
+    parts.push('Mode: <b>'+(admin.mode==='discount'?'discount-based':'cost-based')+'</b> ranking.');
+    if(ov.lockedPrimary){parts.push('<b>Primary is locked to '+ov.lockedPrimary+'</b> by admin override.');}
+    else{
+      var top=ranked[0];
+      var pretty=ranked.slice(0,Math.min(3,ranked.length)).map(function(r){return r.supplier+' '+(r.rate*100).toFixed(2)+'%';}).join(', ');
+      parts.push('Top three by rate: <b>'+pretty+'</b>.');
+      // Ties?
+      if(ranked.length>=2&&ranked[0].rate===ranked[1].rate){
+        parts.push('Top two tied on rate; tiebreaker resolved by preferred-order ('+ranked[0].supplier+' ranked higher in admin order than '+ranked[1].supplier+').');
+      }
+    }
+    if(ov.excluded&&ov.excluded.length){parts.push('Excluded by admin: <b>'+ov.excluded.join(', ')+'</b>.');}
+    if(p.bestPriced&&ranked[0]&&ranked[0].supplier!==p.bestPriced){
+      parts.push('Note: source file flagged <b>'+p.bestPriced+'</b> as Best Priced. Our ranking differs because of admin overrides or normalised availability handling.');
+    }
+    return parts.join(' ');
+  }
+
+  // ===== Upload pipeline =====
+  function _promptUpload(){
+    var i=document.createElement('input');i.type='file';i.accept='.xlsx,.xls';
+    i.onchange=function(e){if(e.target.files&&e.target.files[0])_handleFile(e.target.files[0]);};
+    i.click();
+  }
+  function _handleFile(file){
+    if(typeof XLSX==='undefined'){alert('Excel reader not loaded — please refresh and retry.');return;}
+    var reader=new FileReader();
+    reader.onload=function(e){
+      try{
+        var data=new Uint8Array(e.target.result);
+        var wb=XLSX.read(data,{type:'array'});
+        var products=NS.parseWorkbook(wb,file.name);
+        if(!products.length){alert('No products parsed from the Reloadly tab.');return;}
+        // Snapshot previous primary BEFORE overwriting products
+        var meta=NS.loadMeta();
+        var oldProducts=NS.loadProducts();
+        var oldOverrides=NS.loadOverrides();
+        var oldAdmin=NS.loadAdmin();
+        var prevPrimary={};
+        if(oldProducts.length){
+          oldProducts.forEach(function(op){
+            var ranked=NS.rankProduct(op,oldOverrides,oldAdmin);
+            if(ranked.length)prevPrimary[op.id]={supplier:ranked[0].supplier,rate:ranked[0].rate};
+          });
+        }else if(meta.previousPrimary){prevPrimary=meta.previousPrimary;}
+        meta.lastUpload=new Date().toISOString();
+        meta.fileName=file.name;
+        meta.previousPrimary=prevPrimary;
+        NS.saveMeta(meta);
+        NS.saveProducts(products);
+        if(typeof toast==='function')toast('Loaded '+products.length+' products','ok');
+        NS.renderPricing();
+      }catch(err){
+        alert('Failed to parse file: '+(err&&err.message?err.message:err));
+      }
+    };
+    reader.onerror=function(){alert('Failed to read file.');};
+    reader.readAsArrayBuffer(file);
+  }
+
+  // ===== Excel export =====
+  NS.exportXLSX=function(){
+    if(typeof XLSX==='undefined'){alert('Excel writer not loaded.');return;}
+    var products=NS.loadProducts(),overrides=NS.loadOverrides(),admin=NS.loadAdmin(),meta=NS.loadMeta();
+    if(!products.length){alert('Nothing to export.');return;}
+    var rows=[['Product ID','Product Name','Country','Status','Primary Supplier','Primary Supplier Rate','Secondary Supplier','Secondary Supplier Rate','Third Supplier','Third Supplier Rate','Supplier Count Available','Best Commercial Rate','Manual Override','Notes']];
+    products.forEach(function(p){
+      var ranked=NS.rankProduct(p,overrides,admin);
+      var ov=overrides[p.id]||{};
+      var notes=[];
+      var flags=NS.computeRisk(p,ranked,meta,admin);
+      flags.forEach(function(f){notes.push(f.l);});
+      if(ov.note)notes.push('NOTE: '+ov.note);
+      var manualOv='';
+      if(ov.lockedPrimary)manualOv='LOCK→'+ov.lockedPrimary;
+      if(ov.excluded&&ov.excluded.length)manualOv=(manualOv?manualOv+' | ':'')+'EXCLUDE:'+ov.excluded.join(',');
+      function r(i){return ranked[i]?ranked[i].supplier:'';}
+      function rt(i){return ranked[i]?(ranked[i].rate):'';}
+      rows.push([
+        p.id,p.title,p.iso,p.status,
+        r(0),rt(0),r(1),rt(1),r(2),rt(2),
+        ranked.length,
+        ranked.length?ranked[0].rate:'',
+        manualOv,
+        notes.join(' · ')
+      ]);
+    });
+    var k=NS.computeKPIs();
+    var sum=[['Pricing Proposal — Supplier Ranking Export'],['Generated',new Date().toLocaleString()],['Source file',meta.fileName||'—'],[],['KPI','Value'],['Total products analysed',k.total],['Products with primary supplier',k.withPrimary],['Products with secondary supplier',k.withSecondary],['Products with third supplier',k.withThird],['Products with only one supplier',k.singleSource],['Products with no supplier',k.none],['Products requiring manual review',k.manualReview],['Products where primary supplier changed since last upload',k.primaryChanged],['Products with locked primary (admin override)',k.locked]];
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Summary');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Supplier Ranking');
+    XLSX.writeFile(wb,'Pricing_SupplierRanking_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  };
+
+  function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  return NS;
+})();
+</script>
+<script>
 init();
 </script>
 </body>
