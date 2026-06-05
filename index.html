@@ -9445,23 +9445,83 @@ var SUP=(function(){
 
   // --- helpers -----------------------------------------------
   var ALIAS_TO_ISO = {
-    'usa':'US','u.s.a.':'US','united states of america':'US','united states':'US',
+    'usa':'US','u.s.a.':'US','united states of america':'US','united states':'US','america':'US',
     'uk':'GB','u.k.':'GB','great britain':'GB','united kingdom':'GB',
+    'united kingdom of great britain and northern ireland':'GB','britain':'GB','england':'GB',
     'uae':'AE','u.a.e.':'AE','united arab emirates':'AE',
-    'south korea':'KR','republic of korea':'KR','korea, republic of':'KR',
-    'north korea':'KP','vietnam':'VN','viet nam':'VN','russia':'RU','russian federation':'RU',
-    'iran':'IR','syria':'SY','tanzania':'TZ','united republic of tanzania':'TZ',
-    'czech republic':'CZ','czechia':'CZ','ivory coast':'CI','cape verde':'CV',
-    'swaziland':'SZ','eswatini':'SZ','macedonia':'MK','holland':'NL','netherlands':'NL',
-    'türkiye':'TR','turkey':'TR','venezuela':'VE','bolivia':'BO','taiwan':'TW'
+    'south korea':'KR','republic of korea':'KR','korea, republic of':'KR','korea republic of':'KR','korea':'KR',
+    'north korea':'KP',"democratic people's republic of korea":'KP',
+    'vietnam':'VN','viet nam':'VN','russia':'RU','russian federation':'RU',
+    'iran':'IR','islamic republic of iran':'IR',
+    'syria':'SY','syrian arab republic':'SY',
+    'tanzania':'TZ','united republic of tanzania':'TZ',
+    'czech republic':'CZ','czechia':'CZ','ivory coast':'CI',"côte d'ivoire":'CI','cote d ivoire':'CI',
+    'cape verde':'CV','cabo verde':'CV',
+    'swaziland':'SZ','eswatini':'SZ','kingdom of eswatini':'SZ',
+    'macedonia':'MK','north macedonia':'MK','republic of north macedonia':'MK',
+    'holland':'NL','netherlands':'NL','kingdom of the netherlands':'NL',
+    'türkiye':'TR','turkey':'TR','republic of turkey':'TR',
+    'venezuela':'VE','bolivarian republic of venezuela':'VE',
+    'bolivia':'BO','plurinational state of bolivia':'BO',
+    'taiwan':'TW','taiwan, province of china':'TW','province of china':'TW',
+    'moldova':'MD','republic of moldova':'MD',
+    'palestine':'PS','state of palestine':'PS','palestinian territory':'PS',
+    'laos':'LA','lao people\u2019s democratic republic':'LA',
+    'macau':'MO','macao':'MO','macao sar':'MO',
+    'hong kong':'HK','hong kong sar':'HK','hong kong special administrative region':'HK',
+    'micronesia':'FM','federated states of micronesia':'FM',
+    'kosovo':'XK','dr congo':'CD','democratic republic of congo':'CD','congo democratic republic':'CD',
+    'congo brazzaville':'CG','republic of congo':'CG','congo republic':'CG',
+    'east timor':'TL','timor leste':'TL','timor-leste':'TL',
+    'cape town':'ZA','south africa':'ZA','republic of south africa':'ZA',
+    'philippines':'PH','republic of the philippines':'PH',
+    'argentina':'AR','argentine republic':'AR'
   };
+
+  // Common long-form suffixes/prefixes that wrap a real country name. Stripping these
+  // lets us reduce e.g. "United States of America" → "United States" → US, or
+  // "United Kingdom of Great Britain and Northern Ireland" → "United Kingdom" → GB.
+  var _COUNTRY_STRIP_RE = /\b(of great britain and northern ireland|of america|the united republic of|united republic of|islamic republic of|bolivarian republic of|plurinational state of|federated states of|kingdom of|republic of|democratic republic of|the kingdom of|the republic of|the federation of|special administrative region|sar)\b/g;
+
   function _isoFromName(name){
     if(!name)return '';
     var n=String(name).trim().toLowerCase();
+    if(!n)return '';
+    // 1. Exact match against canonical ISO_NAMES
     if(window.ISO_NAMES){
       for(var k in window.ISO_NAMES){if(window.ISO_NAMES[k].toLowerCase()===n)return k;}
     }
-    return ALIAS_TO_ISO[n]||'';
+    // 2. Exact match against alias map
+    if(ALIAS_TO_ISO[n])return ALIAS_TO_ISO[n];
+    // 3. Strip common long-form suffixes/prefixes and re-check
+    var stripped = n.replace(_COUNTRY_STRIP_RE,' ').replace(/\s+/g,' ').trim();
+    if(stripped && stripped !== n){
+      if(window.ISO_NAMES){
+        for(var k2 in window.ISO_NAMES){if(window.ISO_NAMES[k2].toLowerCase()===stripped)return k2;}
+      }
+      if(ALIAS_TO_ISO[stripped])return ALIAS_TO_ISO[stripped];
+    }
+    // 4. Substring match — find any known canonical country name within n.
+    //    Iterate by length descending so 'united states' wins over 'states'.
+    if(window.ISO_NAMES){
+      var entries=[];
+      for(var k3 in window.ISO_NAMES){entries.push([k3, window.ISO_NAMES[k3].toLowerCase()]);}
+      entries.sort(function(a,b){return b[1].length-a[1].length;});
+      for(var i=0;i<entries.length;i++){
+        var cn=entries[i][1];
+        if(cn.length>=5 && (' '+n+' ').indexOf(' '+cn+' ')>=0)return entries[i][0];
+        // Also accept "X." or X-comma start/end
+        if(cn.length>=5 && n.indexOf(cn)===0)return entries[i][0];
+        if(cn.length>=5 && n.indexOf(cn)===n.length-cn.length)return entries[i][0];
+      }
+    }
+    // 5. Substring match against alias keys (longest first)
+    var aliasKeys=Object.keys(ALIAS_TO_ISO).sort(function(a,b){return b.length-a.length;});
+    for(var j=0;j<aliasKeys.length;j++){
+      var ak=aliasKeys[j];
+      if(ak.length>=4 && (' '+n+' ').indexOf(' '+ak+' ')>=0)return ALIAS_TO_ISO[ak];
+    }
+    return '';
   }
 
   // Precompiled brand-normalisation regexes
