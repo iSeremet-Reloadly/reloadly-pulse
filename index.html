@@ -8569,7 +8569,20 @@ var SUP=(function(){
     };
   }
   function loadJSON(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
-  function saveJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+  function saveJSON(k,v){
+    try{
+      localStorage.setItem(k,JSON.stringify(v));
+      return true;
+    }catch(e){
+      var msg=e&&e.message?e.message:String(e);
+      console.error('localStorage save failed for key',k,':',msg);
+      // Quota errors are the common case — re-throw with a friendlier message so callers can catch
+      var err=new Error('Storage quota exceeded ('+msg+'). The browser localStorage has roughly 5MB total. Try the Clear Data button on the Pricing screen, then re-import.');
+      err.code='QUOTA';
+      err.original=e;
+      throw err;
+    }
+  }
   NS.loadProducts=function(){return loadJSON(K.products,[]);};
   NS.saveProducts=function(p){saveJSON(K.products,p);};
   NS.loadOverrides=function(){return loadJSON(K.overrides,{});};
@@ -8626,7 +8639,14 @@ var SUP=(function(){
       return -1;
     }
     var cId=colIdx('id'),cTitle=colIdx('title'),cIso=colIdx('iso_name'),cStat=colIdx('status'),cBest=colIdx('best priced');
-    if(cId<0||cTitle<0)throw new Error('Required columns id/title not found');
+    if(cId<0||cTitle<0){
+      // Detect if it looks like a single-supplier file (Bamboo/Globetopper/etc. shape)
+      var headerLower = header.map(function(h){return String(h||'').trim().toLowerCase();}).join('|');
+      if(headerLower.indexOf('brand')>=0 && (headerLower.indexOf('region')>=0 || headerLower.indexOf('country')>=0) && headerLower.indexOf('discount')>=0){
+        throw new Error('This looks like a single-supplier price file (Bamboo / Globetopper / etc.). The "Upload analysis" path expects a pre-consolidated file with all suppliers as columns. \n\nUse "+ Add supplier file" (the importer wizard) instead — it auto-detects this format.');
+      }
+      throw new Error('Required columns id/title not found. Expected a Reloadly tab with: id, title, iso_name, status, and one column per supplier.');
+    }
     // Build supplier column mapping with alias normalisation
     var supCols={};
     header.forEach(function(h,i){
@@ -9792,8 +9812,7 @@ var SUP=(function(){
       p.rates=p.rates||{};
       p.rates[supplier]={
         raw:roll, ok:true, status:'available', rate:roll,
-        conf:roll<=0.30?100:roll<=0.50?70:30,
-        denomCount:vals.length, denomMin:vals[0], denomMax:vals[vals.length-1]
+        conf:roll<=0.30?100:roll<=0.50?70:30
       };
     });
     return catalog;
@@ -10131,11 +10150,13 @@ var SUP=(function(){
         var supRowsStore = (function(){try{var v=localStorage.getItem('rl_sup_supplier_rows_v1');return v?JSON.parse(v):{};}catch(e){return {};}})();
         supRowsStore[s.supplier] = s.supData.rows
           .filter(function(r){return r.discount!=null && (r.brand||r.product);})
-          .map(function(r){return {brand:r.brand||r.product, iso:r.iso||'', discount:r.discount, denomination:r.denomination};});
+          .map(function(r){return {brand:r.brand||r.product, iso:r.iso||'', discount:r.discount};});
         try{localStorage.setItem('rl_sup_supplier_rows_v1', JSON.stringify(supRowsStore));}catch(qe){
-          console.warn('Supplier row store quota exceeded:', qe.message);
+          console.warn('Supplier suggestion store quota exceeded (suggestions feature disabled for this supplier):', qe.message);
+          // Best-effort: clear other suppliers and retry just this one
+          try{localStorage.setItem('rl_sup_supplier_rows_v1', JSON.stringify({}));}catch(_){}
         }
-      } catch(persistErr) {/* non-fatal */}
+      } catch(persistErr) {console.error('Supplier row persist failed:', persistErr);}
       // Snapshot previous primary BEFORE saving
       var meta=NS.loadMeta();
       var oldOverrides=NS.loadOverrides();var oldAdmin=NS.loadAdmin();
@@ -10147,8 +10168,14 @@ var SUP=(function(){
       meta.previousPrimary=prev;
       meta.sources=meta.sources||[];
       meta.sources.push({supplier:s.supplier,fileName:s.supData.fileName,at:meta.lastUpload,rowCount:s.supData.rows.length,acceptedCount:acceptedCount});
-      NS.saveMeta(meta);
-      NS.saveProducts(cat);
+      try {
+        NS.saveMeta(meta);
+        NS.saveProducts(cat);
+      } catch(storageErr) {
+        if(window.hideBusy)hideBusy();
+        alert('Could not save: '+(storageErr.message||storageErr)+'\n\nYour data was NOT applied. Try clearing existing supplier data first (Clear Data button on the Pricing screen) and re-import.');
+        return;
+      }
       NS.clearImportState();
       if(window.hideBusy) hideBusy();
       if(typeof toast==='function')toast(s.supplier+' applied — '+acceptedCount.toLocaleString()+' matches','ok');
