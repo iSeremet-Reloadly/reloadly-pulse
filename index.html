@@ -9120,7 +9120,27 @@ var SUP=(function(){
     // Per-column header filters (persist in ui.colFilters)
     ui.colFilters = ui.colFilters || {};
     var cf = ui.colFilters;
-    function _updateCF(key,val){cf[key]=val;ui.colFilters=cf;ui.page=0;NS.saveUI(ui);_renderReview(_clearTail(wrap,fbar),ui);}
+    // Debounce so each keystroke doesn't trigger a re-render that kills input focus.
+    // Selects fire onchange (one event) so they re-render immediately.
+    function _updateCF(key,val,immediate){
+      cf[key]=val;ui.colFilters=cf;ui.page=0;NS.saveUI(ui);
+      clearTimeout(window._cfDebounce);
+      var fire=function(){
+        // Snapshot focus before re-render so we can restore it after
+        var ae=document.activeElement;
+        var focusKey=ae&&ae.dataset?ae.dataset.cfKey:null;
+        var caret=null;try{if(ae&&typeof ae.selectionStart==='number')caret=ae.selectionStart;}catch(e){}
+        _renderReview(_clearTail(wrap,fbar),ui);
+        if(focusKey){
+          var restored=document.querySelector('[data-cf-key="'+focusKey+'"]');
+          if(restored){
+            restored.focus();
+            try{if(caret!=null&&restored.setSelectionRange)restored.setSelectionRange(caret,caret);}catch(e){}
+          }
+        }
+      };
+      if(immediate)fire();else window._cfDebounce=setTimeout(fire,280);
+    }
 
     // Build supplier list (across all products) for filter dropdowns
     var allSuppliersSet={};
@@ -9165,8 +9185,8 @@ var SUP=(function(){
     // Filter row
     var trf=document.createElement('tr');trf.className='sup-filter-row';
     function _fcell(html){var th=document.createElement('th');th.style.cssText='padding:6px 8px;background:var(--surf);border-bottom:1px solid var(--brd);position:sticky;top:33px;z-index:1';th.innerHTML=html;return th;}
-    function _fInp(key,placeholder){var inp=document.createElement('input');inp.placeholder=placeholder||'';inp.value=cf[key]||'';inp.style.cssText='width:100%;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:inherit;outline:none';inp.oninput=function(){_updateCF(key,this.value);};return inp;}
-    function _fSel(key,opts){var sel=document.createElement('select');sel.style.cssText='width:100%;padding:3px 5px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:inherit;outline:none';opts.forEach(function(o){var op=document.createElement('option');op.value=o;op.textContent=o;if(cf[key]===o)op.selected=true;sel.appendChild(op);});if(!cf[key])sel.value='All';sel.onchange=function(){_updateCF(key,this.value);};return sel;}
+    function _fInp(key,placeholder){var inp=document.createElement('input');inp.dataset.cfKey=key;inp.placeholder=placeholder||'';inp.value=cf[key]||'';inp.style.cssText='width:100%;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:inherit;outline:none';inp.oninput=function(){_updateCF(key,this.value,false);};return inp;}
+    function _fSel(key,opts){var sel=document.createElement('select');sel.dataset.cfKey=key;sel.style.cssText='width:100%;padding:3px 5px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:inherit;outline:none';opts.forEach(function(o){var op=document.createElement('option');op.value=o;op.textContent=o;if(cf[key]===o)op.selected=true;sel.appendChild(op);});if(!cf[key])sel.value='All';sel.onchange=function(){_updateCF(key,this.value,true);};return sel;}
     // Row of filters in same column order
     var fIdCell=_fcell('');fIdCell.appendChild(_fInp('id','ID'));trf.appendChild(fIdCell);
     var fTitleCell=_fcell('');fTitleCell.appendChild(_fInp('title','search'));trf.appendChild(fTitleCell);
