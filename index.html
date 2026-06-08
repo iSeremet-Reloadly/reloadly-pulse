@@ -1229,10 +1229,13 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-Engineering" onclick="go('Engineering')" style="display:none"></div>
     <div class="ni" id="nav-Sales" onclick="go('Sales')" style="display:none"></div>
     <div class="ni" id="nav-mytasks" onclick="go('mytasks')" style="display:none"></div>
+    <!-- Activity Log moved into User Management; route kept for back-compat -->
+    <div class="ni" id="nav-log" onclick="go('log')" style="display:none"></div>
+    <!-- Flex spacer pushes TOOLS to the bottom of the sidebar -->
+    <div style="flex:1;min-height:8px"></div>
     <div class="sb-lbl">TOOLS</div>
     <div class="ni" id="nav-perf" onclick="go('perf')"><div class="ni-l"><div class="dd" style="background:#8b5cf6"></div>Performance</div></div>
     <div class="ni" id="nav-reminders" onclick="go('reminders')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Reminders</div><div class="cnt" id="c-reminders"></div></div>
-    <div class="ni" id="nav-log" onclick="go('log')"><div class="ni-l"><div class="dd" style="background:var(--mut)"></div>Activity Log</div><div class="cnt" id="c-log">0</div></div>
     <div class="ni" id="nav-help" onclick="showFullGuide()" title="Open the full Pulse user guide"><div class="ni-l"><div class="dd" style="background:#10b981"></div>How to Use</div></div>
     <div class="ni" id="nav-admin" onclick="go('admin')" style="display:none"><div class="ni-l"><div class="dd" style="background:var(--acc)"></div>User Management</div></div>
   </div>
@@ -1703,10 +1706,39 @@ function isAdmin(){return currentUser&&currentUser.isAdmin===true;}
 function canAccessPricing(){return currentUser&&(currentUser.canAccessPricing===true||currentUser.isAdmin===true);}
 function renderAdmin(){
   if(!isAdmin()){renderDash();return;}
+  var tab = window._adminTab || 'users';
+  if(tab==='log'){return _renderAdminLog();}
+  return _renderAdminUsers();
+}
+function _adminTabBar(active){
+  var bar='<div style="display:flex;gap:0;border-bottom:1px solid var(--brd);margin:14px 0 20px">';
+  ['users','log'].forEach(function(t){
+    var l={users:'Users',log:'Activity Log'}[t];
+    var cls='background:none;border:none;padding:9px 18px;font-size:11px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;font-family:Roboto Mono,monospace;letter-spacing:.4px;'
+      +(t===active?'color:var(--txt);border-color:var(--acc)':'color:var(--mut)');
+    bar+='<button onclick="window._adminTab=\''+t+'\';renderAdmin();" style="'+cls+'">'+l+'</button>';
+  });
+  bar+='</div>';
+  return bar;
+}
+function _renderAdminLog(){
+  var main = document.getElementById('main');
+  main.innerHTML='';
+  var ttl=document.createElement('div');ttl.className='ptitle';ttl.textContent='User Management';main.appendChild(ttl);
+  var sub=document.createElement('div');sub.className='psub';sub.textContent='Activity Log · '+actLog.length+' events · auto-saved · enterprise audit trail';main.appendChild(sub);
+  main.insertAdjacentHTML('beforeend', _adminTabBar('log'));
+  // Reuse existing renderLog rendering by appending into a holder
+  var holder=document.createElement('div');holder.id='admin-log-holder';main.appendChild(holder);
+  // Render the log body into the holder
+  _renderLogBody(holder);
+}
+function _renderAdminUsers(){
+  if(!isAdmin()){renderDash();return;}
   // Reload archived list from storage
   window.ARCHIVED_USERS=JSON.parse(localStorage.getItem('rl_archived')||'[]');
   var entries=Object.entries(USER_REGISTRY);
   var html='<div class="ptitle">User Management</div><div class="psub">'+entries.length+' registered users &middot; only admins can see this</div>';
+  html+=_adminTabBar('users');
   html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME</th><th>ROLE</th><th>DEPT</th><th>EXPORT</th><th>VIEW ALL</th><th>ADMIN</th><th>PRICING</th><th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
   entries.forEach(function(kv){
     var e=kv[0],u=kv[1],you=currentUser&&currentUser.email===e;
@@ -2036,12 +2068,18 @@ function buildDashCharts(){
   ]},options:CO});
 }
 function renderLog(){
-  var fState = window._logFilters || {q:'',user:'',tag:'',from:'',to:''};
-  window._logFilters = fState;
+  // If the user is an admin, route Activity Log into the User Management page's tab.
+  if(isAdmin()){window._adminTab='log';return renderAdmin();}
+  // Otherwise (non-admin): render standalone (kept for users with direct routes / older bookmarks)
   var main = document.getElementById('main');
   main.innerHTML = '';
   var ttl = document.createElement('div');ttl.className='ptitle';ttl.textContent='Activity Log';main.appendChild(ttl);
   var sub = document.createElement('div');sub.className='psub';sub.textContent=actLog.length+' events · auto-saved · enterprise audit trail';main.appendChild(sub);
+  _renderLogBody(main);
+}
+function _renderLogBody(main){
+  var fState = window._logFilters || {q:'',user:'',tag:'',from:'',to:''};
+  window._logFilters = fState;
   if(!actLog.length){var emp=document.createElement('div');emp.className='log-panel';emp.innerHTML='<div class="log-empty">No activity yet.</div>';main.appendChild(emp);return;}
   var fBar = document.createElement('div');
   fBar.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:12px;margin-bottom:14px;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 1fr auto auto;gap:8px;align-items:center';
