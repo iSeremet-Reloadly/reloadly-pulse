@@ -8621,8 +8621,40 @@ var SUP=(function(){
       throw err;
     }
   }
-  NS.loadProducts=function(){return loadJSON(K.products,[]);};
-  NS.saveProducts=function(p){saveJSON(K.products,p);};
+  // Store rates as flat {supplier: rate_number} on disk (much smaller than full rate objects).
+  // Reconstruct runtime shape on load. Backward compatible with old data (full objects pass through).
+  function _compressProduct(p){
+    var rates={};
+    Object.keys(p.rates||{}).forEach(function(sup){
+      var r=p.rates[sup];
+      if(r&&r.ok&&typeof r.rate==='number')rates[sup]=r.rate;
+    });
+    var out={id:p.id,title:p.title,iso:p.iso,status:p.status,rates:rates};
+    if(p.bestPriced)out.b=p.bestPriced;
+    return out;
+  }
+  function _decompressProduct(p){
+    var rates={};
+    Object.keys(p.rates||{}).forEach(function(sup){
+      var v=p.rates[sup];
+      if(typeof v==='number'){
+        var c=v<=0.30?100:v<=0.50?70:30;
+        rates[sup]={raw:v,ok:true,status:'available',rate:v,conf:c};
+      }else if(v&&typeof v==='object'){
+        rates[sup]=v; // legacy full object
+      }
+    });
+    return {id:p.id,title:p.title,iso:p.iso,status:p.status,rates:rates,bestPriced:p.b||p.bestPriced||''};
+  }
+  NS.loadProducts=function(){
+    var raw=loadJSON(K.products,[]);
+    if(!raw.length)return [];
+    return raw.map(_decompressProduct);
+  };
+  NS.saveProducts=function(p){
+    var compact=(p||[]).map(_compressProduct);
+    return saveJSON(K.products,compact);
+  };
   NS.loadOverrides=function(){return loadJSON(K.overrides,{});};
   NS.saveOverrides=function(o){saveJSON(K.overrides,o);};
   NS.loadMeta=function(){return loadJSON(K.meta,{lastUpload:null,fileName:null,previousPrimary:{}});};
