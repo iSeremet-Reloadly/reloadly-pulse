@@ -8581,6 +8581,13 @@ window.countryName = function(iso){
   var k = String(iso).trim().toUpperCase();
   return window.ISO_NAMES[k] || k;
 };
+// ISO → continent map (ISO 3166-1 alpha-2)
+window.ISO_CONTINENTS = {'AD':'Europe','AE':'Asia','AF':'Asia','AG':'North America','AI':'North America','AL':'Europe','AM':'Asia','AO':'Africa','AQ':'Antarctica','AR':'South America','AS':'Oceania','AT':'Europe','AU':'Oceania','AW':'North America','AZ':'Asia','BA':'Europe','BB':'North America','BD':'Asia','BE':'Europe','BF':'Africa','BG':'Europe','BH':'Asia','BI':'Africa','BJ':'Africa','BL':'North America','BM':'North America','BN':'Asia','BO':'South America','BQ':'North America','BR':'South America','BS':'North America','BT':'Asia','BV':'Antarctica','BW':'Africa','BY':'Europe','BZ':'North America','CA':'North America','CD':'Africa','CF':'Africa','CG':'Africa','CH':'Europe','CI':'Africa','CK':'Oceania','CL':'South America','CM':'Africa','CN':'Asia','CO':'South America','CR':'North America','CU':'North America','CV':'Africa','CW':'North America','CY':'Asia','CZ':'Europe','DE':'Europe','DJ':'Africa','DK':'Europe','DM':'North America','DO':'North America','DZ':'Africa','EC':'South America','EE':'Europe','EG':'Africa','EH':'Africa','ER':'Africa','ES':'Europe','ET':'Africa','FI':'Europe','FJ':'Oceania','FK':'South America','FM':'Oceania','FR':'Europe','GA':'Africa','GB':'Europe','GD':'North America','GE':'Asia','GF':'South America','GG':'Europe','GH':'Africa','GI':'Europe','GL':'North America','GM':'Africa','GN':'Africa','GP':'North America','GQ':'Africa','GR':'Europe','GS':'Antarctica','GT':'North America','GU':'Oceania','GW':'Africa','GY':'South America','HK':'Asia','HM':'Antarctica','HN':'North America','HR':'Europe','HT':'North America','HU':'Europe','ID':'Asia','IE':'Europe','IL':'Asia','IM':'Europe','IN':'Asia','IQ':'Asia','IR':'Asia','IS':'Europe','IT':'Europe','JE':'Europe','JM':'North America','JO':'Asia','JP':'Asia','KE':'Africa','KG':'Asia','KH':'Asia','KI':'Oceania','KM':'Africa','KN':'North America','KP':'Asia','KR':'Asia','KW':'Asia','KY':'North America','KZ':'Asia','LA':'Asia','LB':'Asia','LC':'North America','LI':'Europe','LK':'Asia','LR':'Africa','LS':'Africa','LT':'Europe','LU':'Europe','LV':'Europe','LY':'Africa','MA':'Africa','MC':'Europe','MD':'Europe','ME':'Europe','MF':'North America','MG':'Africa','MH':'Oceania','MK':'Europe','ML':'Africa','MM':'Asia','MN':'Asia','MO':'Asia','MP':'Oceania','MQ':'North America','MR':'Africa','MS':'North America','MT':'Europe','MU':'Africa','MV':'Asia','MW':'Africa','MX':'North America','MY':'Asia','MZ':'Africa','NA':'Africa','NC':'Oceania','NE':'Africa','NF':'Oceania','NG':'Africa','NI':'North America','NL':'Europe','NO':'Europe','NP':'Asia','NR':'Oceania','NU':'Oceania','NZ':'Oceania','OM':'Asia','PA':'North America','PE':'South America','PF':'Oceania','PG':'Oceania','PH':'Asia','PK':'Asia','PL':'Europe','PM':'North America','PN':'Oceania','PR':'North America','PS':'Asia','PT':'Europe','PW':'Oceania','PY':'South America','QA':'Asia','RE':'Africa','RO':'Europe','RS':'Europe','RU':'Europe','RW':'Africa','SA':'Asia','SB':'Oceania','SC':'Africa','SD':'Africa','SE':'Europe','SG':'Asia','SH':'Africa','SI':'Europe','SK':'Europe','SL':'Africa','SM':'Europe','SN':'Africa','SO':'Africa','SR':'South America','SS':'Africa','ST':'Africa','SV':'North America','SX':'North America','SY':'Asia','SZ':'Africa','TC':'North America','TD':'Africa','TF':'Antarctica','TG':'Africa','TH':'Asia','TJ':'Asia','TK':'Oceania','TL':'Asia','TM':'Asia','TN':'Africa','TO':'Oceania','TR':'Asia','TT':'North America','TV':'Oceania','TW':'Asia','TZ':'Africa','UA':'Europe','UG':'Africa','US':'North America','UY':'South America','UZ':'Asia','VA':'Europe','VC':'North America','VE':'South America','VG':'North America','VI':'North America','VN':'Asia','VU':'Oceania','WF':'Oceania','WS':'Oceania','XK':'Europe','YE':'Asia','YT':'Africa','ZA':'Africa','ZM':'Africa','ZW':'Africa'};
+window.countryContinent = function(iso){
+  if(!iso) return '';
+  var k = String(iso).trim().toUpperCase();
+  return window.ISO_CONTINENTS[k] || '';
+};
 </script>
 <script>
 // ====================== Pricing / Supplier Ranking module ======================
@@ -8721,12 +8728,17 @@ var SUP=(function(){
   // Store rates as flat {supplier: rate_number} on disk (much smaller than full rate objects).
   // Reconstruct runtime shape on load. Backward compatible with old data (full objects pass through).
   function _compressProduct(p){
-    var rates={};
+    var rates={};var fees={};
     Object.keys(p.rates||{}).forEach(function(sup){
       var r=p.rates[sup];
       if(r&&r.ok&&typeof r.rate==='number')rates[sup]=r.rate;
     });
+    Object.keys(p.fees||{}).forEach(function(sup){
+      var f=p.fees[sup];
+      if(typeof f==='number'&&!isNaN(f))fees[sup]=f;
+    });
     var out={id:p.id,title:p.title,iso:p.iso,status:p.status,rates:rates};
+    if(Object.keys(fees).length)out.fees=fees;
     if(p.bestPriced)out.b=p.bestPriced;
     return out;
   }
@@ -8741,7 +8753,7 @@ var SUP=(function(){
         rates[sup]=v; // legacy full object
       }
     });
-    return {id:p.id,title:p.title,iso:p.iso,status:p.status,rates:rates,bestPriced:p.b||p.bestPriced||''};
+    return {id:p.id,title:p.title,iso:p.iso,status:p.status,rates:rates,fees:p.fees||{},bestPriced:p.b||p.bestPriced||''};
   }
   NS.loadProducts=function(){
     var raw=_memCache.products;
@@ -9105,16 +9117,73 @@ var SUP=(function(){
     if(ui.page>=pages)ui.page=pages-1;
     var page=filt.slice(ui.page*ps,(ui.page+1)*ps);
 
+    // Per-column header filters (persist in ui.colFilters)
+    ui.colFilters = ui.colFilters || {};
+    var cf = ui.colFilters;
+    function _updateCF(key,val){cf[key]=val;ui.colFilters=cf;ui.page=0;NS.saveUI(ui);_renderReview(_clearTail(wrap,fbar),ui);}
+
+    // Build supplier list (across all products) for filter dropdowns
+    var allSuppliersSet={};
+    products.forEach(function(p){Object.keys(p.rates||{}).forEach(function(sn){allSuppliersSet[sn]=true;});});
+    var allSuppliers=Object.keys(allSuppliersSet).sort();
+    var allContinents=Array.from(new Set(products.map(function(p){return countryContinent(p.iso);}).filter(Boolean))).sort();
+
+    // Apply per-column filters to filt (in addition to top-bar filters)
+    filt = filt.filter(function(p){
+      if(cf.id && p.id.toLowerCase().indexOf(cf.id.toLowerCase())<0)return false;
+      if(cf.title && (p.title||'').toLowerCase().indexOf(cf.title.toLowerCase())<0)return false;
+      if(cf.continent && cf.continent!=='All' && countryContinent(p.iso)!==cf.continent)return false;
+      if(cf.primary && cf.primary!=='All'){var r=NS.rankProduct(p,overrides,admin);if(!r[0]||r[0].supplier!==cf.primary)return false;}
+      if(cf.secondary && cf.secondary!=='All'){var r2=NS.rankProduct(p,overrides,admin);if(!r2[1]||r2[1].supplier!==cf.secondary)return false;}
+      if(cf.third && cf.third!=='All'){var r3=NS.rankProduct(p,overrides,admin);if(!r3[2]||r3[2].supplier!==cf.third)return false;}
+      if(cf.flags){
+        var r4=NS.rankProduct(p,overrides,admin);var fl=NS.computeRisk(p,r4,meta,admin);
+        var flStr=fl.map(function(f){return f.l;}).join(' ').toLowerCase();
+        if(flStr.indexOf(cf.flags.toLowerCase())<0)return false;
+      }
+      return true;
+    });
+
+    // Re-paginate after column filters
+    pages=Math.max(1,Math.ceil(filt.length/ps));
+    if(ui.page>=pages)ui.page=pages-1;
+    page=filt.slice(ui.page*ps,(ui.page+1)*ps);
+
+    // Update count
+    count.textContent='Showing '+filt.length.toLocaleString()+' of '+products.length.toLocaleString()+' products';
+
     // Table
     var tw=document.createElement('div');tw.className='sup-tablewrap';
     var tbl=document.createElement('table');tbl.className='sup-table';
-    tbl.innerHTML='<thead><tr>'
-      +'<th>ID</th><th>PRODUCT</th><th>COUNTRY</th><th>STATUS</th>'
-      +'<th>PRIMARY</th><th>RATE</th>'
-      +'<th>SECONDARY</th><th>RATE</th>'
-      +'<th>THIRD</th><th>RATE</th>'
-      +'<th>AVAIL</th><th>CONF</th><th>FLAGS</th>'
-      +'</tr></thead>';
+    // Build thead with two rows: header labels + filter inputs
+    var thead=document.createElement('thead');
+    var trh=document.createElement('tr');
+    ['ID','PRODUCT','COUNTRY','CONTINENT','STATUS','PRIMARY','RATE','FEE','SECONDARY','RATE','FEE','THIRD','RATE','FEE','AVAIL','CONF','FLAGS'].forEach(function(h){
+      var th=document.createElement('th');th.textContent=h;trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    // Filter row
+    var trf=document.createElement('tr');trf.className='sup-filter-row';
+    function _fcell(html){var th=document.createElement('th');th.style.cssText='padding:6px 8px;background:var(--surf);border-bottom:1px solid var(--brd);position:sticky;top:33px;z-index:1';th.innerHTML=html;return th;}
+    function _fInp(key,placeholder){var inp=document.createElement('input');inp.placeholder=placeholder||'';inp.value=cf[key]||'';inp.style.cssText='width:100%;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:inherit;outline:none';inp.oninput=function(){_updateCF(key,this.value);};return inp;}
+    function _fSel(key,opts){var sel=document.createElement('select');sel.style.cssText='width:100%;padding:3px 5px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:inherit;outline:none';opts.forEach(function(o){var op=document.createElement('option');op.value=o;op.textContent=o;if(cf[key]===o)op.selected=true;sel.appendChild(op);});if(!cf[key])sel.value='All';sel.onchange=function(){_updateCF(key,this.value);};return sel;}
+    // Row of filters in same column order
+    var fIdCell=_fcell('');fIdCell.appendChild(_fInp('id','ID'));trf.appendChild(fIdCell);
+    var fTitleCell=_fcell('');fTitleCell.appendChild(_fInp('title','search'));trf.appendChild(fTitleCell);
+    var fCountryCell=_fcell('');var topbarHint=document.createElement('span');topbarHint.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace';topbarHint.textContent='top bar';fCountryCell.appendChild(topbarHint);trf.appendChild(fCountryCell);
+    var fContinentCell=_fcell('');fContinentCell.appendChild(_fSel('continent',['All'].concat(allContinents)));trf.appendChild(fContinentCell);
+    var fStatusCell=_fcell('');var topbarHint2=document.createElement('span');topbarHint2.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace';topbarHint2.textContent='top bar';fStatusCell.appendChild(topbarHint2);trf.appendChild(fStatusCell);
+    var fPrimaryCell=_fcell('');fPrimaryCell.appendChild(_fSel('primary',['All'].concat(allSuppliers)));trf.appendChild(fPrimaryCell);
+    trf.appendChild(_fcell(''));trf.appendChild(_fcell('')); // PRIMARY rate + fee — no filter
+    var fSecCell=_fcell('');fSecCell.appendChild(_fSel('secondary',['All'].concat(allSuppliers)));trf.appendChild(fSecCell);
+    trf.appendChild(_fcell(''));trf.appendChild(_fcell(''));
+    var fThirdCell=_fcell('');fThirdCell.appendChild(_fSel('third',['All'].concat(allSuppliers)));trf.appendChild(fThirdCell);
+    trf.appendChild(_fcell(''));trf.appendChild(_fcell(''));
+    trf.appendChild(_fcell('')); // AVAIL
+    trf.appendChild(_fcell('')); // CONF
+    var fFlagsCell=_fcell('');fFlagsCell.appendChild(_fInp('flags','contains'));trf.appendChild(fFlagsCell);
+    thead.appendChild(trf);
+    tbl.appendChild(thead);
     var tb=document.createElement('tbody');tbl.appendChild(tb);
     page.forEach(function(p){
       var ranked=NS.rankProduct(p,overrides,admin);
@@ -9124,6 +9193,13 @@ var SUP=(function(){
       var tr=document.createElement('tr');tr.className='row'+(locked?' locked':'');
       function cell(html){var td=document.createElement('td');td.innerHTML=html;return td;}
       function rateFmt(r){if(r==null)return '<span class="sup-mut">—</span>';return '<span class="sup-rate">'+(r*100).toFixed(2)+'%</span>';}
+      function feeFmt(sup){
+        if(!sup)return '<span class="sup-mut">—</span>';
+        var f=(p.fees||{})[sup];
+        if(f==null)return '<span class="sup-mut">—</span>';
+        if(f===0)return '<span class="sup-rate" style="color:var(--mut)">0.00</span>';
+        return '<span class="sup-rate">'+f.toFixed(2)+'</span>';
+      }
       function rankCell(idx,cls){
         if(!ranked[idx])return '<span class="sup-mut">—</span>';
         var sup=ranked[idx].supplier;
@@ -9132,13 +9208,17 @@ var SUP=(function(){
       tr.appendChild(cell('<span class="sup-pid">'+_esc(p.id)+'</span>'));
       tr.appendChild(cell('<b>'+_esc(p.title||'(untitled)')+'</b>'));
       tr.appendChild(cell('<span title="'+_esc(p.iso||'')+'">'+_esc(countryName(p.iso)||'—')+'</span>'));
+      tr.appendChild(cell('<span class="sup-pid">'+_esc(countryContinent(p.iso)||'—')+'</span>'));
       tr.appendChild(cell('<span class="sup-statpill '+(p.status==='ACTIVE'?'act':p.status?'ina':'unk')+'">'+_esc(p.status||'—')+'</span>'));
       tr.appendChild(cell(rankCell(0,'r1')));
       tr.appendChild(cell(rateFmt(ranked[0]?ranked[0].rate:null)));
+      tr.appendChild(cell(feeFmt(ranked[0]?ranked[0].supplier:null)));
       tr.appendChild(cell(rankCell(1,'r2')));
       tr.appendChild(cell(rateFmt(ranked[1]?ranked[1].rate:null)));
+      tr.appendChild(cell(feeFmt(ranked[1]?ranked[1].supplier:null)));
       tr.appendChild(cell(rankCell(2,'r3')));
       tr.appendChild(cell(rateFmt(ranked[2]?ranked[2].rate:null)));
+      tr.appendChild(cell(feeFmt(ranked[2]?ranked[2].supplier:null)));
       tr.appendChild(cell('<span class="sup-pid">'+ranked.length+'/'+Object.keys(p.rates).length+'</span>'));
       var ccol=conf>=80?'var(--grn)':conf>=60?'var(--yel)':'var(--red)';
       tr.appendChild(cell('<span class="sup-conf"><span class="sup-conf-bar"><i style="width:'+conf+'%;background:'+ccol+'"></i></span>'+conf+'</span>'));
@@ -9147,7 +9227,7 @@ var SUP=(function(){
       tb.appendChild(tr);
     });
     if(!page.length){
-      var tr=document.createElement('tr');var td=document.createElement('td');td.colSpan=13;td.style.cssText='text-align:center;padding:30px;color:var(--mut)';td.textContent='No products match these filters.';tr.appendChild(td);tb.appendChild(tr);
+      var tr=document.createElement('tr');var td=document.createElement('td');td.colSpan=17;td.style.cssText='text-align:center;padding:30px;color:var(--mut)';td.textContent='No products match these filters.';tr.appendChild(td);tb.appendChild(tr);
     }
     tw.appendChild(tbl);
     wrap.appendChild(tw);
@@ -9614,7 +9694,7 @@ var SUP=(function(){
     if(!products.length){alert('Nothing to export.');return;}
     if(window.showBusy) showBusy('Generating Excel export', products.length.toLocaleString()+' products being written');
     setTimeout(function(){ try {
-    var rows=[['Product ID','Product Name','Country','ISO','Status','Primary Supplier','Primary Supplier Rate','Secondary Supplier','Secondary Supplier Rate','Third Supplier','Third Supplier Rate','Supplier Count Available','Best Commercial Rate','Manual Override','Notes']];
+    var rows=[['Product ID','Product Name','Country','ISO','Continent','Status','Primary Supplier','Primary Rate','Primary Fee','Secondary Supplier','Secondary Rate','Secondary Fee','Third Supplier','Third Rate','Third Fee','Supplier Count Available','Best Commercial Rate','Manual Override','Notes']];
     products.forEach(function(p){
       var ranked=NS.rankProduct(p,overrides,admin);
       var ov=overrides[p.id]||{};
@@ -9627,9 +9707,10 @@ var SUP=(function(){
       if(ov.excluded&&ov.excluded.length)manualOv=(manualOv?manualOv+' | ':'')+'EXCLUDE:'+ov.excluded.join(',');
       function r(i){return ranked[i]?ranked[i].supplier:'';}
       function rt(i){return ranked[i]?(ranked[i].rate):'';}
+      function feeFor(idx){if(!ranked[idx])return '';var sup=ranked[idx].supplier;var f=(p.fees||{})[sup];return f!=null?f:'';}
       rows.push([
-        p.id,p.title,countryName(p.iso),p.iso,p.status,
-        r(0),rt(0),r(1),rt(1),r(2),rt(2),
+        p.id,p.title,countryName(p.iso),p.iso,countryContinent(p.iso),p.status,
+        r(0),rt(0),feeFor(0),r(1),rt(1),feeFor(1),r(2),rt(2),feeFor(2),
         ranked.length,
         ranked.length?ranked[0].rate:'',
         manualOv,
@@ -9986,27 +10067,48 @@ var SUP=(function(){
   NS.applyMatches = function(catalog, supData, matches, options){
     options=options||{};var rollup=options.rollup||'median';
     var supplier=supData.supplier;
-    var groups={};
+    var rateGroups={};var feeGroups={};
     matches.forEach(function(m,i){
       if(!m||m.decision!=='accept'||!m.productId)return;
-      var d=supData.rows[i].discount;
+      var row=supData.rows[i];
+      var d=row.discount;
       if(d==null)return;
-      if(!groups[m.productId])groups[m.productId]=[];
-      groups[m.productId].push(d);
+      if(!rateGroups[m.productId])rateGroups[m.productId]=[];
+      rateGroups[m.productId].push(d);
+      // Fees: parse from raw fee value (e.g. "0.000 AED" → 0)
+      var rawFee=row.fee;
+      if(rawFee!=null && rawFee!==''){
+        var fNum;
+        if(typeof rawFee==='number') fNum=rawFee;
+        else { var fT=String(rawFee).trim(); if(fT&&fT!=='-' && !/not avail|inactive|invalid/i.test(fT)){
+          var fX=fT.replace(/[^0-9.\-]/g,''); fNum=parseFloat(fX); if(isNaN(fNum))fNum=null;
+        }}
+        if(fNum!=null && fNum>=0){
+          if(!feeGroups[m.productId])feeGroups[m.productId]=[];
+          feeGroups[m.productId].push(fNum);
+        }
+      }
     });
     var byId={};catalog.forEach(function(p){byId[p.id]=p;});
-    Object.keys(groups).forEach(function(pid){
-      var vals=groups[pid].slice().sort(function(a,b){return a-b;});
-      var roll;
-      if(rollup==='min')roll=vals[0];
-      else if(rollup==='max')roll=vals[vals.length-1];
-      else roll=vals[Math.floor(vals.length/2)]; // median
+    function rollFn(vals){
+      if(!vals.length)return null;
+      var sorted=vals.slice().sort(function(a,b){return a-b;});
+      if(rollup==='min')return sorted[0];
+      if(rollup==='max')return sorted[sorted.length-1];
+      return sorted[Math.floor(sorted.length/2)]; // median
+    }
+    Object.keys(rateGroups).forEach(function(pid){
       var p=byId[pid];if(!p)return;
+      var roll=rollFn(rateGroups[pid]);
       p.rates=p.rates||{};
       p.rates[supplier]={
         raw:roll, ok:true, status:'available', rate:roll,
         conf:roll<=0.30?100:roll<=0.50?70:30
       };
+      if(feeGroups[pid]&&feeGroups[pid].length){
+        p.fees=p.fees||{};
+        p.fees[supplier]=rollFn(feeGroups[pid]);
+      }
     });
     return catalog;
   };
