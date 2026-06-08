@@ -8593,6 +8593,103 @@ var SUP=(function(){
     admin:'rl_sup_admin_v1',
     ui:'rl_sup_ui_v1'
   };
+
+  // ====== IndexedDB-backed storage for the large keys ======
+  // localStorage is capped at ~5MB and Bamboo + Reloadly catalogue exceeded it.
+  // IDB gives us 50-60% of free disk (gigabytes). We keep small keys (overrides,
+  // admin, meta, ui) in localStorage and move the big ones (products, supplierRows)
+  // to IDB with a synchronous in-memory cache for API compatibility.
+  var IDB_NAME='reloadly_pulse_sup', IDB_STORE='kv';
+  var _idbDb=null, _idbOpening=null;
+  function _idbOpen(){
+    if(_idbDb)return Promise.resolve(_idbDb);
+    if(_idbOpening)return _idbOpening;
+    _idbOpening=new Promise(function(resolve,reject){
+      try{
+        var req=indexedDB.open(IDB_NAME,1);
+        req.onupgradeneeded=function(e){
+          var db=e.target.result;
+          if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE);
+        };
+        req.onsuccess=function(e){_idbDb=e.target.result;resolve(_idbDb);};
+        req.onerror=function(e){reject(e.target.error||new Error('IDB open failed'));};
+      }catch(err){reject(err);}
+    });
+    return _idbOpening;
+  }
+  function idbGet(key){
+    return _idbOpen().then(function(db){
+      return new Promise(function(resolve,reject){
+        var tx=db.transaction([IDB_STORE],'readonly');
+        var req=tx.objectStore(IDB_STORE).get(key);
+        req.onsuccess=function(){resolve(req.result);};
+        req.onerror=function(){reject(req.error);};
+      });
+    });
+  }
+  function idbSet(key,value){
+    return _idbOpen().then(function(db){
+      return new Promise(function(resolve,reject){
+        var tx=db.transaction([IDB_STORE],'readwrite');
+        var req=tx.objectStore(IDB_STORE).put(value,key);
+        req.onsuccess=function(){resolve(true);};
+        req.onerror=function(){reject(req.error);};
+        tx.onerror=function(){reject(tx.error);};
+      });
+    });
+  }
+  function idbDel(key){
+    return _idbOpen().then(function(db){
+      return new Promise(function(resolve,reject){
+        var tx=db.transaction([IDB_STORE],'readwrite');
+        var req=tx.objectStore(IDB_STORE).delete(key);
+        req.onsuccess=function(){resolve(true);};
+        req.onerror=function(){reject(req.error);};
+      });
+    });
+  }
+  NS.idbGet=idbGet;NS.idbSet=idbSet;NS.idbDel=idbDel;
+
+  // In-memory cache mirroring the IDB contents — keeps the sync API alive
+  var _memCache={products:null, supplierRows:null};
+  // Promise that resolves once the cache has been hydrated from IDB
+  NS.ready = (function(){
+    return Promise.all([
+      idbGet('products').then(function(v){_memCache.products=v;}).catch(function(){_memCache.products=null;}),
+      idbGet('supplierRows').then(function(v){_memCache.supplierRows=v;}).catch(function(){_memCache.supplierRows=null;})
+    ]).then(function(){
+      // Migrate existing localStorage data to IDB on first run
+      if(!_memCache.products){
+        var lsProducts=loadJSON(K.products,null);
+        if(lsProducts && lsProducts.length){
+          _memCache.products=lsProducts;
+          idbSet('products',lsProducts).then(function(){
+            try{localStorage.removeItem(K.products);}catch(e){}
+            console.info('[SUP] Migrated '+lsProducts.length+' products from localStorage → IndexedDB');
+          }).catch(function(e){console.warn('[SUP] migrate products failed:',e);});
+        }
+      }
+      if(!_memCache.supplierRows){
+        try{
+          var raw=localStorage.getItem('rl_sup_supplier_rows_v1');
+          var parsed=raw?JSON.parse(raw):null;
+          if(parsed && Object.keys(parsed).length){
+            _memCache.supplierRows=parsed;
+            idbSet('supplierRows',parsed).then(function(){
+              try{localStorage.removeItem('rl_sup_supplier_rows_v1');}catch(e){}
+              console.info('[SUP] Migrated supplier row store → IndexedDB');
+            }).catch(function(e){console.warn('[SUP] migrate rows failed:',e);});
+          }
+        }catch(e){}
+      }
+    });
+  })();
+  // Re-render Pricing if the user is already looking at it when hydration finishes
+  NS.ready.then(function(){
+    if(typeof view!=='undefined' && (view==='pricing'||view==='proposals')){
+      setTimeout(function(){if(NS.renderPricing)NS.renderPricing();},0);
+    }
+  });
   var SUPPLIERS=['Bamboo','Globetopper','EZPin','Blackhawk','Neocurrency','Phaze','Tillo','Runa','SVS','CardCash','iRewardify','Fluz'];
   var SUPPLIER_ALIASES={ 'ezpin':'EZPin' };
   // Default admin config: preferred order matches SUPPLIERS, reliability 80% all
@@ -8647,13 +8744,28 @@ var SUP=(function(){
     return {id:p.id,title:p.title,iso:p.iso,status:p.status,rates:rates,bestPriced:p.b||p.bestPriced||''};
   }
   NS.loadProducts=function(){
-    var raw=loadJSON(K.products,[]);
-    if(!raw.length)return [];
+    var raw=_memCache.products;
+    // If cache not yet hydrated, fall back to localStorage (legacy path)
+    if(raw==null){raw=loadJSON(K.products,[]);}
+    if(!raw || !raw.length)return [];
     return raw.map(_decompressProduct);
   };
   NS.saveProducts=function(p){
     var compact=(p||[]).map(_compressProduct);
-    return saveJSON(K.products,compact);
+    _memCache.products=compact; // sync update for subsequent reads
+    // Async write to IDB. If it fails, surface to the user.
+    idbSet('products',compact).catch(function(e){
+      console.error('[SUP] IDB saveProducts failed:',e);
+      var msg=e&&e.message?e.message:String(e);
+      alert('Could not save products to IndexedDB: '+msg+'\n\nYour changes are in memory but were NOT persisted. Try a different browser or check disk space.');
+    });
+    return true;
+  };
+  // Direct accessors for the supplier-row suggestion store (also IDB-backed)
+  NS.loadSupplierRowsStore=function(){return _memCache.supplierRows||{};};
+  NS.saveSupplierRowsStore=function(store){
+    _memCache.supplierRows=store;
+    return idbSet('supplierRows',store);
   };
   NS.loadOverrides=function(){return loadJSON(K.overrides,{});};
   NS.saveOverrides=function(o){saveJSON(K.overrides,o);};
@@ -8856,7 +8968,18 @@ var SUP=(function(){
       exBtn.onclick=function(){NS.exportXLSX();};
       tools.appendChild(exBtn);
       var clrBtn=document.createElement('button');clrBtn.className='sup-btn ghost';clrBtn.innerHTML='✕ Clear data';
-      clrBtn.onclick=function(){if(confirm('Clear all supplier ranking data? Overrides will also be cleared.')){localStorage.removeItem(K.products);localStorage.removeItem(K.overrides);localStorage.removeItem(K.meta);NS.renderPricing();}};
+      clrBtn.onclick=function(){
+        if(!confirm('Clear all supplier ranking data? Overrides + supplier suggestion store will also be cleared.'))return;
+        try{localStorage.removeItem(K.products);}catch(e){}
+        try{localStorage.removeItem(K.overrides);}catch(e){}
+        try{localStorage.removeItem(K.meta);}catch(e){}
+        try{localStorage.removeItem('rl_sup_supplier_rows_v1');}catch(e){}
+        _memCache.products=null;_memCache.supplierRows=null;
+        Promise.all([
+          idbDel('products').catch(function(){}),
+          idbDel('supplierRows').catch(function(){})
+        ]).then(function(){NS.renderPricing();});
+      };
       tools.appendChild(clrBtn);
     }
     hdr.appendChild(tools);
@@ -9289,7 +9412,7 @@ var SUP=(function(){
   // Suggest matching rows from a supplier's stored row snapshot for a given product
   NS.suggestSupplierRows = function(p, supplierName){
     if(!p||!supplierName)return [];
-    var store;try{var v=localStorage.getItem('rl_sup_supplier_rows_v1');store=v?JSON.parse(v):{};}catch(e){return [];}
+    var store=NS.loadSupplierRowsStore();
     var rows=store[supplierName]||[];if(!rows.length)return [];
     var combos={};
     rows.forEach(function(r){
@@ -10217,15 +10340,13 @@ var SUP=(function(){
       // Persist a compact snapshot of supplier rows so the detail drawer can suggest
       // candidates when the user manually maps a supplier.
       try {
-        var supRowsStore = (function(){try{var v=localStorage.getItem('rl_sup_supplier_rows_v1');return v?JSON.parse(v):{};}catch(e){return {};}})();
+        var supRowsStore = NS.loadSupplierRowsStore();
         supRowsStore[s.supplier] = s.supData.rows
           .filter(function(r){return r.discount!=null && (r.brand||r.product);})
           .map(function(r){return {brand:r.brand||r.product, iso:r.iso||'', discount:r.discount};});
-        try{localStorage.setItem('rl_sup_supplier_rows_v1', JSON.stringify(supRowsStore));}catch(qe){
-          console.warn('Supplier suggestion store quota exceeded (suggestions feature disabled for this supplier):', qe.message);
-          // Best-effort: clear other suppliers and retry just this one
-          try{localStorage.setItem('rl_sup_supplier_rows_v1', JSON.stringify({}));}catch(_){}
-        }
+        NS.saveSupplierRowsStore(supRowsStore).catch(function(e){
+          console.warn('[SUP] IDB supplier-rows save failed:',e);
+        });
       } catch(persistErr) {console.error('Supplier row persist failed:', persistErr);}
       // Snapshot previous primary BEFORE saving
       var meta=NS.loadMeta();
