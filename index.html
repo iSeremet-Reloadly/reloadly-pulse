@@ -12187,6 +12187,70 @@ var FUND=(function(){
     });
   }
 
+  function _startQuickSend(registry){
+    if(!registry||!registry.length){if(typeof toast==='function')toast('No active Bender providers','err');return;}
+    var idx=0;
+    var existing=document.getElementById('fund-qs-modal');if(existing)existing.remove();
+    var modal=document.createElement('div');modal.id='fund-qs-modal';
+    modal.style.cssText='position:fixed;inset:0;background:rgba(8,8,12,.82);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)';
+    var box=document.createElement('div');
+    box.style.cssText='background:var(--bg);border:1px solid var(--brd);border-radius:14px;padding:28px 32px;width:min(560px,92vw);box-shadow:0 24px 60px rgba(0,0,0,.5);text-align:center';
+    var progEl=document.createElement('div');progEl.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.5px;margin-bottom:12px;font-weight:700';
+    box.appendChild(progEl);
+    var nameEl=document.createElement('div');nameEl.style.cssText='font-size:14px;font-weight:700;margin-bottom:10px';
+    box.appendChild(nameEl);
+    var cmdEl=document.createElement('div');cmdEl.style.cssText='font-family:Roboto Mono,monospace;font-size:18px;font-weight:800;color:var(--acc);background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.3);padding:14px 18px;border-radius:8px;margin-bottom:10px';
+    box.appendChild(cmdEl);
+    var copyHint=document.createElement('div');copyHint.style.cssText='font-size:10px;color:var(--grn);font-family:Roboto Mono,monospace;margin-bottom:18px;letter-spacing:.4px';
+    copyHint.textContent='✓ Copied to clipboard';
+    box.appendChild(copyHint);
+    var hint=document.createElement('div');hint.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:20px;line-height:1.6';
+    hint.innerHTML='1. Switch to Slack <b style="color:var(--txt)">#funding-bot</b> (Cmd+Tab)<br>2. Paste (Cmd+V) and press Enter<br>3. Switch back (Cmd+Tab) and hit <b style="color:var(--txt)">Space</b> to advance';
+    box.appendChild(hint);
+    var btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:10px;justify-content:center;align-items:center';
+    var prevBtn=document.createElement('button');prevBtn.className='fund-btn';prevBtn.innerHTML='← Prev';
+    var skipBtn=document.createElement('button');skipBtn.className='fund-btn';skipBtn.innerHTML='Skip →';
+    var nextBtn=document.createElement('button');nextBtn.className='fund-btn primary';nextBtn.style.padding='10px 22px';nextBtn.innerHTML='Next (Space)';
+    var cancelBtn=document.createElement('button');cancelBtn.className='fund-btn ghost';cancelBtn.style.marginLeft='14px';cancelBtn.innerHTML='✕ Done';
+    btnRow.appendChild(prevBtn);btnRow.appendChild(skipBtn);btnRow.appendChild(nextBtn);btnRow.appendChild(cancelBtn);
+    box.appendChild(btnRow);
+    modal.appendChild(box);document.body.appendChild(modal);
+    function showCurrent(){
+      var p=registry[idx];
+      var cmd='/airtime/provider/balance '+p.benderId;
+      navigator.clipboard.writeText(cmd);
+      cmdEl.textContent=cmd;
+      nameEl.textContent=(p.displayName||p.name)+' · ID '+p.benderId;
+      progEl.textContent='PROVIDER '+(idx+1)+' OF '+registry.length;
+      copyHint.style.color='var(--grn)';copyHint.textContent='✓ Copied to clipboard';
+      prevBtn.disabled=idx<=0;
+    }
+    function advance(){idx++;if(idx>=registry.length){_quickSendDone(modal);}else{showCurrent();}}
+    function regress(){if(idx>0){idx--;showCurrent();}}
+    prevBtn.onclick=regress;
+    skipBtn.onclick=advance;
+    nextBtn.onclick=advance;
+    cancelBtn.onclick=function(){modal.remove();document.removeEventListener('keydown',kb);};
+    function kb(e){
+      if(e.key===' '||e.key==='Enter'){e.preventDefault();advance();}
+      else if(e.key==='ArrowRight'){e.preventDefault();advance();}
+      else if(e.key==='ArrowLeft'){e.preventDefault();regress();}
+      else if(e.key==='Escape'){modal.remove();document.removeEventListener('keydown',kb);}
+    }
+    document.addEventListener('keydown',kb);
+    showCurrent();
+    // Stash cleanup reference
+    modal._cleanup=function(){document.removeEventListener('keydown',kb);};
+  }
+  function _quickSendDone(modal){
+    var box=modal.querySelector('div');
+    box.innerHTML='<div style="font-size:48px;margin-bottom:14px">✅</div>'
+      +'<div style="font-size:18px;font-weight:800;margin-bottom:8px">All commands sent</div>'
+      +'<div style="font-size:12px;color:var(--mut);margin-bottom:22px;line-height:1.6">Wait for Bender to finish replying, then copy the whole #funding-bot conversation block and paste into the textarea on the Daily Pull page.</div>';
+    var close=document.createElement('button');close.className='fund-btn primary';close.innerHTML='Got it';
+    close.onclick=function(){if(modal._cleanup)modal._cleanup();modal.remove();};
+    box.appendChild(close);
+  }
   function _renderBulkCard(){
     var card=document.createElement('div');card.className='fund-bulk-card';
     var collapsed=NS.loadUI().bulkCollapsed===true;
@@ -12216,11 +12280,15 @@ var FUND=(function(){
     cmdList.textContent=cmdsText;
     cLeft.appendChild(cmdList);
     var cmdActions=document.createElement('div');cmdActions.style.cssText='margin-top:8px';
-    var copyAllBtn=document.createElement('button');copyAllBtn.className='fund-btn';copyAllBtn.innerHTML='⎘ Copy all commands';
+    var quickBtn=document.createElement('button');quickBtn.className='fund-btn primary';quickBtn.innerHTML='▶ Quick Send mode';
+    quickBtn.title='Walk through commands one at a time. Press Space after each paste to advance.';
+    quickBtn.onclick=function(){_startQuickSend(registry);};
+    cmdActions.appendChild(quickBtn);
+    var copyAllBtn=document.createElement('button');copyAllBtn.className='fund-btn';copyAllBtn.style.marginLeft='6px';copyAllBtn.innerHTML='⎘ Copy all';
     copyAllBtn.onclick=function(){
       navigator.clipboard.writeText(cmdsText).then(function(){
-        copyAllBtn.innerHTML='✓ Copied — now paste into #funding-bot';
-        setTimeout(function(){copyAllBtn.innerHTML='⎘ Copy all commands';},2500);
+        copyAllBtn.innerHTML='✓ Copied';
+        setTimeout(function(){copyAllBtn.innerHTML='⎘ Copy all';},2500);
       });
     };
     cmdActions.appendChild(copyAllBtn);
