@@ -11810,6 +11810,28 @@ var PP=(function(){
 .fund-source-pill.unavail{background:rgba(239,68,68,.18);color:var(--red)}
 .fund-portal-link{color:var(--yel);text-decoration:none;font-family:'Roboto Mono',monospace;font-size:10px;border-bottom:1px dashed var(--yel)}
 .fund-portal-link:hover{filter:brightness(1.2)}
+/* === Bulk parser card === */
+.fund-bulk-card{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:16px 18px;margin-bottom:18px}
+.fund-bulk-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px}
+.fund-bulk-hdr-t{font-size:13px;font-weight:800}
+.fund-bulk-hdr-s{font-size:10px;color:var(--mut);font-family:'Roboto Mono',monospace;line-height:1.5}
+.fund-bulk-toggle{background:none;border:none;color:var(--mut);cursor:pointer;font-size:18px;padding:4px 8px}
+.fund-bulk-toggle:hover{color:var(--txt)}
+.fund-bulk-body{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+@media (max-width:900px){.fund-bulk-body{grid-template-columns:1fr}}
+.fund-bulk-col{background:var(--surf2);border:1px solid var(--brd);border-radius:10px;padding:12px 14px}
+.fund-bulk-col-t{font-size:10px;font-weight:700;color:var(--mut);font-family:'Roboto Mono',monospace;letter-spacing:.5px;margin-bottom:8px}
+.fund-bulk-list{background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:8px 10px;max-height:140px;overflow:auto;font-family:'Roboto Mono',monospace;font-size:10px;line-height:1.55;color:var(--mut);white-space:pre}
+.fund-bulk-ta{width:100%;background:var(--bg);border:1px solid var(--brd);color:var(--txt);padding:10px 11px;border-radius:6px;font-size:10px;font-family:'Roboto Mono',monospace;outline:none;height:140px;resize:vertical;box-sizing:border-box;line-height:1.5}
+.fund-bulk-ta:focus{border-color:var(--acc)}
+.fund-bulk-actions{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:10px}
+.fund-bulk-results{display:flex;gap:14px;font-size:11px;font-family:'Roboto Mono',monospace}
+.fund-bulk-results b{font-family:'Roboto Mono',monospace}
+.fund-bulk-results .ok{color:var(--grn)}
+.fund-bulk-results .miss{color:var(--yel)}
+.fund-bulk-unmatched{margin-top:8px;font-size:10px;color:var(--yel);font-family:'Roboto Mono',monospace;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:8px 10px;line-height:1.5;max-height:80px;overflow:auto}
+.fund-bulk-collapsed .fund-bulk-body,.fund-bulk-collapsed .fund-bulk-actions{display:none}
+
 </style>
 <script>
 // ====================== Funding module ======================
@@ -11959,6 +11981,56 @@ var FUND=(function(){
     return fresh;
   }
 
+  // ===== BULK BENDER RESPONSE PARSER =====
+  // Bender replies look like:
+  //   Account Balance Details On Airtime Provider PAYMENT_SOURCE
+  //     Description : General
+  //     Amount      : 96,927.40
+  //     Currency    : CAD
+  // We regex out every block. provider name maps to registry.name (exact match).
+  NS.parseBenderResponses = function(text){
+    if(!text)return [];
+    var results=[];
+    var rx=/Account Balance Details On Airtime Provider\s+([A-Z][A-Z0-9_]+)[\s\S]*?Amount\s*:?\s*([0-9.,]+)[\s\S]*?Currency\s*:?\s*([A-Za-z]{3,4})/gi;
+    var m;
+    while((m=rx.exec(text))!==null){
+      var name=m[1].trim().toUpperCase();
+      var rawAmount=m[2].replace(/,/g,'').trim();
+      var amount=parseFloat(rawAmount);
+      var currency=m[3].trim().toUpperCase();
+      if(isNaN(amount)||amount<0)continue;
+      results.push({name:name, amount:amount, currency:currency, raw:m[0].slice(0,200)});
+    }
+    return results;
+  };
+
+  // Apply parsed responses into today's snapshot and persist
+  NS.applyBenderResponses = function(parsed){
+    if(!parsed||!parsed.length)return {applied:0, unmatched:[], total:0, autoSave:false};
+    var registry=NS.loadRegistry();
+    var byName={};registry.forEach(function(p){if(p.name)byName[p.name.toUpperCase()]=p;});
+    var snap=_todaySnapshot();
+    var applied=0, unmatched=[];
+    parsed.forEach(function(r){
+      var p=byName[r.name];
+      if(!p){unmatched.push(r.name);return;}
+      var key=p.benderId!=null?String(p.benderId):p.name;
+      snap.balances[key]={
+        local:r.amount,
+        currency:r.currency||p.currency,
+        enteredAt:new Date().toISOString(),
+        source:'bulk-parse'
+      };
+      applied++;
+    });
+    snap.savedAt=new Date().toISOString();
+    var snaps=NS.loadSnapshots();
+    var idx=snaps.findIndex(function(s){return s.date===snap.date;});
+    if(idx>=0)snaps[idx]=snap;else snaps.push(snap);
+    NS.saveSnapshots(snaps);
+    return {applied:applied, unmatched:unmatched, total:parsed.length, autoSave:true};
+  };
+
   // ===== MAIN RENDERER =====
   NS.renderFunding=function(){
     var main=document.getElementById('main');if(!main)return;main.innerHTML='';
@@ -12011,6 +12083,9 @@ var FUND=(function(){
       fxStrip.appendChild(pullBtn);
     }
     host.appendChild(fxStrip);
+
+    // === Bulk Bender response parser card ===
+    host.appendChild(_renderBulkCard());
 
     // Save snapshot button + status
     var summary=document.createElement('div');summary.className='fund-status-strip';
@@ -12110,6 +12185,86 @@ var FUND=(function(){
         });
       };
     });
+  }
+
+  function _renderBulkCard(){
+    var card=document.createElement('div');card.className='fund-bulk-card';
+    var collapsed=NS.loadUI().bulkCollapsed===true;
+    if(collapsed)card.classList.add('fund-bulk-collapsed');
+    var registry=NS.loadRegistry().filter(function(p){return p.isActive!==false && p.mode==='bender' && p.benderId!=null;});
+    // Header
+    var hdr=document.createElement('div');hdr.className='fund-bulk-hdr';
+    hdr.innerHTML='<div><div class="fund-bulk-hdr-t">⚡ Bulk paste from Bender</div>'
+      +'<div class="fund-bulk-hdr-s">'
+      +'Copy all '+registry.length+' commands → run them in #funding-bot → paste the whole reply block here → click Parse + Apply.'
+      +' Fills <b>'+registry.length+'</b> rows in one shot.'
+      +'</div></div>';
+    var toggle=document.createElement('button');toggle.className='fund-bulk-toggle';toggle.innerHTML=collapsed?'▸':'▾';
+    toggle.title=collapsed?'Expand':'Collapse';
+    toggle.onclick=function(){
+      var u=NS.loadUI();u.bulkCollapsed=!collapsed;NS.saveUI(u);NS.renderFunding();
+    };
+    hdr.appendChild(toggle);
+    card.appendChild(hdr);
+    // Body — two columns: commands list + paste textarea
+    var body=document.createElement('div');body.className='fund-bulk-body';
+    // Left: commands
+    var cLeft=document.createElement('div');cLeft.className='fund-bulk-col';
+    cLeft.innerHTML='<div class="fund-bulk-col-t">1. COMMANDS TO RUN ('+registry.length+')</div>';
+    var cmdList=document.createElement('div');cmdList.className='fund-bulk-list';
+    var cmdsText=registry.map(function(p){return '/airtime/provider/balance '+p.benderId;}).join('\n');
+    cmdList.textContent=cmdsText;
+    cLeft.appendChild(cmdList);
+    var cmdActions=document.createElement('div');cmdActions.style.cssText='margin-top:8px';
+    var copyAllBtn=document.createElement('button');copyAllBtn.className='fund-btn';copyAllBtn.innerHTML='⎘ Copy all commands';
+    copyAllBtn.onclick=function(){
+      navigator.clipboard.writeText(cmdsText).then(function(){
+        copyAllBtn.innerHTML='✓ Copied — now paste into #funding-bot';
+        setTimeout(function(){copyAllBtn.innerHTML='⎘ Copy all commands';},2500);
+      });
+    };
+    cmdActions.appendChild(copyAllBtn);
+    cLeft.appendChild(cmdActions);
+    body.appendChild(cLeft);
+    // Right: paste responses
+    var cRight=document.createElement('div');cRight.className='fund-bulk-col';
+    cRight.innerHTML='<div class="fund-bulk-col-t">2. PASTE BENDER REPLIES BELOW</div>';
+    var ta=document.createElement('textarea');ta.className='fund-bulk-ta';
+    ta.placeholder='Paste the whole #funding-bot conversation here.\n\nIncludes blocks like:\n  Account Balance Details On Airtime Provider PAYMENT_SOURCE\n    Description : General\n    Amount      : 96,927.40\n    Currency    : CAD\n\nThen click "Parse + Apply" below.';
+    cRight.appendChild(ta);
+    body.appendChild(cRight);
+    card.appendChild(body);
+    // Actions + results
+    var actions=document.createElement('div');actions.className='fund-bulk-actions';
+    var resultsLeft=document.createElement('div');resultsLeft.className='fund-bulk-results';
+    resultsLeft.id='fund-bulk-results';
+    actions.appendChild(resultsLeft);
+    var applyBtn=document.createElement('button');applyBtn.className='fund-btn primary';applyBtn.innerHTML='✓ Parse + Apply';
+    applyBtn.onclick=function(){
+      var parsed=NS.parseBenderResponses(ta.value);
+      if(!parsed.length){
+        resultsLeft.innerHTML='<span class="miss">No Account Balance blocks found in the pasted text.</span>';
+        return;
+      }
+      var res=NS.applyBenderResponses(parsed);
+      var html='<span class="ok">✓ '+res.applied+' applied</span>';
+      if(res.unmatched.length)html+=' <span class="miss">· '+res.unmatched.length+' unmatched</span>';
+      html+=' <span style="color:var(--mut)">· '+res.total+' parsed total</span>';
+      resultsLeft.innerHTML=html;
+      if(res.unmatched.length){
+        var um=document.createElement('div');um.className='fund-bulk-unmatched';
+        um.innerHTML='<b>Unmatched provider names from Bender:</b> '+res.unmatched.join(', ')
+          +'<br><br>Add these to the <b>Providers</b> tab (with the exact name Bender returns) so they match next time.';
+        var existing=card.querySelector('.fund-bulk-unmatched');if(existing)existing.remove();
+        card.appendChild(um);
+      }
+      if(typeof toast==='function')toast('Bulk parse: '+res.applied+' applied','ok');
+      // Re-render after a brief moment so user sees the result + the table updates
+      setTimeout(function(){NS.renderFunding();},900);
+    };
+    actions.appendChild(applyBtn);
+    card.appendChild(actions);
+    return card;
   }
 
   function _yesterdaySnapshot(){
