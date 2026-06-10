@@ -1221,6 +1221,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
       <div class="sb-lbl sb-lbl-sub">PRICING & SUPPLIERS</div>
       <div class="ni ni-nested" id="nav-pricing" onclick="go('pricing')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#06b6d4,#3b82f6)"></div>Pricing (Ops)</div><div class="cnt" id="c-pricing"></div></div>
       <div class="ni ni-nested" id="nav-proposals" onclick="go('proposals')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#06b6d4)"></div>Proposals</div><div class="cnt" id="c-proposals"></div></div>
+      <div class="ni ni-nested" id="nav-funding" onclick="go('funding')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#a855f7,#06b6d4)"></div>Funding</div><div class="cnt" id="c-funding"></div></div>
     </div>
     <!-- Legacy dept tabs (hidden, routes still work) -->
     <div class="ni" id="nav-Management" onclick="go('Management')" style="display:none"></div>
@@ -1896,11 +1897,12 @@ function render(){
   else if(view==='strategy')STRAT.renderStrategy();
   else if(view==='pricing')SUP.renderPricing();
   else if(view==='proposals')PP.renderProposals();
+  else if(view==='funding')FUND.renderFunding();
   else renderDept(view);
 }
 function go(v){
   if(!data||!currentUser)return;
-  if((v==='pricing'||v==='proposals')&&!canAccessPricing()){if(typeof toast==='function')toast('Pricing access restricted','err');return;}
+  if((v==='pricing'||v==='proposals'||v==='funding')&&!canAccessPricing()){if(typeof toast==='function')toast('Access restricted','err');return;}
   view=v;fStatus='All';fSearch='';
   document.querySelectorAll('.ni').forEach(function(e){e.classList.remove('active');});
   var el=document.getElementById('nav-'+v);if(el)el.classList.add('active');
@@ -11746,6 +11748,443 @@ var PP=(function(){
     if(NS.loadImportState())return NS.renderImport();
     return _origRenderPricing.apply(this,arguments);
   };
+
+  function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  return NS;
+})();
+</script>
+<script>
+</script>
+<style>
+/* === Funding module === */
+.fund-wrap{padding:24px 28px;max-width:1600px;margin:0 auto}
+.fund-hdr{display:flex;align-items:baseline;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.fund-title{font-size:22px;font-weight:800;letter-spacing:-.3px}
+.fund-sub{font-size:12px;color:var(--mut);font-family:'Roboto Mono',monospace}
+.fund-tools{display:flex;gap:10px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.fund-tabbar{display:flex;gap:0;border-bottom:1px solid var(--brd);margin-bottom:18px}
+.fund-tab{background:none;border:none;color:var(--mut);padding:9px 18px;font-size:11px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;font-family:'Roboto Mono',monospace;letter-spacing:.4px}
+.fund-tab.active{color:var(--txt);border-color:var(--acc)}
+.fund-tab:hover{color:var(--txt)}
+.fund-empty{background:var(--surf);border:2px dashed var(--brd);border-radius:14px;padding:60px 30px;text-align:center;margin-top:24px}
+.fund-empty-ic{font-size:48px;margin-bottom:14px;opacity:.7}
+.fund-empty-t{font-size:18px;font-weight:700;margin-bottom:8px}
+.fund-empty-s{font-size:12px;color:var(--mut);margin-bottom:18px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.6}
+.fund-status-strip{display:flex;gap:18px;padding:12px 16px;background:var(--surf);border:1px solid var(--brd);border-radius:10px;font-size:11px;color:var(--mut);font-family:'Roboto Mono',monospace;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.fund-status-strip b{color:var(--txt);font-family:'Roboto Mono',monospace}
+.fund-status-strip .pill{padding:3px 9px;border-radius:5px;font-weight:700;font-size:10px;font-family:'Roboto Mono',monospace}
+.fund-status-strip .pill.ok{background:rgba(16,185,129,.18);color:var(--grn)}
+.fund-status-strip .pill.warn{background:rgba(245,158,11,.18);color:var(--yel)}
+.fund-status-strip .pill.risk{background:rgba(239,68,68,.18);color:var(--red)}
+.fund-tablewrap{background:var(--surf);border:1px solid var(--brd);border-radius:12px;overflow:auto;max-height:70vh}
+.fund-table{width:100%;border-collapse:collapse;font-size:11px;min-width:1000px}
+.fund-table th{background:var(--surf2);text-align:left;padding:10px 12px;font-size:9px;color:var(--mut);font-family:'Roboto Mono',monospace;font-weight:700;letter-spacing:.5px;border-bottom:1px solid var(--brd);white-space:nowrap;position:sticky;top:0;z-index:2}
+.fund-table td{padding:9px 12px;border-bottom:1px solid var(--brd);vertical-align:middle}
+.fund-table tr:last-child td{border-bottom:none}
+.fund-table tr:hover td{background:var(--surf2)}
+.fund-table .bender-cmd{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--acc);background:rgba(108,99,255,.08);padding:3px 7px;border-radius:5px;display:inline-block;white-space:nowrap}
+.fund-table .ccy{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--mut);font-weight:700}
+.fund-table .num{font-family:'Roboto Mono',monospace;font-weight:700;text-align:right}
+.fund-table .mut{color:var(--mut);font-family:'Roboto Mono',monospace}
+.fund-table input.bal{width:120px;padding:5px 8px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:5px;font-family:'Roboto Mono',monospace;font-size:11px;text-align:right;outline:none}
+.fund-table input.bal:focus{border-color:var(--acc)}
+.fund-table input.bal.filled{background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.4)}
+.fund-table .copy-btn{background:var(--surf2);border:1px solid var(--brd);color:var(--mut);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:9px;font-family:'Roboto Mono',monospace;font-weight:700}
+.fund-table .copy-btn:hover{color:var(--acc);border-color:var(--acc)}
+.fund-table .copy-btn.copied{background:var(--grn);color:#fff;border-color:var(--grn)}
+.fund-prov-name{font-weight:700;font-size:12px}
+.fund-prov-sub{font-size:9px;color:var(--mut);font-family:'Roboto Mono',monospace;margin-top:2px}
+.fund-btn{background:var(--surf2);border:1px solid var(--brd);color:var(--txt);padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;font-family:'Roboto Mono',monospace;cursor:pointer;letter-spacing:.4px;display:inline-flex;align-items:center;gap:6px}
+.fund-btn:hover{background:var(--acc);color:#fff;border-color:var(--acc)}
+.fund-btn.primary{background:linear-gradient(135deg,#a855f7,#06b6d4);color:#fff;border-color:#a855f7}
+.fund-btn.primary:hover{filter:brightness(1.1)}
+.fund-btn.ghost{background:transparent}
+.fund-drop{display:block;text-align:center;border:2px dashed var(--acc);border-radius:12px;padding:36px 30px;margin:18px auto;max-width:620px;background:rgba(168,85,247,.05);cursor:pointer;box-sizing:border-box;transition:all .15s}
+.fund-drop:hover{background:rgba(168,85,247,.12)}
+.fund-fx-strip{padding:8px 14px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;margin-bottom:14px;font-size:10px;color:var(--mut);font-family:'Roboto Mono',monospace;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.fund-fx-strip b{color:var(--txt)}
+.fund-source-pill{display:inline-block;padding:2px 6px;border-radius:4px;font-size:8px;font-weight:700;font-family:'Roboto Mono',monospace;letter-spacing:.5px}
+.fund-source-pill.bender{background:rgba(108,99,255,.18);color:var(--acc)}
+.fund-source-pill.portal{background:rgba(245,158,11,.18);color:var(--yel)}
+.fund-source-pill.manual{background:rgba(100,100,122,.18);color:var(--mut)}
+.fund-source-pill.unavail{background:rgba(239,68,68,.18);color:var(--red)}
+.fund-portal-link{color:var(--yel);text-decoration:none;font-family:'Roboto Mono',monospace;font-size:10px;border-bottom:1px dashed var(--yel)}
+.fund-portal-link:hover{filter:brightness(1.2)}
+</style>
+<script>
+// ====================== Funding module ======================
+var FUND=(function(){
+  var NS={};
+  var K={
+    registry:'rl_fund_registry_v1',
+    snapshots:'rl_fund_snapshots_v1',
+    fx:'rl_fund_fx_v1',
+    admin:'rl_fund_admin_v1',
+    ui:'rl_fund_ui_v1'
+  };
+
+  // Seeded provider registry from the 2026 Prepaid Accounts workbook.
+  // Format: [benderId, name, currency, displayName, mode]  (mode: 'bender'|'portal'|'manual'|'unavail')
+  // benderId=null means there's no Bender command for this provider.
+  var SEED = [
+    [3, 'CSQ','USD','CSQ','bender'],
+    [6, 'TIGO','USD','TIGO','bender'],
+    [7, 'PRASAN','USD','Prasan','bender'],
+    [8, 'XTRANSFER','USD','XTransfer','bender'],
+    [9, 'SOCHITEL','USD','Sochitel','bender'],
+    [10,'CLICKMOBILE','USD','ClickMobile','bender'],
+    [11,'ETHIOTEL','USD','EthioTel','bender'],
+    [12,'AIRTEL_NIGERIA','NGN','Airtel Nigeria','bender'],
+    [13,'BANKAI','USD','Bankai','bender'],
+    [14,'PAYMENT_SOURCE','CAD','Payment Source','bender'],
+    [15,'AFRIKPAY','XOF','Afrik Pay','unavail'],
+    [16,'VPS','USD','VPS','bender'],
+    [17,'INTOUCH','XOF','InTouch','bender'],
+    [18,'ORANGE','XOF','Orange','bender'],
+    [19,'MERCHANT_TRADE','USD','Merchant Trade','bender'],
+    [20,'ONATEL','XOF','Onatel','bender'],
+    [21,'CLARO_DR','USD','Claro DR','bender'],
+    [22,'ATI','USD','ATI','bender'],
+    [23,'VODACOM_DRC','USD','Vodacom DRC','bender'],
+    [24,'NSANO','USD','Nsano','bender'],
+    [25,'CONVERGED','USD','Converged','bender'],
+    [26,'IDT','USD','IDT','bender'],
+    [27,'BUTTON_PAY','USD','Button Pay','bender'],
+    [28,'AIRTEL_TIGO_GHANA','GHS','AirtelTigo Ghana','bender'],
+    [29,'TRANGLO','USD','Tranglo','bender'],
+    [30,'CY_SEND','EUR','Cy Send','bender'],
+    [31,'MOVITEL','MZN','Movitel','bender'],
+    [32,'NINE_MOBILE','NGN','9mobile','bender'],
+    [33,'QCELL','GMD','QCell','bender'],
+    [34,'AIRTEL_UGANDA','UGX','Airtel Uganda','bender'],
+    [35,'GLO_NIGERIA','NGN','Glo Nigeria','bender'],
+    [36,'MTN_IVORY_COAST','XOF','MTN Ivory Coast','bender'],
+    [37,'TENYING','USD','Tenying','bender'],
+    [38,'KEPLER','USD','Kepler','bender'],
+    [39,'PALTEL','USD','Paltel','bender'],
+    [40,'AIRTEL_CONGO_BRAZZAVILLE','XAF','Airtel Congo Brazzaville','bender'],
+    [41,'HUTCHISON','USD','Hutchison','bender'],
+    [42,'ECPAY','USD','ECPay','bender'],
+    [43,'MTN_GUINEA_BISSAU','XOF','MTN Guinea-Bissau','bender'],
+    [44,'CV_MOVEL','CVE','CV Movel','bender'],
+    [45,'LAFRICAMOBILE','XOF','LAfrica Mobile','bender'],
+    [46,'UNITEL','AOA','Unitel','bender'],
+    [47,'TELKOM_KENYA','KES','Telkom Kenya','bender'],
+    [48,'TIGO_GUATEMALA','GTQ','Tigo Guatemala','bender'],
+    [49,'ECONET','USD','Econet','bender'],
+    [50,'PAYMASTER','USD','Paymaster','bender'],
+    [51,'DIGICEL','USD','Digicel','bender'],
+    [52,'PULSA_PRO','USD','Pulsa Pro','bender'],
+    [53,'DNS','USD','DNS','bender'],
+    [54,'GAM_SWITCH','GMD','Gam Switch','bender'],
+    [55,'ZERO_SEVEN','USD','Zero Zero Seven','portal'],
+    [56,'PRIME','USD','Prime','bender'],
+    [57,'SMARTFREN','IDR','Smartfren','bender'],
+    [58,'WORLDVOICE','USD','WorldVoice','bender'],
+    [59,'SAFARICOM','KES','Safaricom','bender'],
+    [60,'JRI','USD','JRI','bender'],
+    [61,'WIZALL','XOF','Wizall','bender'],
+    [62,'ZONG','USD','Zong','bender'],
+    [81,'PAYPOINT','USD','Paypoint','bender'],
+    [83,'DING','USD','Ding','bender'],
+    [108,'IDT_ZENDIT','USD','IDT/Zendit','bender']
+  ];
+
+  function loadJSON(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+  function saveJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){console.error('FUND save failed for '+k+':',e);return false;}}
+
+  function _seedRegistry(){
+    return SEED.map(function(r){
+      return {
+        benderId:r[0], name:r[1], currency:r[2], displayName:r[3], mode:r[4],
+        portalUrl: r[4]==='portal' ? '' : null,
+        notes:'', isActive:true,
+        subWallets: r[1]==='LAFRICAMOBILE' ? ['Burkina','Senegal','Tchad','Liberia','Mali','Mauritania','IC','Egypt','Data Senegal','Data Mali'] : null
+      };
+    });
+  }
+  NS.loadRegistry=function(){var r=loadJSON(K.registry,null);if(!r){r=_seedRegistry();saveJSON(K.registry,r);}return r;};
+  NS.saveRegistry=function(r){saveJSON(K.registry,r);};
+  NS.loadSnapshots=function(){return loadJSON(K.snapshots,[]);};
+  NS.saveSnapshots=function(s){saveJSON(K.snapshots,s);};
+  NS.loadFX=function(){return loadJSON(K.fx,{});};
+  NS.saveFX=function(f){saveJSON(K.fx,f);};
+  NS.loadAdmin=function(){return loadJSON(K.admin,{targetCoverDays:21,criticalDays:4,watchDays:10,planDays:14});};
+  NS.saveAdmin=function(a){saveJSON(K.admin,a);};
+  NS.loadUI=function(){return loadJSON(K.ui,{tab:'daily',date:null});};
+  NS.saveUI=function(u){saveJSON(K.ui,u);};
+
+  // FX integration — pull from exchangerate.host (free, no key)
+  NS.fetchFX=function(date){
+    // date format YYYY-MM-DD; pass null for today
+    var d=date||new Date().toISOString().slice(0,10);
+    var cache=NS.loadFX();
+    if(cache[d])return Promise.resolve(cache[d]);
+    var url='https://api.exchangerate.host/'+d+'?base=USD';
+    return fetch(url).then(function(r){return r.json();}).then(function(j){
+      if(j&&j.rates){
+        // Store as currency → USD multiplier (1 unit of currency = X USD)
+        var rates={USD:1};
+        Object.keys(j.rates).forEach(function(c){
+          var rateFromUSD=j.rates[c]; // 1 USD = rateFromUSD of c
+          if(rateFromUSD&&rateFromUSD>0)rates[c]=1/rateFromUSD;
+        });
+        var c=NS.loadFX();c[d]=rates;NS.saveFX(c);
+        return rates;
+      }
+      throw new Error('No rates returned');
+    }).catch(function(e){
+      console.warn('FX fetch failed for '+d+':',e);
+      // Fall back to most recent cached rates
+      var c=NS.loadFX();var keys=Object.keys(c).sort();
+      if(keys.length)return c[keys[keys.length-1]];
+      return null;
+    });
+  };
+  NS.localToUSD=function(amount, currency, rates){
+    if(amount==null||isNaN(amount))return null;
+    if(!currency||currency==='USD')return amount;
+    var r=(rates||{})[currency];
+    if(!r)return null;
+    return amount * r;
+  };
+
+  function today(){return new Date().toISOString().slice(0,10);}
+  function _todaySnapshot(){
+    var snaps=NS.loadSnapshots();
+    var t=today();
+    var existing=snaps.find(function(s){return s.date===t;});
+    if(existing)return existing;
+    var fresh={date:t,balances:{},savedAt:null};
+    return fresh;
+  }
+
+  // ===== MAIN RENDERER =====
+  NS.renderFunding=function(){
+    var main=document.getElementById('main');if(!main)return;main.innerHTML='';
+    var ui=NS.loadUI();
+    var wrap=document.createElement('div');wrap.className='fund-wrap';
+
+    // Header
+    var hdr=document.createElement('div');hdr.className='fund-hdr';
+    hdr.innerHTML='<div><div class="fund-title">Funding</div><div class="fund-sub">Supplier wallet balances · burn rate · forecast</div></div>';
+    var tools=document.createElement('div');tools.className='fund-tools';
+    var refreshFxBtn=document.createElement('button');refreshFxBtn.className='fund-btn';refreshFxBtn.innerHTML='⟲ Refresh FX';
+    refreshFxBtn.onclick=function(){
+      refreshFxBtn.disabled=true;refreshFxBtn.textContent='Fetching…';
+      NS.fetchFX(null).then(function(){refreshFxBtn.disabled=false;refreshFxBtn.innerHTML='✓ FX updated';setTimeout(function(){refreshFxBtn.innerHTML='⟲ Refresh FX';},1500);NS.renderFunding();});
+    };
+    tools.appendChild(refreshFxBtn);
+    hdr.appendChild(tools);
+    wrap.appendChild(hdr);
+
+    // Tabs
+    var tabBar=document.createElement('div');tabBar.className='fund-tabbar';
+    [{id:'daily',l:'Daily Pull'},{id:'history',l:'History'},{id:'registry',l:'Providers'}].forEach(function(t){
+      var b=document.createElement('button');b.className='fund-tab'+(t.id===ui.tab?' active':'');b.textContent=t.l;
+      b.onclick=function(){ui.tab=t.id;NS.saveUI(ui);NS.renderFunding();};
+      tabBar.appendChild(b);
+    });
+    wrap.appendChild(tabBar);
+
+    var content=document.createElement('div');wrap.appendChild(content);
+    if(ui.tab==='daily')_renderDaily(content);
+    else if(ui.tab==='history')_renderHistory(content);
+    else if(ui.tab==='registry')_renderRegistry(content);
+    main.appendChild(wrap);
+  };
+
+  function _renderDaily(host){
+    var registry=NS.loadRegistry().filter(function(p){return p.isActive!==false;});
+    var snap=_todaySnapshot();
+    var rates=NS.loadFX()[today()]||null;
+
+    // FX strip
+    var fxStrip=document.createElement('div');fxStrip.className='fund-fx-strip';
+    if(rates){
+      var keys=Object.keys(rates).filter(function(c){return c!=='USD';}).slice(0,6);
+      fxStrip.innerHTML='<span>FX RATES TODAY <b>'+today()+'</b>:</span>'+keys.map(function(c){return '<span>'+c+' = <b>'+rates[c].toFixed(6)+'</b> USD</span>';}).join('');
+    }else{
+      fxStrip.innerHTML='<span style="color:var(--yel)">No FX rates loaded for today.</span>';
+      var pullBtn=document.createElement('button');pullBtn.className='fund-btn';pullBtn.style.marginLeft='auto';pullBtn.innerHTML='⤓ Fetch FX rates';
+      pullBtn.onclick=function(){pullBtn.disabled=true;pullBtn.textContent='Fetching…';NS.fetchFX(null).then(function(){NS.renderFunding();});};
+      fxStrip.appendChild(pullBtn);
+    }
+    host.appendChild(fxStrip);
+
+    // Save snapshot button + status
+    var summary=document.createElement('div');summary.className='fund-status-strip';
+    var filledCount=Object.keys(snap.balances||{}).length;
+    summary.innerHTML='<span>DATE: <b>'+today()+'</b></span>'
+      +'<span>PROVIDERS: <b>'+registry.length+'</b></span>'
+      +'<span>FILLED: <b>'+filledCount+'</b> / '+registry.length+'</span>'
+      +(snap.savedAt?'<span class="pill ok">SAVED '+new Date(snap.savedAt).toLocaleTimeString()+'</span>':'<span class="pill warn">NOT SAVED</span>');
+    var saveBtn=document.createElement('button');saveBtn.className='fund-btn primary';saveBtn.style.marginLeft='auto';saveBtn.innerHTML='✓ Save today\'s snapshot';
+    saveBtn.onclick=function(){
+      if(!filledCount){if(!confirm('No balances entered. Save an empty snapshot?'))return;}
+      snap.savedAt=new Date().toISOString();
+      var snaps=NS.loadSnapshots();
+      var idx=snaps.findIndex(function(s){return s.date===snap.date;});
+      if(idx>=0)snaps[idx]=snap;else snaps.push(snap);
+      NS.saveSnapshots(snaps);
+      if(typeof toast==='function')toast('Snapshot saved for '+snap.date,'ok');
+      NS.renderFunding();
+    };
+    summary.appendChild(saveBtn);
+    host.appendChild(summary);
+
+    // Table
+    var tw=document.createElement('div');tw.className='fund-tablewrap';
+    var tbl=document.createElement('table');tbl.className='fund-table';
+    tbl.innerHTML='<thead><tr>'
+      +'<th>BENDER COMMAND</th><th>PROVIDER</th><th>SOURCE</th><th>CURRENCY</th>'
+      +'<th style="text-align:right">LOCAL BALANCE</th><th style="text-align:right">USD BALANCE</th><th>YESTERDAY</th><th>NOTES</th>'
+      +'</tr></thead>';
+    var tb=document.createElement('tbody');tbl.appendChild(tb);
+    var yesterdaySnap=_yesterdaySnapshot();
+    registry.forEach(function(p){
+      var tr=document.createElement('tr');
+      var key=p.benderId!=null?String(p.benderId):p.name;
+      var existingLocal=(snap.balances[key]&&snap.balances[key].local)!=null?snap.balances[key].local:'';
+      var usd=NS.localToUSD(parseFloat(existingLocal), p.currency, rates);
+      // Bender command cell
+      var cmdHtml='';
+      if(p.mode==='bender'&&p.benderId!=null){
+        cmdHtml='<span class="bender-cmd">/airtime/provider/balance '+p.benderId+'</span>'
+          +' <button class="copy-btn" data-cmd="/airtime/provider/balance '+p.benderId+'">⎘ Copy</button>';
+      } else if(p.mode==='portal'&&p.portalUrl){
+        cmdHtml='<a class="fund-portal-link" href="'+_esc(p.portalUrl)+'" target="_blank">'+_esc(p.portalUrl)+' ↗</a>';
+      } else if(p.mode==='portal'){
+        cmdHtml='<span class="mut">portal — set URL in Providers tab</span>';
+      } else if(p.mode==='unavail'){
+        cmdHtml='<span class="mut">live balance not available</span>';
+      } else { cmdHtml='<span class="mut">—</span>'; }
+      var sourceCls=p.mode==='bender'?'bender':p.mode==='portal'?'portal':p.mode==='unavail'?'unavail':'manual';
+      tr.innerHTML='<td>'+cmdHtml+'</td>'
+        +'<td><div class="fund-prov-name">'+_esc(p.displayName||p.name)+'</div><div class="fund-prov-sub">'+_esc(p.name)+(p.benderId!=null?' · ID '+p.benderId:'')+'</div></td>'
+        +'<td><span class="fund-source-pill '+sourceCls+'">'+(p.mode||'?').toUpperCase()+'</span></td>'
+        +'<td><span class="ccy">'+_esc(p.currency||'USD')+'</span></td>';
+      // Local balance input cell
+      var localTd=document.createElement('td');localTd.style.textAlign='right';
+      var inp=document.createElement('input');inp.type='number';inp.step='0.01';inp.className='bal'+(existingLocal!==''?' filled':'');
+      inp.value=existingLocal;inp.placeholder='enter amount';
+      inp.oninput=function(){
+        var val=this.value===''?null:parseFloat(this.value);
+        if(val==null||isNaN(val)){delete snap.balances[key];}
+        else{snap.balances[key]={local:val,currency:p.currency,enteredAt:new Date().toISOString(),source:p.mode};}
+        // Update USD cell
+        var u=NS.localToUSD(val,p.currency,rates);
+        usdCell.innerHTML=u!=null?'<span class="num">'+u.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>':'<span class="mut">—</span>';
+        // Persist to in-memory snapshot (full save happens on Save button)
+        this.classList.toggle('filled', val!=null);
+      };
+      localTd.appendChild(inp);
+      tr.appendChild(localTd);
+      // USD cell
+      var usdCell=document.createElement('td');usdCell.style.textAlign='right';
+      usdCell.innerHTML=usd!=null?'<span class="num">'+usd.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>':'<span class="mut">—</span>';
+      tr.appendChild(usdCell);
+      // Yesterday's balance
+      var ydBal=(yesterdaySnap&&yesterdaySnap.balances[key])?yesterdaySnap.balances[key]:null;
+      var ydTd=document.createElement('td');ydTd.className='num mut';
+      if(ydBal){
+        var ydUsd=NS.localToUSD(ydBal.local, ydBal.currency||p.currency, NS.loadFX()[yesterdaySnap.date]||rates);
+        ydTd.innerHTML='<span style="font-size:10px">'+(ydUsd!=null?ydUsd.toFixed(2):ydBal.local)+'</span>';
+      }else ydTd.textContent='—';
+      tr.appendChild(ydTd);
+      // Notes
+      var notesTd=document.createElement('td');notesTd.style.fontSize='10px';notesTd.style.color='var(--mut)';notesTd.textContent=p.notes||'';
+      tr.appendChild(notesTd);
+      tb.appendChild(tr);
+    });
+    tw.appendChild(tbl);
+    host.appendChild(tw);
+
+    // Wire up copy-to-clipboard for Bender commands
+    tw.querySelectorAll('.copy-btn').forEach(function(btn){
+      btn.onclick=function(){
+        var cmd=this.dataset.cmd;
+        navigator.clipboard.writeText(cmd).then(function(){
+          btn.classList.add('copied');btn.textContent='✓';
+          setTimeout(function(){btn.classList.remove('copied');btn.textContent='⎘ Copy';},900);
+        });
+      };
+    });
+  }
+
+  function _yesterdaySnapshot(){
+    var snaps=NS.loadSnapshots().slice().sort(function(a,b){return a.date.localeCompare(b.date);});
+    var t=today();
+    for(var i=snaps.length-1;i>=0;i--){if(snaps[i].date<t)return snaps[i];}
+    return null;
+  }
+
+  function _renderHistory(host){
+    var snaps=NS.loadSnapshots();
+    if(!snaps.length){
+      var em=document.createElement('div');em.className='fund-empty';
+      em.innerHTML='<div class="fund-empty-ic">📊</div><div class="fund-empty-t">No snapshots yet</div><div class="fund-empty-s">Go to <b>Daily Pull</b>, enter today\'s balances, and click <b>Save today\'s snapshot</b>. Your first day of data starts the history.</div>';
+      host.appendChild(em);return;
+    }
+    var registry=NS.loadRegistry();
+    snaps=snaps.slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+    var dates=snaps.slice(0,30).map(function(s){return s.date;});
+    // Pivot: rows = providers, cols = dates
+    var tw=document.createElement('div');tw.className='fund-tablewrap';
+    var tbl=document.createElement('table');tbl.className='fund-table';
+    var thead='<thead><tr><th>PROVIDER</th><th>CURRENCY</th>'+dates.map(function(d){return '<th style="text-align:right">'+d.slice(5)+'</th>';}).join('')+'</tr></thead>';
+    tbl.innerHTML=thead;
+    var tb=document.createElement('tbody');tbl.appendChild(tb);
+    registry.forEach(function(p){
+      var key=p.benderId!=null?String(p.benderId):p.name;
+      var tr=document.createElement('tr');
+      var html='<td><div class="fund-prov-name">'+_esc(p.displayName||p.name)+'</div></td><td><span class="ccy">'+_esc(p.currency||'USD')+'</span></td>';
+      dates.forEach(function(d){
+        var snap=snaps.find(function(s){return s.date===d;});
+        var bal=snap&&snap.balances[key]?snap.balances[key]:null;
+        if(bal){
+          var rates=NS.loadFX()[d]||null;
+          var usd=NS.localToUSD(bal.local, bal.currency||p.currency, rates);
+          html+='<td class="num">'+(usd!=null?usd.toFixed(2):bal.local.toFixed(2))+'</td>';
+        }else{
+          html+='<td class="mut" style="text-align:right">—</td>';
+        }
+      });
+      tr.innerHTML=html;tb.appendChild(tr);
+    });
+    tw.appendChild(tbl);
+    host.appendChild(tw);
+  }
+
+  function _renderRegistry(host){
+    var registry=NS.loadRegistry();
+    var em=document.createElement('div');em.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:14px';
+    em.innerHTML='Seeded with <b>'+registry.length+'</b> providers from the Reloadly Bender ID list. Edit currencies / portal URLs / notes as needed. Inactive providers are hidden from the Daily Pull view.';
+    host.appendChild(em);
+    var tw=document.createElement('div');tw.className='fund-tablewrap';
+    var tbl=document.createElement('table');tbl.className='fund-table';
+    tbl.innerHTML='<thead><tr><th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>PORTAL URL</th><th>ACTIVE</th><th>NOTES</th></tr></thead>';
+    var tb=document.createElement('tbody');tbl.appendChild(tb);
+    registry.forEach(function(p,idx){
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td class="mut">'+(p.benderId!=null?p.benderId:'—')+'</td><td><b>'+_esc(p.name)+'</b></td>';
+      // Display name
+      var dnTd=document.createElement('td');var dni=document.createElement('input');dni.value=p.displayName||'';dni.style.cssText='width:120px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:inherit';dni.onchange=function(){p.displayName=this.value;NS.saveRegistry(registry);};dnTd.appendChild(dni);tr.appendChild(dnTd);
+      // Currency
+      var ccyTd=document.createElement('td');var ccyi=document.createElement('input');ccyi.value=p.currency||'USD';ccyi.style.cssText='width:50px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace;text-transform:uppercase';ccyi.onchange=function(){p.currency=this.value.toUpperCase();NS.saveRegistry(registry);};ccyTd.appendChild(ccyi);tr.appendChild(ccyTd);
+      // Mode
+      var modeTd=document.createElement('td');var modeSel=document.createElement('select');modeSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace';['bender','portal','manual','unavail'].forEach(function(m){var op=document.createElement('option');op.value=m;op.textContent=m;if(m===p.mode)op.selected=true;modeSel.appendChild(op);});modeSel.onchange=function(){p.mode=this.value;NS.saveRegistry(registry);NS.renderFunding();};modeTd.appendChild(modeSel);tr.appendChild(modeTd);
+      // Portal URL
+      var purlTd=document.createElement('td');var purl=document.createElement('input');purl.value=p.portalUrl||'';purl.placeholder='https://…';purl.style.cssText='width:160px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';purl.onchange=function(){p.portalUrl=this.value;NS.saveRegistry(registry);};purlTd.appendChild(purl);tr.appendChild(purlTd);
+      // Active
+      var actTd=document.createElement('td');var actCb=document.createElement('input');actCb.type='checkbox';actCb.checked=p.isActive!==false;actCb.onchange=function(){p.isActive=this.checked;NS.saveRegistry(registry);};actTd.appendChild(actCb);tr.appendChild(actTd);
+      // Notes
+      var notesTd=document.createElement('td');var notesi=document.createElement('input');notesi.value=p.notes||'';notesi.style.cssText='width:140px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';notesi.onchange=function(){p.notes=this.value;NS.saveRegistry(registry);};notesTd.appendChild(notesi);tr.appendChild(notesTd);
+      tb.appendChild(tr);
+    });
+    tw.appendChild(tbl);
+    host.appendChild(tw);
+  }
 
   function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   return NS;
