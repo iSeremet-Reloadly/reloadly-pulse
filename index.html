@@ -12042,28 +12042,45 @@ var FUND=(function(){
     var d=date||NS.fxDefaultDate();
     var cache=NS.loadFX();
     if(cache[d] && !force)return Promise.resolve({rates:cache[d], date:d, fromCache:true});
-    var url='https://api.exchangerate.host/'+d+'?base=USD';
-    return fetch(url).then(function(r){return r.json();}).then(function(j){
-      if(j&&j.rates){
+    // Free, no-key API from fawazahmed0 — 342 currencies including all African (XAF, XOF, NGN,
+    // ETB, GMD, etc.) and Middle Eastern (AED, AFN) currencies Reloadly tracks. CDN-hosted so
+    // it's fast and reliable. Historical date format: @YYYY-MM-DD. Falls back to "latest" if
+    // the historical date isn't available yet (e.g. weekend).
+    var primary='https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@'+d+'/v1/currencies/usd.json';
+    var fallback='https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json';
+    function tryFetch(url, isFallback){
+      return fetch(url).then(function(r){
+        if(!r.ok)throw new Error('HTTP '+r.status);
+        return r.json();
+      }).then(function(j){
+        if(!j || !j.usd) throw new Error('Unexpected response shape');
+        // Response: {date:"2026-06-09", usd:{cad:1.39, ngn:1361.5, ...}} — lowercase ccy codes.
+        // Convert to {CCY: USD_per_unit} — i.e. multiplier to get USD from local.
         var rates={USD:1};
-        Object.keys(j.rates).forEach(function(c){
-          var rateFromUSD=j.rates[c]; // 1 USD = rateFromUSD of c
-          if(rateFromUSD&&rateFromUSD>0)rates[c]=1/rateFromUSD;
+        Object.keys(j.usd).forEach(function(c){
+          var v=j.usd[c];
+          if(typeof v==='number' && v>0){
+            rates[c.toUpperCase()] = 1/v;
+          }
         });
-        // Store under the date Pulse requested; if the API echoes a different date (e.g. it
-        // returned the most recent close for a weekend/holiday), also stash under that.
-        var c=NS.loadFX();c[d]=rates;
-        var apiDate=j.date;
-        if(apiDate && apiDate!==d)c[apiDate]=rates;
+        var apiDate = j.date || d;
+        var c=NS.loadFX();
+        // Stash under both the requested date and what the API returned, so we don't keep
+        // refetching on weekends when D-1 wasn't published yet.
+        c[d]=rates;
+        if(apiDate && apiDate!==d) c[apiDate]=rates;
         NS.saveFX(c);
-        return {rates:rates, date:d, apiDate:apiDate||d, fromCache:false};
-      }
-      throw new Error('No rates returned');
+        return {rates:rates, date:d, apiDate:apiDate, fromCache:false, fallback:!!isFallback};
+      });
+    }
+    return tryFetch(primary, false).catch(function(e){
+      console.warn('FX primary fetch failed ('+d+'):', e.message||e, '— trying latest');
+      return tryFetch(fallback, true);
     }).catch(function(e){
-      console.warn('FX fetch failed for '+d+':',e);
+      console.error('FX fetch failed (both primary and fallback):', e.message||e);
       var c=NS.loadFX();var keys=Object.keys(c).sort();
-      if(keys.length)return {rates:c[keys[keys.length-1]], date:keys[keys.length-1], fromCache:true, fallback:true};
-      return {rates:null, date:d};
+      if(keys.length)return {rates:c[keys[keys.length-1]], date:keys[keys.length-1], fromCache:true, fallback:true, error:e.message||String(e)};
+      return {rates:null, date:d, error:e.message||String(e)};
     });
   };
   NS.localToUSD=function(amount, currency, rates){
@@ -12290,27 +12307,34 @@ var FUND=(function(){
       var stalenessHint = (rateDate !== fxKey) ? ' <span style="color:var(--yel)">⚠ stale — newer rates available</span>' : '';
       fxStrip.innerHTML='<span>FX RATES FROM <b>'+rateDate+'</b> (D-1):'+stalenessHint+'</span>'+keys.map(function(c){return '<span>'+c+' = <b>'+rates[c].toFixed(6)+'</b> USD</span>';}).join('');
     }else{
-      // Auto-fetch on first render of this session — but only once, so a failed network or
-      // weekend gap doesn't spam the API. After that the manual button takes over.
+      // Auto-fetch on first render of this session — but only once. The flag stays TRUE on
+      // failure so the strip transitions to the manual retry state instead of looping.
       var autoTried = window._fundFxAutoFetched;
       if(!autoTried){
         window._fundFxAutoFetched = true;
         fxStrip.classList.add('fetching');
-        fxStrip.innerHTML='<span style="color:var(--acc);font-weight:700">⤓ FETCHING FX RATES FOR <b>'+fxKey+'</b> (D-1)…</span><span style="margin-left:auto;color:var(--mut);font-size:9px">from exchangerate.host</span><div class="fx-progress"></div>';
+        fxStrip.innerHTML='<span style="color:var(--acc);font-weight:700">⤓ FETCHING FX RATES FOR <b>'+fxKey+'</b> (D-1)…</span><span style="margin-left:auto;color:var(--mut);font-size:9px">via fawazahmed0/currency-api</span><div class="fx-progress"></div>';
         NS.fetchFX(null, false).then(function(res){
-          if(res && res.rates) NS.renderFunding();
-          else { window._fundFxAutoFetched = false; NS.renderFunding(); }
-        }).catch(function(){window._fundFxAutoFetched = false; NS.renderFunding();});
+          // Always re-render so the strip transitions out of the fetching state
+          NS.renderFunding();
+        }).catch(function(e){
+          console.error('Auto-fetch FX failed:',e);
+          NS.renderFunding();
+        });
       } else {
-        fxStrip.innerHTML='<span style="color:var(--yel)">⚠ No FX rates loaded for '+fxKey+'. Click below to retry — exchangerate.host may have been unreachable or D-1 rates may not be published yet.</span>';
-        var pullBtn=document.createElement('button');pullBtn.className='fund-btn';pullBtn.style.marginLeft='auto';pullBtn.innerHTML='⤓ Fetch FX rates';
+        // Manual retry state — clear error + button
+        fxStrip.innerHTML='<span style="color:var(--yel)">⚠ FX rates not available for <b>'+fxKey+'</b>. The CDN may be slow or D-1 rates not yet published. Click to retry.</span>';
+        var pullBtn=document.createElement('button');pullBtn.className='fund-btn';pullBtn.style.marginLeft='auto';pullBtn.innerHTML='⤓ Retry fetch';
         pullBtn.onclick=function(){
           pullBtn.disabled=true;pullBtn.textContent='Fetching…';
           fxStrip.classList.add('fetching');
-          // Append a progress bar to the strip
-          var pb=document.createElement('div');pb.className='fx-progress';fxStrip.appendChild(pb);
+          if(!fxStrip.querySelector('.fx-progress')){
+            var pb=document.createElement('div');pb.className='fx-progress';fxStrip.appendChild(pb);
+          }
+          // Allow the auto-fetch path to retry by clearing the flag — but only because the
+          // user explicitly asked.
           window._fundFxAutoFetched=false;
-          NS.fetchFX(null, true).then(function(){NS.renderFunding();});
+          NS.fetchFX(null, true).then(function(){NS.renderFunding();}).catch(function(){NS.renderFunding();});
         };
         fxStrip.appendChild(pullBtn);
       }
