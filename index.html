@@ -11848,68 +11848,63 @@ var FUND=(function(){
   // Seeded provider registry from the 2026 Prepaid Accounts workbook.
   // Format: [benderId, name, currency, displayName, mode]  (mode: 'bender'|'portal'|'manual'|'unavail')
   // benderId=null means there's no Bender command for this provider.
+  // Seeded from the June USD scratchpad in 2026 Prepaid Accounts.xlsx — only providers
+  // that David actually tracks. Format: [benderId, name, currency, displayName, mode, portalUrl_or_null]
   var SEED = [
-    [3, 'CSQ','USD','CSQ','bender'],
-    [6, 'TIGO','USD','TIGO','bender'],
-    [7, 'PRASAN','USD','Prasan','bender'],
-    [8, 'XTRANSFER','USD','XTransfer','bender'],
-    [9, 'SOCHITEL','USD','Sochitel','bender'],
-    [10,'CLICKMOBILE','USD','ClickMobile','bender'],
-    [11,'ETHIOTEL','USD','EthioTel','bender'],
-    [12,'AIRTEL_NIGERIA','NGN','Airtel Nigeria','bender'],
-    [13,'BANKAI','USD','Bankai','bender'],
-    [14,'PAYMENT_SOURCE','CAD','Payment Source','bender'],
-    [15,'AFRIKPAY','XOF','Afrik Pay','unavail'],
-    [16,'VPS','USD','VPS','bender'],
-    [17,'INTOUCH','XOF','InTouch','bender'],
-    [18,'ORANGE','XOF','Orange','bender'],
-    [19,'MERCHANT_TRADE','USD','Merchant Trade','bender'],
-    [20,'ONATEL','XOF','Onatel','bender'],
-    [21,'CLARO_DR','USD','Claro DR','bender'],
-    [22,'ATI','USD','ATI','bender'],
-    [23,'VODACOM_DRC','USD','Vodacom DRC','bender'],
-    [24,'NSANO','USD','Nsano','bender'],
-    [25,'CONVERGED','USD','Converged','bender'],
-    [26,'IDT','USD','IDT','bender'],
-    [27,'BUTTON_PAY','USD','Button Pay','bender'],
-    [28,'AIRTEL_TIGO_GHANA','GHS','AirtelTigo Ghana','bender'],
-    [29,'TRANGLO','USD','Tranglo','bender'],
-    [30,'CY_SEND','EUR','Cy Send','bender'],
-    [31,'MOVITEL','MZN','Movitel','bender'],
-    [32,'NINE_MOBILE','NGN','9mobile','bender'],
-    [33,'QCELL','GMD','QCell','bender'],
-    [34,'AIRTEL_UGANDA','UGX','Airtel Uganda','bender'],
-    [35,'GLO_NIGERIA','NGN','Glo Nigeria','bender'],
-    [36,'MTN_IVORY_COAST','XOF','MTN Ivory Coast','bender'],
-    [37,'TENYING','USD','Tenying','bender'],
-    [38,'KEPLER','USD','Kepler','bender'],
-    [39,'PALTEL','USD','Paltel','bender'],
-    [40,'AIRTEL_CONGO_BRAZZAVILLE','XAF','Airtel Congo Brazzaville','bender'],
-    [41,'HUTCHISON','USD','Hutchison','bender'],
-    [42,'ECPAY','USD','ECPay','bender'],
-    [43,'MTN_GUINEA_BISSAU','XOF','MTN Guinea-Bissau','bender'],
-    [44,'CV_MOVEL','CVE','CV Movel','bender'],
-    [45,'LAFRICAMOBILE','XOF','LAfrica Mobile','bender'],
-    [46,'UNITEL','AOA','Unitel','bender'],
-    [47,'TELKOM_KENYA','KES','Telkom Kenya','bender'],
-    [48,'TIGO_GUATEMALA','GTQ','Tigo Guatemala','bender'],
-    [49,'ECONET','USD','Econet','bender'],
-    [50,'PAYMASTER','USD','Paymaster','bender'],
-    [51,'DIGICEL','USD','Digicel','bender'],
-    [52,'PULSA_PRO','USD','Pulsa Pro','bender'],
-    [53,'DNS','USD','DNS','bender'],
-    [54,'GAM_SWITCH','GMD','Gam Switch','bender'],
-    [55,'ZERO_SEVEN','USD','Zero Zero Seven','portal'],
-    [56,'PRIME','USD','Prime','bender'],
-    [57,'SMARTFREN','IDR','Smartfren','bender'],
-    [58,'WORLDVOICE','USD','WorldVoice','bender'],
-    [59,'SAFARICOM','KES','Safaricom','bender'],
-    [60,'JRI','USD','JRI','bender'],
-    [61,'WIZALL','XOF','Wizall','bender'],
-    [62,'ZONG','USD','Zong','bender'],
-    [81,'PAYPOINT','USD','Paypoint','bender'],
-    [83,'DING','USD','Ding','bender'],
-    [108,'IDT_ZENDIT','USD','IDT/Zendit','bender']
+    // === BENDER providers (auto-pull via Bender slash command) ===
+    [9,   'SOCHITEL','USD','Sochitel','bender', null],
+    [12,  'AIRTEL_NIGERIA','NGN','Airtel Nigeria','bender', null],
+    [14,  'PAYMENT_SOURCE','CAD','Payment Source','bender', null],
+    [16,  'VPS','USD','VPS','bender', null],
+    [29,  'TRANGLO','USD','Tranglo','bender', null],
+    [30,  'CY_SEND','EUR','Cy Send','bender', null],
+    [33,  'QCELL','GMD','QCell','bender', null],
+    [35,  'GLO_NIGERIA','NGN','Glo Nigeria','bender', null],
+    [37,  'TENYING','USD','Shanghai Tengying Network','bender', null],
+    [38,  'ETHIOTEL','ETB','Ethiotel','bender', null],
+    [45,  'LAFRICAMOBILE','XOF','LAfrica Mobile','bender', null],
+    [51,  'DIGICEL','USD','Digicel','bender', null],
+    [58,  'WORLDVOICE','USD','World Voice','bender', null],
+    [62,  'ZONG','PKR','Zong Pakistan','bender', null],
+    [63,  'MTN_CAMEROON','XAF','MTN Cameroon','bender', null],
+    [71,  'AIRTEL_GABON','XAF','Airtel Gabon','bender', null],
+    [72,  'KUMQUAT','USD','Kumquat','bender', null],
+    [73,  'MBA','IDR','MBA-XL','bender', null],
+    [74,  'AIRTEL_NIGER','XOF','Airtel Niger','bender', null],
+    [75,  'SRS_MALAYSIA','MYR','SRS Malaysia','bender', null],
+    [80,  'AFRICELL_GAMBIA','GMD','Africell Gambia','bender', null],
+    [81,  'PAYPOINT','USD','Paypoint','bender', null],
+    [83,  'DING','USD','Ding','bender', null],
+    [84,  'SOFTGATE','USD','Softgate','bender', null],
+    [88,  'AQUIPAGA','BRL','AquiPaga','bender', null],
+    [96,  'TRUE_AFRICAN','USD','True African','bender', null],
+    [97,  'INTELLEXAL','USD','Intellexal (PKR/AED/AFN)','bender', null],
+    [98,  'MOOV_NIGER','XOF','Moov Niger','bender', null],
+    [108, 'IDT_ZENDIT','USD','IDT/Zendit','bender', null],
+    // === PORTAL providers (manual web login required) ===
+    [8,   'XTRANSFER','USD','X Transfer (Senegal)','portal','https://stats.creditemoi.com/d/nK1dJyPZk/transactions-reports-senegal?orgId=5'],
+    [24,  'NSANO','USD','NSANO','portal','https://fusion.nsano.com/authen/'],
+    [32,  'NINE_MOBILE','NGN','9mobile','portal','https://smt.9mobile.com.ng/salesmgmt/'],
+    [41,  'HUTCHISON','IDR','Hutch Indonesia','portal','https://cuan.tri.co.id/pretups/'],
+    [42,  'ECPAY','PHP','ECPay','portal','https://portal.ecpay-online.com/ONEECPAYClientPortal#/auth/login'],
+    [52,  'PULSA_PRO','IDR','Pulsa Pro','portal','http://api.pulsapro.id:9090/'],
+    [55,  'ZERO_SEVEN','USD','Zero Zero Seven','portal','https://iplogin.net/tpv/'],
+    [59,  'SAFARICOM','KES','Safaricom Kenya','portal','https://pretups.safaricom.co.ke/pretups/'],
+    [60,  'JRI','INR','JRI Airtime','portal','http://corpuser.justrechargeit.com'],
+    [78,  'LAOS_LOCAL','LAK','Laos Local','portal','http://daili.bawanli.com/'],
+    [87,  'CASH_ON_MOBILE','GBP','CashOnMobile','portal','https://premier.cashonmobile.co.uk'],
+    // Comoros Xtransfer and PLDT have no Bender ID — synthetic IDs to keep the registry unique
+    [9001,'COMOROS_XTRANSFER','USD','X Transfer (Comoros)','portal','http://stats.creditemoi.com:3000/d/FCWZGzmSz/reloadly-all'],
+    [9002,'MTN_NIGERIA_3434','NGN','MTN Nigeria #3434','portal','https://erspartner.mtnonline.com:8444/agentportal/agentportal/Application.html'],
+    [9003,'MTN_NIGERIA_2264','NGN','MTN Nigeria #2264','portal','https://erspartner.mtnonline.com:8444/agentportal/agentportal/Application.html'],
+    [9004,'PLDT_SINGLE','PHP','PLDT Single Wallet','portal','https://www.vortex.ph/'],
+    // === UNAVAILABLE (live balance not retrievable — manual entry only) ===
+    [15,  'AFRIKPAY','XOF','Afrik Pay','unavail', null],
+    [20,  'ONATEL','XOF','Onatel','unavail', null],
+    [43,  'MTN_GUINEA_BISSAU','XOF','MTN Guinea-Bissau','unavail', null],
+    [46,  'UNITEL','AOA','Unitel','unavail', null],
+    [66,  'CLARO_PERU','PEN','Claro Peru','unavail', null],
+    [67,  'MTN_CONAKRY','GNF','MTN Guinea Conakry','unavail', null]
   ];
 
   function loadJSON(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
@@ -11917,11 +11912,14 @@ var FUND=(function(){
 
   function _seedRegistry(){
     return SEED.map(function(r){
+      var portalUrl = (r.length>=6 && r[5]) ? r[5] : (r[4]==='portal' ? '' : null);
       return {
         benderId:r[0], name:r[1], currency:r[2], displayName:r[3], mode:r[4],
-        portalUrl: r[4]==='portal' ? '' : null,
+        portalUrl: portalUrl,
         notes:'', isActive:true,
-        subWallets: r[1]==='LAFRICAMOBILE' ? ['Burkina','Senegal','Tchad','Liberia','Mali','Mauritania','IC','Egypt','Data Senegal','Data Mali'] : null
+        subWallets: r[1]==='LAFRICAMOBILE' ? ['Burkina','Senegal','Tchad','Liberia','Mali','Mauritania','IC','Egypt','Data Senegal','Data Mali']
+                  : r[1]==='INTELLEXAL' ? ['PKR','AED','AFN']
+                  : null
       };
     });
   }
