@@ -1217,12 +1217,6 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-mytasks-v2" onclick="goMyTasks()"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#22d3ee,#6c63ff)"></div>My Tasks</div><div class="cnt" id="c-mytasks-v2"></div></div>
     <div class="ni" id="nav-tasks" onclick="go('tasks')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#6c63ff)"></div>Tasks</div><div class="cnt" id="c-tasks"></div></div>
     <div class="ni" id="nav-roadmaps" onclick="go('roadmaps')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f59e0b,#ec4899)"></div>Roadmaps</div></div>
-    <div id="nav-pricing-group" style="display:none">
-      <div class="sb-lbl sb-lbl-sub">PRICING & SUPPLIERS</div>
-      <div class="ni ni-nested" id="nav-pricing" onclick="go('pricing')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#06b6d4,#3b82f6)"></div>Pricing (Ops)</div><div class="cnt" id="c-pricing"></div></div>
-      <div class="ni ni-nested" id="nav-proposals" onclick="go('proposals')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#06b6d4)"></div>Proposals</div><div class="cnt" id="c-proposals"></div></div>
-      <div class="ni ni-nested" id="nav-funding" onclick="go('funding')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#a855f7,#06b6d4)"></div>Funding</div><div class="cnt" id="c-funding"></div></div>
-    </div>
     <!-- Legacy dept tabs (hidden, routes still work) -->
     <div class="ni" id="nav-Management" onclick="go('Management')" style="display:none"></div>
     <div class="ni" id="nav-Operations" onclick="go('Operations')" style="display:none"></div>
@@ -1232,8 +1226,14 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-mytasks" onclick="go('mytasks')" style="display:none"></div>
     <!-- Activity Log moved into User Management; route kept for back-compat -->
     <div class="ni" id="nav-log" onclick="go('log')" style="display:none"></div>
-    <!-- Flex spacer pushes TOOLS to the bottom of the sidebar -->
+    <!-- Flex spacer pushes PRICING & TOOLS to the bottom of the sidebar -->
     <div style="flex:1;min-height:8px"></div>
+    <div id="nav-pricing-group" style="display:none">
+      <div class="sb-lbl">PRICING & SUPPLIERS</div>
+      <div class="ni" id="nav-pricing" onclick="go('pricing')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#06b6d4,#3b82f6)"></div>Pricing (Ops)</div><div class="cnt" id="c-pricing"></div></div>
+      <div class="ni" id="nav-proposals" onclick="go('proposals')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#06b6d4)"></div>Proposals</div><div class="cnt" id="c-proposals"></div></div>
+      <div class="ni" id="nav-funding" onclick="go('funding')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#a855f7,#06b6d4)"></div>Funding</div><div class="cnt" id="c-funding"></div></div>
+    </div>
     <div class="sb-lbl">TOOLS</div>
     <div class="ni" id="nav-perf" onclick="go('perf')"><div class="ni-l"><div class="dd" style="background:#8b5cf6"></div>Performance</div></div>
     <div class="ni" id="nav-reminders" onclick="go('reminders')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Reminders</div><div class="cnt" id="c-reminders"></div></div>
