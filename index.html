@@ -12278,10 +12278,22 @@ var FUND=(function(){
       var stalenessHint = (rateDate !== fxKey) ? ' <span style="color:var(--yel)">⚠ stale — newer rates available</span>' : '';
       fxStrip.innerHTML='<span>FX RATES FROM <b>'+rateDate+'</b> (D-1):'+stalenessHint+'</span>'+keys.map(function(c){return '<span>'+c+' = <b>'+rates[c].toFixed(6)+'</b> USD</span>';}).join('');
     }else{
-      fxStrip.innerHTML='<span style="color:var(--yel)">No FX rates loaded yet. Fetching D-1 ('+fxKey+')…</span>';
-      var pullBtn=document.createElement('button');pullBtn.className='fund-btn';pullBtn.style.marginLeft='auto';pullBtn.innerHTML='⤓ Fetch FX rates';
-      pullBtn.onclick=function(){pullBtn.disabled=true;pullBtn.textContent='Fetching…';NS.fetchFX(null, true).then(function(){NS.renderFunding();});};
-      fxStrip.appendChild(pullBtn);
+      // Auto-fetch on first render of this session — but only once, so a failed network or
+      // weekend gap doesn't spam the API. After that the manual button takes over.
+      var autoTried = window._fundFxAutoFetched;
+      if(!autoTried){
+        window._fundFxAutoFetched = true;
+        fxStrip.innerHTML='<span style="color:var(--yel)">⤓ Fetching FX rates for '+fxKey+' (D-1)…</span>';
+        NS.fetchFX(null, false).then(function(res){
+          if(res && res.rates) NS.renderFunding();
+          else { window._fundFxAutoFetched = false; NS.renderFunding(); }
+        }).catch(function(){window._fundFxAutoFetched = false; NS.renderFunding();});
+      } else {
+        fxStrip.innerHTML='<span style="color:var(--yel)">⚠ No FX rates loaded for '+fxKey+'. Click below to retry — exchangerate.host may have been unreachable or D-1 rates may not be published yet.</span>';
+        var pullBtn=document.createElement('button');pullBtn.className='fund-btn';pullBtn.style.marginLeft='auto';pullBtn.innerHTML='⤓ Fetch FX rates';
+        pullBtn.onclick=function(){pullBtn.disabled=true;pullBtn.textContent='Fetching…';window._fundFxAutoFetched=false;NS.fetchFX(null, true).then(function(){NS.renderFunding();});};
+        fxStrip.appendChild(pullBtn);
+      }
     }
     host.appendChild(fxStrip);
 
