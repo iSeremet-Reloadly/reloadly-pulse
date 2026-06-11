@@ -11808,6 +11808,10 @@ var PP=(function(){
 .fund-source-pill.portal{background:rgba(245,158,11,.18);color:var(--yel)}
 .fund-source-pill.manual{background:rgba(100,100,122,.18);color:var(--mut)}
 .fund-source-pill.unavail{background:rgba(239,68,68,.18);color:var(--red)}
+.fund-source-pill.admin{background:rgba(245,158,11,.18);color:var(--yel)}
+.fund-source-pill.chat_payments{background:rgba(168,85,247,.18);color:#c084fc}
+.fund-source-pill.swype{background:rgba(6,182,212,.18);color:#22d3ee}
+.fund-source-pill.billing{background:rgba(16,185,129,.18);color:var(--grn)}
 .fund-portal-link{color:var(--yel);text-decoration:none;font-family:'Roboto Mono',monospace;font-size:10px;border-bottom:1px dashed var(--yel)}
 .fund-portal-link:hover{filter:brightness(1.2)}
 /* === Bulk parser card === */
@@ -11848,63 +11852,136 @@ var FUND=(function(){
   // Seeded provider registry from the 2026 Prepaid Accounts workbook.
   // Format: [benderId, name, currency, displayName, mode]  (mode: 'bender'|'portal'|'manual'|'unavail')
   // benderId=null means there's no Bender command for this provider.
-  // Seeded from the June USD scratchpad in 2026 Prepaid Accounts.xlsx — only providers
-  // that David actually tracks. Format: [benderId, name, currency, displayName, mode, portalUrl_or_null]
+  // Comprehensive seed from the AO-AU columns of June USD in 2026 Prepaid Accounts.xlsx.
+  // Format: [benderId, name, currency, displayName, mode, portalUrl_or_null, subKey_or_null]
+  //   subKey is the Description text Bender returns for a sub-wallet (e.g. "Lafrica Mobile Burkina").
+  //   When subKey is null and mode is 'bender', the parser matches by parent name (single-wallet).
+  //   Multi-wallet providers share the same benderId; the parser splits the response by Description.
+  // Synthetic IDs in the 9xxx range are for entries that have no Bender ID (portals, gift cards, etc.).
   var SEED = [
-    // === BENDER providers (auto-pull via Bender slash command) ===
-    [9,   'SOCHITEL','USD','Sochitel','bender', null],
-    [12,  'AIRTEL_NIGERIA','NGN','Airtel Nigeria','bender', null],
-    [14,  'PAYMENT_SOURCE','CAD','Payment Source','bender', null],
-    [16,  'VPS','USD','VPS','bender', null],
-    [29,  'TRANGLO','USD','Tranglo','bender', null],
-    [30,  'CY_SEND','EUR','Cy Send','bender', null],
-    [33,  'QCELL','GMD','QCell','bender', null],
-    [35,  'GLO_NIGERIA','NGN','Glo Nigeria','bender', null],
-    [37,  'TENYING','USD','Shanghai Tengying Network','bender', null],
-    [38,  'ETHIOTEL','ETB','Ethiotel','bender', null],
-    [45,  'LAFRICAMOBILE','XOF','LAfrica Mobile','bender', null],
-    [51,  'DIGICEL','USD','Digicel','bender', null],
-    [58,  'WORLDVOICE','USD','World Voice','bender', null],
-    [62,  'ZONG','PKR','Zong Pakistan','bender', null],
-    [63,  'MTN_CAMEROON','XAF','MTN Cameroon','bender', null],
-    [71,  'AIRTEL_GABON','XAF','Airtel Gabon','bender', null],
-    [72,  'KUMQUAT','USD','Kumquat','bender', null],
-    [73,  'MBA','IDR','MBA-XL','bender', null],
-    [74,  'AIRTEL_NIGER','XOF','Airtel Niger','bender', null],
-    [75,  'SRS_MALAYSIA','MYR','SRS Malaysia','bender', null],
-    [80,  'AFRICELL_GAMBIA','GMD','Africell Gambia','bender', null],
-    [81,  'PAYPOINT','USD','Paypoint','bender', null],
-    [83,  'DING','USD','Ding','bender', null],
-    [84,  'SOFTGATE','USD','Softgate','bender', null],
-    [88,  'AQUIPAGA','BRL','AquiPaga','bender', null],
-    [96,  'TRUE_AFRICAN','USD','True African','bender', null],
-    [97,  'INTELLEXAL','USD','Intellexal (PKR/AED/AFN)','bender', null],
-    [98,  'MOOV_NIGER','XOF','Moov Niger','bender', null],
-    [108, 'IDT_ZENDIT','USD','IDT/Zendit','bender', null],
-    // === PORTAL providers (manual web login required) ===
-    [8,   'XTRANSFER','USD','X Transfer (Senegal)','portal','https://stats.creditemoi.com/d/nK1dJyPZk/transactions-reports-senegal?orgId=5'],
-    [24,  'NSANO','USD','NSANO','portal','https://fusion.nsano.com/authen/'],
-    [32,  'NINE_MOBILE','NGN','9mobile','portal','https://smt.9mobile.com.ng/salesmgmt/'],
-    [41,  'HUTCHISON','IDR','Hutch Indonesia','portal','https://cuan.tri.co.id/pretups/'],
-    [42,  'ECPAY','PHP','ECPay','portal','https://portal.ecpay-online.com/ONEECPAYClientPortal#/auth/login'],
-    [52,  'PULSA_PRO','IDR','Pulsa Pro','portal','http://api.pulsapro.id:9090/'],
-    [55,  'ZERO_SEVEN','USD','Zero Zero Seven','portal','https://iplogin.net/tpv/'],
-    [59,  'SAFARICOM','KES','Safaricom Kenya','portal','https://pretups.safaricom.co.ke/pretups/'],
-    [60,  'JRI','INR','JRI Airtime','portal','http://corpuser.justrechargeit.com'],
-    [78,  'LAOS_LOCAL','LAK','Laos Local','portal','http://daili.bawanli.com/'],
-    [87,  'CASH_ON_MOBILE','GBP','CashOnMobile','portal','https://premier.cashonmobile.co.uk'],
-    // Comoros Xtransfer and PLDT have no Bender ID — synthetic IDs to keep the registry unique
-    [9001,'COMOROS_XTRANSFER','USD','X Transfer (Comoros)','portal','http://stats.creditemoi.com:3000/d/FCWZGzmSz/reloadly-all'],
-    [9002,'MTN_NIGERIA_3434','NGN','MTN Nigeria #3434','portal','https://erspartner.mtnonline.com:8444/agentportal/agentportal/Application.html'],
-    [9003,'MTN_NIGERIA_2264','NGN','MTN Nigeria #2264','portal','https://erspartner.mtnonline.com:8444/agentportal/agentportal/Application.html'],
-    [9004,'PLDT_SINGLE','PHP','PLDT Single Wallet','portal','https://www.vortex.ph/'],
-    // === UNAVAILABLE (live balance not retrievable — manual entry only) ===
-    [15,  'AFRIKPAY','XOF','Afrik Pay','unavail', null],
-    [20,  'ONATEL','XOF','Onatel','unavail', null],
-    [43,  'MTN_GUINEA_BISSAU','XOF','MTN Guinea-Bissau','unavail', null],
-    [46,  'UNITEL','AOA','Unitel','unavail', null],
-    [66,  'CLARO_PERU','PEN','Claro Peru','unavail', null],
-    [67,  'MTN_CONAKRY','GNF','MTN Guinea Conakry','unavail', null]
+    // === BENDER single-wallet (one command, one wallet) ===
+    [9,   'SOCHITEL','USD','Sochitel','bender', null, null],
+    [12,  'AIRTEL_NIGERIA','NGN','Airtel Nigeria (Firefox)','bender', null, null],
+    [14,  'PAYMENT_SOURCE','CAD','Payment Source','bender', null, null],
+    [16,  'VPS','USD','VPS (email)','bender', null, null],
+    [29,  'TRANGLO','USD','Tranglo','bender', null, null],
+    [30,  'CY_SEND','EUR','Cy Send','bender', null, null],
+    [33,  'QCELL','GMD','QCell','bender', null, null],
+    [35,  'GLO_NIGERIA','NGN','Glo Nigeria','bender', null, null],
+    [37,  'TENYING','USD','Shanghai Tengying Network','bender', null, null],
+    [38,  'ETHIOTEL','ETB','Ethiotel','bender', null, null],
+    [51,  'DIGICEL','USD','Digicel','bender', null, null],
+    [53,  'DNS','USD','DNS','bender', null, null],
+    [54,  'GAMSWITCH','GMD','Gam Switch','bender', null, null],
+    [58,  'WORLDVOICE','USD','World Voice','bender', null, null],
+    [62,  'ZONG','PKR','Zong Pakistan','bender', null, null],
+    [63,  'MTN_CAMEROON','XAF','MTN Cameroon','bender', null, null],
+    [71,  'AIRTEL_GABON','XAF','Airtel Gabon','bender', null, null],
+    [72,  'KUMQUAT','USD','Kumquat','bender', null, null],
+    [73,  'MBA','IDR','MBA-XL','bender', null, null],
+    [74,  'AIRTEL_NIGER','XOF','Airtel Niger','bender', null, null],
+    [75,  'SRS_MALAYSIA','MYR','SRS Malaysia','bender', null, null],
+    [80,  'AFRICELL_GAMBIA','GMD','Africell Gambia','bender', null, null],
+    [81,  'PAYPOINT','USD','Paypoint','bender', null, null],
+    [83,  'DING','USD','Ding','bender', null, null],
+    [84,  'SOFTGATE','USD','Softgate','bender', null, null],
+    [88,  'AQUIPAGA','BRL','AquiPaga','bender', null, null],
+    [93,  'OOZE','BWP','OOZE Botswana','bender', null, null],
+    [96,  'TRUE_AFRICAN','USD','True African','bender', null, null],
+    [98,  'MOOV_NIGER','XOF','Moov Niger','bender', null, null],
+    [101, 'DITO','PHP','DITO Philippines','bender', null, null],
+    [105, 'SETARAGAN','USD','Setaragan','bender', null, null],
+    [108, 'IDT_ZENDIT','USD','IDT/Zendit','bender', null, null],
+    // === BENDER multi-wallet — ClickMobile (4 sub-wallets, ID 10) ===
+    [10, 'CLICKMOBILE_MALAWI','MWK','Click Mobile Malawi','bender', null, 'Click Mobile Malawi'],
+    [10, 'CLICKMOBILE_BOTSWANA','BWP','Click Mobile Botswana','bender', null, 'Click Mobile Botswana'],
+    [10, 'CLICKMOBILE_ZAMBIA','ZMW','Click Mobile Zambia','bender', null, 'Click Mobile Zambia'],
+    [10, 'CLICKMOBILE_ZIMBABWE','USD','Click Mobile Zimbabwe','bender', null, 'Click Mobile Zimbabwe'],
+    // === BENDER multi-wallet — LAFRICAMOBILE (21 sub-wallets, ID 45) ===
+    [45, 'LAFRICA_BURKINA','XOF','LAfrica Mobile Burkina','bender', null, 'Lafrica Mobile Burkina'],
+    [45, 'LAFRICA_DATA_SENEGAL','XOF','LAfrica Mobile Data Senegal','bender', null, 'Lafrica Mobile Data Senegal'],
+    [45, 'LAFRICA_TCHAD','XAF','LAfrica Mobile Tchad','bender', null, 'Lafrica Mobile Tchad'],
+    [45, 'LAFRICA_SENEGAL','XOF','LAfrica Mobile Senegal','bender', null, 'Lafrica Mobile Senegal'],
+    [45, 'LAFRICA_LIBERIA','USD','LAfrica Mobile Liberia','bender', null, 'Lafrica Mobile Liberia'],
+    [45, 'LAFRICA_DATA_MALI','XOF','LAfrica Mobile Data Mali','bender', null, 'Lafrica Mobile Data Mali'],
+    [45, 'LAFRICA_MAURITANIA','MRU','LAfrica Mobile Mauritania','bender', null, 'Lafrica Mobile Mauritania'],
+    [45, 'LAFRICA_IC','XOF','LAfrica Mobile IC','bender', null, 'Lafrica Mobile IC'],
+    [45, 'LAFRICA_EGYPT','EGP','LAfrica Mobile Egypte','bender', null, 'Lafrica Mobile Egypte'],
+    [45, 'LAFRICA_DRC','USD','LAfrica Mobile DR Congo','bender', null, 'Lafrica Mobile DR Congo'],
+    [45, 'LAFRICA_GUINEA_BISSAU','XOF','LAfrica Mobile Guinea Bissau','bender', null, 'Lafrica Mobile Guinea Bissau'],
+    [45, 'LAFRICA_CONGO','XAF','LAfrica Mobile Congo','bender', null, 'Lafrica Mobile Congo'],
+    [45, 'LAFRICA_COMOROS','KMF','LAfrica Mobile Comoros','bender', null, 'Lafrica Mobile Comoros'],
+    [45, 'LAFRICA_TOGO','XOF','LAfrica Mobile Togo','bender', null, 'Lafrica Mobile Togo'],
+    [45, 'LAFRICA_MOZAMBIQUE','MZN','LAfrica Mobile Mozambique','bender', null, 'Lafrica Mobile Mozambique'],
+    [45, 'LAFRICA_CAMEROON','XAF','LAfrica Mobile Cameroon','bender', null, 'Lafrica Mobile Cameroon'],
+    [45, 'LAFRICA_DATA_CI','XOF','LAfrica Mobile Data Côte d\'Ivoire','bender', null, 'Lafrica Mobile Data Côte d\'Ivoire'],
+    [45, 'LAFRICA_MALI','XOF','LAfrica Mobile Mali','bender', null, 'Lafrica Mobile Mali'],
+    [45, 'LAFRICA_GUINEA','GNF','LAfrica Mobile Guinea','bender', null, 'Lafrica Mobile Guinea'],
+    [45, 'LAFRICA_NIGER','XOF','LAfrica Mobile Niger','bender', null, 'Lafrica Mobile Niger'],
+    [45, 'LAFRICA_BENIN','XOF','LAfrica Mobile Benin','bender', null, 'Lafrica Mobile Benin'],
+    // === BENDER multi-wallet — Intellexal (3 sub-wallets, ID 97) ===
+    [97, 'INTELLEXAL_PKR','PKR','Intellexal PKR','bender', null, 'Intellexal PKR'],
+    [97, 'INTELLEXAL_AED','AED','Intellexal AED','bender', null, 'Intellexal AED'],
+    [97, 'INTELLEXAL_AFN','AFN','Intellexal AFN','bender', null, 'Intellexal AFN'],
+    // === BENDER multi-wallet — Becharge (4 sub-wallets, ID 107) ===
+    [107, 'BECHARGE_DKK','DKK','Becharge DKK','bender', null, 'Becharge DKK'],
+    [107, 'BECHARGE_GBP','GBP','Becharge GBP','bender', null, 'Becharge GBP'],
+    [107, 'BECHARGE_CHF','CHF','Becharge CHF','bender', null, 'Becharge CHF'],
+    [107, 'BECHARGE_EUR','EUR','Becharge EUR','bender', null, 'Becharge EUR'],
+    // === SWYPE providers (different slash command: /swype/provider/balance N) ===
+    [2001, 'SWYPE_BLUEBANC','USD','Bluebanc · Swype','swype', null, null],
+    [2002, 'SWYPE_ENSURE','USD','Ensure-Financial · Swype','swype', null, null],
+    [2003, 'SWYPE_BL48','USD','Swype Cards BL48 Master','swype', null, 'BL48'],
+    [2004, 'SWYPE_ISSUER_B','USD','Swype Cards Issuer B Master','swype', null, 'Issuer B'],
+    // === PORTAL providers (manual web login) ===
+    [8,   'XTRANSFER','USD','X Transfer (Senegal)','portal','https://stats.creditemoi.com/d/nK1dJyPZk/transactions-reports-senegal?orgId=5', null],
+    [24,  'NSANO','USD','NSANO','portal','https://fusion.nsano.com/authen/', null],
+    [32,  'NINE_MOBILE','NGN','9mobile (T2)','portal','https://smt.9mobile.com.ng/salesmgmt/', null],
+    [41,  'HUTCHISON','IDR','Hutch Indonesia','portal','https://cuan.tri.co.id/pretups/', null],
+    [42,  'ECPAY','PHP','ECPAY','portal','https://portal.ecpay-online.com/ONEECPAYClientPortal#/auth/login', null],
+    [52,  'PULSA_PRO','IDR','Pulsa Pro','portal','http://api.pulsapro.id:9090/', null],
+    [55,  'ZERO_SEVEN','USD','Zero Zero Seven','portal','https://iplogin.net/tpv/', null],
+    [59,  'SAFARICOM','KES','Safaricom Kenya','portal','https://pretups.safaricom.co.ke/pretups/', null],
+    [60,  'JRI','INR','JRI Airtime','portal','http://corpuser.justrechargeit.com', null],
+    [78,  'LAOS_LOCAL','LAK','Laos Local','portal','http://daili.bawanli.com/', null],
+    [87,  'CASH_ON_MOBILE','GBP','CashOnMobile','portal','https://premier.cashonmobile.co.uk', null],
+    [9001,'COMOROS_XTRANSFER','USD','X Transfer (Comoros)','portal','http://stats.creditemoi.com:3000/d/FCWZGzmSz/reloadly-all', null],
+    [9002,'MTN_NIGERIA_3434','NGN','MTN Nigeria #3434','portal','https://erspartner.mtnonline.com:8444/agentportal/agentportal/Application.html', null],
+    [9003,'MTN_NIGERIA_2264','NGN','MTN Nigeria #2264','portal','https://erspartner.mtnonline.com:8444/agentportal/agentportal/Application.html', null],
+    [9004,'PLDT_SINGLE','PHP','PLDT Single Wallet','portal','https://www.vortex.ph/', null],
+    // === ADMIN (live balance unavailable — admin computes manually) ===
+    [15,  'AFRIKPAY','XOF','Afrik Pay','admin', null, null],
+    [20,  'ONATEL','XOF','Onatel (trx admin × 93%)','admin', null, null],
+    [43,  'MTN_GUINEA_BISSAU','XOF','MTN Guinea-Bissau','admin', null, null],
+    [46,  'UNITEL','AOA','Unitel','admin', null, null],
+    [66,  'CLARO_PERU','PEN','Claro Peru','admin', null, null],
+    [67,  'MTN_CONAKRY','GNF','MTN Guinea Conakry','admin', null, null],
+    [9100,'TELENOR_PK','PKR','Telenor Pakistan','admin', null, null],
+    // === CHAT PAYMENTS (gift card balances via Hourly Slack bot) ===
+    [9200,'EZPIN','USD','EZ Pin','chat_payments', null, null],
+    [9201,'LIKECARD','USD','Like Card','chat_payments', null, null],
+    [9202,'PHAZE','USD','Phaze','chat_payments', null, null],
+    [9203,'GLOBETOPPER','USD','Globetopper','chat_payments', null, null],
+    [9204,'AMAZON','USD','Amazon','chat_payments', null, null],
+    [9205,'BAMBOO_USD','USD','Bamboo USD','chat_payments', null, null],
+    [9206,'BAMBOO_EUR','EUR','Bamboo EUR','chat_payments', null, null],
+    [9207,'NEO_CURRENCY_USD','USD','Neo Currency USD','chat_payments', null, null],
+    [9208,'NEO_CURRENCY_EUR','EUR','Neo Currency EUR','chat_payments', null, null],
+    [9209,'NEO_CURRENCY_GBP','GBP','Neo Currency GBP','chat_payments', null, null],
+    [9210,'BLACK_HAWK','USD','Black Hawk (ACH)','chat_payments', null, null],
+    [9211,'BEST_CARE','USD','Best Care','chat_payments', null, null],
+    [9212,'IREWARDIFY','USD','iRewardify','chat_payments', null, null],
+    [9213,'RELOADLY_STOCK','USD','Reloadly (GC Stock tab)','chat_payments', null, null],
+    // === BILLING (Cellulant utilities, Buy Power) ===
+    [9300,'XTRANSFER_MALI_UTIL','XOF','Xtransfer Mali Utility','billing', null, null],
+    [9301,'XTRANSFER_SENEGAL_UTIL','XOF','Xtransfer Senegal Utility','billing', null, null],
+    [9302,'CELLULANT_SENEGAL_UTIL','XOF','Cellulant Senegal Utility','billing', null, null],
+    [9303,'CELLULANT_ZIMBABWE_UTIL','ZWG','Cellulant Zimbabwe Utility','billing', null, null],
+    [9304,'CELLULANT_NIGERIA_UTIL','NGN','Cellulant Nigeria Utility','billing', null, null],
+    [9305,'CELLULANT_GHANA_UTIL','GHS','Cellulant Ghana Utility','billing', null, null],
+    [9306,'CELLULANT_BOTSWANA_UTIL','BWP','Cellulant Botswana Utility','billing', null, null],
+    [9307,'CELLULANT_KENYA_UTIL','KES','Cellulant Kenya Utility','billing', null, null],
+    [9308,'BUY_POWER','NGN','Buy Power','billing', null, null]
   ];
 
   function loadJSON(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
@@ -11913,13 +11990,12 @@ var FUND=(function(){
   function _seedRegistry(){
     return SEED.map(function(r){
       var portalUrl = (r.length>=6 && r[5]) ? r[5] : (r[4]==='portal' ? '' : null);
+      var subKey = (r.length>=7 && r[6]) ? r[6] : null;
       return {
         benderId:r[0], name:r[1], currency:r[2], displayName:r[3], mode:r[4],
         portalUrl: portalUrl,
-        notes:'', isActive:true,
-        subWallets: r[1]==='LAFRICAMOBILE' ? ['Burkina','Senegal','Tchad','Liberia','Mali','Mauritania','IC','Egypt','Data Senegal','Data Mali']
-                  : r[1]==='INTELLEXAL' ? ['PKR','AED','AFN']
-                  : null
+        subKey: subKey,
+        notes:'', isActive:true
       };
     });
   }
@@ -11986,36 +12062,88 @@ var FUND=(function(){
   //     Amount      : 96,927.40
   //     Currency    : CAD
   // We regex out every block. provider name maps to registry.name (exact match).
+  // Parses Bender output blocks. Bender returns:
+  //   Account Balance Details On Airtime Provider <PROVIDER>
+  //     Description : <wallet_name_or_General>
+  //     Amount      : <number>
+  //     Currency    : <CCY>
+  // Multi-wallet providers (LAFRICAMOBILE, ClickMobile, etc.) have multiple Description/Amount/Currency
+  // triples after a single header. We extract each triple and tag it with the parent provider header
+  // that preceded it, so the apply step can match by either Description text (sub-wallet) or by parent.
   NS.parseBenderResponses = function(text){
     if(!text)return [];
     var results=[];
-    var rx=/Account Balance Details On Airtime Provider\s+([A-Z][A-Z0-9_]+)[\s\S]*?Amount\s*:?\s*([0-9.,]+)[\s\S]*?Currency\s*:?\s*([A-Za-z]{3,4})/gi;
-    var m;
-    while((m=rx.exec(text))!==null){
-      var name=m[1].trim().toUpperCase();
-      var rawAmount=m[2].replace(/,/g,'').trim();
+    // Find each Description+Amount+Currency triple. Track the most recent Account Balance Details header
+    // so we know which parent provider each triple belongs to.
+    var headerRx=/Account Balance Details On Airtime Provider\s+([A-Z][A-Z0-9_]+)/gi;
+    var tripleRx=/Description\s*:?\s*([^\n\r]+?)\s*[\r\n]+\s*Amount\s*:?\s*(-?[0-9.,]+)\s*[\r\n]+\s*Currency\s*:?\s*([A-Za-z]{3,4})/gi;
+    // Build a list of header positions to know which header each triple belongs to
+    var headers=[];
+    var hm;
+    while((hm=headerRx.exec(text))!==null){
+      headers.push({pos:hm.index, name:hm[1].trim().toUpperCase()});
+    }
+    function headerFor(pos){
+      var last=null;
+      for(var i=0;i<headers.length;i++){if(headers[i].pos<=pos)last=headers[i];else break;}
+      return last?last.name:null;
+    }
+    var tm;
+    while((tm=tripleRx.exec(text))!==null){
+      var description=tm[1].trim();
+      var rawAmount=tm[2].replace(/,/g,'').trim();
       var amount=parseFloat(rawAmount);
-      var currency=m[3].trim().toUpperCase();
-      if(isNaN(amount)||amount<0)continue;
-      results.push({name:name, amount:amount, currency:currency, raw:m[0].slice(0,200)});
+      var currency=tm[3].trim().toUpperCase();
+      var parentName=headerFor(tm.index);
+      if(isNaN(amount))continue;
+      results.push({
+        parentName:parentName,         // e.g. LAFRICAMOBILE
+        description:description,        // e.g. "Lafrica Mobile Burkina" or "General"
+        amount:amount,
+        currency:currency
+      });
     }
     return results;
   };
 
-  // Apply parsed responses into today's snapshot and persist
+  // Apply parsed responses to today's snapshot. Matching strategy:
+  //   1. If the triple has a subKey-shaped description (non-"General"), look up registry entries
+  //      whose subKey matches the description (case-insensitive). Most multi-wallet providers.
+  //   2. Otherwise (description is "General" or similar), match by the parent provider name.
+  //   3. Use registry entry id (benderId + subKey) as the snapshot key so sub-wallets don't collide.
   NS.applyBenderResponses = function(parsed){
     if(!parsed||!parsed.length)return {applied:0, unmatched:[], total:0, autoSave:false};
     var registry=NS.loadRegistry();
-    var byName={};registry.forEach(function(p){if(p.name)byName[p.name.toUpperCase()]=p;});
+    // Index by uppercase name (for single-wallet) and by uppercase subKey (for sub-wallets)
+    var byName={};
+    var bySubKey={};
+    registry.forEach(function(p){
+      if(p.name)byName[p.name.toUpperCase()]=p;
+      if(p.subKey)bySubKey[p.subKey.toUpperCase()]=p;
+    });
     var snap=_todaySnapshot();
     var applied=0, unmatched=[];
     parsed.forEach(function(r){
-      var p=byName[r.name];
-      if(!p){unmatched.push(r.name);return;}
-      var key=p.benderId!=null?String(p.benderId):p.name;
+      var desc=(r.description||'').trim();
+      var isGeneric = !desc || /^general$/i.test(desc);
+      var p=null;
+      if(!isGeneric){
+        // Try sub-wallet match first
+        p = bySubKey[desc.toUpperCase()];
+      }
+      if(!p){
+        // Fall back to parent name match
+        if(r.parentName)p=byName[r.parentName.toUpperCase()];
+      }
+      if(!p){
+        unmatched.push(desc || r.parentName || '?');
+        return;
+      }
+      // Key the snapshot entry by benderId + subKey (when present) so sub-wallets don't collide
+      var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : String(p.benderId);
       snap.balances[key]={
         local:r.amount,
-        currency:r.currency||p.currency,
+        currency:(r.currency||p.currency||'USD').toUpperCase(),
         enteredAt:new Date().toISOString(),
         source:'bulk-parse'
       };
@@ -12117,18 +12245,30 @@ var FUND=(function(){
     var yesterdaySnap=_yesterdaySnapshot();
     registry.forEach(function(p){
       var tr=document.createElement('tr');
-      var key=p.benderId!=null?String(p.benderId):p.name;
+      var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
       var existingLocal=(snap.balances[key]&&snap.balances[key].local)!=null?snap.balances[key].local:'';
       var usd=NS.localToUSD(parseFloat(existingLocal), p.currency, rates);
       // Bender command cell
       var cmdHtml='';
       if(p.mode==='bender'&&p.benderId!=null){
+        var cmdText='/airtime/provider/balance '+p.benderId+(p.subKey?'  # '+p.subKey:'');
         cmdHtml='<span class="bender-cmd">/airtime/provider/balance '+p.benderId+'</span>'
+          +(p.subKey?' <span class="mut" style="font-size:9px">→ '+_esc(p.subKey)+'</span>':'')
           +' <button class="copy-btn" data-cmd="/airtime/provider/balance '+p.benderId+'">⎘ Copy</button>';
+      } else if(p.mode==='swype'&&p.benderId!=null){
+        cmdHtml='<span class="bender-cmd" style="background:rgba(6,182,212,.12);color:#22d3ee">/swype/provider/balance '+(p.benderId-2000)+'</span>'
+          +(p.subKey?' <span class="mut" style="font-size:9px">→ '+_esc(p.subKey)+'</span>':'')
+          +' <button class="copy-btn" data-cmd="/swype/provider/balance '+(p.benderId-2000)+'">⎘ Copy</button>';
       } else if(p.mode==='portal'&&p.portalUrl){
         cmdHtml='<a class="fund-portal-link" href="'+_esc(p.portalUrl)+'" target="_blank">'+_esc(p.portalUrl)+' ↗</a>';
       } else if(p.mode==='portal'){
         cmdHtml='<span class="mut">portal — set URL in Providers tab</span>';
+      } else if(p.mode==='admin'){
+        cmdHtml='<span class="mut" style="color:var(--yel)">admin computes manually</span>';
+      } else if(p.mode==='chat_payments'){
+        cmdHtml='<span class="mut" style="color:#c084fc">gift card · hourly Slack feed</span>';
+      } else if(p.mode==='billing'){
+        cmdHtml='<span class="mut" style="color:var(--grn)">reloadly-billing utility</span>';
       } else if(p.mode==='unavail'){
         cmdHtml='<span class="mut">live balance not available</span>';
       } else { cmdHtml='<span class="mut">—</span>'; }
@@ -12187,6 +12327,15 @@ var FUND=(function(){
 
   function _startQuickSend(registry){
     if(!registry||!registry.length){if(typeof toast==='function')toast('No active Bender providers','err');return;}
+    // Dedupe: one entry per unique benderId (sub-wallets share commands)
+    var seen={};
+    registry = registry.filter(function(p){
+      if(p.mode!=='bender'||p.benderId==null)return false;
+      if(seen[p.benderId])return false;
+      seen[p.benderId]=true;
+      return true;
+    });
+    if(!registry.length){if(typeof toast==='function')toast('No active Bender providers','err');return;}
     var idx=0;
     var existing=document.getElementById('fund-qs-modal');if(existing)existing.remove();
     var modal=document.createElement('div');modal.id='fund-qs-modal';
@@ -12253,7 +12402,10 @@ var FUND=(function(){
     var card=document.createElement('div');card.className='fund-bulk-card';
     var collapsed=NS.loadUI().bulkCollapsed===true;
     if(collapsed)card.classList.add('fund-bulk-collapsed');
-    var registry=NS.loadRegistry().filter(function(p){return p.isActive!==false && p.mode==='bender' && p.benderId!=null;});
+    var allBenderActive=NS.loadRegistry().filter(function(p){return p.isActive!==false && p.mode==='bender' && p.benderId!=null;});
+    // Dedupe by benderId for the commands list (sub-wallets share commands)
+    var seenCmd={};
+    var registry=allBenderActive.filter(function(p){if(seenCmd[p.benderId])return false;seenCmd[p.benderId]=true;return true;});
     // Header
     var hdr=document.createElement('div');hdr.className='fund-bulk-hdr';
     hdr.innerHTML='<div><div class="fund-bulk-hdr-t">⚡ Bulk paste from Bender</div>'
@@ -12357,7 +12509,7 @@ var FUND=(function(){
     tbl.innerHTML=thead;
     var tb=document.createElement('tbody');tbl.appendChild(tb);
     registry.forEach(function(p){
-      var key=p.benderId!=null?String(p.benderId):p.name;
+      var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
       var tr=document.createElement('tr');
       var html='<td><div class="fund-prov-name">'+_esc(p.displayName||p.name)+'</div></td><td><span class="ccy">'+_esc(p.currency||'USD')+'</span></td>';
       dates.forEach(function(d){
@@ -12379,9 +12531,20 @@ var FUND=(function(){
 
   function _renderRegistry(host){
     var registry=NS.loadRegistry();
-    var em=document.createElement('div');em.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:14px';
-    em.innerHTML='Seeded with <b>'+registry.length+'</b> providers from the Reloadly Bender ID list. Edit currencies / portal URLs / notes as needed. Inactive providers are hidden from the Daily Pull view.';
-    host.appendChild(em);
+    var hdr=document.createElement('div');hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px';
+    var em=document.createElement('div');em.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;line-height:1.55';
+    em.innerHTML='<b>'+registry.length+'</b> providers tracked. Edit display name, currency, mode, portal URL, notes as needed. Inactive providers are hidden from the Daily Pull view.';
+    hdr.appendChild(em);
+    var reseedBtn=document.createElement('button');reseedBtn.className='fund-btn';reseedBtn.innerHTML='⟲ Reseed from defaults';
+    reseedBtn.title='Replace the registry with the latest default seed. Wipes any custom edits.';
+    reseedBtn.onclick=function(){
+      if(!confirm('Reseed the registry from defaults? This wipes any custom edits (display names, currencies, notes, active toggles).\n\nUse if you want to pick up new providers added in a recent Pulse update.'))return;
+      try{localStorage.removeItem(K.registry);}catch(e){}
+      if(typeof toast==='function')toast('Registry reseeded','ok');
+      NS.renderFunding();
+    };
+    hdr.appendChild(reseedBtn);
+    host.appendChild(hdr);
     var tw=document.createElement('div');tw.className='fund-tablewrap';
     var tbl=document.createElement('table');tbl.className='fund-table';
     tbl.innerHTML='<thead><tr><th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>PORTAL URL</th><th>ACTIVE</th><th>NOTES</th></tr></thead>';
@@ -12394,7 +12557,7 @@ var FUND=(function(){
       // Currency
       var ccyTd=document.createElement('td');var ccyi=document.createElement('input');ccyi.value=p.currency||'USD';ccyi.style.cssText='width:50px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace;text-transform:uppercase';ccyi.onchange=function(){p.currency=this.value.toUpperCase();NS.saveRegistry(registry);};ccyTd.appendChild(ccyi);tr.appendChild(ccyTd);
       // Mode
-      var modeTd=document.createElement('td');var modeSel=document.createElement('select');modeSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace';['bender','portal','manual','unavail'].forEach(function(m){var op=document.createElement('option');op.value=m;op.textContent=m;if(m===p.mode)op.selected=true;modeSel.appendChild(op);});modeSel.onchange=function(){p.mode=this.value;NS.saveRegistry(registry);NS.renderFunding();};modeTd.appendChild(modeSel);tr.appendChild(modeTd);
+      var modeTd=document.createElement('td');var modeSel=document.createElement('select');modeSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace';['bender','swype','portal','admin','chat_payments','billing','manual','unavail'].forEach(function(m){var op=document.createElement('option');op.value=m;op.textContent=m;if(m===p.mode)op.selected=true;modeSel.appendChild(op);});modeSel.onchange=function(){p.mode=this.value;NS.saveRegistry(registry);NS.renderFunding();};modeTd.appendChild(modeSel);tr.appendChild(modeTd);
       // Portal URL
       var purlTd=document.createElement('td');var purl=document.createElement('input');purl.value=p.portalUrl||'';purl.placeholder='https://…';purl.style.cssText='width:160px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';purl.onchange=function(){p.portalUrl=this.value;NS.saveRegistry(registry);};purlTd.appendChild(purl);tr.appendChild(purlTd);
       // Active
