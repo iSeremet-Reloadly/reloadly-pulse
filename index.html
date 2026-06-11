@@ -11806,6 +11806,42 @@ var PP=(function(){
 .fund-fx-strip .fx-progress::before{content:'';position:absolute;left:-30%;top:0;height:100%;width:30%;background:linear-gradient(90deg,transparent,var(--acc),var(--grn),transparent);animation:fx-slide 1.2s linear infinite;border-radius:3px}
 @keyframes fx-slide{0%{left:-30%}100%{left:100%}}
 .fund-fx-strip.fetching{border-color:rgba(108,99,255,.4);background:linear-gradient(90deg,var(--surf2),rgba(108,99,255,.04),var(--surf2))}
+/* === Burn-rate forecast UI === */
+.fund-status-summary{display:flex;gap:0;background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden;margin-bottom:14px;font-family:'Roboto Mono',monospace}
+.fund-status-summary .seg{flex:1;padding:10px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid var(--brd);font-size:11px}
+.fund-status-summary .seg:last-child{border-right:none}
+.fund-status-summary .seg .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.fund-status-summary .seg .num{font-size:18px;font-weight:800;font-family:'Roboto Mono',monospace}
+.fund-status-summary .seg .lbl{font-size:9px;color:var(--mut);letter-spacing:.5px;font-weight:700}
+.fund-status-summary .seg.critical .num{color:var(--red)}
+.fund-status-summary .seg.watch .num{color:var(--yel)}
+.fund-status-summary .seg.healthy .num{color:var(--grn)}
+.fund-status-summary .seg.nodata .num{color:var(--mut)}
+.fund-status-summary .seg.critical .dot{background:var(--red)}
+.fund-status-summary .seg.watch .dot{background:var(--yel)}
+.fund-status-summary .seg.healthy .dot{background:var(--grn)}
+.fund-status-summary .seg.nodata .dot{background:var(--mut)}
+.fund-status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:5px;font-size:10px;font-weight:700;font-family:'Roboto Mono',monospace;letter-spacing:.3px;white-space:nowrap}
+.fund-status-pill.critical{background:rgba(239,68,68,.18);color:var(--red)}
+.fund-status-pill.watch{background:rgba(245,158,11,.18);color:var(--yel)}
+.fund-status-pill.healthy{background:rgba(16,185,129,.18);color:var(--grn)}
+.fund-status-pill.surplus{background:rgba(108,99,255,.12);color:var(--acc)}
+.fund-status-pill.nodata{background:rgba(100,100,122,.18);color:var(--mut)}
+.fund-forecast-tablewrap{background:var(--surf);border:1px solid var(--brd);border-radius:12px;overflow:auto;max-height:70vh}
+.fund-forecast-table{width:100%;border-collapse:collapse;font-size:11px;min-width:900px}
+.fund-forecast-table th{background:var(--surf2);text-align:left;padding:10px 12px;font-size:9px;color:var(--mut);font-family:'Roboto Mono',monospace;font-weight:700;letter-spacing:.5px;border-bottom:1px solid var(--brd);white-space:nowrap;position:sticky;top:0;z-index:2;cursor:pointer;user-select:none}
+.fund-forecast-table th:hover{color:var(--txt)}
+.fund-forecast-table th.sorted{color:var(--acc)}
+.fund-forecast-table td{padding:9px 12px;border-bottom:1px solid var(--brd);vertical-align:middle}
+.fund-forecast-table tr:last-child td{border-bottom:none}
+.fund-forecast-table tr:hover td{background:var(--surf2)}
+.fund-forecast-table .num{font-family:'Roboto Mono',monospace;font-weight:700;text-align:right}
+.fund-forecast-table .mut{color:var(--mut);font-family:'Roboto Mono',monospace}
+.fund-forecast-table .rate-cell{font-family:'Roboto Mono',monospace;font-size:11px;text-align:right}
+.fund-forecast-table .rate-cell small{display:block;color:var(--mut);font-size:9px;font-weight:400}
+.fund-days-cell{font-family:'Roboto Mono',monospace;font-weight:800;text-align:right;font-size:13px}
+.fund-days-cell .window-hint{display:block;color:var(--mut);font-size:8px;font-weight:400;text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+
 .fund-fx-strip b{color:var(--txt)}
 .fund-source-pill{display:inline-block;padding:2px 6px;border-radius:4px;font-size:8px;font-weight:700;font-family:'Roboto Mono',monospace;letter-spacing:.5px}
 .fund-source-pill.bender{background:rgba(108,99,255,.18);color:var(--acc)}
@@ -12272,7 +12308,7 @@ var FUND=(function(){
 
     // Tabs
     var tabBar=document.createElement('div');tabBar.className='fund-tabbar';
-    [{id:'daily',l:'Daily Pull'},{id:'history',l:'History'},{id:'registry',l:'Providers'}].forEach(function(t){
+    [{id:'daily',l:'Daily Pull'},{id:'forecast',l:'Forecast'},{id:'history',l:'History'},{id:'registry',l:'Providers'}].forEach(function(t){
       var b=document.createElement('button');b.className='fund-tab'+(t.id===ui.tab?' active':'');b.textContent=t.l;
       b.onclick=function(){ui.tab=t.id;NS.saveUI(ui);NS.renderFunding();};
       tabBar.appendChild(b);
@@ -12281,10 +12317,241 @@ var FUND=(function(){
 
     var content=document.createElement('div');wrap.appendChild(content);
     if(ui.tab==='daily')_renderDaily(content);
+    else if(ui.tab==='forecast')_renderForecast(content);
     else if(ui.tab==='history')_renderHistory(content);
     else if(ui.tab==='registry')_renderRegistry(content);
     main.appendChild(wrap);
   };
+
+  // ===== BURN-RATE FORECAST =====
+  // Walks the snapshot history backwards from today, sums consumption-only deltas (positive
+  // day-over-day decreases), divides by the number of burn days observed in the window.
+  // Skips topup days (negative delta = balance went UP from previous snapshot).
+  NS.computeBurnRate = function(providerKey, windowDays){
+    var snapshots = NS.loadSnapshots().filter(function(s){
+      return s.balances && s.balances[providerKey] && typeof s.balances[providerKey].local==='number';
+    }).sort(function(a,b){return a.date.localeCompare(b.date);});
+    if(snapshots.length < 2) return {dailyAvg:0, daysLeft:null, dataPoints:snapshots.length, current:snapshots.length?snapshots[snapshots.length-1].balances[providerKey].local:null, hasTopups:false, currency:snapshots.length?snapshots[snapshots.length-1].balances[providerKey].currency:'USD'};
+    var todayStr = new Date().toISOString().slice(0,10);
+    var cutoffMs = Date.now() - windowDays*86400000;
+    // Filter to window
+    var window = snapshots.filter(function(s){return new Date(s.date+'T00:00:00Z').getTime() >= cutoffMs;});
+    if(window.length < 2) return {dailyAvg:0, daysLeft:null, dataPoints:window.length, current:snapshots[snapshots.length-1].balances[providerKey].local, hasTopups:false, currency:snapshots[snapshots.length-1].balances[providerKey].currency};
+    var burnTotal=0, burnDays=0, topupCount=0;
+    for(var i=1;i<window.length;i++){
+      var prev = window[i-1].balances[providerKey].local;
+      var curr = window[i].balances[providerKey].local;
+      var delta = prev - curr;
+      if(delta > 0){burnTotal+=delta; burnDays++;}
+      else if(delta < -0.01){topupCount++;}
+      // delta ≈ 0 → no movement, skip
+    }
+    var current = window[window.length-1].balances[providerKey].local;
+    var currency = window[window.length-1].balances[providerKey].currency || 'USD';
+    if(burnDays === 0) return {dailyAvg:0, daysLeft:Infinity, dataPoints:window.length, current:current, hasTopups:topupCount>0, currency:currency};
+    var dailyAvg = burnTotal / burnDays;
+    var daysLeft = dailyAvg > 0 ? current / dailyAvg : Infinity;
+    return {dailyAvg:dailyAvg, daysLeft:daysLeft, dataPoints:window.length, current:current, hasTopups:topupCount>0, currency:currency, burnDays:burnDays, topupCount:topupCount};
+  };
+
+  // Returns {threeDay, sevenDay, thirtyDay, status, minDaysLeft, minWindow, provider}
+  NS.computeForecast = function(providerKey, provider){
+    var f3 = NS.computeBurnRate(providerKey, 3);
+    var f7 = NS.computeBurnRate(providerKey, 7);
+    var f30 = NS.computeBurnRate(providerKey, 30);
+    var minDays = Infinity;
+    var minWindow = null;
+    [['3D',f3],['7D',f7],['30D',f30]].forEach(function(p){
+      if(p[1].daysLeft != null && p[1].daysLeft < minDays){minDays = p[1].daysLeft; minWindow = p[0];}
+    });
+    var status = NS.classifyStatus(minDays, f3.dataPoints + f7.dataPoints + f30.dataPoints, provider);
+    return {threeDay:f3, sevenDay:f7, thirtyDay:f30, minDaysLeft:minDays, minWindow:minWindow, status:status, providerKey:providerKey, provider:provider};
+  };
+
+  // Returns 'critical'|'watch'|'healthy'|'surplus'|'nodata'
+  NS.classifyStatus = function(minDays, totalDataPoints, provider){
+    var admin = NS.loadAdmin();
+    var crit = admin.criticalDays || 3;
+    var watch = admin.watchDays || 7;
+    var plan = admin.planDays || 30;
+    // If we have less than 2 snapshots total, no useful forecast
+    if(totalDataPoints < 4 || minDays == null) return 'nodata';
+    if(!isFinite(minDays)) return 'surplus';   // no burn observed
+    if(minDays <= crit) return 'critical';
+    if(minDays <= watch) return 'watch';
+    if(minDays <= plan) return 'healthy';
+    return 'surplus';
+  };
+
+  // Returns counts {critical, watch, healthy, surplus, nodata, total} across active providers.
+  // Skip providers with mode='admin' / 'chat_payments' / 'billing' / 'unavail' since they don't burn
+  // in a comparable way (admin computes them manually, gift cards / billing have different rhythms).
+  NS.portfolioStatus = function(){
+    var registry = NS.loadRegistry().filter(function(p){return p.isActive!==false && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');});
+    var counts = {critical:0, watch:0, healthy:0, surplus:0, nodata:0, total:0};
+    registry.forEach(function(p){
+      var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
+      var f = NS.computeForecast(key, p);
+      counts[f.status] = (counts[f.status]||0) + 1;
+      counts.total++;
+    });
+    return counts;
+  };
+
+  function _renderStatusSummary(){
+    var c = NS.portfolioStatus();
+    var bar = document.createElement('div'); bar.className='fund-status-summary';
+    function seg(cls, label, count, hint){
+      var s = document.createElement('div'); s.className='seg '+cls;
+      s.innerHTML='<span class="dot"></span><div><div class="num">'+count+'</div><div class="lbl">'+label+'</div></div>';
+      if(hint){s.title = hint;}
+      return s;
+    }
+    bar.appendChild(seg('critical','CRITICAL (≤3D)', c.critical, 'Days-left is at or below 3 on the most conservative window. Top up immediately.'));
+    bar.appendChild(seg('watch','WATCH (≤7D)', c.watch, 'Days-left between 3 and 7 days. Plan a topup within the week.'));
+    bar.appendChild(seg('healthy','HEALTHY (≤30D)', c.healthy, 'Days-left between 7 and 30 days. No action needed.'));
+    bar.appendChild(seg('healthy','SURPLUS (>30D)', c.surplus, 'Days-left above 30 or no burn detected in the window.'));
+    bar.appendChild(seg('nodata','NO DATA', c.nodata, 'Not enough snapshots yet to compute a forecast — needs at least 2 in the 30-day window.'));
+    return bar;
+  }
+
+  function _fmtNumber(v){
+    if(v == null || isNaN(v)) return '—';
+    if(!isFinite(v)) return '∞';
+    if(Math.abs(v) >= 1e6) return (v/1e6).toFixed(2)+'M';
+    if(Math.abs(v) >= 1e3) return (v/1e3).toFixed(1)+'k';
+    return v.toFixed(2);
+  }
+  function _fmtDays(v){
+    if(v == null) return '—';
+    if(!isFinite(v)) return '∞';
+    if(v < 1) return v.toFixed(1);
+    return Math.round(v).toString();
+  }
+
+  // Compact pill shown in the Daily Pull DAYS LEFT column
+  function _statusPillHTML(forecast){
+    if(forecast.status==='nodata') return '<span class="fund-status-pill nodata">no data</span>';
+    if(forecast.status==='surplus') return '<span class="fund-status-pill surplus">surplus</span>';
+    var d = _fmtDays(forecast.minDaysLeft);
+    var lbl = forecast.status.toUpperCase();
+    return '<span class="fund-status-pill '+forecast.status+'">'+d+'d · '+lbl+(forecast.minWindow?' ('+forecast.minWindow+')':'')+'</span>';
+  }
+
+  // ===== Forecast tab renderer =====
+  function _renderForecast(host){
+    host.appendChild(_renderStatusSummary());
+
+    var registry = NS.loadRegistry().filter(function(p){return p.isActive!==false;});
+    var rows = registry.map(function(p){
+      var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
+      var f = NS.computeForecast(key, p);
+      return {provider:p, key:key, forecast:f};
+    });
+
+    // Sort + filter UI
+    var ctlBar = document.createElement('div');
+    ctlBar.style.cssText='display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap';
+    var sortKey = (NS.loadUI().forecastSort) || 'days';
+    var sortOrder = (NS.loadUI().forecastOrder) || 'asc';
+    var filterStatus = (NS.loadUI().forecastFilter) || 'all';
+    var lbl = document.createElement('span'); lbl.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700';
+    lbl.textContent='FILTER:'; ctlBar.appendChild(lbl);
+    ['all','critical','watch','healthy','surplus','nodata'].forEach(function(s){
+      var b = document.createElement('button');
+      var n = s==='all'?rows.length:rows.filter(function(r){return r.forecast.status===s;}).length;
+      b.textContent = s.toUpperCase()+' ('+n+')';
+      b.className='fund-btn'+(filterStatus===s?' primary':'');
+      b.style.cssText += 'font-size:10px;padding:5px 10px';
+      b.onclick = function(){var u=NS.loadUI();u.forecastFilter=s;NS.saveUI(u);NS.renderFunding();};
+      ctlBar.appendChild(b);
+    });
+    host.appendChild(ctlBar);
+
+    // Apply filter
+    if(filterStatus !== 'all'){rows = rows.filter(function(r){return r.forecast.status===filterStatus;});}
+
+    // Sort
+    function getSortVal(r){
+      switch(sortKey){
+        case 'name': return (r.provider.displayName||r.provider.name||'').toLowerCase();
+        case 'current': return -(r.forecast.threeDay.current||0);
+        case 'rate3': return -(r.forecast.threeDay.dailyAvg||0);
+        case 'rate7': return -(r.forecast.sevenDay.dailyAvg||0);
+        case 'rate30': return -(r.forecast.thirtyDay.dailyAvg||0);
+        case 'days':
+        default:
+          var d = r.forecast.minDaysLeft;
+          if(d==null) return 1e9;
+          if(!isFinite(d)) return 1e9-1;
+          return d;
+      }
+    }
+    rows.sort(function(a,b){
+      var va = getSortVal(a), vb = getSortVal(b);
+      if(typeof va==='string'){return sortOrder==='asc' ? va.localeCompare(vb) : vb.localeCompare(va);}
+      return sortOrder==='asc' ? va-vb : vb-va;
+    });
+
+    var tw = document.createElement('div'); tw.className='fund-forecast-tablewrap';
+    var tbl = document.createElement('table'); tbl.className='fund-forecast-table';
+    function th(key, label){
+      var cls = sortKey===key ? 'sorted' : '';
+      var arrow = sortKey===key ? (sortOrder==='asc'?' ▲':' ▼') : '';
+      return '<th class="'+cls+'" data-sort="'+key+'">'+label+arrow+'</th>';
+    }
+    tbl.innerHTML='<thead><tr>'
+      +th('name','PROVIDER')
+      +'<th>MODE</th>'
+      +th('current','CURRENT')
+      +th('rate3','3-DAY RATE')
+      +th('rate7','7-DAY RATE')
+      +th('rate30','30-DAY RATE')
+      +th('days','DAYS LEFT (MIN)')
+      +'<th>STATUS</th>'
+      +'</tr></thead>';
+    var tb = document.createElement('tbody');
+    rows.forEach(function(r){
+      var tr = document.createElement('tr');
+      var p = r.provider;
+      var f = r.forecast;
+      var ccy = f.threeDay.currency || p.currency || 'USD';
+      function rateCell(rate){
+        if(!rate || !rate.dailyAvg) return '<td class="mut" style="text-align:right">—</td>';
+        var burnDays = rate.burnDays || 0;
+        return '<td class="rate-cell">'+_fmtNumber(rate.dailyAvg)+' '+ccy+'/d<small>'+burnDays+' burn day'+(burnDays!==1?'s':'')+'</small></td>';
+      }
+      tr.innerHTML=
+        '<td><div style="font-weight:700">'+_esc(p.displayName||p.name)+'</div><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">'+_esc(p.name)+(p.benderId!=null?' · ID '+p.benderId:'')+'</div></td>'
+       +'<td><span class="fund-source-pill '+p.mode+'">'+(p.mode||'?').toUpperCase()+'</span></td>'
+       +'<td class="num">'+_fmtNumber(f.threeDay.current)+' '+_esc(ccy)+'</td>'
+       +rateCell(f.threeDay)
+       +rateCell(f.sevenDay)
+       +rateCell(f.thirtyDay)
+       +'<td class="fund-days-cell" style="color:'+(f.status==='critical'?'var(--red)':f.status==='watch'?'var(--yel)':f.status==='healthy'?'var(--grn)':'var(--mut)')+'">'+_fmtDays(f.minDaysLeft)+'<span class="window-hint">'+(f.minWindow||'')+(f.threeDay.hasTopups?' · topups skipped':'')+'</span></td>'
+       +'<td>'+_statusPillHTML(f)+'</td>';
+      tb.appendChild(tr);
+    });
+    if(!rows.length){
+      var trE = document.createElement('tr');
+      var tdE = document.createElement('td'); tdE.colSpan=8; tdE.style.cssText='text-align:center;padding:30px;color:var(--mut)';
+      tdE.textContent='No providers match this filter.';
+      trE.appendChild(tdE); tb.appendChild(trE);
+    }
+    tbl.appendChild(tb);
+    // Wire column sort clicks
+    tbl.querySelectorAll('th[data-sort]').forEach(function(h){
+      h.onclick = function(){
+        var k = this.dataset.sort;
+        var u = NS.loadUI();
+        if(u.forecastSort===k){u.forecastOrder = u.forecastOrder==='asc'?'desc':'asc';}
+        else{u.forecastSort=k; u.forecastOrder='asc';}
+        NS.saveUI(u); NS.renderFunding();
+      };
+    });
+    tw.appendChild(tbl);
+    host.appendChild(tw);
+  }
 
   function _renderDaily(host){
     var registry=NS.loadRegistry().filter(function(p){return p.isActive!==false;});
@@ -12299,6 +12566,9 @@ var FUND=(function(){
     var rateDate = fxCache[fxKey] ? fxKey : (function(){
       var keys=Object.keys(fxCache).sort();return keys.length?keys[keys.length-1]:null;
     })();
+
+    // Portfolio status summary
+    host.appendChild(_renderStatusSummary());
 
     // FX strip
     var fxStrip=document.createElement('div');fxStrip.className='fund-fx-strip';
@@ -12373,7 +12643,7 @@ var FUND=(function(){
     var tbl=document.createElement('table');tbl.className='fund-table';
     tbl.innerHTML='<thead><tr>'
       +'<th>BENDER COMMAND</th><th>PROVIDER</th><th>SOURCE</th><th>CURRENCY</th>'
-      +'<th style="text-align:right">LOCAL BALANCE</th><th style="text-align:right">USD BALANCE</th><th>YESTERDAY</th><th>NOTES</th>'
+      +'<th style="text-align:right">LOCAL BALANCE</th><th style="text-align:right">USD BALANCE</th><th>YESTERDAY</th><th>DAYS LEFT</th><th>NOTES</th>'
       +'</tr></thead>';
     var tb=document.createElement('tbody');tbl.appendChild(tb);
     var yesterdaySnap=_yesterdaySnapshot();
@@ -12440,6 +12710,11 @@ var FUND=(function(){
         ydTd.innerHTML='<span style="font-size:10px">'+(ydUsd!=null?ydUsd.toFixed(2):ydBal.local)+'</span>';
       }else ydTd.textContent='—';
       tr.appendChild(ydTd);
+      // Days left forecast cell
+      var dlTd=document.createElement('td');
+      var fc=NS.computeForecast(key, p);
+      dlTd.innerHTML=_statusPillHTML(fc);
+      tr.appendChild(dlTd);
       // Notes
       var notesTd=document.createElement('td');notesTd.style.fontSize='10px';notesTd.style.color='var(--mut)';notesTd.textContent=p.notes||'';
       tr.appendChild(notesTd);
