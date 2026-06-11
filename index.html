@@ -12305,7 +12305,9 @@ var FUND=(function(){
     if(rates){
       var keys=Object.keys(rates).filter(function(c){return c!=='USD';}).slice(0,6);
       var stalenessHint = (rateDate !== fxKey) ? ' <span style="color:var(--yel)">⚠ stale — newer rates available</span>' : '';
-      fxStrip.innerHTML='<span>FX RATES FROM <b>'+rateDate+'</b> (D-1):'+stalenessHint+'</span>'+keys.map(function(c){return '<span>'+c+' = <b>'+rates[c].toFixed(6)+'</b> USD</span>';}).join('');
+      var sourceUrl='https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@'+rateDate+'/v1/currencies/usd.json';
+      var sourceLink=' <a href="'+sourceUrl+'" target="_blank" rel="noopener" title="Open the live FX JSON Pulse pulled from (jsdelivr CDN, fawazahmed0/currency-api — free + open-source)" style="color:var(--acc);text-decoration:none;font-size:9px;border-bottom:1px dashed var(--acc);margin-left:6px">↗ source</a>';
+      fxStrip.innerHTML='<span>FX RATES FROM <b>'+rateDate+'</b> (D-1)'+sourceLink+':'+stalenessHint+'</span>'+keys.map(function(c){return '<span>'+c+' = <b>'+rates[c].toFixed(6)+'</b> USD</span>';}).join('');
     }else{
       // Auto-fetch on first render of this session — but only once. The flag stays TRUE on
       // failure so the strip transitions to the manual retry state instead of looping.
@@ -12313,7 +12315,8 @@ var FUND=(function(){
       if(!autoTried){
         window._fundFxAutoFetched = true;
         fxStrip.classList.add('fetching');
-        fxStrip.innerHTML='<span style="color:var(--acc);font-weight:700">⤓ FETCHING FX RATES FOR <b>'+fxKey+'</b> (D-1)…</span><span style="margin-left:auto;color:var(--mut);font-size:9px">via fawazahmed0/currency-api</span><div class="fx-progress"></div>';
+        var fetchingUrl='https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@'+fxKey+'/v1/currencies/usd.json';
+        fxStrip.innerHTML='<span style="color:var(--acc);font-weight:700">⤓ FETCHING FX RATES FOR <b>'+fxKey+'</b> (D-1)…</span><span style="margin-left:auto;color:var(--mut);font-size:9px">from <a href="'+fetchingUrl+'" target="_blank" rel="noopener" style="color:var(--mut);text-decoration:underline">fawazahmed0/currency-api</a></span><div class="fx-progress"></div>';
         NS.fetchFX(null, false).then(function(res){
           // Always re-render so the strip transitions out of the fetching state
           NS.renderFunding();
