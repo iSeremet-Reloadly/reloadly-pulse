@@ -12026,30 +12026,40 @@ var FUND=(function(){
   NS.saveUI=function(u){saveJSON(K.ui,u);};
 
   // FX integration — pull from exchangerate.host (free, no key)
-  NS.fetchFX=function(date){
-    // date format YYYY-MM-DD; pass null for today
-    var d=date||new Date().toISOString().slice(0,10);
+  // Default date is yesterday (D-1) to match Reloadly's existing FX accounting practice:
+  // central banks publish reference rates after market close, so D-1 is the most reliable
+  // datum on any given day. Pass an explicit date string to override; pass force=true to
+  // bypass the cache and re-hit the API.
+  NS.fxDefaultDate=function(){
+    var d=new Date();d.setUTCDate(d.getUTCDate()-1);
+    return d.toISOString().slice(0,10);
+  };
+  NS.fetchFX=function(date, force){
+    var d=date||NS.fxDefaultDate();
     var cache=NS.loadFX();
-    if(cache[d])return Promise.resolve(cache[d]);
+    if(cache[d] && !force)return Promise.resolve({rates:cache[d], date:d, fromCache:true});
     var url='https://api.exchangerate.host/'+d+'?base=USD';
     return fetch(url).then(function(r){return r.json();}).then(function(j){
       if(j&&j.rates){
-        // Store as currency → USD multiplier (1 unit of currency = X USD)
         var rates={USD:1};
         Object.keys(j.rates).forEach(function(c){
           var rateFromUSD=j.rates[c]; // 1 USD = rateFromUSD of c
           if(rateFromUSD&&rateFromUSD>0)rates[c]=1/rateFromUSD;
         });
-        var c=NS.loadFX();c[d]=rates;NS.saveFX(c);
-        return rates;
+        // Store under the date Pulse requested; if the API echoes a different date (e.g. it
+        // returned the most recent close for a weekend/holiday), also stash under that.
+        var c=NS.loadFX();c[d]=rates;
+        var apiDate=j.date;
+        if(apiDate && apiDate!==d)c[apiDate]=rates;
+        NS.saveFX(c);
+        return {rates:rates, date:d, apiDate:apiDate||d, fromCache:false};
       }
       throw new Error('No rates returned');
     }).catch(function(e){
       console.warn('FX fetch failed for '+d+':',e);
-      // Fall back to most recent cached rates
       var c=NS.loadFX();var keys=Object.keys(c).sort();
-      if(keys.length)return c[keys[keys.length-1]];
-      return null;
+      if(keys.length)return {rates:c[keys[keys.length-1]], date:keys[keys.length-1], fromCache:true, fallback:true};
+      return {rates:null, date:d};
     });
   };
   NS.localToUSD=function(amount, currency, rates){
@@ -12217,9 +12227,15 @@ var FUND=(function(){
     hdr.innerHTML='<div><div class="fund-title">Funding</div><div class="fund-sub">Supplier wallet balances · burn rate · forecast</div></div>';
     var tools=document.createElement('div');tools.className='fund-tools';
     var refreshFxBtn=document.createElement('button');refreshFxBtn.className='fund-btn';refreshFxBtn.innerHTML='⟲ Refresh FX';
+    refreshFxBtn.title='Re-fetch the latest reference rates from exchangerate.host (D-1).';
     refreshFxBtn.onclick=function(){
       refreshFxBtn.disabled=true;refreshFxBtn.textContent='Fetching…';
-      NS.fetchFX(null).then(function(){refreshFxBtn.disabled=false;refreshFxBtn.innerHTML='✓ FX updated';setTimeout(function(){refreshFxBtn.innerHTML='⟲ Refresh FX';},1500);NS.renderFunding();});
+      NS.fetchFX(null, true).then(function(res){
+        refreshFxBtn.disabled=false;
+        refreshFxBtn.innerHTML=res&&res.rates?('✓ Rates for '+(res.apiDate||res.date)):'⚠ Fetch failed';
+        setTimeout(function(){refreshFxBtn.innerHTML='⟲ Refresh FX';},2200);
+        NS.renderFunding();
+      });
     };
     tools.appendChild(refreshFxBtn);
     hdr.appendChild(tools);
@@ -12244,17 +12260,27 @@ var FUND=(function(){
   function _renderDaily(host){
     var registry=NS.loadRegistry().filter(function(p){return p.isActive!==false;});
     var snap=_todaySnapshot();
-    var rates=NS.loadFX()[today()]||null;
+    var fxKey=NS.fxDefaultDate();           // D-1
+    var fxCache=NS.loadFX();
+    var rates=fxCache[fxKey] || (function(){
+      // Fallback: use the most recent cached date if D-1 isn't there yet
+      var keys=Object.keys(fxCache).sort();
+      return keys.length ? fxCache[keys[keys.length-1]] : null;
+    })();
+    var rateDate = fxCache[fxKey] ? fxKey : (function(){
+      var keys=Object.keys(fxCache).sort();return keys.length?keys[keys.length-1]:null;
+    })();
 
     // FX strip
     var fxStrip=document.createElement('div');fxStrip.className='fund-fx-strip';
     if(rates){
       var keys=Object.keys(rates).filter(function(c){return c!=='USD';}).slice(0,6);
-      fxStrip.innerHTML='<span>FX RATES TODAY <b>'+today()+'</b>:</span>'+keys.map(function(c){return '<span>'+c+' = <b>'+rates[c].toFixed(6)+'</b> USD</span>';}).join('');
+      var stalenessHint = (rateDate !== fxKey) ? ' <span style="color:var(--yel)">⚠ stale — newer rates available</span>' : '';
+      fxStrip.innerHTML='<span>FX RATES FROM <b>'+rateDate+'</b> (D-1):'+stalenessHint+'</span>'+keys.map(function(c){return '<span>'+c+' = <b>'+rates[c].toFixed(6)+'</b> USD</span>';}).join('');
     }else{
-      fxStrip.innerHTML='<span style="color:var(--yel)">No FX rates loaded for today.</span>';
+      fxStrip.innerHTML='<span style="color:var(--yel)">No FX rates loaded yet. Fetching D-1 ('+fxKey+')…</span>';
       var pullBtn=document.createElement('button');pullBtn.className='fund-btn';pullBtn.style.marginLeft='auto';pullBtn.innerHTML='⤓ Fetch FX rates';
-      pullBtn.onclick=function(){pullBtn.disabled=true;pullBtn.textContent='Fetching…';NS.fetchFX(null).then(function(){NS.renderFunding();});};
+      pullBtn.onclick=function(){pullBtn.disabled=true;pullBtn.textContent='Fetching…';NS.fetchFX(null, true).then(function(){NS.renderFunding();});};
       fxStrip.appendChild(pullBtn);
     }
     host.appendChild(fxStrip);
