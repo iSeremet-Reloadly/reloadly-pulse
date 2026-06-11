@@ -11888,6 +11888,15 @@ var PP=(function(){
 .fund-bf-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
 
 
+
+.fund-alerts-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#0e1822;border:1px solid #1f2d3d;border-radius:8px;margin-bottom:12px;flex-wrap:wrap;}
+.fund-alerts-info{display:flex;align-items:center;gap:8px;font-size:12px;color:#cfd6df;}
+.fund-alerts-info .muted{color:#8a98a8;font-weight:400;}
+.fund-alerts-actions{display:flex;gap:6px;}
+.fund-btn-mini{background:#1a2533;color:#cfd6df;border:1px solid #2a3a4d;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600;letter-spacing:0.3px;}
+.fund-btn-mini:hover{background:#243042;border-color:#3a4d65;}
+.fund-btn-mini:disabled{opacity:0.5;cursor:wait;}
+
 </style>
 <script>
 // ====================== Funding module ======================
@@ -11898,7 +11907,8 @@ var FUND=(function(){
     snapshots:'rl_fund_snapshots_v1',
     fx:'rl_fund_fx_v1',
     admin:'rl_fund_admin_v1',
-    ui:'rl_fund_ui_v1'
+    ui:'rl_fund_ui_v1',
+    alertLog:'rl_fund_alert_log_v1'
   };
 
   // Seeded provider registry from the 2026 Prepaid Accounts workbook.
@@ -12060,8 +12070,21 @@ var FUND=(function(){
   NS.saveSnapshots=function(s){saveJSON(K.snapshots,s);};
   NS.loadFX=function(){return loadJSON(K.fx,{});};
   NS.saveFX=function(f){saveJSON(K.fx,f);};
-  NS.loadAdmin=function(){return loadJSON(K.admin,{targetCoverDays:21,criticalDays:4,watchDays:10,planDays:14});};
+  NS.loadAdmin=function(){
+    var a=loadJSON(K.admin,null)||{};
+    if(a.targetCoverDays==null)a.targetCoverDays=21;
+    if(a.criticalDays==null)a.criticalDays=4;
+    if(a.watchDays==null)a.watchDays=10;
+    if(a.planDays==null)a.planDays=30;
+    if(a.alertsEnabled==null)a.alertsEnabled=true;
+    if(a.alertCooldownHours==null)a.alertCooldownHours=24;
+    if(a.workerUrl==null)a.workerUrl='https://reloadly-pulse-slack-proxy.dlubovci.workers.dev';
+    if(a.alertsChannelLabel==null)a.alertsChannelLabel='#funding-alerts';
+    return a;
+  };
   NS.saveAdmin=function(a){saveJSON(K.admin,a);};
+  NS.loadAlertLog=function(){return loadJSON(K.alertLog,{});};
+  NS.saveAlertLog=function(l){saveJSON(K.alertLog,l);};
   NS.loadUI=function(){return loadJSON(K.ui,{tab:'daily',date:null});};
   NS.saveUI=function(u){saveJSON(K.ui,u);};
 
@@ -12270,7 +12293,115 @@ var FUND=(function(){
     var idx=snaps.findIndex(function(s){return s.date===snap.date;});
     if(idx>=0)snaps[idx]=snap;else snaps.push(snap);
     NS.saveSnapshots(snaps);
+    try{NS.runAlertCheck('snapshot_save');}catch(e){console.warn('[FUND] alert check failed',e);}
     return {applied:applied, unmatched:unmatched, total:parsed.length, autoSave:true};
+  };
+
+
+  // ===== Slack alert pipeline =====
+  // After a snapshot is saved, walk every active (bender/swype/portal) provider, run its
+  // forecast, and bundle anything that landed in 'critical' or 'watch' into a single
+  // Slack message. Per-provider cooldown prevents the same wallet re-announcing on every
+  // save. Posts via the Cloudflare Worker — the Worker forwards to chat.postMessage with
+  // the SECRET_SLACK_ALERTS_CHANNEL.
+  NS.formatAlertMessage = function(alerts){
+    function fmt(n, cur){
+      if(n==null || !isFinite(n)) return '—';
+      var abs=Math.abs(n);
+      var digits = abs>=1000?0:(abs>=10?1:2);
+      return n.toLocaleString('en-US',{minimumFractionDigits:digits, maximumFractionDigits:digits}) + (cur?(' '+cur):'');
+    }
+    function daysLabel(d){
+      if(!isFinite(d)) return '∞';
+      if(d<1) return '<1';
+      if(d<10) return d.toFixed(1);
+      return Math.round(d).toString();
+    }
+    var crit = alerts.filter(function(a){return a.forecast.status==='critical';});
+    var watch = alerts.filter(function(a){return a.forecast.status==='watch';});
+    var headline = '🚨 *Funding alert* — ';
+    var parts = [];
+    if(crit.length) parts.push(crit.length+' critical');
+    if(watch.length) parts.push(watch.length+' watch');
+    headline += parts.join(', ') + ' wallet'+((crit.length+watch.length)===1?'':'s')+' need attention';
+    var lines = [headline, ''];
+    function line(a){
+      var p = a.provider;
+      var f = a.forecast;
+      var emoji = f.status==='critical' ? '🔴' : '🟡';
+      var win = f.minWindow || '?';
+      var bestRate = win==='3D'?f.threeDay : win==='7D'?f.sevenDay : f.thirtyDay;
+      var cur = (bestRate && bestRate.currency) || p.currency || 'USD';
+      var name = p.displayName || p.name;
+      lines.push(emoji + ' *' + name + '* (' + cur + ') — ' + daysLabel(f.minDaysLeft) + ' days left (' + win + ' rate)');
+      var detail = '   Current: ' + fmt(bestRate.current, cur) + ' · Avg burn: ' + fmt(bestRate.dailyAvg, cur) + '/d';
+      if(bestRate.hasTopups) detail += ' · topups skipped';
+      lines.push(detail);
+    }
+    crit.forEach(line);
+    if(crit.length && watch.length) lines.push('');
+    watch.forEach(line);
+    lines.push('');
+    lines.push('View in Pulse → https://reloadly-tasks.github.io/task-manager/');
+    return lines.join('\n');
+  };
+
+  NS.postSlackAlert = function(text, blocks){
+    var admin = NS.loadAdmin();
+    var url = admin.workerUrl;
+    if(!url) return Promise.resolve({error:'no_worker_url'});
+    return fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'alert', text:text, blocks:blocks||null})
+    }).then(function(r){return r.json();}).catch(function(e){return {error:'network', detail:String(e)};});
+  };
+
+  // trigger: 'snapshot_save' | 'manual'
+  // Returns Promise<{checked, eligible, sent, providers, skipped, error}>
+  NS.runAlertCheck = function(trigger){
+    var admin = NS.loadAdmin();
+    if(!admin.alertsEnabled){return Promise.resolve({checked:0, eligible:0, sent:0, skipped:'disabled'});}
+    var registry = NS.loadRegistry().filter(function(p){
+      return p.isActive!==false && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');
+    });
+    var log = NS.loadAlertLog();
+    var cooldownMs = (admin.alertCooldownHours||24) * 3600000;
+    var now = Date.now();
+    var eligible = [];
+    var stillCritical = []; // status persisted but in cooldown — don't re-fire, but keep their log entry
+    registry.forEach(function(p){
+      var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
+      var f = NS.computeForecast(key, p);
+      if(f.status!=='critical' && f.status!=='watch') return;
+      var last = log[key];
+      var statusChanged = !last || last.status !== f.status;
+      var cooldownExpired = !last || (now - last.at) >= cooldownMs;
+      if(statusChanged || cooldownExpired){
+        eligible.push({provider:p, forecast:f, key:key});
+      } else {
+        stillCritical.push({key:key, status:f.status});
+      }
+    });
+    if(!eligible.length){
+      return Promise.resolve({checked:registry.length, eligible:0, sent:0, stillCritical:stillCritical.length, trigger:trigger||null});
+    }
+    var text = NS.formatAlertMessage(eligible);
+    return NS.postSlackAlert(text).then(function(res){
+      if(res && res.ok){
+        eligible.forEach(function(a){
+          log[a.key] = {at:now, status:a.forecast.status, trigger:trigger||'snapshot_save'};
+        });
+        NS.saveAlertLog(log);
+        return {checked:registry.length, eligible:eligible.length, sent:eligible.length, providers:eligible.map(function(a){return a.provider.name;}), trigger:trigger||null, ts:res.ts};
+      }
+      return {checked:registry.length, eligible:eligible.length, sent:0, error:(res&&res.error)||'unknown', detail:res&&res.detail, trigger:trigger||null};
+    });
+  };
+
+  NS.sendTestAlert = function(){
+    var text = '🧪 *Pulse test alert* — Worker → Slack → #funding-alerts wiring is live.\n\nIf you can see this, posting works. Real alerts will appear here when a wallet crosses into critical or watch.\n\nSent at ' + new Date().toISOString();
+    return NS.postSlackAlert(text);
   };
 
   // ===== MAIN RENDERER =====
@@ -12440,6 +12571,45 @@ var FUND=(function(){
 
   // ===== Forecast tab renderer =====
   function _renderForecast(host){
+    // Alerts strip
+    (function(){
+      var admin = NS.loadAdmin();
+      var log = NS.loadAlertLog();
+      var lastTs = 0; Object.keys(log).forEach(function(k){if(log[k].at>lastTs)lastTs=log[k].at;});
+      var strip = document.createElement('div'); strip.className='fund-alerts-strip';
+      var status = admin.alertsEnabled ? '<span class="pill ok">ALERTS ON</span>' : '<span class="pill warn">ALERTS OFF</span>';
+      var lastLabel = lastTs ? ('Last sent: '+new Date(lastTs).toLocaleString()) : 'No alerts sent yet';
+      strip.innerHTML = '<div class="fund-alerts-info">'+status+' <span class="muted">→ '+admin.alertsChannelLabel+'</span> · <span class="muted">'+lastLabel+'</span></div>';
+      var actions = document.createElement('div'); actions.className='fund-alerts-actions';
+      var toggleBtn = document.createElement('button'); toggleBtn.className='fund-btn-mini'; toggleBtn.textContent=admin.alertsEnabled?'Disable':'Enable';
+      toggleBtn.onclick=function(){var a=NS.loadAdmin(); a.alertsEnabled=!a.alertsEnabled; NS.saveAdmin(a); NS.renderFunding();};
+      var dryBtn = document.createElement('button'); dryBtn.className='fund-btn-mini'; dryBtn.textContent='Re-check now';
+      dryBtn.onclick=function(){
+        dryBtn.disabled=true; dryBtn.textContent='Checking...';
+        NS.runAlertCheck('manual').then(function(r){
+          if(typeof toast==='function'){
+            if(r && r.sent>0) toast('Sent '+r.sent+' alert(s) to '+NS.loadAdmin().alertsChannelLabel,'ok');
+            else if(r && r.eligible===0) toast('Nothing new to alert ('+(r.checked||0)+' checked)','info');
+            else if(r && r.error) toast('Alert failed: '+r.error,'err');
+          }
+          dryBtn.disabled=false; dryBtn.textContent='Re-check now';
+          NS.renderFunding();
+        });
+      };
+      var testBtn = document.createElement('button'); testBtn.className='fund-btn-mini'; testBtn.textContent='Test alert';
+      testBtn.onclick=function(){
+        testBtn.disabled=true; testBtn.textContent='Sending...';
+        NS.sendTestAlert().then(function(r){
+          if(r && r.ok){if(typeof toast==='function')toast('Test alert posted to '+NS.loadAdmin().alertsChannelLabel,'ok');}
+          else {if(typeof toast==='function')toast('Test alert failed: '+(r&&(r.error||r.detail)||'unknown'),'err');}
+          testBtn.disabled=false; testBtn.textContent='Test alert';
+        });
+      };
+      actions.appendChild(toggleBtn); actions.appendChild(dryBtn); actions.appendChild(testBtn);
+      strip.appendChild(actions);
+      host.appendChild(strip);
+    })();
+
     host.appendChild(_renderStatusSummary());
 
     var registry = NS.loadRegistry().filter(function(p){return p.isActive!==false;});
@@ -12632,6 +12802,13 @@ var FUND=(function(){
       var idx=snaps.findIndex(function(s){return s.date===snap.date;});
       if(idx>=0)snaps[idx]=snap;else snaps.push(snap);
       NS.saveSnapshots(snaps);
+      try{
+        NS.runAlertCheck('snapshot_save').then(function(r){
+          if(r && r.sent>0 && typeof toast==='function'){
+            toast('Slack alert sent to '+NS.loadAdmin().alertsChannelLabel+' ('+r.sent+' wallet'+(r.sent===1?'':'s')+')','ok');
+          }
+        });
+      }catch(e){console.warn('[FUND] alert check failed',e);}
       if(typeof toast==='function')toast('Snapshot saved for '+snap.date,'ok');
       NS.renderFunding();
     };
