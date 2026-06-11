@@ -11801,7 +11801,11 @@ var PP=(function(){
 .fund-btn.ghost{background:transparent}
 .fund-drop{display:block;text-align:center;border:2px dashed var(--acc);border-radius:12px;padding:36px 30px;margin:18px auto;max-width:620px;background:rgba(168,85,247,.05);cursor:pointer;box-sizing:border-box;transition:all .15s}
 .fund-drop:hover{background:rgba(168,85,247,.12)}
-.fund-fx-strip{padding:8px 14px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;margin-bottom:14px;font-size:10px;color:var(--mut);font-family:'Roboto Mono',monospace;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.fund-fx-strip{position:relative;padding:8px 14px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;margin-bottom:14px;font-size:10px;color:var(--mut);font-family:'Roboto Mono',monospace;display:flex;gap:14px;flex-wrap:wrap;align-items:center;overflow:hidden}
+.fund-fx-strip .fx-progress{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(108,99,255,.08);overflow:hidden}
+.fund-fx-strip .fx-progress::before{content:'';position:absolute;left:-30%;top:0;height:100%;width:30%;background:linear-gradient(90deg,transparent,var(--acc),var(--grn),transparent);animation:fx-slide 1.2s linear infinite;border-radius:3px}
+@keyframes fx-slide{0%{left:-30%}100%{left:100%}}
+.fund-fx-strip.fetching{border-color:rgba(108,99,255,.4);background:linear-gradient(90deg,var(--surf2),rgba(108,99,255,.04),var(--surf2))}
 .fund-fx-strip b{color:var(--txt)}
 .fund-source-pill{display:inline-block;padding:2px 6px;border-radius:4px;font-size:8px;font-weight:700;font-family:'Roboto Mono',monospace;letter-spacing:.5px}
 .fund-source-pill.bender{background:rgba(108,99,255,.18);color:var(--acc)}
@@ -12230,6 +12234,14 @@ var FUND=(function(){
     refreshFxBtn.title='Re-fetch the latest reference rates from exchangerate.host (D-1).';
     refreshFxBtn.onclick=function(){
       refreshFxBtn.disabled=true;refreshFxBtn.textContent='Fetching…';
+      // Visually mark the FX strip as fetching too (if it's already rendered below)
+      var existingStrip=document.querySelector('.fund-fx-strip');
+      if(existingStrip){
+        existingStrip.classList.add('fetching');
+        if(!existingStrip.querySelector('.fx-progress')){
+          var pb=document.createElement('div');pb.className='fx-progress';existingStrip.appendChild(pb);
+        }
+      }
       NS.fetchFX(null, true).then(function(res){
         refreshFxBtn.disabled=false;
         refreshFxBtn.innerHTML=res&&res.rates?('✓ Rates for '+(res.apiDate||res.date)):'⚠ Fetch failed';
@@ -12283,7 +12295,8 @@ var FUND=(function(){
       var autoTried = window._fundFxAutoFetched;
       if(!autoTried){
         window._fundFxAutoFetched = true;
-        fxStrip.innerHTML='<span style="color:var(--yel)">⤓ Fetching FX rates for '+fxKey+' (D-1)…</span>';
+        fxStrip.classList.add('fetching');
+        fxStrip.innerHTML='<span style="color:var(--acc);font-weight:700">⤓ FETCHING FX RATES FOR <b>'+fxKey+'</b> (D-1)…</span><span style="margin-left:auto;color:var(--mut);font-size:9px">from exchangerate.host</span><div class="fx-progress"></div>';
         NS.fetchFX(null, false).then(function(res){
           if(res && res.rates) NS.renderFunding();
           else { window._fundFxAutoFetched = false; NS.renderFunding(); }
@@ -12291,7 +12304,14 @@ var FUND=(function(){
       } else {
         fxStrip.innerHTML='<span style="color:var(--yel)">⚠ No FX rates loaded for '+fxKey+'. Click below to retry — exchangerate.host may have been unreachable or D-1 rates may not be published yet.</span>';
         var pullBtn=document.createElement('button');pullBtn.className='fund-btn';pullBtn.style.marginLeft='auto';pullBtn.innerHTML='⤓ Fetch FX rates';
-        pullBtn.onclick=function(){pullBtn.disabled=true;pullBtn.textContent='Fetching…';window._fundFxAutoFetched=false;NS.fetchFX(null, true).then(function(){NS.renderFunding();});};
+        pullBtn.onclick=function(){
+          pullBtn.disabled=true;pullBtn.textContent='Fetching…';
+          fxStrip.classList.add('fetching');
+          // Append a progress bar to the strip
+          var pb=document.createElement('div');pb.className='fx-progress';fxStrip.appendChild(pb);
+          window._fundFxAutoFetched=false;
+          NS.fetchFX(null, true).then(function(){NS.renderFunding();});
+        };
         fxStrip.appendChild(pullBtn);
       }
     }
