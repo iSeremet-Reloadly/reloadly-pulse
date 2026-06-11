@@ -11835,6 +11835,18 @@ var PP=(function(){
 .fund-bulk-results .miss{color:var(--yel)}
 .fund-bulk-unmatched{margin-top:8px;font-size:10px;color:var(--yel);font-family:'Roboto Mono',monospace;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:8px 10px;line-height:1.5;max-height:80px;overflow:auto}
 .fund-bulk-collapsed .fund-bulk-body,.fund-bulk-collapsed .fund-bulk-actions{display:none}
+/* === Backfill from Excel card === */
+.fund-bf-card{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:16px 18px;margin-bottom:18px}
+.fund-bf-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.fund-bf-hdr-t{font-size:13px;font-weight:800;margin-bottom:4px}
+.fund-bf-hdr-s{font-size:11px;color:var(--mut);font-family:'Roboto Mono',monospace;line-height:1.55}
+.fund-bf-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
+.fund-bf-stat{background:var(--surf2);border:1px solid var(--brd);border-radius:8px;padding:10px 14px}
+.fund-bf-stat-l{font-size:9px;color:var(--mut);font-family:'Roboto Mono',monospace;font-weight:700;letter-spacing:.5px;margin-bottom:4px}
+.fund-bf-stat-v{font-size:18px;font-weight:800}
+.fund-bf-unmatched{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:10px 14px;font-size:10px;color:var(--yel);font-family:'Roboto Mono',monospace;max-height:140px;overflow:auto;line-height:1.6;margin-top:10px}
+.fund-bf-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+
 
 </style>
 <script>
@@ -12436,6 +12448,208 @@ var FUND=(function(){
     close.onclick=function(){if(modal._cleanup)modal._cleanup();modal.remove();};
     box.appendChild(close);
   }
+  // ===== HISTORICAL BACKFILL FROM EXCEL =====
+  // Parses a multi-sheet workbook (typically the user's 2026 Prepaid Accounts.xlsx or
+  // Historical balance.xlsx) and rebuilds snapshots so the History view + future
+  // burn-rate forecast have something to look at on day one.
+  var MONTHS={JANUARY:1,FEBRUARY:2,MARCH:3,APRIL:4,MAY:5,JUNE:6,JULY:7,AUGUST:8,SEPTEMBER:9,OCTOBER:10,NOVEMBER:11,DECEMBER:12};
+  var DAY_INITIALS=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+  function _parseSheetMonthYear(sheetName){
+    // Examples: "June-26  USD", "January26 USD", "December26 Local", "May-26 USD"
+    var s=sheetName.toUpperCase();
+    var month=null, year=null;
+    Object.keys(MONTHS).forEach(function(mk){if(month==null && s.indexOf(mk)>=0)month=MONTHS[mk];});
+    var ym=s.match(/(\d{2,4})/);
+    if(ym){year=parseInt(ym[1]);if(year<100)year+=2000;}
+    if(!month||!year)return null;
+    return {month:month, year:year};
+  }
+
+  function _labelToDate(label, sheetMonth, sheetYear){
+    // label like "Mon 25", "Tue 26", "Fri 12"
+    var m=String(label||'').trim().match(/^([A-Z][a-z]{2})\s+(\d{1,2})$/);
+    if(!m)return null;
+    var dayName=m[1].toUpperCase().slice(0,3);
+    var dayNum=parseInt(m[2]);
+    // Try sheet month, then previous month, then next month — pick whichever matches day-of-week
+    var candidates=[];
+    candidates.push([sheetMonth, sheetYear]);
+    candidates.push([sheetMonth===1?12:sheetMonth-1, sheetMonth===1?sheetYear-1:sheetYear]);
+    candidates.push([sheetMonth===12?1:sheetMonth+1, sheetMonth===12?sheetYear+1:sheetYear]);
+    for(var i=0;i<candidates.length;i++){
+      var mm=candidates[i][0], yy=candidates[i][1];
+      var d=new Date(Date.UTC(yy, mm-1, dayNum));
+      if(d.getUTCDate()===dayNum && DAY_INITIALS[d.getUTCDay()]===dayName){
+        // YYYY-MM-DD
+        var s = yy + '-' + String(mm).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
+        return s;
+      }
+    }
+    return null;
+  }
+
+  function _normalizeName(s){
+    if(!s)return '';
+    return String(s).toLowerCase()
+      .replace(/[^a-z0-9 ]+/g,' ')
+      .replace(/\s+/g,' ').trim();
+  }
+
+  // Build a lookup map: normalized name → registry entry. Tries displayName first, then name, then subKey.
+  function _buildLookup(registry){
+    var byName={};
+    registry.forEach(function(p){
+      [p.displayName, p.name, p.subKey].forEach(function(k){if(k){var n=_normalizeName(k);if(n && !byName[n])byName[n]=p;}});
+    });
+    // Specific aliases common in the historical Excel
+    var aliases = {
+      'idt zendit':'IDT_ZENDIT',
+      'idt zendit ':'IDT_ZENDIT',
+      'cy send':'CY_SEND',
+      'payment source':'PAYMENT_SOURCE',
+      'shangai tengying network':'TENYING',
+      'shanghai tengying network':'TENYING',
+      'mtn telecel guinea bissau':'MTN_GUINEA_BISSAU',
+      'airtel nigeria firefox':'AIRTEL_NIGERIA',
+      'true african':'TRUE_AFRICAN',
+      'world voice':'WORLDVOICE',
+      'africell':'AFRICELL_GAMBIA',
+      'gam switch':'GAMSWITCH',
+      'gamswitch':'GAMSWITCH',
+      'vps email':'VPS',
+      'ensure financial swype':'ENSURE',
+      'ensure financial swype daily usage':'ENSURE',
+      'bluebanc swype':'BLUEBANC',
+      'swype cards issuer b master wallet':'SWYPE_CARDS',
+      'lafrica mobile burkina':'LAFRICA_BURKINA',
+      'lafrica mobile data senegal':'LAFRICA_DATA_SENEGAL',
+      'lafrica mobile tchad':'LAFRICA_TCHAD',
+      'lafrica mobile senegal':'LAFRICA_SENEGAL',
+      'lafrica mobile liberia':'LAFRICA_LIBERIA',
+      'lafrica mobile data mali':'LAFRICA_DATA_MALI',
+      'lafrica mobile mauritania':'LAFRICA_MAURITANIA',
+      'lafrica mobile ic':'LAFRICA_IC',
+      'lafrica mobile egypte':'LAFRICA_EGYPT',
+      'lafrica mobile dr congo':'LAFRICA_DRC',
+      'lafrica mobile guinea bissau':'LAFRICA_GUINEA_BISSAU',
+      'lafrica mobile congo':'LAFRICA_CONGO',
+      'lafrica mobile comoros':'LAFRICA_COMOROS',
+      'lafrica mobile togo':'LAFRICA_TOGO',
+      'lafrica mobile mozambique':'LAFRICA_MOZAMBIQUE',
+      'lafrica mobile cameroon':'LAFRICA_CAMEROON',
+      'lafrica mobile data c te d ivoire':'LAFRICA_DATA_CI',
+      'lafrica mobile mali':'LAFRICA_MALI',
+      'lafrica mobile guinea':'LAFRICA_GUINEA',
+      'lafrica mobile niger':'LAFRICA_NIGER',
+      'lafrica mobile benin':'LAFRICA_BENIN'
+    };
+    var byCanon={};
+    registry.forEach(function(p){if(p.name)byCanon[p.name]=p;});
+    Object.keys(aliases).forEach(function(a){
+      var canon=aliases[a];if(byCanon[canon])byName[_normalizeName(a)]=byCanon[canon];
+    });
+    return byName;
+  }
+
+  NS.previewBackfill=function(wb){
+    var registry=NS.loadRegistry();
+    var byName=_buildLookup(registry);
+    var sheetsScanned=0, dateCols=0, valuesFound=0, unmatched={}, matchedProviders={}, dateRange={min:null,max:null};
+    var snapshotsByDate={};
+    var sheetNames=wb.SheetNames.filter(function(n){return /USD/i.test(n) && !/LOCAL/i.test(n);});
+    sheetNames.forEach(function(sn){
+      var sheet=wb.Sheets[sn];
+      var aoa=XLSX.utils.sheet_to_json(sheet,{header:1,defval:null,raw:true});
+      var my=_parseSheetMonthYear(sn);if(!my)return;
+      sheetsScanned++;
+      // Find header row that contains date labels (look for "Mon" in cells)
+      var headerRowIdx=-1;
+      for(var r=0;r<Math.min(aoa.length,8);r++){
+        var rr=aoa[r]||[];
+        for(var c=0;c<rr.length;c++){
+          if(typeof rr[c]==='string' && /^Mon\s+\d/.test(rr[c])){headerRowIdx=r;break;}
+        }
+        if(headerRowIdx>=0)break;
+      }
+      if(headerRowIdx<0)return;
+      var headers=aoa[headerRowIdx]||[];
+      // Map column index → date
+      var colDate={};
+      headers.forEach(function(h,ci){
+        if(typeof h==='string'){
+          var d=_labelToDate(h, my.month, my.year);
+          if(d){colDate[ci]=d;dateCols++;}
+        }
+      });
+      // Walk provider rows
+      for(var r=headerRowIdx+1;r<aoa.length;r++){
+        var row=aoa[r]||[];
+        // Find provider name in cols 0-2 (some sheets have a "Prepaid" prefix col)
+        var name=null;
+        for(var nc=0;nc<3 && nc<row.length;nc++){
+          var v=row[nc];
+          if(typeof v==='string' && v.trim() && v.trim().toLowerCase()!=='prepaid'){name=v.trim();break;}
+        }
+        if(!name)continue;
+        var hit=byName[_normalizeName(name)];
+        if(!hit){
+          // Only count if any of this row's date columns has a numeric value
+          var anyVal=false;
+          Object.keys(colDate).forEach(function(ci){var v=row[ci];if(typeof v==='number')anyVal=true;});
+          if(anyVal)unmatched[name]=(unmatched[name]||0)+1;
+          continue;
+        }
+        matchedProviders[hit.name]=true;
+        var key = hit.subKey ? (String(hit.benderId)+'::'+hit.subKey) : (hit.benderId!=null?String(hit.benderId):hit.name);
+        Object.keys(colDate).forEach(function(ci){
+          var v=row[ci];
+          if(typeof v!=='number'||isNaN(v))return;
+          var d=colDate[ci];
+          if(!snapshotsByDate[d])snapshotsByDate[d]={date:d,balances:{},savedAt:new Date().toISOString(),source:'backfill'};
+          snapshotsByDate[d].balances[key]={
+            local:v,
+            currency:'USD',  // values come from the USD tab so we store them as already-USD
+            enteredAt:new Date().toISOString(),
+            source:'backfill'
+          };
+          valuesFound++;
+          if(!dateRange.min||d<dateRange.min)dateRange.min=d;
+          if(!dateRange.max||d>dateRange.max)dateRange.max=d;
+        });
+      }
+    });
+    return {
+      sheetsScanned:sheetsScanned,
+      dateCols:dateCols,
+      valuesFound:valuesFound,
+      matchedCount:Object.keys(matchedProviders).length,
+      unmatched:unmatched,
+      dateRange:dateRange,
+      snapshots:Object.values(snapshotsByDate).sort(function(a,b){return a.date.localeCompare(b.date);})
+    };
+  };
+
+  NS.applyBackfill=function(preview, mergeMode){
+    // mergeMode: 'overwrite' (replace existing snapshots) or 'merge' (keep existing, add new)
+    var existing=NS.loadSnapshots();
+    var byDate={};existing.forEach(function(snap){byDate[snap.date]=snap;});
+    preview.snapshots.forEach(function(ns){
+      if(mergeMode==='overwrite' || !byDate[ns.date]){
+        byDate[ns.date]=ns;
+      } else {
+        // merge balances
+        var merged=byDate[ns.date];
+        Object.keys(ns.balances).forEach(function(k){
+          if(!merged.balances[k]) merged.balances[k]=ns.balances[k];
+        });
+      }
+    });
+    var all=Object.values(byDate).sort(function(a,b){return a.date.localeCompare(b.date);});
+    NS.saveSnapshots(all);
+    return all.length;
+  };
+
   function _renderBulkCard(){
     var card=document.createElement('div');card.className='fund-bulk-card';
     var collapsed=NS.loadUI().bulkCollapsed===true;
@@ -12530,11 +12744,98 @@ var FUND=(function(){
     return null;
   }
 
+  function _renderBackfillCard(existingCount){
+    var card=document.createElement('div');card.className='fund-bf-card';
+    var hdr=document.createElement('div');hdr.className='fund-bf-hdr';
+    hdr.innerHTML='<div><div class="fund-bf-hdr-t">⤴ Backfill from Excel</div>'
+      +'<div class="fund-bf-hdr-s">Drop a historical balance workbook (e.g. <b>Historical balance.xlsx</b> or <b>2026 Prepaid Accounts.xlsx</b>). Pulse parses every monthly <b>USD</b> sheet, infers dates from day-of-week + sheet name, matches providers to your registry, and writes snapshots in one shot. Re-imports are safe — choose merge or overwrite.</div></div>';
+    card.appendChild(hdr);
+    // File picker
+    var fi=document.createElement('input');fi.type='file';fi.accept='.xlsx,.xls';fi.style.display='none';fi.id='fund-bf-input';
+    var pickBtn=document.createElement('button');pickBtn.className='fund-btn primary';pickBtn.innerHTML='Choose Excel file…';
+    pickBtn.onclick=function(){fi.click();};
+    var statusEl=document.createElement('div');statusEl.style.cssText='margin-top:10px;font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace';
+    statusEl.textContent=existingCount?(existingCount+' snapshots already saved'):'No snapshots yet — upload to backfill';
+    var previewEl=document.createElement('div');previewEl.id='fund-bf-preview';previewEl.style.marginTop='10px';
+    var topRow=document.createElement('div');topRow.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:10px';
+    topRow.appendChild(pickBtn);
+    topRow.appendChild(statusEl);
+    card.appendChild(topRow);
+    card.appendChild(fi);
+    card.appendChild(previewEl);
+    fi.onchange=function(e){
+      var f=e.target.files&&e.target.files[0];if(!f)return;
+      if(typeof XLSX==='undefined'){alert('Excel reader not loaded.');return;}
+      if(window.showBusy) showBusy('Parsing '+f.name, 'Reading sheets, mapping dates, matching providers…');
+      var rd=new FileReader();
+      rd.onload=function(ev){
+        setTimeout(function(){
+          try{
+            var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+            var preview=NS.previewBackfill(wb);
+            previewEl.innerHTML='';
+            // Summary stats
+            var stats=document.createElement('div');stats.className='fund-bf-summary';
+            function stat(l,v){var c=document.createElement('div');c.className='fund-bf-stat';c.innerHTML='<div class="fund-bf-stat-l">'+l+'</div><div class="fund-bf-stat-v">'+v+'</div>';return c;}
+            stats.appendChild(stat('SHEETS', preview.sheetsScanned));
+            stats.appendChild(stat('DATES', preview.snapshots.length));
+            stats.appendChild(stat('VALUES', preview.valuesFound.toLocaleString()));
+            stats.appendChild(stat('PROVIDERS MATCHED', preview.matchedCount));
+            stats.appendChild(stat('UNMATCHED', Object.keys(preview.unmatched).length));
+            previewEl.appendChild(stats);
+            // Date range
+            if(preview.dateRange.min){
+              var dr=document.createElement('div');dr.style.cssText='margin-top:8px;font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace';
+              dr.innerHTML='Date range: <b style="color:var(--txt)">'+preview.dateRange.min+'</b> → <b style="color:var(--txt)">'+preview.dateRange.max+'</b>';
+              previewEl.appendChild(dr);
+            }
+            // Unmatched list
+            var um=Object.keys(preview.unmatched);
+            if(um.length){
+              var unmatchedDiv=document.createElement('div');unmatchedDiv.className='fund-bf-unmatched';
+              unmatchedDiv.innerHTML='<b>Unmatched provider names</b> ('+um.length+'). Either add them in the Providers tab with the same display name, or skip if not used: '+um.join(', ');
+              previewEl.appendChild(unmatchedDiv);
+            }
+            // Action buttons
+            var actions=document.createElement('div');actions.className='fund-bf-actions';
+            var mergeBtn=document.createElement('button');mergeBtn.className='fund-btn';mergeBtn.innerHTML='✓ Merge (keep existing)';
+            mergeBtn.title='Add backfill values where dates do not already have a snapshot. Existing snapshots are untouched.';
+            mergeBtn.onclick=function(){
+              var n=NS.applyBackfill(preview,'merge');
+              if(typeof toast==='function')toast('Backfill merged → '+n+' total snapshots','ok');
+              NS.renderFunding();
+            };
+            var overwriteBtn=document.createElement('button');overwriteBtn.className='fund-btn primary';overwriteBtn.innerHTML='⚠ Overwrite all';
+            overwriteBtn.title='Replace existing snapshots on the same dates with backfilled values. Use this for the first import.';
+            overwriteBtn.onclick=function(){
+              if(!confirm('Overwrite '+(existingCount||0)+' existing snapshots where backfill provides values for the same date?'))return;
+              var n=NS.applyBackfill(preview,'overwrite');
+              if(typeof toast==='function')toast('Backfill applied → '+n+' total snapshots','ok');
+              NS.renderFunding();
+            };
+            actions.appendChild(mergeBtn);
+            actions.appendChild(overwriteBtn);
+            previewEl.appendChild(actions);
+            if(window.hideBusy) hideBusy();
+          }catch(err){
+            if(window.hideBusy) hideBusy();
+            alert('Backfill parse failed: '+(err&&err.message?err.message:err));
+            console.error(err);
+          }
+        },30);
+      };
+      rd.readAsArrayBuffer(f);
+    };
+    return card;
+  }
+
   function _renderHistory(host){
     var snaps=NS.loadSnapshots();
+    // Always show the backfill card at the top — even if there's existing data, the user may want to re-import
+    host.appendChild(_renderBackfillCard(snaps.length));
     if(!snaps.length){
       var em=document.createElement('div');em.className='fund-empty';
-      em.innerHTML='<div class="fund-empty-ic">📊</div><div class="fund-empty-t">No snapshots yet</div><div class="fund-empty-s">Go to <b>Daily Pull</b>, enter today\'s balances, and click <b>Save today\'s snapshot</b>. Your first day of data starts the history.</div>';
+      em.innerHTML='<div class="fund-empty-ic">📊</div><div class="fund-empty-t">No snapshots yet</div><div class="fund-empty-s">Either upload a historical balance Excel above to backfill, or go to <b>Daily Pull</b> and save today\'s snapshot to start tracking.</div>';
       host.appendChild(em);return;
     }
     var registry=NS.loadRegistry();
