@@ -11928,11 +11928,14 @@ var FUND=(function(){
     [107, 'BECHARGE_GBP','GBP','Becharge GBP','bender', null, 'Becharge GBP'],
     [107, 'BECHARGE_CHF','CHF','Becharge CHF','bender', null, 'Becharge CHF'],
     [107, 'BECHARGE_EUR','EUR','Becharge EUR','bender', null, 'Becharge EUR'],
-    // === SWYPE providers (different slash command: /swype/provider/balance N) ===
-    [2001, 'SWYPE_BLUEBANC','USD','Bluebanc · Swype','swype', null, null],
-    [2002, 'SWYPE_ENSURE','USD','Ensure-Financial · Swype','swype', null, null],
-    [2003, 'SWYPE_BL48','USD','Swype Cards BL48 Master','swype', null, 'BL48'],
-    [2004, 'SWYPE_ISSUER_B','USD','Swype Cards Issuer B Master','swype', null, 'Issuer B'],
+    // === SWYPE providers (hourly auto-pull in #funding-bot via /swype/provider/balance N)
+    // benderId is 3000+real_cmd_id (3001->cmd 1, 3002->cmd 2, 3003->cmd 3). Registry name matches
+    // exactly what Bender's "for Provider X" header returns so the parser lookup works.
+    // Swype is auto-pulled hourly so commands don't need to be in Quick Send.
+    [3001, 'SWYPE_CARDS','USD','Swype Cards · BL48 Master','swype', null, 'BL48'],
+    [3001, 'SWYPE_CARDS','USD','Swype Cards · Issuer B Master','swype', null, 'Issuer B'],
+    [3002, 'BLUEBANC','USD','Bluebanc · Swype','swype', null, null],
+    [3003, 'ENSURE','USD','Ensure · Swype','swype', null, null],
     // === PORTAL providers (manual web login) ===
     [8,   'XTRANSFER','USD','X Transfer (Senegal)','portal','https://stats.creditemoi.com/d/nK1dJyPZk/transactions-reports-senegal?orgId=5', null],
     [24,  'NSANO','USD','NSANO','portal','https://fusion.nsano.com/authen/', null],
@@ -12073,11 +12076,15 @@ var FUND=(function(){
   NS.parseBenderResponses = function(text){
     if(!text)return [];
     var results=[];
-    // Find each Description+Amount+Currency triple. Track the most recent Account Balance Details header
-    // so we know which parent provider each triple belongs to.
-    var headerRx=/Account Balance Details On Airtime Provider\s+([A-Z][A-Z0-9_]+)/gi;
-    var tripleRx=/Description\s*:?\s*([^\n\r]+?)\s*[\r\n]+\s*Amount\s*:?\s*(-?[0-9.,]+)\s*[\r\n]+\s*Currency\s*:?\s*([A-Za-z]{3,4})/gi;
-    // Build a list of header positions to know which header each triple belongs to
+    // Two response shapes from Bender:
+    //   (A) Airtime providers — header "Account Balance Details On Airtime Provider X"
+    //       followed by one or more Description:/Amount:/Currency: blocks
+    //   (B) Swype providers   — header "Account Balance Details for Provider X"
+    //       followed by a pipe-separated table: "Description | Amount | Currency"
+    //
+    // Both header forms get captured; both data forms get extracted; everything tagged with the
+    // most recent header so the apply step can match on parent name or sub-wallet description.
+    var headerRx=/Account Balance Details\s+(?:On Airtime Provider|for Provider)\s+([A-Z][A-Z0-9_]+)/gi;
     var headers=[];
     var hm;
     while((hm=headerRx.exec(text))!==null){
@@ -12088,21 +12095,51 @@ var FUND=(function(){
       for(var i=0;i<headers.length;i++){if(headers[i].pos<=pos)last=headers[i];else break;}
       return last?last.name:null;
     }
+
+    // Shape A — key:value blocks
+    var tripleRx=/Description\s*:\s*([^\n\r|]+?)\s*[\r\n]+\s*Amount\s*:\s*(-?[0-9.,]+)\s*[\r\n]+\s*Currency\s*:\s*([A-Za-z]{3,4})/gi;
     var tm;
     while((tm=tripleRx.exec(text))!==null){
       var description=tm[1].trim();
       var rawAmount=tm[2].replace(/,/g,'').trim();
       var amount=parseFloat(rawAmount);
       var currency=tm[3].trim().toUpperCase();
-      var parentName=headerFor(tm.index);
       if(isNaN(amount))continue;
       results.push({
-        parentName:parentName,         // e.g. LAFRICAMOBILE
-        description:description,        // e.g. "Lafrica Mobile Burkina" or "General"
+        parentName:headerFor(tm.index),
+        description:description,
         amount:amount,
-        currency:currency
+        currency:currency,
+        shape:'A'
       });
     }
+
+    // Shape B — pipe-separated table rows: "<desc> | <amount> | <ccy>"
+    // Skip header row (literal "Description") and separator rows (mostly dashes/pluses).
+    var lines=text.split(/\r?\n/);
+    var lineOffsets=[];var cum=0;
+    lines.forEach(function(ln){lineOffsets.push(cum);cum+=ln.length+1;});
+    lines.forEach(function(ln,i){
+      // Match three pipe-separated columns
+      var pm=ln.match(/^\s*([^|]+?)\s*\|\s*(-?[0-9.,]+)\s*\|\s*([A-Za-z]{3,4})\s*$/);
+      if(!pm)return;
+      var description=pm[1].trim();
+      // Skip literal header
+      if(/^description$/i.test(description))return;
+      // Skip rows that are all dashes/pluses (separator)
+      if(/^[-+\s]+$/.test(description))return;
+      var rawAmount=pm[2].replace(/,/g,'').trim();
+      var amount=parseFloat(rawAmount);
+      if(isNaN(amount))return;
+      var currency=pm[3].trim().toUpperCase();
+      results.push({
+        parentName:headerFor(lineOffsets[i]),
+        description:description,
+        amount:amount,
+        currency:currency,
+        shape:'B'
+      });
+    });
     return results;
   };
 
@@ -12256,9 +12293,10 @@ var FUND=(function(){
           +(p.subKey?' <span class="mut" style="font-size:9px">→ '+_esc(p.subKey)+'</span>':'')
           +' <button class="copy-btn" data-cmd="/airtime/provider/balance '+p.benderId+'">⎘ Copy</button>';
       } else if(p.mode==='swype'&&p.benderId!=null){
-        cmdHtml='<span class="bender-cmd" style="background:rgba(6,182,212,.12);color:#22d3ee">/swype/provider/balance '+(p.benderId-2000)+'</span>'
+        var swypeCmd='/swype/provider/balance '+(p.benderId-3000);
+        cmdHtml='<span class="bender-cmd" style="background:rgba(6,182,212,.12);color:#22d3ee">'+swypeCmd+'</span>'
           +(p.subKey?' <span class="mut" style="font-size:9px">→ '+_esc(p.subKey)+'</span>':'')
-          +' <button class="copy-btn" data-cmd="/swype/provider/balance '+(p.benderId-2000)+'">⎘ Copy</button>';
+          +' <span class="fund-source-pill swype" style="font-size:8px;margin-left:6px" title="Bender auto-pulls this every hour. No need to send the command — just paste the latest channel message.">AUTO HOURLY</span>';
       } else if(p.mode==='portal'&&p.portalUrl){
         cmdHtml='<a class="fund-portal-link" href="'+_esc(p.portalUrl)+'" target="_blank">'+_esc(p.portalUrl)+' ↗</a>';
       } else if(p.mode==='portal'){
