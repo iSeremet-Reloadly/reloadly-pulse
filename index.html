@@ -12072,7 +12072,7 @@ var FUND=(function(){
     [9221,'LIKE_CARD','USD','Like Card','chat_payments', null, null],
     [9222,'CELLPAY','USD','CellPay (airtime + gift card)','chat_payments', null, null],
     [9223,'AMAZON_GBP','GBP','Amazon GBP','chat_payments', null, null],
-    [9224,'SWYPE_MASTER','USD','Swype System Master','chat_payments', null, null],
+    [9224,'SWYPE_PRODUCT_FLOAT','USD','Swype Product Float','chat_payments', null, null],
     [9225,'GLOBETOPPER_EUR','EUR','Globetopper EUR','chat_payments', null, null],
     [9213,'RELOADLY_STOCK','USD','Reloadly (GC Stock tab)','chat_payments', null, null],
     // === BILLING (Cellulant utilities, Buy Power) ===
@@ -12127,6 +12127,7 @@ var FUND=(function(){
         paymentTerms:'',
         services:_inferDefaultServices(r[1], r[4]),
         swypeId: null,
+        entityType: (r[1] === 'SWYPE_PRODUCT_FLOAT' ? 'product_float' : 'supplier'),
         notes:'', isActive:true
       };
     });
@@ -12168,7 +12169,27 @@ var FUND=(function(){
         }
         changed = true;
       }
+      // Backfill: entityType. Defaults to 'supplier' (third-party).
+      if(p.entityType === undefined){
+        p.entityType = 'supplier';
+        changed = true;
+      }
     });
+    // One-time rename: SWYPE_MASTER → SWYPE_PRODUCT_FLOAT with entityType='product_float'.
+    // The earlier seed treated Swype as a supplier; correcting it here since Swype is
+    // actually Reloadly's product (Ensure is an example of a supplier that funds it).
+    var SWYPE_RENAME_FLAG = 'rl_fund_swype_rename_v1';
+    if(!localStorage.getItem(SWYPE_RENAME_FLAG)){
+      var sw = r.find(function(p){return p.name === 'SWYPE_MASTER';});
+      if(sw){
+        sw.name = 'SWYPE_PRODUCT_FLOAT';
+        sw.displayName = 'Swype Product Float';
+        sw.entityType = 'product_float';
+        if(!sw.notes) sw.notes = 'Reloadly internal float — total balance across all Swype-issued cards. Not a supplier wallet.';
+        changed = true;
+      }
+      try{localStorage.setItem(SWYPE_RENAME_FLAG, '1');}catch(e){}
+    }
     // One-time re-inference of empty service tags. Existing chat_payments gift
     // card entries (PHAZE, GLOBETOPPER, IREWARDIFY, etc.) had empty services
     // because the old inference regex didn't include them. Gated by a flag so
@@ -12204,7 +12225,7 @@ var FUND=(function(){
         ['LIKE_CARD','USD','Like Card',9221],
         ['CELLPAY','USD','CellPay (airtime + gift card)',9222],
         ['AMAZON_GBP','GBP','Amazon GBP',9223],
-        ['SWYPE_MASTER','USD','Swype System Master',9224],
+        ['SWYPE_PRODUCT_FLOAT','USD','Swype Product Float',9224],
         ['GLOBETOPPER_EUR','EUR','Globetopper EUR',9225]
       ];
       var existingNames = {};
@@ -12700,7 +12721,7 @@ var FUND=(function(){
     var admin = NS.loadAdmin();
     if(!admin.alertsEnabled){return Promise.resolve({checked:0, eligible:0, sent:0, skipped:'disabled'});}
     var registry = NS.loadRegistry().filter(function(p){
-      return p.isActive!==false && p.billingType!=='postpaid' && Array.isArray(p.services) && p.services.length>0;
+      return p.isActive!==false && p.billingType!=='postpaid' && p.entityType!=='product_float' && Array.isArray(p.services) && p.services.length>0;
     });
     var log = NS.loadAlertLog();
     var cooldownMs = (admin.alertCooldownHours||24) * 3600000;
@@ -12775,7 +12796,7 @@ var FUND=(function(){
       // Forecastable when active, prepaid, and tagged with at least one service
       // (airtime/gift_card/utility/swype). Decoupled from mode so chat_payments-mode
       // gift cards still appear in Fund Now.
-      return p.isActive!==false && p.billingType!=='postpaid' && Array.isArray(p.services) && p.services.length>0;
+      return p.isActive!==false && p.billingType!=='postpaid' && p.entityType!=='product_float' && Array.isArray(p.services) && p.services.length>0;
     });
     var payMethods = NS.loadPaymentMethods();
     var topupHistory = NS.loadTopupHistory();
@@ -12996,7 +13017,7 @@ var FUND=(function(){
   // Skip providers with mode='admin' / 'chat_payments' / 'billing' / 'unavail' since they don't burn
   // in a comparable way (admin computes them manually, gift cards / billing have different rhythms).
   NS.portfolioStatus = function(){
-    var registry = NS.loadRegistry().filter(function(p){return p.isActive!==false && p.billingType!=='postpaid' && Array.isArray(p.services) && p.services.length>0;});
+    var registry = NS.loadRegistry().filter(function(p){return p.isActive!==false && p.billingType!=='postpaid' && p.entityType!=='product_float' && Array.isArray(p.services) && p.services.length>0;});
     var counts = {critical:0, watch:0, healthy:0, surplus:0, nodata:0, total:0};
     registry.forEach(function(p){
       var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
@@ -14254,7 +14275,9 @@ var FUND=(function(){
       swypeInp.title='Swype slash command ID. Fill in once you know it (run /swype/provider/balance N and confirm the name matches).';
       swypeInp.onchange=function(){var v=this.value.trim(); p.swypeId = (v===''?null:parseInt(v,10)); if(isNaN(p.swypeId))p.swypeId=null; NS.saveRegistry(registry); NS.renderFunding();};
       swypeTd.appendChild(swypeInp);tr.appendChild(swypeTd);
-      var nameTd=document.createElement('td');nameTd.innerHTML='<b>'+_esc(p.name)+'</b>';tr.appendChild(nameTd);
+      var nameTd=document.createElement('td');
+      var _entBadge = (p.entityType === 'product_float') ? ' <span style="display:inline-block;background:rgba(167,139,250,.18);color:#a78bfa;font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;margin-left:5px;letter-spacing:.5px;font-family:Roboto Mono,monospace" title="Reloadly internal product float — excluded from Fund Now and alerts">PRODUCT FLOAT</span>' : '';
+      nameTd.innerHTML='<b>'+_esc(p.name)+'</b>'+_entBadge;tr.appendChild(nameTd);
       // Display name
       var dnTd=document.createElement('td');var dni=document.createElement('input');dni.value=p.displayName||'';dni.style.cssText='width:120px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:inherit';dni.onchange=function(){p.displayName=this.value;NS.saveRegistry(registry);};dnTd.appendChild(dni);tr.appendChild(dnTd);
       // Currency
@@ -14482,6 +14505,11 @@ var FUND=(function(){
     var inBill = select([{v:'prepaid',l:'Prepaid — needs topping up'},{v:'postpaid',l:'Postpaid — billed monthly / on invoice'}], 'prepaid');
     fBill.appendChild(inBill); box.appendChild(fBill);
 
+    // Entity type
+    var fEnt = field('ENTITY TYPE', 'Most entries are <b>suppliers</b> — third-party providers that fund Reloadly products. Pick <b>product float</b> only for internal totals (e.g. total Swype card balance) that you want to track but exclude from supplier-level forecasts.');
+    var inEnt = select([{v:'supplier',l:'Supplier — third-party (default)'},{v:'product_float',l:'Product float — Reloadly internal'}], 'supplier');
+    fEnt.appendChild(inEnt); box.appendChild(fEnt);
+
     // Payment terms (for postpaid)
     var fTerms = field('PAYMENT TERMS (postpaid)', 'Examples: <code>7 net 3</code> (invoiced every 7 days, paid within 3), <code>monthly net 15</code> (invoiced monthly, paid within 15 days), <code>net 30</code> (paid within 30 days of invoice). Leave blank for prepaid.');
     var inTerms = input('e.g. 7 net 3, monthly net 15');
@@ -14565,6 +14593,8 @@ var FUND=(function(){
         billingType: inBill.value,
         paymentTerms: inTerms.value.trim(),
         services: pickedSvcs,
+        swypeId: null,
+        entityType: inEnt.value,
         notes: inNotes.value.trim(),
         isActive: true
       };
