@@ -11897,6 +11897,28 @@ var PP=(function(){
 .fund-btn-mini:hover{background:#243042;border-color:#3a4d65;}
 .fund-btn-mini:disabled{opacity:0.5;cursor:wait;}
 
+
+.fund-rec-totals{background:#0e1822;border:1px solid #1f2d3d;border-radius:8px;padding:14px 16px;margin-bottom:14px}
+.fund-rec-totals-headline{font-size:14px;color:var(--txt);font-weight:600}
+.fund-rec-totals-headline .muted{color:var(--mut);font-weight:400;font-size:11px;margin-left:8px}
+.fund-rec-totals-breakdown{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.fund-rec-tot-pill{background:#1a2533;border:1px solid #2a3a4d;color:#cfd6df;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;padding:4px 9px;border-radius:5px}
+.fund-rec-totals-warn{margin-top:8px;font-size:11px;color:var(--yel);background:rgba(245,158,11,.06);padding:6px 8px;border-radius:5px}
+.fund-rec-filterstrip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.fund-rec-filterbtn{background:#1a2533;color:var(--mut);border:1px solid #2a3a4d;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Roboto Mono',monospace;letter-spacing:.3px}
+.fund-rec-filterbtn:hover{color:var(--txt);border-color:#3a4d65}
+.fund-rec-filterbtn.active{background:rgba(108,99,255,.18);color:var(--acc);border-color:var(--acc)}
+.fund-rec-filterbtn .ct{display:inline-block;background:rgba(255,255,255,.07);border-radius:4px;padding:1px 6px;margin-left:5px;font-size:10px}
+.fund-rec-filterbtn.active .ct{background:rgba(108,99,255,.3)}
+.fund-rec-table th{background:var(--surf2)}
+.fund-rec-table td.num{font-family:'Roboto Mono',monospace;text-align:right;font-weight:600}
+.fund-rec-table .ccy{font-family:'Roboto Mono',monospace;font-size:9px;color:var(--mut);font-weight:600;margin-left:3px}
+.fund-rec-method-sel{padding:4px 8px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:5px;font-size:11px;min-width:100px;font-family:inherit}
+.fund-rec-empty{text-align:center;padding:36px 18px;background:var(--surf);border:1px dashed var(--brd);border-radius:12px;color:var(--txt);font-size:14px;font-weight:600;margin:14px 0}
+.fund-rec-history{margin-top:14px}
+.fund-rec-fund-btn{background:rgba(16,185,129,.12);color:var(--grn);border-color:rgba(16,185,129,.4);font-weight:700}
+.fund-rec-fund-btn:hover{background:rgba(16,185,129,.2);border-color:var(--grn)}
+
 </style>
 <script>
 // ====================== Funding module ======================
@@ -11908,7 +11930,9 @@ var FUND=(function(){
     fx:'rl_fund_fx_v1',
     admin:'rl_fund_admin_v1',
     ui:'rl_fund_ui_v1',
-    alertLog:'rl_fund_alert_log_v1'
+    alertLog:'rl_fund_alert_log_v1',
+    topupHistory:'rl_fund_topup_history_v1',
+    paymentMethods:'rl_fund_pay_methods_v1'
   };
 
   // Seeded provider registry from the 2026 Prepaid Accounts workbook.
@@ -12085,6 +12109,12 @@ var FUND=(function(){
   NS.saveAdmin=function(a){saveJSON(K.admin,a);};
   NS.loadAlertLog=function(){return loadJSON(K.alertLog,{});};
   NS.saveAlertLog=function(l){saveJSON(K.alertLog,l);};
+  NS.loadTopupHistory=function(){return loadJSON(K.topupHistory,[]);};
+  NS.saveTopupHistory=function(h){saveJSON(K.topupHistory,h);};
+  NS.loadPaymentMethods=function(){return loadJSON(K.paymentMethods,{});};
+  NS.savePaymentMethods=function(m){saveJSON(K.paymentMethods,m);};
+  NS.getPaymentMethod=function(providerKey){var m=NS.loadPaymentMethods();return m[providerKey]||'';};
+  NS.setPaymentMethod=function(providerKey,method){var m=NS.loadPaymentMethods();if(method)m[providerKey]=method;else delete m[providerKey];NS.savePaymentMethods(m);};
   NS.loadUI=function(){return loadJSON(K.ui,{tab:'daily',date:null});};
   NS.saveUI=function(u){saveJSON(K.ui,u);};
 
@@ -12404,6 +12434,138 @@ var FUND=(function(){
     return NS.postSlackAlert(text);
   };
 
+
+  // ===== Fund Now: recommendation engine =====
+  // Picks the MAX of (3D, 7D, 30D) burn rate available — most conservative ("be safe") sizing.
+  // Target balance = burnRate × targetCoverDays. Recommended top-up = target − current, rounded up
+  // to a sensible increment so the suggested figure looks like the kind of number you'd actually
+  // wire (no $1,847.23 — that becomes $2,000). Rounding bands:
+  //   < $100     → nearest $10
+  //   < $1k      → nearest $50
+  //   < $10k     → nearest $500
+  //   < $100k    → nearest $1k
+  //   ≥ $100k    → nearest $5k
+  function _roundFundingAmount(amt){
+    if(!isFinite(amt) || amt<=0) return 0;
+    var band;
+    if(amt < 100) band = 10;
+    else if(amt < 1000) band = 50;
+    else if(amt < 10000) band = 500;
+    else if(amt < 100000) band = 1000;
+    else band = 5000;
+    return Math.ceil(amt / band) * band;
+  }
+
+  // opts: {statusFilter: ['critical','watch'], targetCover: 21, includeRecentlyFunded: false}
+  // Returns array of {provider, key, forecast, burnRate, burnWindow, currency, current,
+  //   daysLeft, target, topupRaw, topupRounded, paymentMethod, status, recentlyFunded}
+  NS.computeFundingRecommendations = function(opts){
+    opts = opts || {};
+    var statusFilter = opts.statusFilter || ['critical','watch'];
+    var admin = NS.loadAdmin();
+    var targetCover = opts.targetCover || admin.targetCoverDays || 21;
+    var registry = NS.loadRegistry().filter(function(p){
+      return p.isActive!==false && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');
+    });
+    var payMethods = NS.loadPaymentMethods();
+    var topupHistory = NS.loadTopupHistory();
+    var recentCutoff = Date.now() - 24*3600000; // 24h
+    var recs = [];
+    registry.forEach(function(p){
+      var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
+      var f = NS.computeForecast(key, p);
+      if(statusFilter.indexOf(f.status) === -1) return;
+      // MAX-of-three burn rate
+      var candidates = [];
+      if(f.threeDay.dailyAvg > 0) candidates.push({rate:f.threeDay.dailyAvg, window:'3D', src:f.threeDay});
+      if(f.sevenDay.dailyAvg > 0) candidates.push({rate:f.sevenDay.dailyAvg, window:'7D', src:f.sevenDay});
+      if(f.thirtyDay.dailyAvg > 0) candidates.push({rate:f.thirtyDay.dailyAvg, window:'30D', src:f.thirtyDay});
+      if(!candidates.length) return; // no burn observed — skip
+      var picked = candidates.reduce(function(m,c){return c.rate > m.rate ? c : m;}, candidates[0]);
+      var currency = picked.src.currency || p.currency || 'USD';
+      var current = picked.src.current;
+      var target = picked.rate * targetCover;
+      var raw = Math.max(0, target - current);
+      var rounded = _roundFundingAmount(raw);
+      if(rounded <= 0) return;
+      // Has this provider been topped up in the last 24h? (locally recorded)
+      var recent = topupHistory.find(function(h){
+        return h.key === key && (Date.parse(h.fundedAt) >= recentCutoff);
+      });
+      if(recent && !opts.includeRecentlyFunded) return;
+      recs.push({
+        provider: p,
+        key: key,
+        forecast: f,
+        burnRate: picked.rate,
+        burnWindow: picked.window,
+        currency: currency,
+        current: current,
+        daysLeft: f.minDaysLeft,
+        target: target,
+        topupRaw: raw,
+        topupRounded: rounded,
+        targetCover: targetCover,
+        paymentMethod: payMethods[key] || '',
+        status: f.status,
+        recentlyFunded: !!recent
+      });
+    });
+    // Sort: critical first, then by days-left ascending (most urgent first)
+    recs.sort(function(a,b){
+      if(a.status !== b.status){
+        if(a.status === 'critical') return -1;
+        if(b.status === 'critical') return 1;
+      }
+      return a.daysLeft - b.daysLeft;
+    });
+    return recs;
+  };
+
+  // Returns {byCurrency:{USD:1234, EUR:456}, usdEquiv:5678, fxDate:'YYYY-MM-DD', missingRates:['XAF']}
+  NS.totalRecommended = function(recs){
+    var byCurrency = {};
+    recs.forEach(function(r){
+      if(!byCurrency[r.currency]) byCurrency[r.currency] = 0;
+      byCurrency[r.currency] += r.topupRounded;
+    });
+    var fxCache = NS.loadFX();
+    var rates = null;
+    var fxDate = null;
+    var dates = Object.keys(fxCache).filter(function(k){return /^\d{4}-\d{2}-\d{2}$/.test(k);}).sort();
+    if(dates.length){fxDate = dates[dates.length-1]; rates = fxCache[fxDate];}
+    var usdEquiv = 0;
+    var missingRates = [];
+    Object.keys(byCurrency).forEach(function(cur){
+      var amt = byCurrency[cur];
+      if(cur === 'USD'){ usdEquiv += amt; return; }
+      // FX cache shape: rates[CCY] = USD-per-unit (e.g. EUR:1.10 means 1 EUR = 1.10 USD)
+      if(rates && typeof rates[cur] === 'number' && rates[cur] > 0){
+        usdEquiv += amt * rates[cur];
+      } else {
+        missingRates.push(cur);
+      }
+    });
+    return {byCurrency:byCurrency, usdEquiv:usdEquiv, fxDate:fxDate, missingRates:missingRates};
+  };
+
+  // Records a topup locally. The Bender response on next snapshot will confirm the balance jump.
+  // payload: {key, providerName, currency, amount, method, notes}
+  NS.markFunded = function(payload){
+    var hist = NS.loadTopupHistory();
+    hist.push({
+      key: payload.key,
+      providerName: payload.providerName,
+      currency: payload.currency,
+      amount: payload.amount,
+      method: payload.method || '',
+      notes: payload.notes || '',
+      fundedAt: new Date().toISOString()
+    });
+    NS.saveTopupHistory(hist);
+    return hist[hist.length-1];
+  };
+
   // ===== MAIN RENDERER =====
   NS.renderFunding=function(){
     var main=document.getElementById('main');if(!main)return;main.innerHTML='';
@@ -12439,7 +12601,7 @@ var FUND=(function(){
 
     // Tabs
     var tabBar=document.createElement('div');tabBar.className='fund-tabbar';
-    [{id:'daily',l:'Daily Pull'},{id:'forecast',l:'Forecast'},{id:'history',l:'History'},{id:'registry',l:'Providers'}].forEach(function(t){
+    [{id:'daily',l:'Daily Pull'},{id:'forecast',l:'Forecast'},{id:'recs',l:'Fund Now'},{id:'history',l:'History'},{id:'registry',l:'Providers'}].forEach(function(t){
       var b=document.createElement('button');b.className='fund-tab'+(t.id===ui.tab?' active':'');b.textContent=t.l;
       b.onclick=function(){ui.tab=t.id;NS.saveUI(ui);NS.renderFunding();};
       tabBar.appendChild(b);
@@ -12449,6 +12611,7 @@ var FUND=(function(){
     var content=document.createElement('div');wrap.appendChild(content);
     if(ui.tab==='daily')_renderDaily(content);
     else if(ui.tab==='forecast')_renderForecast(content);
+    else if(ui.tab==='recs')_renderRecommendations(content);
     else if(ui.tab==='history')_renderHistory(content);
     else if(ui.tab==='registry')_renderRegistry(content);
     main.appendChild(wrap);
@@ -13366,6 +13529,250 @@ var FUND=(function(){
     return card;
   }
 
+  function _renderRecommendations(host){
+    var ui = NS.loadUI();
+    var filter = ui.recsFilter || 'critwatch'; // 'critwatch' | 'critical' | 'watch' | 'all'
+    var admin = NS.loadAdmin();
+    var statusMap = {
+      'critwatch': ['critical','watch'],
+      'critical': ['critical'],
+      'watch': ['watch'],
+      'all': ['critical','watch','healthy']
+    };
+    var recs = NS.computeFundingRecommendations({statusFilter: statusMap[filter]});
+    var totals = NS.totalRecommended(recs);
+
+    // Header
+    var hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px';
+    var headline = document.createElement('div');
+    headline.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:4px">Fund Now <span style="font-size:11px;color:var(--mut);font-weight:500;margin-left:8px">'+recs.length+' wallet'+(recs.length===1?'':'s')+' need attention</span></div>'
+      +'<div style="font-size:11px;color:var(--mut);line-height:1.5">Sized using <b>max(3D,7D,30D)</b> burn rate × <b>'+admin.targetCoverDays+'-day cover target</b>. Round-up to wire-friendly numbers. Mark funded once you\'ve sent the wire — recommendations re-appear after 24h or when balance drops back to critical.</div>';
+    hdr.appendChild(headline);
+    var actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:8px;align-items:center';
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'fund-btn';
+    copyBtn.innerHTML = '⎘ Copy as TSV';
+    copyBtn.onclick = function(){
+      var lines = ['Provider\tCurrency\tCurrent\tBurn rate (window)\tDays left\tTarget\tTop-up\tMethod\tStatus'];
+      recs.forEach(function(r){
+        lines.push([
+          r.provider.displayName || r.provider.name,
+          r.currency,
+          Math.round(r.current * 100) / 100,
+          Math.round(r.burnRate * 100) / 100 + ' (' + r.burnWindow + ')',
+          isFinite(r.daysLeft) ? r.daysLeft.toFixed(1) : 'inf',
+          Math.round(r.target),
+          r.topupRounded,
+          r.paymentMethod || '—',
+          r.status
+        ].join('\t'));
+      });
+      navigator.clipboard.writeText(lines.join('\n')).then(function(){
+        copyBtn.innerHTML = '✓ Copied '+recs.length+' rows';
+        setTimeout(function(){copyBtn.innerHTML = '⎘ Copy as TSV';}, 2000);
+      });
+    };
+    actions.appendChild(copyBtn);
+    hdr.appendChild(actions);
+    host.appendChild(hdr);
+
+    // Totals strip
+    var totalsBar = document.createElement('div');
+    totalsBar.className = 'fund-rec-totals';
+    var totHtml = '<div class="fund-rec-totals-headline">Total recommended: <b>≈ $'+Math.round(totals.usdEquiv).toLocaleString()+' USD</b>'
+      +(totals.fxDate?'<span class="muted"> (FX '+totals.fxDate+')</span>':'')
+      +'</div>';
+    var breakdown = Object.keys(totals.byCurrency).sort().map(function(cur){
+      return '<span class="fund-rec-tot-pill">'+totals.byCurrency[cur].toLocaleString()+' '+cur+'</span>';
+    }).join('');
+    totHtml += '<div class="fund-rec-totals-breakdown">'+breakdown+'</div>';
+    if(totals.missingRates.length){
+      totHtml += '<div class="fund-rec-totals-warn">⚠ No FX rate cached for: '+totals.missingRates.join(', ')+' — USD equivalent excludes these.</div>';
+    }
+    totalsBar.innerHTML = totHtml;
+    host.appendChild(totalsBar);
+
+    // Filter strip
+    var filterStrip = document.createElement('div');
+    filterStrip.className = 'fund-rec-filterstrip';
+    var counts = {
+      critwatch: NS.computeFundingRecommendations({statusFilter:['critical','watch']}).length,
+      critical: NS.computeFundingRecommendations({statusFilter:['critical']}).length,
+      watch: NS.computeFundingRecommendations({statusFilter:['watch']}).length,
+      all: NS.computeFundingRecommendations({statusFilter:['critical','watch','healthy']}).length
+    };
+    [['critwatch','Critical + Watch'], ['critical','Critical only'], ['watch','Watch only'], ['all','+ Healthy ≤30D']].forEach(function(opt){
+      var btn = document.createElement('button');
+      btn.className = 'fund-rec-filterbtn' + (filter===opt[0]?' active':'');
+      btn.innerHTML = opt[1] + ' <span class="ct">'+counts[opt[0]]+'</span>';
+      btn.onclick = function(){var u=NS.loadUI(); u.recsFilter=opt[0]; NS.saveUI(u); NS.renderFunding();};
+      filterStrip.appendChild(btn);
+    });
+    host.appendChild(filterStrip);
+
+    if(!recs.length){
+      var empty = document.createElement('div');
+      empty.className = 'fund-rec-empty';
+      empty.innerHTML = '🎉 Nothing to fund right now.<div style="font-size:11px;color:var(--mut);margin-top:6px;font-weight:400">No wallets match the current filter. Forecast tab shows full status.</div>';
+      host.appendChild(empty);
+      _renderRecentlyFundedLog(host);
+      return;
+    }
+
+    // Recommendations table
+    var tw = document.createElement('div'); tw.className = 'fund-tablewrap';
+    var tbl = document.createElement('table'); tbl.className = 'fund-table fund-rec-table';
+    tbl.innerHTML = '<thead><tr>'
+      +'<th>PROVIDER</th>'
+      +'<th>METHOD</th>'
+      +'<th>CURRENT</th>'
+      +'<th>BURN RATE</th>'
+      +'<th>DAYS LEFT</th>'
+      +'<th>TARGET ('+admin.targetCoverDays+'D)</th>'
+      +'<th>TOP UP</th>'
+      +'<th>STATUS</th>'
+      +'<th>ACTION</th>'
+      +'</tr></thead>';
+    var tb = document.createElement('tbody'); tbl.appendChild(tb);
+
+    function fmtNum(n, ccy){
+      if(!isFinite(n)) return '—';
+      var d = Math.abs(n) >= 1000 ? 0 : (Math.abs(n) >= 10 ? 1 : 2);
+      return n.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d}) + (ccy?' <span class="ccy">'+ccy+'</span>':'');
+    }
+    function fmtDays(d){
+      if(!isFinite(d)) return '∞';
+      if(d<1) return '<1d';
+      if(d<10) return d.toFixed(1)+'d';
+      return Math.round(d)+'d';
+    }
+    var methods = ['', 'MC', 'Airwallex', 'Wire', 'Crypto', 'Manual'];
+
+    recs.forEach(function(r){
+      var tr = document.createElement('tr');
+      // Provider
+      var tdProv = document.createElement('td');
+      tdProv.innerHTML = '<div style="font-weight:700">'+_esc(r.provider.displayName||r.provider.name)+'</div>'
+        +'<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+_esc(r.provider.name)+(r.provider.benderId!=null?' · ID '+r.provider.benderId:'')+(r.provider.subKey?' · '+_esc(r.provider.subKey):'')+'</div>';
+      tr.appendChild(tdProv);
+      // Method dropdown
+      var tdMethod = document.createElement('td');
+      var methodSel = document.createElement('select');
+      methodSel.className = 'fund-rec-method-sel';
+      methods.forEach(function(m){
+        var op=document.createElement('option');op.value=m;op.textContent=m||'— Choose —';if(m===r.paymentMethod)op.selected=true;methodSel.appendChild(op);
+      });
+      methodSel.onchange = function(){NS.setPaymentMethod(r.key, this.value); r.paymentMethod = this.value;};
+      tdMethod.appendChild(methodSel);
+      tr.appendChild(tdMethod);
+      // Current
+      var tdCur = document.createElement('td'); tdCur.className='num'; tdCur.innerHTML = fmtNum(r.current, r.currency); tr.appendChild(tdCur);
+      // Burn rate
+      var tdBurn = document.createElement('td'); tdBurn.className='num';
+      tdBurn.innerHTML = fmtNum(r.burnRate, r.currency)+'/d<div style="font-size:9px;color:var(--mut);font-weight:400">'+r.burnWindow+' window (max)</div>';
+      tr.appendChild(tdBurn);
+      // Days left
+      var tdDays = document.createElement('td'); tdDays.className='num';
+      tdDays.innerHTML = '<b style="color:'+(r.status==='critical'?'var(--red)':r.status==='watch'?'var(--yel)':'var(--txt)')+'">'+fmtDays(r.daysLeft)+'</b>';
+      tr.appendChild(tdDays);
+      // Target
+      var tdTgt = document.createElement('td'); tdTgt.className='num mut';
+      tdTgt.innerHTML = fmtNum(r.target, r.currency);
+      tr.appendChild(tdTgt);
+      // Top up (the headline number)
+      var tdTopup = document.createElement('td'); tdTopup.className='num';
+      tdTopup.innerHTML = '<b style="font-size:13px;color:var(--acc)">'+fmtNum(r.topupRounded, r.currency)+'</b>'
+        +'<div style="font-size:9px;color:var(--mut);font-weight:400">raw '+fmtNum(r.topupRaw, r.currency)+'</div>';
+      tr.appendChild(tdTopup);
+      // Status pill
+      var tdStat = document.createElement('td');
+      tdStat.innerHTML = '<span class="fund-status-pill '+r.status+'">'+r.status.toUpperCase()+'</span>';
+      tr.appendChild(tdStat);
+      // Action — Mark Funded
+      var tdAct = document.createElement('td');
+      var actBtn = document.createElement('button');
+      actBtn.className = 'fund-btn-mini fund-rec-fund-btn';
+      actBtn.innerHTML = '✓ Mark funded';
+      actBtn.onclick = function(){
+        if(!r.paymentMethod){
+          if(typeof toast==='function')toast('Pick a payment method first','warn');
+          methodSel.focus();
+          return;
+        }
+        // Inline confirm
+        tdAct.innerHTML = '';
+        var label = document.createElement('span');
+        label.style.cssText = 'font-size:10px;color:var(--mut);margin-right:6px';
+        label.textContent = fmtNum(r.topupRounded, r.currency).replace(/<[^>]+>/g,'')+' '+r.currency+' via '+r.paymentMethod+'?';
+        tdAct.appendChild(label);
+        var yes = document.createElement('button'); yes.className='fund-btn-mini'; yes.style.background='var(--grn)'; yes.style.borderColor='var(--grn)'; yes.style.color='#fff'; yes.textContent='Confirm';
+        var no = document.createElement('button'); no.className='fund-btn-mini'; no.textContent='Cancel';
+        yes.onclick = function(){
+          NS.markFunded({
+            key: r.key,
+            providerName: r.provider.displayName || r.provider.name,
+            currency: r.currency,
+            amount: r.topupRounded,
+            method: r.paymentMethod,
+            notes: r.burnWindow+' window @ '+r.targetCover+'d cover'
+          });
+          if(typeof toast==='function')toast('Marked '+(r.provider.displayName||r.provider.name)+' funded ('+r.topupRounded+' '+r.currency+' via '+r.paymentMethod+')','ok');
+          NS.renderFunding();
+        };
+        no.onclick = function(){NS.renderFunding();};
+        tdAct.appendChild(yes); tdAct.appendChild(no);
+      };
+      tdAct.appendChild(actBtn);
+      tr.appendChild(tdAct);
+      tb.appendChild(tr);
+    });
+
+    tw.appendChild(tbl);
+    host.appendChild(tw);
+
+    _renderRecentlyFundedLog(host);
+  }
+
+  function _renderRecentlyFundedLog(host){
+    var hist = NS.loadTopupHistory().slice().sort(function(a,b){return b.fundedAt.localeCompare(a.fundedAt);});
+    if(!hist.length) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'fund-rec-history';
+    var ttl = document.createElement('div');
+    ttl.style.cssText = 'font-size:11px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin:18px 0 10px;font-family:Roboto Mono,monospace';
+    ttl.innerHTML = 'RECENTLY MARKED FUNDED <span style="color:var(--mut);font-weight:400">— last 20</span>';
+    wrap.appendChild(ttl);
+    var tw = document.createElement('div'); tw.className='fund-tablewrap'; tw.style.maxHeight='30vh';
+    var tbl = document.createElement('table'); tbl.className='fund-table';
+    tbl.innerHTML = '<thead><tr><th>WHEN</th><th>PROVIDER</th><th>AMOUNT</th><th>METHOD</th><th>NOTES</th><th></th></tr></thead>';
+    var tb = document.createElement('tbody'); tbl.appendChild(tb);
+    hist.slice(0,20).forEach(function(h, idx){
+      var tr = document.createElement('tr');
+      var dt = new Date(h.fundedAt);
+      tr.innerHTML = '<td class="mut">'+dt.toLocaleString()+'</td>'
+        +'<td><b>'+_esc(h.providerName)+'</b></td>'
+        +'<td class="num"><b>'+h.amount.toLocaleString()+' <span class="ccy">'+h.currency+'</span></b></td>'
+        +'<td>'+_esc(h.method)+'</td>'
+        +'<td class="mut" style="font-size:10px">'+_esc(h.notes||'')+'</td>';
+      var actTd = document.createElement('td');
+      var undo = document.createElement('button'); undo.className='fund-btn-mini'; undo.textContent='Undo'; undo.title='Remove this entry from the local funding log';
+      undo.onclick = function(){
+        if(!confirm('Remove this funding record? (Does not reverse the actual wire — just removes it from this local log.)'))return;
+        var all = NS.loadTopupHistory();
+        var realIdx = all.findIndex(function(x){return x.fundedAt===h.fundedAt && x.key===h.key && x.amount===h.amount;});
+        if(realIdx>=0){all.splice(realIdx,1); NS.saveTopupHistory(all); NS.renderFunding();}
+      };
+      actTd.appendChild(undo);
+      tr.appendChild(actTd);
+      tb.appendChild(tr);
+    });
+    tw.appendChild(tbl);
+    wrap.appendChild(tw);
+    host.appendChild(wrap);
+  }
+
   function _renderHistory(host){
     var snaps=NS.loadSnapshots();
     // Always show the backfill card at the top — even if there's existing data, the user may want to re-import
@@ -13423,7 +13830,7 @@ var FUND=(function(){
     host.appendChild(hdr);
     var tw=document.createElement('div');tw.className='fund-tablewrap';
     var tbl=document.createElement('table');tbl.className='fund-table';
-    tbl.innerHTML='<thead><tr><th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>PORTAL URL</th><th>ACTIVE</th><th>NOTES</th></tr></thead>';
+    tbl.innerHTML='<thead><tr><th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th>NOTES</th></tr></thead>';
     var tb=document.createElement('tbody');tbl.appendChild(tb);
     registry.forEach(function(p,idx){
       var tr=document.createElement('tr');
@@ -13434,6 +13841,9 @@ var FUND=(function(){
       var ccyTd=document.createElement('td');var ccyi=document.createElement('input');ccyi.value=p.currency||'USD';ccyi.style.cssText='width:50px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace;text-transform:uppercase';ccyi.onchange=function(){p.currency=this.value.toUpperCase();NS.saveRegistry(registry);};ccyTd.appendChild(ccyi);tr.appendChild(ccyTd);
       // Mode
       var modeTd=document.createElement('td');var modeSel=document.createElement('select');modeSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace';['bender','swype','portal','admin','chat_payments','billing','manual','unavail'].forEach(function(m){var op=document.createElement('option');op.value=m;op.textContent=m;if(m===p.mode)op.selected=true;modeSel.appendChild(op);});modeSel.onchange=function(){p.mode=this.value;NS.saveRegistry(registry);NS.renderFunding();};modeTd.appendChild(modeSel);tr.appendChild(modeTd);
+      // Payment method
+      var pmKey=p.subKey?(String(p.benderId)+'::'+p.subKey):(p.benderId!=null?String(p.benderId):p.name);
+      var pmTd=document.createElement('td');var pmSel=document.createElement('select');pmSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';['','MC','Airwallex','Wire','Crypto','Manual'].forEach(function(m){var op=document.createElement('option');op.value=m;op.textContent=m||'— none —';if(m===NS.getPaymentMethod(pmKey))op.selected=true;pmSel.appendChild(op);});pmSel.onchange=function(){NS.setPaymentMethod(pmKey,this.value);};pmTd.appendChild(pmSel);tr.appendChild(pmTd);
       // Portal URL
       var purlTd=document.createElement('td');var purl=document.createElement('input');purl.value=p.portalUrl||'';purl.placeholder='https://…';purl.style.cssText='width:160px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';purl.onchange=function(){p.portalUrl=this.value;NS.saveRegistry(registry);};purlTd.appendChild(purl);tr.appendChild(purlTd);
       // Active
