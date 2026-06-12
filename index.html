@@ -12085,6 +12085,7 @@ var FUND=(function(){
         portalUrl: portalUrl,
         subKey: subKey,
         billingType:'prepaid',
+        paymentTerms:'',
         notes:'', isActive:true
       };
     });
@@ -12105,6 +12106,10 @@ var FUND=(function(){
       // ones explicitly via the Providers tab.
       if(!p.billingType){
         p.billingType='prepaid'; changed=true;
+      }
+      // Backfill: paymentTerms (free text for postpaid providers like "7 net 3", "monthly net 15").
+      if(p.paymentTerms == null){
+        p.paymentTerms=''; changed=true;
       }
     });
     if(changed) saveJSON(K.registry,r);
@@ -13900,6 +13905,7 @@ var FUND=(function(){
       +regTh('currency','CCY')
       +regTh('mode','MODE')
       +regTh('billingType','BILLING')
+      +'<th>TERMS</th>'
       +'<th>PAY METHOD</th><th>PORTAL URL</th>'
       +regTh('active','ACTIVE')
       +'<th>NOTES</th><th></th>'
@@ -13935,6 +13941,14 @@ var FUND=(function(){
       var modeTd=document.createElement('td');var modeSel=document.createElement('select');modeSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace';['bender','swype','portal','admin','chat_payments','billing','manual','unavail'].forEach(function(m){var op=document.createElement('option');op.value=m;op.textContent=m;if(m===p.mode)op.selected=true;modeSel.appendChild(op);});modeSel.onchange=function(){p.mode=this.value;NS.saveRegistry(registry);NS.renderFunding();};modeTd.appendChild(modeSel);tr.appendChild(modeTd);
       // Billing type
       var billTd=document.createElement('td');var billSel=document.createElement('select');billSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';['prepaid','postpaid'].forEach(function(b){var op=document.createElement('option');op.value=b;op.textContent=b;if(b===(p.billingType||'prepaid'))op.selected=true;billSel.appendChild(op);});billSel.title='Postpaid providers are excluded from Forecast burn-rate and Fund Now recommendations — they invoice on a billing cycle, so their balance is what you owe, not what you can spend.';billSel.onchange=function(){p.billingType=this.value;NS.saveRegistry(registry);NS.renderFunding();};billTd.appendChild(billSel);tr.appendChild(billTd);
+      // Payment terms (free text, used for postpaid)
+      var termsTd=document.createElement('td');
+      var termsi=document.createElement('input');termsi.value=p.paymentTerms||'';termsi.placeholder=(p.billingType==='postpaid'?'e.g. 7 net 3, monthly net 15':'—');
+      var _termsBorder=(p.billingType==='postpaid'?'rgba(108,99,255,.5)':'var(--brd)');
+      termsi.style.cssText='width:130px;padding:4px 6px;background:var(--surf2);border:1px solid '+_termsBorder+';color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace';
+      termsi.title='Payment terms for postpaid providers. Examples: "7 net 3" = invoiced every 7 days, paid within 3. "monthly net 15" = invoiced monthly, paid within 15 days. Free text — write whatever makes sense.';
+      termsi.onchange=function(){p.paymentTerms=this.value;NS.saveRegistry(registry);};
+      termsTd.appendChild(termsi);tr.appendChild(termsTd);
       // Payment method
       var pmKey=p.subKey?(String(p.benderId)+'::'+p.subKey):(p.benderId!=null?String(p.benderId):p.name);
       var pmTd=document.createElement('td');var pmSel=document.createElement('select');pmSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';(function(){var _saved=NS.getPaymentMethod(pmKey);var _opts=['', 'Wells Fargo USD', 'Zenith NGN', 'Moneycorp USD', 'Moneycorp EUR', 'Moneycorp GBP', 'Moneycorp ZAR', 'Airwallex EUR', 'Airwallex GBP', 'Crypto', 'Wire', 'Other', 'Manual'];if(_saved && _opts.indexOf(_saved)===-1)_opts=_opts.concat([_saved]);_opts.forEach(function(m){var op=document.createElement('option');op.value=m;if(m==='')op.textContent='— none —';else if(['', 'Wells Fargo USD', 'Zenith NGN', 'Moneycorp USD', 'Moneycorp EUR', 'Moneycorp GBP', 'Moneycorp ZAR', 'Airwallex EUR', 'Airwallex GBP', 'Crypto', 'Wire', 'Other', 'Manual'].indexOf(m)===-1)op.textContent=m+' (legacy)';else op.textContent=m;if(m===_saved)op.selected=true;pmSel.appendChild(op);});})();pmSel.onchange=function(){NS.setPaymentMethod(pmKey,this.value);};pmTd.appendChild(pmSel);tr.appendChild(pmTd);
@@ -13999,7 +14013,7 @@ var FUND=(function(){
         var tblInact = document.createElement('table'); tblInact.className = 'fund-table';
         // Same column headers — no sort handlers (sort is driven by the active table)
         tblInact.innerHTML = '<thead><tr>'
-          +'<th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>BILLING</th>'
+          +'<th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>BILLING</th><th>TERMS</th>'
           +'<th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th>NOTES</th><th></th>'
           +'</tr></thead>';
         var tbInact = document.createElement('tbody'); tblInact.appendChild(tbInact);
@@ -14124,6 +14138,11 @@ var FUND=(function(){
     var inBill = select([{v:'prepaid',l:'Prepaid — needs topping up'},{v:'postpaid',l:'Postpaid — billed monthly / on invoice'}], 'prepaid');
     fBill.appendChild(inBill); box.appendChild(fBill);
 
+    // Payment terms (for postpaid)
+    var fTerms = field('PAYMENT TERMS (postpaid)', 'Examples: <code>7 net 3</code> (invoiced every 7 days, paid within 3), <code>monthly net 15</code> (invoiced monthly, paid within 15 days), <code>net 30</code> (paid within 30 days of invoice). Leave blank for prepaid.');
+    var inTerms = input('e.g. 7 net 3, monthly net 15');
+    fTerms.appendChild(inTerms); box.appendChild(fTerms);
+
     // Portal URL (optional)
     var fPortal = field('PORTAL URL (optional)', 'For portal mode — the URL where you check this balance manually.');
     var inPortal = input('https://…');
@@ -14182,6 +14201,7 @@ var FUND=(function(){
         portalUrl: inPortal.value.trim() || (mode === 'portal' ? '' : null),
         subKey: subKey,
         billingType: inBill.value,
+        paymentTerms: inTerms.value.trim(),
         notes: inNotes.value.trim(),
         isActive: true
       };
