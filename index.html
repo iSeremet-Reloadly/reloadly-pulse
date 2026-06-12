@@ -14117,13 +14117,19 @@ var FUND=(function(){
     var ui = NS.loadUI();
     var filter = ui.recsFilter || 'critwatch'; // 'critwatch' | 'critical' | 'watch' | 'all'
     var admin = NS.loadAdmin();
+    var COVER_OPTIONS = [1, 3, 7, 14, 21, 28];
+    var selectedCoverDays = ui.recsCoverDays;
+    if(COVER_OPTIONS.indexOf(selectedCoverDays) < 0){
+      selectedCoverDays = admin.targetCoverDays || 21;
+      if(COVER_OPTIONS.indexOf(selectedCoverDays) < 0) selectedCoverDays = 21;
+    }
     var statusMap = {
       'critwatch': ['critical','watch'],
       'critical': ['critical'],
       'watch': ['watch'],
       'all': ['critical','watch','healthy']
     };
-    var recs = NS.computeFundingRecommendations({statusFilter: statusMap[filter]});
+    var recs = NS.computeFundingRecommendations({statusFilter: statusMap[filter], targetCover: selectedCoverDays});
     var totals = NS.totalRecommended(recs);
 
     // Header
@@ -14132,7 +14138,7 @@ var FUND=(function(){
     var headline = document.createElement('div');
     function _tipI2(text){return ' <span class="th-info" data-tip="'+text.replace(/"/g,'&quot;')+'">i</span>';}
     headline.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:4px">Fund Now'+_tipI2('Prioritized list of wallets that need topping up. Sorted by urgency (critical first, then days-left ascending). Only counts active bender/swype/portal providers — admin/billing/chat-payment providers are excluded because they do not burn in a comparable way.')+' <span style="font-size:11px;color:var(--mut);font-weight:500;margin-left:8px">'+recs.length+' wallet'+(recs.length===1?'':'s')+' need attention</span></div>'
-      +'<div style="font-size:11px;color:var(--mut);line-height:1.5">Sized using <b>max(3D,7D,30D)</b> burn rate × <b>'+admin.targetCoverDays+'-day cover target</b>. Round-up to wire-friendly numbers. Mark funded once you\'ve sent the wire — recommendations re-appear after 24h or when balance drops back to critical.</div>';
+      +'<div style="font-size:11px;color:var(--mut);line-height:1.5">Sized using <b>max(3D,7D,30D)</b> burn rate × <b>'+selectedCoverDays+'-day cover target</b>. Round-up to wire-friendly numbers. Mark funded once you\'ve sent the wire — recommendations re-appear after 24h or when balance drops back to critical.</div>';
     hdr.appendChild(headline);
     var actions = document.createElement('div');
     actions.style.cssText = 'display:flex;gap:8px;align-items:center';
@@ -14181,6 +14187,24 @@ var FUND=(function(){
     totalsBar.innerHTML = totHtml;
     host.appendChild(totalsBar);
 
+    // === COVER-DAYS TOGGLE ===
+    var coverRow = document.createElement('div');
+    coverRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap';
+    var coverLbl = document.createElement('span');
+    coverLbl.style.cssText = 'font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-right:8px;flex-shrink:0';
+    coverLbl.innerHTML = 'COVER <span class="th-info" data-tip="How many days of burn you want the top-up to cover. Click a pill to recompute targets. 1D = bare minimum to keep the lights on tomorrow. 28D = batch-fund 4 weeks ahead. Default 21D matches your admin target.">i</span>';
+    coverRow.appendChild(coverLbl);
+    COVER_OPTIONS.forEach(function(d){
+      var pill = document.createElement('button');
+      var on = d === selectedCoverDays;
+      pill.textContent = d + 'D';
+      pill.title = 'Recompute top-ups for ' + d + ' day' + (d===1?'':'s') + ' of cover';
+      pill.style.cssText = 'background:'+(on?'var(--acc)':'var(--surf2)')+';color:'+(on?'#fff':'var(--mut)')+';border:1px solid '+(on?'var(--acc)':'var(--brd)')+';border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px;min-width:42px';
+      pill.onclick = function(){var u=NS.loadUI(); u.recsCoverDays=d; NS.saveUI(u); NS.renderFunding();};
+      coverRow.appendChild(pill);
+    });
+    host.appendChild(coverRow);
+
     // Filter strip
     var filterStrip = document.createElement('div');
     filterStrip.className = 'fund-rec-filterstrip';
@@ -14222,7 +14246,7 @@ var FUND=(function(){
       +'<th>CURRENT'+tipI('Latest balance from the most recent snapshot you saved (Daily Pull tab). Can go negative when the wallet is overdrawn — the calculation still works.')+'</th>'
       +'<th>BURN RATE'+tipI('Average daily consumption. Uses the MAXIMUM of the 3-day, 7-day, and 30-day rolling windows. Max-of-three picks whichever window suggests the highest burn — conservative sizing so a recent spike never under-funds the wallet. The window that won is shown below the number.')+'</th>'
       +'<th>DAYS LEFT'+tipI('How many days until the wallet is empty at the current burn rate. Drives the status pill: CRITICAL when ≤3 days, WATCH when ≤7, HEALTHY when ≤30.')+'</th>'
-      +'<th>TARGET ('+admin.targetCoverDays+'D)'+tipI('The balance you would need today to last '+admin.targetCoverDays+' days at the current burn rate. = Burn rate × '+admin.targetCoverDays+'-day cover target. Change the cover target in admin if you want a longer/shorter runway.')+'</th>'
+      +'<th>TARGET ('+selectedCoverDays+'D)'+tipI('The balance you would need today to last '+selectedCoverDays+' days at the current burn rate. = Burn rate × '+selectedCoverDays+'-day cover target. Use the COVER pills above to recompute for a different window.')+'</th>'
       +'<th>TOP UP'+tipI('Recommended top-up = Target − Current, then rounded up to a wire-friendly number. Bands: $10 / $50 / $500 / $1,000 / $5,000 depending on size. The grey "raw" number below is the exact un-rounded math.')+'</th>'
       +'<th>STATUS'+tipI('Pulled from the Forecast tab. CRITICAL = act today. WATCH = act this week. Wallets healthier than ≤30D do not appear here unless you switch the filter to "+ Healthy ≤30D".')+'</th>'
       +'<th>ACTION'+tipI('Click "Mark funded" once you have actually sent the wire/transfer. The row moves to the Recently marked funded log at the bottom. 24h cooldown before it can re-appear in this list — or sooner if the balance drops back into critical after Bender confirms the topup landed.')+'</th>'
