@@ -12596,6 +12596,11 @@ var FUND=(function(){
       });
     };
     tools.appendChild(refreshFxBtn);
+    var howBtn=document.createElement('button');howBtn.className='fund-btn';
+    howBtn.innerHTML='📖 How to use';
+    howBtn.title='Open the Funding guide — explains every tab and field.';
+    howBtn.onclick=function(){NS.showFundingGuide();};
+    tools.appendChild(howBtn);
     hdr.appendChild(tools);
     wrap.appendChild(hdr);
 
@@ -13877,6 +13882,257 @@ var FUND=(function(){
     tw.appendChild(tbl);
     host.appendChild(tw);
   }
+
+  // ===== How to use: Funding guide =====
+  NS.showFundingGuide = function(){
+    // Don't double-open
+    if(document.getElementById('fund-guide-overlay'))return;
+    var sections = [
+      {
+        id: 'overview',
+        nav: 'Overview',
+        title: 'What this is, who it is for',
+        body: ''
+          +'<p class="guide-lead">Funding tracks every supplier prepaid wallet Reloadly tops up — balances, burn rate, days of cover left, and how much you need to wire today to keep the lights on.</p>'
+          +'<p>It replaces the ad-hoc routine of "ping Bender, eyeball Slack, guess how much to send" with: <b>save a snapshot → read the forecast → fund what is critical → record what you sent</b>. Every step is in this module.</p>'
+          +'<h4>Five tabs, one workflow</h4>'
+          +'<ol class="guide-ol">'
+          +'<li><b>Daily Pull</b> — capture today\'s balances from Bender / portals.</li>'
+          +'<li><b>Forecast</b> — see how many days each wallet has left based on burn rate.</li>'
+          +'<li><b>Fund Now</b> — get a prioritized list of who to wire and how much.</li>'
+          +'<li><b>History</b> — review past snapshots.</li>'
+          +'<li><b>Providers</b> — registry of every wallet, with mode + payment method.</li>'
+          +'</ol>'
+          +'<div class="guide-callout"><div class="guide-callout-label">REALITY CHECK</div>This whole system runs entirely in your browser (localStorage + IndexedDB). When Engineering ships the Bender HTTP API, the manual paste step in Daily Pull goes away. Until then, the daily routine takes about 3 minutes if you have everything wired up.</div>'
+      },
+      {
+        id: 'daily-pull',
+        nav: 'Daily Pull',
+        title: 'Daily Pull — capture today\'s balances',
+        body: ''
+          +'<p class="guide-lead">Where you record what every wallet has, every morning.</p>'
+          +'<h4>The fastest path: bulk paste-back</h4>'
+          +'<ol class="guide-ol">'
+          +'<li>Click <b>Copy all</b> in the COMMANDS TO RUN panel — copies every <code>/airtime/provider/balance N</code> command (one per active provider).</li>'
+          +'<li>Paste into <code>#funding-bot</code> in Slack. Bender replies once per provider.</li>'
+          +'<li>Select all of Bender\'s replies and copy them.</li>'
+          +'<li>Paste them into the right-hand textarea labelled "PASTE BENDER REPLIES BELOW".</li>'
+          +'<li>Pulse auto-parses: matches each reply to a provider, fills in the balance, handles multi-wallet responses (LAFRICAMOBILE = 21 sub-wallets, ClickMobile = 4, Becharge = 4, Intellexal = 3), and auto-saves the snapshot.</li>'
+          +'</ol>'
+          +'<h4>Alternative: Quick Send mode</h4>'
+          +'<p>For when you want to walk through providers one at a time (e.g. to investigate a specific wallet). Click <b>Quick Send mode</b>. The first command is shown — copy it, paste it into Slack, paste the reply back, press Space to advance to the next command. Keyboard-driven.</p>'
+          +'<h4>What each field means</h4>'
+          +'<table class="guide-table">'
+          +'<tr><th>PROVIDER</th><td>Wallet name plus mode (BENDER / SWYPE / PORTAL / etc).</td></tr>'
+          +'<tr><th>BENDER CMD</th><td>The exact slash command to run if you are pulling this provider manually.</td></tr>'
+          +'<tr><th>CCY</th><td>Currency of the wallet.</td></tr>'
+          +'<tr><th>YESTERDAY</th><td>What the balance was on the most recent prior snapshot. Compare with NEW BALANCE to see consumption.</td></tr>'
+          +'<tr><th>NEW BALANCE</th><td>Today\'s balance. Auto-filled by bulk parse, or type it in manually if you pulled it via Quick Send / a portal.</td></tr>'
+          +'<tr><th>DAYS LEFT</th><td>The forecast status pill — pulled from the Forecast tab\'s calculation. Tells you at-a-glance whether this wallet is critical without leaving Daily Pull.</td></tr>'
+          +'</table>'
+          +'<h4>Status summary strip at the top</h4>'
+          +'<p>Same as on the Forecast tab. Five segments: 🔴 CRITICAL (≤3D) · 🟡 WATCH (≤7D) · 🟢 HEALTHY (≤30D) · SURPLUS (>30D) · ⚪ NO DATA. The numbers update live as you save.</p>'
+          +'<div class="guide-callout"><div class="guide-callout-label">WHEN ALERTS FIRE</div>Saving the snapshot triggers <code>runAlertCheck</code>. If any wallet just transitioned into critical or watch (or has been there for &gt;24h without an alert), Pulse posts a bundled message to <code>#funding-alerts</code>. You will see a toast confirming how many wallets got alerted.</div>'
+      },
+      {
+        id: 'forecast',
+        nav: 'Forecast',
+        title: 'Forecast — how long each wallet lasts',
+        body: ''
+          +'<p class="guide-lead">The analysis view. Tells you how many days of stock each wallet has at its current burn rate, with three different time windows so you can spot trends.</p>'
+          +'<h4>How burn rate is calculated</h4>'
+          +'<p>For each wallet, Pulse walks the snapshot history backwards and sums the consumption-only deltas (positive day-over-day decreases). Topup days — where the balance went up — are excluded so a fresh injection of cash does not artificially deflate the daily average.</p>'
+          +'<table class="guide-table">'
+          +'<tr><th>3-DAY RATE</th><td>Average daily burn over the last 3 snapshots. Catches recent spikes — useful when traffic surges in a country.</td></tr>'
+          +'<tr><th>7-DAY RATE</th><td>Average over the last 7 snapshots. Medium-term. Stable enough to ignore one-day anomalies, recent enough to reflect current demand.</td></tr>'
+          +'<tr><th>30-DAY RATE</th><td>Long-term baseline. Smooths out weekly seasonality. Good for steady-state suppliers.</td></tr>'
+          +'<tr><th>DAYS LEFT (MIN)</th><td>The MOST CONSERVATIVE of the three (smallest days-left). The window that "won" is shown below the number. Drives the status pill.</td></tr>'
+          +'</table>'
+          +'<h4>Status thresholds</h4>'
+          +'<ul class="guide-ul">'
+          +'<li><b>CRITICAL</b> — ≤3 days left. Act today.</li>'
+          +'<li><b>WATCH</b> — ≤7 days. Act this week.</li>'
+          +'<li><b>HEALTHY</b> — ≤30 days. Fine for now.</li>'
+          +'<li><b>SURPLUS</b> — &gt;30 days or no burn detected at all.</li>'
+          +'<li><b>NO DATA</b> — fewer than 4 snapshots available. Cannot forecast yet — keep saving snapshots.</li>'
+          +'</ul>'
+          +'<p>Thresholds are configurable. Defaults live in <code>NS.loadAdmin()</code>: <code>criticalDays:4, watchDays:10, planDays:30</code>. Bumping <code>criticalDays</code> to 5 means anything with ≤5 days now counts as critical.</p>'
+          +'<h4>Filter buttons + sortable columns</h4>'
+          +'<p>Click any column header to sort. Default sort is DAYS LEFT ascending — worst at the top. Filter buttons at the top narrow to one status. Click CRITICAL to focus only on at-risk wallets.</p>'
+          +'<h4>Sub-wallets</h4>'
+          +'<p>LAFRICAMOBILE, ClickMobile, Becharge, and Intellexal each have multiple sub-wallets (one per country/product). They appear as separate rows because each one has its own balance and burn rate. The Provider column shows the parent name; the sub-key (e.g. "Lafrica Mobile Burkina") appears in the smaller gray text underneath.</p>'
+          +'<h4>Alerts strip</h4>'
+          +'<p>The top of the Forecast tab shows your alerts state: ON/OFF, where alerts go (<code>#funding-alerts</code>), and when the last one was sent. Three buttons: <b>Enable/Disable</b>, <b>Re-check now</b> (manually run the alert pipeline without saving a snapshot), and <b>Test alert</b> (post a 🧪 message to verify the wiring).</p>'
+      },
+      {
+        id: 'fund-now',
+        nav: 'Fund Now',
+        title: 'Fund Now — who to fund, and how much',
+        body: ''
+          +'<p class="guide-lead">The action view. Tells you exactly which wallets to top up today and how much to wire each, based on the burn rate and your target cover days.</p>'
+          +'<h4>The math behind "TOP UP"</h4>'
+          +'<ol class="guide-ol">'
+          +'<li><b>Pick burn rate</b> — uses the MAXIMUM of the 3-day, 7-day, and 30-day windows. Max-of-three is conservative: if the 3D rate is way higher than the 30D rate, Pulse picks the high one so you don\'t under-fund. The window that won is shown below the burn-rate number.</li>'
+          +'<li><b>Target balance</b> = burn rate × <code>targetCoverDays</code> (default 21). This is what you\'d need to last 21 days at the current burn.</li>'
+          +'<li><b>Raw top-up</b> = target − current.</li>'
+          +'<li><b>Rounded top-up</b> = raw, rounded up to a wire-friendly number. Bands:'
+          +'<ul class="guide-ul">'
+          +'<li>&lt; $100 → nearest $10</li>'
+          +'<li>&lt; $1,000 → nearest $50</li>'
+          +'<li>&lt; $10,000 → nearest $500</li>'
+          +'<li>&lt; $100,000 → nearest $1,000</li>'
+          +'<li>≥ $100,000 → nearest $5,000</li>'
+          +'</ul></li>'
+          +'</ol>'
+          +'<p>The rounded number is what shows in bold purple. The raw number is shown in gray underneath in case you want the exact math.</p>'
+          +'<h4>Workflow</h4>'
+          +'<ol class="guide-ol">'
+          +'<li>Open Fund Now. Critical + Watch wallets are shown by default, sorted by days-left ascending (most urgent first).</li>'
+          +'<li>For each row, pick a payment method from the dropdown if it is not already set (Wells Fargo USD, Moneycorp USD/EUR/GBP/ZAR, Airwallex EUR/GBP, Zenith NGN, Crypto, Wire, Other, Manual). The choice sticks per provider — next time it is pre-filled.</li>'
+          +'<li>Click <b>⎘ Copy as TSV</b> in the header to copy the whole list — paste it into your funding tracker Excel sheet. Columns match the table.</li>'
+          +'<li>Go send the wires.</li>'
+          +'<li>Come back and click <b>✓ Mark funded</b> on each row you sent. Inline confirm appears: "$15,000 USD via Wells Fargo USD? [Confirm] [Cancel]". Confirm → row moves to the Recently marked funded log at the bottom.</li>'
+          +'</ol>'
+          +'<h4>24-hour cooldown</h4>'
+          +'<p>Once a row is marked funded, it won\'t re-appear in Fund Now for 24 hours — gives Bender time to confirm the topup landed. If you save a snapshot during that window and the balance has gone up, the wallet exits critical naturally. If the topup didn\'t land for some reason, the row re-appears after 24h.</p>'
+          +'<h4>Totals strip</h4>'
+          +'<p>Top of the page: USD-equivalent total + per-currency breakdown. Uses the most recent FX rate Pulse has cached (date shown). Per-currency pills show the actual local amounts you\'d wire — those are the numbers your treasury team needs.</p>'
+          +'<h4>Filter buttons</h4>'
+          +'<ul class="guide-ul">'
+          +'<li><b>Critical + Watch</b> (default) — everything needing attention.</li>'
+          +'<li><b>Critical only</b> — narrow to ≤3 days left.</li>'
+          +'<li><b>Watch only</b> — just the watch tier.</li>'
+          +'<li><b>+ Healthy ≤30D</b> — also include wallets within 30-day cover. Useful for batch-funding ahead so you do not have to do this twice in the same week.</li>'
+          +'</ul>'
+          +'<div class="guide-callout"><div class="guide-callout-label">PRO TIP</div>Set payment methods in bulk by going to <b>Providers</b> tab and walking down the PAY METHOD column. Once they\'re all set, Fund Now arrives pre-populated and you can mark-funded with one click instead of two.</div>'
+      },
+      {
+        id: 'history',
+        nav: 'History',
+        title: 'History — past snapshots',
+        body: ''
+          +'<p class="guide-lead">The audit trail. Every snapshot you have ever saved, organized by date, with all balances shown side-by-side.</p>'
+          +'<h4>What you see</h4>'
+          +'<p>One row per date. Columns are wallets, cells are balances on that date. Scroll horizontally if you have lots of wallets. Empty cells mean no balance was recorded for that wallet on that date.</p>'
+          +'<h4>What it is good for</h4>'
+          +'<ul class="guide-ul">'
+          +'<li>Verifying that a top-up actually landed (compare yesterday vs today on the wallet you funded).</li>'
+          +'<li>Spotting trends — a wallet steadily declining over 14 days even though you topped it up.</li>'
+          +'<li>Auditing — proving when a critical wallet was first flagged.</li>'
+          +'<li>Re-running burn-rate math if a stat looks off.</li>'
+          +'</ul>'
+          +'<h4>Backfilling from Excel</h4>'
+          +'<p>If you have a historical balance workbook (e.g. <b>Historical balance.xlsx</b> or <b>2026 Prepaid Accounts.xlsx</b>), open Daily Pull and use the <b>Backfill from Excel</b> card. It parses every monthly USD sheet, infers dates from sheet name + day-of-week, matches providers, and writes snapshots in one shot. <b>Merge</b> keeps existing snapshots untouched; <b>Overwrite</b> replaces matching dates.</p>'
+          +'<div class="guide-callout"><div class="guide-callout-label">STORAGE</div>Snapshots live in localStorage under <code>rl_fund_snapshots_v1</code>. They survive reloads but are local to this browser. If you want to move setups between machines, export and import via the Providers tab (todo: not yet shipped).</div>'
+      },
+      {
+        id: 'providers',
+        nav: 'Providers',
+        title: 'Providers — registry of every wallet',
+        body: ''
+          +'<p class="guide-lead">The registry. Every wallet Pulse tracks, with editable settings.</p>'
+          +'<h4>What you can edit per row</h4>'
+          +'<table class="guide-table">'
+          +'<tr><th>DISPLAY NAME</th><td>The human-friendly label that appears in tables and Slack alerts.</td></tr>'
+          +'<tr><th>CCY</th><td>Wallet currency (USD, EUR, NGN, etc). Used for all amount formatting.</td></tr>'
+          +'<tr><th>MODE</th><td>How Pulse interacts with this wallet:'
+          +'<ul class="guide-ul" style="margin-top:6px;margin-bottom:0">'
+          +'<li><b>bender</b> — has a Bender slash command, parser reads balance directly</li>'
+          +'<li><b>swype</b> — Swype Bender command (handles currency conversion)</li>'
+          +'<li><b>portal</b> — no Bender command; pulled manually from a web portal</li>'
+          +'<li><b>admin / chat_payments / billing</b> — non-prepaid wallets (gift cards, billing accounts, etc); excluded from burn-rate / Fund Now</li>'
+          +'<li><b>unavail</b> — not in use; hidden from active workflows</li>'
+          +'</ul></td></tr>'
+          +'<tr><th>PAY METHOD</th><td>How you fund this wallet. Wells Fargo USD, Moneycorp USD/EUR/GBP/ZAR, Airwallex EUR/GBP, Zenith NGN, Crypto, Wire, Other, Manual. Pre-fills the Fund Now dropdown.</td></tr>'
+          +'<tr><th>PORTAL URL</th><td>For portal mode — the URL where you pull balance manually. Click-through link will appear in Daily Pull for those rows (todo).</td></tr>'
+          +'<tr><th>ACTIVE</th><td>Uncheck to hide from Daily Pull / Forecast / Fund Now without deleting. Use for retired suppliers.</td></tr>'
+          +'<tr><th>NOTES</th><td>Free text. Anything that helps the next person understand this wallet.</td></tr>'
+          +'</table>'
+          +'<h4>Sub-wallets</h4>'
+          +'<p>Multi-wallet providers (LAFRICAMOBILE, ClickMobile, Becharge, Intellexal) have one entry per sub-wallet. They share the same Bender ID but have different sub-keys (e.g. "Lafrica Mobile Burkina"). Pulse\'s parser splits the Bender response by sub-key automatically.</p>'
+          +'<h4>Reseed</h4>'
+          +'<p>The <b>⟲ Reseed from defaults</b> button replaces the entire registry with the latest default seed. Wipes any custom edits — including display names, currencies, notes, and active flags. Use only when picking up new providers added in a Pulse update.</p>'
+          +'<div class="guide-callout"><div class="guide-callout-label">DATA NOTE</div>Payment methods are stored separately from the registry (<code>rl_fund_pay_methods_v1</code>) so you can reseed without losing them. Topup history is also separate (<code>rl_fund_topup_history_v1</code>) and survives reseeds.</div>'
+      }
+    ];
+
+    var ov = document.createElement('div');
+    ov.id = 'fund-guide-overlay';
+    ov.className = 'guide-ov';
+    ov.onclick = function(e){ if(e.target === ov) close(); };
+
+    var box = document.createElement('div');
+    box.className = 'guide-box';
+    ov.appendChild(box);
+
+    var toc = document.createElement('div');
+    toc.className = 'guide-toc';
+    var tocInner = '<div class="guide-eyebrow">FUNDING</div><div class="guide-toc-title">How to use</div><div class="guide-toc-list">';
+    sections.forEach(function(s, i){
+      tocInner += '<a class="guide-toc-link'+(i===0?' active':'')+'" data-target="fund-guide-'+s.id+'">'+s.nav+'</a>';
+    });
+    tocInner += '</div>';
+    toc.innerHTML = tocInner;
+    box.appendChild(toc);
+
+    var bodyWrap = document.createElement('div');
+    bodyWrap.className = 'guide-body';
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'guide-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.onclick = close;
+    closeBtn.title = 'Close (Esc)';
+    bodyWrap.appendChild(closeBtn);
+
+    sections.forEach(function(s){
+      var sec = document.createElement('div');
+      sec.className = 'guide-section';
+      sec.id = 'fund-guide-'+s.id;
+      sec.innerHTML = '<h2>'+s.title+'</h2>'+s.body;
+      bodyWrap.appendChild(sec);
+    });
+
+    var footer = document.createElement('div');
+    footer.className = 'guide-footer';
+    footer.innerHTML = 'Reloadly Pulse — Funding · Last updated when you click around. Suggestions: feedback@reloadly.com';
+    bodyWrap.appendChild(footer);
+
+    box.appendChild(bodyWrap);
+    document.body.appendChild(ov);
+
+    // TOC click → scroll into view + active state
+    toc.querySelectorAll('.guide-toc-link').forEach(function(a){
+      a.onclick = function(){
+        var t = document.getElementById(this.dataset.target);
+        if(t) t.scrollIntoView({behavior:'smooth', block:'start'});
+        toc.querySelectorAll('.guide-toc-link').forEach(function(x){x.classList.remove('active');});
+        this.classList.add('active');
+      };
+    });
+
+    // Scroll-spy: highlight nearest section in TOC
+    bodyWrap.addEventListener('scroll', function(){
+      var threshold = bodyWrap.scrollTop + 80;
+      var active = sections[0].id;
+      sections.forEach(function(s){
+        var el = document.getElementById('fund-guide-'+s.id);
+        if(el && el.offsetTop <= threshold) active = s.id;
+      });
+      toc.querySelectorAll('.guide-toc-link').forEach(function(a){
+        a.classList.toggle('active', a.dataset.target === 'fund-guide-'+active);
+      });
+    }, {passive:true});
+
+    // Esc key closes
+    function escHandler(e){if(e.key==='Escape')close();}
+    document.addEventListener('keydown', escHandler);
+
+    function close(){
+      document.removeEventListener('keydown', escHandler);
+      if(ov.parentNode) ov.parentNode.removeChild(ov);
+    }
+  };
+
 
   function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   return NS;
