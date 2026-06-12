@@ -12076,6 +12076,30 @@ var FUND=(function(){
   function loadJSON(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
   function saveJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){console.error('FUND save failed for '+k+':',e);return false;}}
 
+  // Smart-default services per provider name + mode. Returns array of service tags.
+  // Multiple tags allowed (e.g. Cy Send is both airtime and gift card).
+  function _inferDefaultServices(name, mode){
+    var n = String(name||'').toUpperCase();
+    // Known multi-service providers (manual list — extend as needed)
+    if(n === 'CY_SEND') return ['airtime', 'gift_card'];
+    // Gift-card brands
+    if(/AMAZON|BAMBOO|ENSURE|STEAM|RAZER|GIFT|GAMES|XBOX|PLAYSTATION|APPLE|GOOGLE_PLAY|NETFLIX|SPOTIFY|UBER|WALMART|TARGET|EBAY|BESTBUY|BURGER|MCDONALDS|VISA_GIFT|MASTERCARD_GIFT/.test(n)){
+      // Ensure Swype is both gift_card and swype since mode='swype'
+      if(mode === 'swype') return ['swype', 'gift_card'];
+      return ['gift_card'];
+    }
+    // Utility brands (placeholder — populate as Reloadly adds utility suppliers)
+    if(/UTILITY|WATER|ELECTRIC|ELECTRICITY|POWER|GAS_BILL|NEPA|EKEDC|IKEDC|TANESCO|KENYAPOWER/.test(n)){
+      return ['utility'];
+    }
+    // Mode-based defaults
+    if(mode === 'swype') return ['swype'];
+    if(mode === 'bender') return ['airtime'];
+    // Portal / admin / chat_payments / billing / manual / unavail → empty by default,
+    // user picks the right service via the Providers tab.
+    return [];
+  }
+
   function _seedRegistry(){
     return SEED.map(function(r){
       var portalUrl = (r.length>=6 && r[5]) ? r[5] : (r[4]==='portal' ? '' : null);
@@ -12086,6 +12110,7 @@ var FUND=(function(){
         subKey: subKey,
         billingType:'prepaid',
         paymentTerms:'',
+        services:_inferDefaultServices(r[1], r[4]),
         notes:'', isActive:true
       };
     });
@@ -12110,6 +12135,12 @@ var FUND=(function(){
       // Backfill: paymentTerms (free text for postpaid providers like "7 net 3", "monthly net 15").
       if(p.paymentTerms == null){
         p.paymentTerms=''; changed=true;
+      }
+      // Backfill: services array. Inferred from name + mode for existing providers
+      // using the same logic the seed uses. User can adjust per-row via the Providers tab.
+      if(!Array.isArray(p.services)){
+        p.services = _inferDefaultServices(p.name, p.mode);
+        changed = true;
       }
     });
     if(changed) saveJSON(K.registry,r);
@@ -13887,6 +13918,22 @@ var FUND=(function(){
     };
     hdr.appendChild(reseedBtn);
     host.appendChild(hdr);
+    // Service filter chips
+    var svcFilter = (uiReg.providersServiceFilter || 'all');
+    var svcFilterRow = document.createElement('div');
+    svcFilterRow.style.cssText = 'display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center';
+    svcFilterRow.innerHTML = '<span style="font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-right:4px">SERVICE</span>';
+    var _svcCounts = {all:registry.length, airtime:0, gift_card:0, utility:0, swype:0};
+    registry.forEach(function(p){(p.services||[]).forEach(function(s){if(_svcCounts[s]!=null)_svcCounts[s]++;});});
+    [{v:'all',l:'All'},{v:'airtime',l:'Airtime',c:'#22d3ee'},{v:'gift_card',l:'Gift card',c:'#f59e0b'},{v:'utility',l:'Utility',c:'#10b981'},{v:'swype',l:'Swype',c:'#a78bfa'}].forEach(function(opt){
+      var btn = document.createElement('button');
+      var active = svcFilter === opt.v;
+      btn.style.cssText = 'background:'+(active?(opt.c||'var(--acc)'):'#1a2533')+';color:'+(active?'#000':'var(--mut)')+';border:1px solid '+(active?(opt.c||'var(--acc)'):'#2a3a4d')+';border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px';
+      btn.innerHTML = opt.l + ' <span style="background:rgba(0,0,0,.15);border-radius:3px;padding:1px 5px;margin-left:4px;font-size:10px">'+_svcCounts[opt.v]+'</span>';
+      btn.onclick = function(){var u=NS.loadUI(); u.providersServiceFilter=opt.v; NS.saveUI(u); NS.renderFunding();};
+      svcFilterRow.appendChild(btn);
+    });
+    host.appendChild(svcFilterRow);
     // Sort state — persists between renders
     var uiReg = NS.loadUI();
     var regSortKey = uiReg.providersSort || 'id';
@@ -13904,6 +13951,7 @@ var FUND=(function(){
       +regTh('displayName','DISPLAY NAME')
       +regTh('currency','CCY')
       +regTh('mode','MODE')
+      +'<th>SERVICE</th>'
       +regTh('billingType','BILLING')
       +'<th>TERMS</th>'
       +'<th>PAY METHOD</th><th>PORTAL URL</th>'
@@ -13939,6 +13987,22 @@ var FUND=(function(){
       var ccyTd=document.createElement('td');var ccyi=document.createElement('input');ccyi.value=p.currency||'USD';ccyi.style.cssText='width:50px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace;text-transform:uppercase';ccyi.onchange=function(){p.currency=this.value.toUpperCase();NS.saveRegistry(registry);};ccyTd.appendChild(ccyi);tr.appendChild(ccyTd);
       // Mode
       var modeTd=document.createElement('td');var modeSel=document.createElement('select');modeSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace';['bender','swype','portal','admin','chat_payments','billing','manual','unavail'].forEach(function(m){var op=document.createElement('option');op.value=m;op.textContent=m;if(m===p.mode)op.selected=true;modeSel.appendChild(op);});modeSel.onchange=function(){p.mode=this.value;NS.saveRegistry(registry);NS.renderFunding();};modeTd.appendChild(modeSel);tr.appendChild(modeTd);
+      // Service tags
+      var svcTd=document.createElement('td');svcTd.style.cssText='white-space:nowrap;min-width:140px';
+      [{v:'airtime',l:'A',t:'Airtime',c:'#22d3ee'},{v:'gift_card',l:'G',t:'Gift card',c:'#f59e0b'},{v:'utility',l:'U',t:'Utility',c:'#10b981'},{v:'swype',l:'S',t:'Swype',c:'#a78bfa'}].forEach(function(s){
+        var on=(p.services||[]).indexOf(s.v)>=0;
+        var b=document.createElement('span');b.textContent=s.l;b.title=s.t+(on?' (active — click to remove)':' (inactive — click to add)');
+        b.style.cssText='display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;font-family:Roboto Mono,monospace;margin-right:4px;cursor:pointer;user-select:none;transition:transform .12s;'+(on?('background:'+s.c+';color:#000;border:1px solid '+s.c):'background:transparent;color:var(--mut);border:1px solid var(--brd)');
+        b.onmouseover=function(){this.style.transform='scale(1.15)';};b.onmouseout=function(){this.style.transform='scale(1)';};
+        b.onclick=function(){
+          if(!Array.isArray(p.services))p.services=[];
+          var idx=p.services.indexOf(s.v);
+          if(idx>=0)p.services.splice(idx,1);else p.services.push(s.v);
+          NS.saveRegistry(registry); NS.renderFunding();
+        };
+        svcTd.appendChild(b);
+      });
+      tr.appendChild(svcTd);
       // Billing type
       var billTd=document.createElement('td');var billSel=document.createElement('select');billSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';['prepaid','postpaid'].forEach(function(b){var op=document.createElement('option');op.value=b;op.textContent=b;if(b===(p.billingType||'prepaid'))op.selected=true;billSel.appendChild(op);});billSel.title='Postpaid providers are excluded from Forecast burn-rate and Fund Now recommendations — they invoice on a billing cycle, so their balance is what you owe, not what you can spend.';billSel.onchange=function(){p.billingType=this.value;NS.saveRegistry(registry);NS.renderFunding();};billTd.appendChild(billSel);tr.appendChild(billTd);
       // Payment terms (free text, used for postpaid)
@@ -13974,9 +14038,15 @@ var FUND=(function(){
       tr.appendChild(actTd);
       return tr;
     }
-    // Split into active + inactive after applying sort.
-    var activeRegistry = sortedRegistry.filter(function(p){return p.isActive !== false;});
-    var inactiveRegistry = sortedRegistry.filter(function(p){return p.isActive === false;});
+    // Apply service filter on top of sort.
+    var _svcFilter = uiReg.providersServiceFilter || 'all';
+    var filteredRegistry = sortedRegistry.filter(function(p){
+      if(_svcFilter === 'all') return true;
+      return (p.services||[]).indexOf(_svcFilter) >= 0;
+    });
+    // Split into active + inactive.
+    var activeRegistry = filteredRegistry.filter(function(p){return p.isActive !== false;});
+    var inactiveRegistry = filteredRegistry.filter(function(p){return p.isActive === false;});
     activeRegistry.forEach(function(p){tb.appendChild(buildRow(p));});
     // Wire sort click handlers (active providers always stay at top)
     tbl.querySelectorAll('th[data-regsort]').forEach(function(h){
@@ -14013,7 +14083,7 @@ var FUND=(function(){
         var tblInact = document.createElement('table'); tblInact.className = 'fund-table';
         // Same column headers — no sort handlers (sort is driven by the active table)
         tblInact.innerHTML = '<thead><tr>'
-          +'<th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>BILLING</th><th>TERMS</th>'
+          +'<th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>SERVICE</th><th>BILLING</th><th>TERMS</th>'
           +'<th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th>NOTES</th><th></th>'
           +'</tr></thead>';
         var tbInact = document.createElement('tbody'); tblInact.appendChild(tbInact);
@@ -14143,6 +14213,19 @@ var FUND=(function(){
     var inTerms = input('e.g. 7 net 3, monthly net 15');
     fTerms.appendChild(inTerms); box.appendChild(fTerms);
 
+    // Services (multi-select)
+    var fSvc = field('SERVICE(S)', 'What this supplier sells. Pick multiple if applicable — e.g. Cy Send is both airtime and gift card.');
+    var svcWrap = document.createElement('div'); svcWrap.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+    var inSvcs = {};
+    ['airtime','gift_card','utility','swype'].forEach(function(s){
+      var lb = document.createElement('label'); lb.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:12px;color:var(--txt);cursor:pointer;padding:6px 10px;background:var(--surf2);border:1px solid var(--brd);border-radius:6px';
+      var cb = document.createElement('input'); cb.type='checkbox'; cb.value=s;
+      inSvcs[s] = cb;
+      lb.appendChild(cb); lb.appendChild(document.createTextNode(s.replace('_',' ')));
+      svcWrap.appendChild(lb);
+    });
+    fSvc.appendChild(svcWrap); box.appendChild(fSvc);
+
     // Portal URL (optional)
     var fPortal = field('PORTAL URL (optional)', 'For portal mode — the URL where you check this balance manually.');
     var inPortal = input('https://…');
@@ -14192,6 +14275,11 @@ var FUND=(function(){
         return xKey === newKey;
       });
       if(dup){ msg.textContent = 'A provider with that ID/sub-key already exists.'; return; }
+      var pickedSvcs = Object.keys(inSvcs).filter(function(k){return inSvcs[k].checked;});
+      if(pickedSvcs.length === 0){
+        // Fall back to the smart default if user picked none
+        pickedSvcs = _inferDefaultServices(name.toUpperCase(), mode);
+      }
       var newP = {
         benderId: benderId,
         name: name.toUpperCase(),
@@ -14202,6 +14290,7 @@ var FUND=(function(){
         subKey: subKey,
         billingType: inBill.value,
         paymentTerms: inTerms.value.trim(),
+        services: pickedSvcs,
         notes: inNotes.value.trim(),
         isActive: true
       };
