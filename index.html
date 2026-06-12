@@ -11889,24 +11889,24 @@ var PP=(function(){
 
 
 
-.fund-alerts-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#0e1822;border:1px solid #1f2d3d;border-radius:8px;margin-bottom:12px;flex-wrap:wrap;}
+.fund-alerts-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;margin-bottom:12px;flex-wrap:wrap;}
 .fund-alerts-info{display:flex;align-items:center;gap:8px;font-size:12px;color:#cfd6df;}
 .fund-alerts-info .muted{color:#8a98a8;font-weight:400;}
 .fund-alerts-actions{display:flex;gap:6px;}
-.fund-btn-mini{background:#1a2533;color:#cfd6df;border:1px solid #2a3a4d;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600;letter-spacing:0.3px;}
-.fund-btn-mini:hover{background:#243042;border-color:#3a4d65;}
+.fund-btn-mini{background:var(--surf2);color:var(--txt);border:1px solid var(--brd);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600;letter-spacing:0.3px;}
+.fund-btn-mini:hover{background:var(--acc);color:#fff;border-color:var(--acc);}
 .fund-btn-mini:disabled{opacity:0.5;cursor:wait;}
 
 
-.fund-rec-totals{background:#0e1822;border:1px solid #1f2d3d;border-radius:8px;padding:14px 16px;margin-bottom:14px}
+.fund-rec-totals{background:var(--surf2);border:1px solid var(--brd);border-radius:8px;padding:14px 16px;margin-bottom:14px}
 .fund-rec-totals-headline{font-size:14px;color:var(--txt);font-weight:600}
 .fund-rec-totals-headline .muted{color:var(--mut);font-weight:400;font-size:11px;margin-left:8px}
 .fund-rec-totals-breakdown{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.fund-rec-tot-pill{background:#1a2533;border:1px solid #2a3a4d;color:#cfd6df;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;padding:4px 9px;border-radius:5px}
+.fund-rec-tot-pill{background:var(--surf);border:1px solid var(--brd);color:var(--txt);font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;padding:4px 9px;border-radius:5px}
 .fund-rec-totals-warn{margin-top:8px;font-size:11px;color:var(--yel);background:rgba(245,158,11,.06);padding:6px 8px;border-radius:5px}
 .fund-rec-filterstrip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.fund-rec-filterbtn{background:#1a2533;color:var(--mut);border:1px solid #2a3a4d;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Roboto Mono',monospace;letter-spacing:.3px}
-.fund-rec-filterbtn:hover{color:var(--txt);border-color:#3a4d65}
+.fund-rec-filterbtn{background:var(--surf2);color:var(--mut);border:1px solid var(--brd);border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Roboto Mono',monospace;letter-spacing:.3px}
+.fund-rec-filterbtn:hover{color:var(--txt);border-color:var(--acc)}
 .fund-rec-filterbtn.active{background:rgba(108,99,255,.18);color:var(--acc);border-color:var(--acc)}
 .fund-rec-filterbtn .ct{display:inline-block;background:rgba(255,255,255,.07);border-radius:4px;padding:1px 6px;margin-left:5px;font-size:10px}
 .fund-rec-filterbtn.active .ct{background:rgba(108,99,255,.3)}
@@ -13217,7 +13217,7 @@ var FUND=(function(){
     // Window picker — visible only when toggled
     if(windowsOpen){
       var picker = document.createElement('div');
-      picker.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:14px;padding:10px 12px;background:#0e1822;border:1px solid #1f2d3d;border-radius:8px;flex-wrap:wrap';
+      picker.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:14px;padding:10px 12px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;flex-wrap:wrap';
       var pickLbl = document.createElement('span');
       pickLbl.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;letter-spacing:.5px;margin-right:8px';
       pickLbl.textContent='BURN-RATE WINDOWS:';
@@ -13227,7 +13227,7 @@ var FUND=(function(){
         var on = selectedWindows.indexOf(w) >= 0;
         pill.textContent = WINDOW_LABELS[w];
         pill.title = WINDOW_LABEL_LONG[w] + ' burn rate window';
-        pill.style.cssText = 'background:'+(on?'var(--acc)':'#1a2533')+';color:'+(on?'#fff':'var(--mut)')+';border:1px solid '+(on?'var(--acc)':'#2a3a4d')+';border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px;min-width:42px';
+        pill.style.cssText = 'background:'+(on?'var(--acc)':'var(--surf2)')+';color:'+(on?'#fff':'var(--mut)')+';border:1px solid '+(on?'var(--acc)':'var(--brd)')+';border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px;min-width:42px';
         pill.onclick = function(){
           var u = NS.loadUI();
           var ws = Array.isArray(u.forecastWindows) ? u.forecastWindows.slice() : selectedWindows.slice();
@@ -14412,7 +14412,7 @@ var FUND=(function(){
     [{v:'all',l:'All'},{v:'airtime',l:'Airtime',c:'#22d3ee'},{v:'gift_card',l:'Gift card',c:'#f59e0b'},{v:'utility',l:'Utility',c:'#10b981'},{v:'swype',l:'Swype',c:'#a78bfa'}].forEach(function(opt){
       var btn = document.createElement('button');
       var active = svcFilter === opt.v;
-      btn.style.cssText = 'background:'+(active?(opt.c||'var(--acc)'):'#1a2533')+';color:'+(active?'#000':'var(--mut)')+';border:1px solid '+(active?(opt.c||'var(--acc)'):'#2a3a4d')+';border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px';
+      btn.style.cssText = 'background:'+(active?(opt.c||'var(--acc)'):'var(--surf2)')+';color:'+(active?'#fff':'var(--mut)')+';border:1px solid '+(active?(opt.c||'var(--acc)'):'var(--brd)')+';border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px';
       btn.innerHTML = opt.l + ' <span style="background:rgba(0,0,0,.15);border-radius:3px;padding:1px 5px;margin-left:4px;font-size:10px">'+_svcCounts[opt.v]+'</span>';
       btn.onclick = function(){var u=NS.loadUI(); u.providersServiceFilter=opt.v; NS.saveUI(u); NS.renderFunding();};
       svcFilterRow.appendChild(btn);
@@ -14583,7 +14583,7 @@ var FUND=(function(){
     if(inactiveRegistry.length){
       var inactCollapsed = uiReg.providersInactiveCollapsed !== false; // default true
       var inactHdr = document.createElement('div');
-      inactHdr.style.cssText = 'display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;background:#0e1822;border:1px solid #1f2d3d;border-radius:8px;margin-top:14px;margin-bottom:'+(inactCollapsed?'0':'10px')+';user-select:none';
+      inactHdr.style.cssText = 'display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;margin-top:14px;margin-bottom:'+(inactCollapsed?'0':'10px')+';user-select:none';
       inactHdr.innerHTML = '<span style="font-family:Roboto Mono,monospace;font-size:11px;font-weight:700;color:var(--mut);letter-spacing:.5px">'+(inactCollapsed?'▸':'▾')+' INACTIVE PROVIDERS</span><span style="font-size:11px;color:var(--mut)">'+inactiveRegistry.length+' hidden from Daily Pull / Forecast / Fund Now</span><span style="margin-left:auto;font-size:10px;color:var(--mut)">click to '+(inactCollapsed?'expand':'collapse')+'</span>';
       inactHdr.onclick = function(){
         var u = NS.loadUI();
