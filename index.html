@@ -12060,6 +12060,19 @@ var FUND=(function(){
     [9210,'BLACK_HAWK','USD','Black Hawk (ACH)','chat_payments', null, null],
     [9211,'BEST_CARE','USD','Best Care','chat_payments', null, null],
     [9212,'IREWARDIFY','USD','iRewardify','chat_payments', null, null],
+    // === Gift card providers seeded from Bender hourly summary (June 2026) ===
+    [9213,'EZPINV2_USD','USD','EZ Pin V2 USD','chat_payments', null, null],
+    [9214,'EZPINV2_CAD','CAD','EZ Pin V2 CAD','chat_payments', null, null],
+    [9215,'EZPINV2_EUR','EUR','EZ Pin V2 EUR','chat_payments', null, null],
+    [9216,'EZPINV2_SAR','SAR','EZ Pin V2 SAR','chat_payments', null, null],
+    [9217,'EZPINV2_TRY','TRY','EZ Pin V2 TRY','chat_payments', null, null],
+    [9218,'EZPINV2_GBP','GBP','EZ Pin V2 GBP','chat_payments', null, null],
+    [9219,'EZPINV2_AED','AED','EZ Pin V2 AED','chat_payments', null, null],
+    [9220,'EZPINV2_EZD','EZD','EZ Pin V2 EZD','chat_payments', null, null],
+    [9221,'LIKE_CARD','USD','Like Card','chat_payments', null, null],
+    [9222,'CELLPAY','USD','CellPay (airtime + gift card)','chat_payments', null, null],
+    [9223,'AMAZON_GBP','GBP','Amazon GBP','chat_payments', null, null],
+    [9224,'SWYPE_MASTER','USD','Swype System Master','chat_payments', null, null],
     [9213,'RELOADLY_STOCK','USD','Reloadly (GC Stock tab)','chat_payments', null, null],
     // === BILLING (Cellulant utilities, Buy Power) ===
     [9300,'XTRANSFER_MALI_UTIL','XOF','Xtransfer Mali Utility','billing', null, null],
@@ -12082,8 +12095,9 @@ var FUND=(function(){
     var n = String(name||'').toUpperCase();
     // Known multi-service providers (manual list — extend as needed)
     if(n === 'CY_SEND') return ['airtime', 'gift_card'];
-    // Gift-card brands
-    if(/AMAZON|BAMBOO|ENSURE|STEAM|RAZER|GIFT|GAMES|XBOX|PLAYSTATION|APPLE|GOOGLE_PLAY|NETFLIX|SPOTIFY|UBER|WALMART|TARGET|EBAY|BESTBUY|BURGER|MCDONALDS|VISA_GIFT|MASTERCARD_GIFT/.test(n)){
+    if(n === 'CELLPAY') return ['airtime', 'gift_card'];
+    // Gift-card brands — explicit names + family patterns
+    if(/AMAZON|BAMBOO|ENSURE|STEAM|RAZER|GIFT|GAMES|XBOX|PLAYSTATION|APPLE|GOOGLE_PLAY|NETFLIX|SPOTIFY|UBER|WALMART|TARGET|EBAY|BESTBUY|BURGER|MCDONALDS|VISA_GIFT|MASTERCARD_GIFT|LIKE_CARD|PHAZE|GLOBETOPPER|EZPIN|EZPINV2|IREWARDIFY|NEO_CURRENCY|SWYPE_MASTER/.test(n)){
       // Ensure Swype is both gift_card and swype since mode='swype'
       if(mode === 'swype') return ['swype', 'gift_card'];
       return ['gift_card'];
@@ -12143,6 +12157,49 @@ var FUND=(function(){
         changed = true;
       }
     });
+    // One-time backfill: gift card providers from the Bender hourly summary.
+    // Safe to re-run — only adds entries whose name is not already present, so
+    // user deletions stay deleted on subsequent loads (the flag locks it after
+    // first run anyway).
+    var GIFT_BACKFILL_FLAG = 'rl_fund_giftcard_backfill_v1';
+    if(!localStorage.getItem(GIFT_BACKFILL_FLAG)){
+      var giftCardSeeds = [
+        ['EZPINV2_USD','USD','EZ Pin V2 USD',9213],
+        ['EZPINV2_CAD','CAD','EZ Pin V2 CAD',9214],
+        ['EZPINV2_EUR','EUR','EZ Pin V2 EUR',9215],
+        ['EZPINV2_SAR','SAR','EZ Pin V2 SAR',9216],
+        ['EZPINV2_TRY','TRY','EZ Pin V2 TRY',9217],
+        ['EZPINV2_GBP','GBP','EZ Pin V2 GBP',9218],
+        ['EZPINV2_AED','AED','EZ Pin V2 AED',9219],
+        ['EZPINV2_EZD','EZD','EZ Pin V2 EZD',9220],
+        ['LIKE_CARD','USD','Like Card',9221],
+        ['CELLPAY','USD','CellPay (airtime + gift card)',9222],
+        ['AMAZON_GBP','GBP','Amazon GBP',9223],
+        ['SWYPE_MASTER','USD','Swype System Master',9224]
+      ];
+      var existingNames = {};
+      r.forEach(function(p){existingNames[p.name] = true;});
+      giftCardSeeds.forEach(function(s){
+        if(!existingNames[s[0]]){
+          r.push({
+            benderId: s[3],
+            name: s[0],
+            currency: s[1],
+            displayName: s[2],
+            mode: 'chat_payments',
+            portalUrl: null,
+            subKey: null,
+            billingType: 'prepaid',
+            paymentTerms: '',
+            services: _inferDefaultServices(s[0], 'chat_payments'),
+            notes: '',
+            isActive: true
+          });
+          changed = true;
+        }
+      });
+      try{localStorage.setItem(GIFT_BACKFILL_FLAG, '1');}catch(e){}
+    }
     if(changed) saveJSON(K.registry,r);
     return r;
   };
@@ -14084,21 +14141,12 @@ var FUND=(function(){
     var em=document.createElement('div');em.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;line-height:1.55';
     var _actCount = registry.filter(function(p){return p.isActive !== false;}).length;
     var _inactCount = registry.length - _actCount;
-    em.innerHTML='<b>'+_actCount+'</b> active provider'+(_actCount===1?'':'s')+(_inactCount?' · <span style="color:var(--mut)">'+_inactCount+' inactive (collapsed below)</span>':'')+'. Edit display name, currency, mode, portal URL, notes as needed. Click any column header to sort.';
+    em.innerHTML='<b>'+_actCount+'</b> active provider'+(_actCount===1?'':'s')+(_inactCount?' · <span style="color:var(--mut)">'+_inactCount+' inactive (collapsed below)</span>':'')+'. Edit display name, currency, mode, portal URL, notes as needed. Click any column header to sort. Filter by service using the chips below.';
     hdr.appendChild(em);
     var addBtn=document.createElement('button');addBtn.className='fund-btn primary';addBtn.innerHTML='+ Add provider';
     addBtn.title='Add a new supplier wallet to the registry. For multi-wallet providers (like CSQ with General/Cubacel/Euro sub-wallets), add the first one then use the + sub button on the row.';
     addBtn.onclick=function(){NS.showAddProviderModal({});};
     hdr.appendChild(addBtn);
-    var reseedBtn=document.createElement('button');reseedBtn.className='fund-btn';reseedBtn.innerHTML='⟲ Reseed from defaults';
-    reseedBtn.title='Replace the registry with the latest default seed. Wipes any custom edits.';
-    reseedBtn.onclick=function(){
-      if(!confirm('Reseed the registry from defaults? This wipes any custom edits (display names, currencies, notes, active toggles).\n\nUse if you want to pick up new providers added in a recent Pulse update.'))return;
-      try{localStorage.removeItem(K.registry);}catch(e){}
-      if(typeof toast==='function')toast('Registry reseeded','ok');
-      NS.renderFunding();
-    };
-    hdr.appendChild(reseedBtn);
     host.appendChild(hdr);
     // Sort + filter UI state (needed by both the service chips below and the sort handlers further down)
     var uiReg = NS.loadUI();
