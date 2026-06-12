@@ -12084,6 +12084,7 @@ var FUND=(function(){
         benderId:r[0], name:r[1], currency:r[2], displayName:r[3], mode:r[4],
         portalUrl: portalUrl,
         subKey: subKey,
+        billingType:'prepaid',
         notes:'', isActive:true
       };
     });
@@ -12098,6 +12099,12 @@ var FUND=(function(){
       // Fix: WorldVoice was seeded with USD; the wallet actually settles in XAF.
       if(p.name==='WORLDVOICE' && p.benderId===58 && p.currency==='USD'){
         p.currency='XAF'; changed=true;
+      }
+      // Backfill: every provider gets a billing type. Defaults to prepaid for existing
+      // entries since that matches the current registry — the user marks any postpaid
+      // ones explicitly via the Providers tab.
+      if(!p.billingType){
+        p.billingType='prepaid'; changed=true;
       }
     });
     if(changed) saveJSON(K.registry,r);
@@ -12407,7 +12414,7 @@ var FUND=(function(){
     var admin = NS.loadAdmin();
     if(!admin.alertsEnabled){return Promise.resolve({checked:0, eligible:0, sent:0, skipped:'disabled'});}
     var registry = NS.loadRegistry().filter(function(p){
-      return p.isActive!==false && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');
+      return p.isActive!==false && p.billingType!=='postpaid' && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');
     });
     var log = NS.loadAlertLog();
     var cooldownMs = (admin.alertCooldownHours||24) * 3600000;
@@ -12479,7 +12486,7 @@ var FUND=(function(){
     var admin = NS.loadAdmin();
     var targetCover = opts.targetCover || admin.targetCoverDays || 21;
     var registry = NS.loadRegistry().filter(function(p){
-      return p.isActive!==false && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');
+      return p.isActive!==false && p.billingType!=='postpaid' && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');
     });
     var payMethods = NS.loadPaymentMethods();
     var topupHistory = NS.loadTopupHistory();
@@ -12700,7 +12707,7 @@ var FUND=(function(){
   // Skip providers with mode='admin' / 'chat_payments' / 'billing' / 'unavail' since they don't burn
   // in a comparable way (admin computes them manually, gift cards / billing have different rhythms).
   NS.portfolioStatus = function(){
-    var registry = NS.loadRegistry().filter(function(p){return p.isActive!==false && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');});
+    var registry = NS.loadRegistry().filter(function(p){return p.isActive!==false && p.billingType!=='postpaid' && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');});
     var counts = {critical:0, watch:0, healthy:0, surplus:0, nodata:0, total:0};
     registry.forEach(function(p){
       var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
@@ -13859,6 +13866,10 @@ var FUND=(function(){
     var em=document.createElement('div');em.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;line-height:1.55';
     em.innerHTML='<b>'+registry.length+'</b> providers tracked. Edit display name, currency, mode, portal URL, notes as needed. Inactive providers are hidden from the Daily Pull view.';
     hdr.appendChild(em);
+    var addBtn=document.createElement('button');addBtn.className='fund-btn primary';addBtn.innerHTML='+ Add provider';
+    addBtn.title='Add a new supplier wallet to the registry. For multi-wallet providers (like CSQ with General/Cubacel/Euro sub-wallets), add the first one then use the + sub button on the row.';
+    addBtn.onclick=function(){NS.showAddProviderModal({});};
+    hdr.appendChild(addBtn);
     var reseedBtn=document.createElement('button');reseedBtn.className='fund-btn';reseedBtn.innerHTML='⟲ Reseed from defaults';
     reseedBtn.title='Replace the registry with the latest default seed. Wipes any custom edits.';
     reseedBtn.onclick=function(){
@@ -13871,7 +13882,7 @@ var FUND=(function(){
     host.appendChild(hdr);
     var tw=document.createElement('div');tw.className='fund-tablewrap';
     var tbl=document.createElement('table');tbl.className='fund-table';
-    tbl.innerHTML='<thead><tr><th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th>NOTES</th></tr></thead>';
+    tbl.innerHTML='<thead><tr><th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>BILLING</th><th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th>NOTES</th><th></th></tr></thead>';
     var tb=document.createElement('tbody');tbl.appendChild(tb);
     registry.forEach(function(p,idx){
       var tr=document.createElement('tr');
@@ -13882,6 +13893,8 @@ var FUND=(function(){
       var ccyTd=document.createElement('td');var ccyi=document.createElement('input');ccyi.value=p.currency||'USD';ccyi.style.cssText='width:50px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace;text-transform:uppercase';ccyi.onchange=function(){p.currency=this.value.toUpperCase();NS.saveRegistry(registry);};ccyTd.appendChild(ccyi);tr.appendChild(ccyTd);
       // Mode
       var modeTd=document.createElement('td');var modeSel=document.createElement('select');modeSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace';['bender','swype','portal','admin','chat_payments','billing','manual','unavail'].forEach(function(m){var op=document.createElement('option');op.value=m;op.textContent=m;if(m===p.mode)op.selected=true;modeSel.appendChild(op);});modeSel.onchange=function(){p.mode=this.value;NS.saveRegistry(registry);NS.renderFunding();};modeTd.appendChild(modeSel);tr.appendChild(modeTd);
+      // Billing type
+      var billTd=document.createElement('td');var billSel=document.createElement('select');billSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';['prepaid','postpaid'].forEach(function(b){var op=document.createElement('option');op.value=b;op.textContent=b;if(b===(p.billingType||'prepaid'))op.selected=true;billSel.appendChild(op);});billSel.title='Postpaid providers are excluded from Forecast burn-rate and Fund Now recommendations — they invoice on a billing cycle, so their balance is what you owe, not what you can spend.';billSel.onchange=function(){p.billingType=this.value;NS.saveRegistry(registry);NS.renderFunding();};billTd.appendChild(billSel);tr.appendChild(billTd);
       // Payment method
       var pmKey=p.subKey?(String(p.benderId)+'::'+p.subKey):(p.benderId!=null?String(p.benderId):p.name);
       var pmTd=document.createElement('td');var pmSel=document.createElement('select');pmSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';(function(){var _saved=NS.getPaymentMethod(pmKey);var _opts=['', 'Wells Fargo USD', 'Zenith NGN', 'Moneycorp USD', 'Moneycorp EUR', 'Moneycorp GBP', 'Moneycorp ZAR', 'Airwallex EUR', 'Airwallex GBP', 'Crypto', 'Wire', 'Other', 'Manual'];if(_saved && _opts.indexOf(_saved)===-1)_opts=_opts.concat([_saved]);_opts.forEach(function(m){var op=document.createElement('option');op.value=m;if(m==='')op.textContent='— none —';else if(['', 'Wells Fargo USD', 'Zenith NGN', 'Moneycorp USD', 'Moneycorp EUR', 'Moneycorp GBP', 'Moneycorp ZAR', 'Airwallex EUR', 'Airwallex GBP', 'Crypto', 'Wire', 'Other', 'Manual'].indexOf(m)===-1)op.textContent=m+' (legacy)';else op.textContent=m;if(m===_saved)op.selected=true;pmSel.appendChild(op);});})();pmSel.onchange=function(){NS.setPaymentMethod(pmKey,this.value);};pmTd.appendChild(pmSel);tr.appendChild(pmTd);
@@ -13891,11 +13904,220 @@ var FUND=(function(){
       var actTd=document.createElement('td');var actCb=document.createElement('input');actCb.type='checkbox';actCb.checked=p.isActive!==false;actCb.onchange=function(){p.isActive=this.checked;NS.saveRegistry(registry);};actTd.appendChild(actCb);tr.appendChild(actTd);
       // Notes
       var notesTd=document.createElement('td');var notesi=document.createElement('input');notesi.value=p.notes||'';notesi.style.cssText='width:140px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';notesi.onchange=function(){p.notes=this.value;NS.saveRegistry(registry);};notesTd.appendChild(notesi);tr.appendChild(notesTd);
+      // Actions
+      var actTd=document.createElement('td');actTd.style.cssText='white-space:nowrap';
+      var subBtn=document.createElement('button');subBtn.className='fund-btn-mini';subBtn.textContent='+ sub';
+      subBtn.title='Add another sub-wallet sharing this provider\u2019s Bender ID (for multi-wallet providers like LAFRICAMOBILE, CSQ, ClickMobile).';
+      subBtn.onclick=function(){NS.showAddProviderModal({parentBenderId:p.benderId, parentName:p.name});};
+      actTd.appendChild(subBtn);
+      var delBtn=document.createElement('button');delBtn.className='fund-btn-mini';delBtn.style.marginLeft='4px';delBtn.style.color='var(--red)';delBtn.style.borderColor='rgba(239,68,68,.3)';delBtn.textContent='\u00d7';
+      delBtn.title='Remove this provider from the registry. Does not delete past snapshots — they keep their historical data and just stop appearing in new pulls.';
+      delBtn.onclick=function(){
+        if(!confirm('Remove '+(p.displayName||p.name)+' from the registry?\n\nThis only affects the registry itself — historical snapshots stay intact.'))return;
+        var idx=registry.indexOf(p); if(idx>=0){registry.splice(idx,1); NS.saveRegistry(registry); NS.renderFunding();}
+      };
+      actTd.appendChild(delBtn);
+      tr.appendChild(actTd);
       tb.appendChild(tr);
     });
     tw.appendChild(tbl);
     host.appendChild(tw);
   }
+
+
+  // Add a new provider (or sub-wallet of an existing provider) to the registry.
+  // opts: {parentBenderId, parentName} when adding a sub-wallet — otherwise empty.
+  NS.showAddProviderModal = function(opts){
+    opts = opts || {};
+    if(document.getElementById('fund-add-overlay')) return;
+    var isSubWallet = opts.parentBenderId != null;
+    var registry = NS.loadRegistry();
+
+    var ov = document.createElement('div');
+    ov.id = 'fund-add-overlay';
+    ov.className = 'guide-ov';
+    ov.onclick = function(e){ if(e.target === ov) close(); };
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:14px;width:520px;max-width:calc(100vw - 32px);padding:28px 32px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:calc(100vh - 64px);overflow-y:auto;';
+    ov.appendChild(box);
+
+    var title = document.createElement('h2');
+    title.style.cssText = 'font-size:18px;font-weight:800;margin:0 0 4px 0;color:var(--txt)';
+    title.textContent = isSubWallet ? ('Add sub-wallet to ' + opts.parentName) : 'Add provider to registry';
+    box.appendChild(title);
+
+    var sub = document.createElement('p');
+    sub.style.cssText = 'font-size:11px;color:var(--mut);margin:0 0 18px 0;line-height:1.5';
+    sub.innerHTML = isSubWallet
+      ? 'Adds another wallet sharing Bender ID <b>' + opts.parentBenderId + '</b>. Specify the sub-wallet Description Bender returns (e.g. "Cubacel", "Euro") so the parser can route balances correctly.'
+      : 'Adds a new supplier wallet. For multi-wallet providers (one Bender command, multiple sub-wallet rows in the response), add the first one here then use the + sub button on its row to add the rest.';
+    box.appendChild(sub);
+
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'guide-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.onclick = close;
+    closeBtn.title = 'Close (Esc)';
+    box.appendChild(closeBtn);
+
+    function field(label, hint){
+      var f = document.createElement('div'); f.style.cssText = 'margin-bottom:14px';
+      var l = document.createElement('div'); l.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:4px';
+      l.textContent = label;
+      f.appendChild(l);
+      if(hint){
+        var h = document.createElement('div'); h.style.cssText = 'font-size:10px;color:var(--mut);margin-bottom:6px;line-height:1.5';
+        h.innerHTML = hint;
+        f.appendChild(h);
+      }
+      return f;
+    }
+    function input(placeholder, value){
+      var i = document.createElement('input'); i.type='text';
+      if(placeholder) i.placeholder = placeholder;
+      if(value != null) i.value = value;
+      i.style.cssText = 'width:100%;padding:8px 10px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:13px;font-family:inherit;box-sizing:border-box';
+      return i;
+    }
+    function select(options, value){
+      var s = document.createElement('select');
+      s.style.cssText = 'width:100%;padding:8px 10px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:13px;font-family:inherit;box-sizing:border-box';
+      options.forEach(function(o){
+        var op = document.createElement('option');
+        if(typeof o === 'string'){op.value=o; op.textContent=o;}
+        else {op.value=o.v; op.textContent=o.l;}
+        if(op.value === value) op.selected = true;
+        s.appendChild(op);
+      });
+      return s;
+    }
+
+    // Bender ID
+    var fId = field('BENDER ID', 'Numeric ID from Bender (e.g. 3 for CSQ). Required for bender / swype modes. Leave blank for portal / admin / billing.');
+    var inId = input('e.g. 3', isSubWallet ? String(opts.parentBenderId) : '');
+    if(isSubWallet) inId.disabled = true;
+    fId.appendChild(inId); box.appendChild(fId);
+
+    // Sub-wallet Description (always shown — required if multi-wallet, blank for single)
+    var fSub = field(isSubWallet ? 'SUB-WALLET DESCRIPTION (required)' : 'SUB-WALLET DESCRIPTION (optional)',
+      'The Description text Bender returns for this sub-wallet (e.g. "General", "Cubacel", "Euro"). Leave blank if this is a single-wallet provider — the parser will match by parent name.');
+    var inSub = input('e.g. Cubacel', '');
+    fSub.appendChild(inSub); box.appendChild(fSub);
+
+    // Internal name
+    var fName = field('INTERNAL NAME', 'Short uppercase identifier (e.g. CSQ, AIRTEL_NIGERIA). Used internally for parser matching. Cannot contain spaces.');
+    var inName = input('e.g. CSQ', isSubWallet ? opts.parentName : '');
+    if(isSubWallet) inName.disabled = true;
+    fName.appendChild(inName); box.appendChild(fName);
+
+    // Display name
+    var fDisp = field('DISPLAY NAME', 'Human-readable label shown in tables and Slack alerts. Sub-wallets typically include the sub-key (e.g. "CSQ General", "CSQ Cubacel").');
+    var inDisp = input('e.g. CSQ General', '');
+    fDisp.appendChild(inDisp); box.appendChild(fDisp);
+
+    // Currency
+    var fCcy = field('CURRENCY', '3-letter ISO code. Determines how balances and amounts are displayed.');
+    var inCcy = input('e.g. USD, EUR, NGN, XAF', isSubWallet ? '' : 'USD');
+    inCcy.style.fontFamily = "'Roboto Mono', monospace"; inCcy.style.textTransform = 'uppercase';
+    fCcy.appendChild(inCcy); box.appendChild(fCcy);
+
+    // Mode (locked when sub-wallet — must match parent)
+    var fMode = field('MODE', 'How Pulse interacts with this wallet. Sub-wallets inherit their parent\'s mode.');
+    var parentMode = 'bender';
+    if(isSubWallet){
+      var par = registry.find(function(x){return x.benderId === opts.parentBenderId;});
+      if(par) parentMode = par.mode;
+    }
+    var inMode = select(['bender','swype','portal','admin','chat_payments','billing','manual','unavail'], isSubWallet ? parentMode : 'bender');
+    if(isSubWallet) inMode.disabled = true;
+    fMode.appendChild(inMode); box.appendChild(fMode);
+
+    // Billing type
+    var fBill = field('BILLING TYPE', 'Prepaid wallets need topping up (Fund Now uses these). Postpaid wallets invoice on a billing cycle — their balance is what you owe, so they are tracked but excluded from Fund Now recommendations.');
+    var inBill = select([{v:'prepaid',l:'Prepaid — needs topping up'},{v:'postpaid',l:'Postpaid — billed monthly / on invoice'}], 'prepaid');
+    fBill.appendChild(inBill); box.appendChild(fBill);
+
+    // Portal URL (optional)
+    var fPortal = field('PORTAL URL (optional)', 'For portal mode — the URL where you check this balance manually.');
+    var inPortal = input('https://…');
+    fPortal.appendChild(inPortal); box.appendChild(fPortal);
+
+    // Notes
+    var fNotes = field('NOTES (optional)', 'Free text. Anything that helps the next person understand this wallet.');
+    var inNotes = input('e.g. EUR settles same-day, USD takes 2 days');
+    fNotes.appendChild(inNotes); box.appendChild(fNotes);
+
+    // Validation message
+    var msg = document.createElement('div');
+    msg.style.cssText = 'font-size:11px;color:var(--red);margin:8px 0 12px 0;min-height:14px';
+    box.appendChild(msg);
+
+    // Actions
+    var actRow = document.createElement('div');
+    actRow.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:6px;border-top:1px solid var(--brd);padding-top:16px';
+    var cancelBtn = document.createElement('button');
+    cancelBtn.className = 'fund-btn'; cancelBtn.textContent = 'Cancel'; cancelBtn.onclick = close;
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'fund-btn primary'; saveBtn.textContent = isSubWallet ? 'Add sub-wallet' : 'Add provider';
+    saveBtn.onclick = function(){
+      msg.textContent = '';
+      var benderIdRaw = inId.value.trim();
+      var benderId = benderIdRaw === '' ? null : parseInt(benderIdRaw, 10);
+      if(benderIdRaw !== '' && (isNaN(benderId) || benderId < 0)){
+        msg.textContent = 'Bender ID must be a positive number or blank.'; return;
+      }
+      var name = inName.value.trim();
+      if(!name){ msg.textContent = 'Internal name is required.'; return; }
+      if(/\s/.test(name)){ msg.textContent = 'Internal name cannot contain spaces.'; return; }
+      var disp = inDisp.value.trim();
+      if(!disp){ msg.textContent = 'Display name is required.'; return; }
+      var ccy = inCcy.value.trim().toUpperCase();
+      if(!ccy || ccy.length !== 3){ msg.textContent = 'Currency must be a 3-letter ISO code.'; return; }
+      var mode = inMode.value;
+      if((mode === 'bender' || mode === 'swype') && benderId == null){
+        msg.textContent = mode + ' mode requires a Bender ID.'; return;
+      }
+      var subKey = inSub.value.trim() || null;
+      if(isSubWallet && !subKey){ msg.textContent = 'Sub-wallet description is required.'; return; }
+      // Check for duplicate composite key
+      var newKey = subKey ? (String(benderId) + '::' + subKey) : (benderId != null ? String(benderId) : name);
+      var dup = registry.find(function(x){
+        var xKey = x.subKey ? (String(x.benderId) + '::' + x.subKey) : (x.benderId != null ? String(x.benderId) : x.name);
+        return xKey === newKey;
+      });
+      if(dup){ msg.textContent = 'A provider with that ID/sub-key already exists.'; return; }
+      var newP = {
+        benderId: benderId,
+        name: name.toUpperCase(),
+        currency: ccy,
+        displayName: disp,
+        mode: mode,
+        portalUrl: inPortal.value.trim() || (mode === 'portal' ? '' : null),
+        subKey: subKey,
+        billingType: inBill.value,
+        notes: inNotes.value.trim(),
+        isActive: true
+      };
+      registry.push(newP);
+      NS.saveRegistry(registry);
+      if(typeof toast === 'function') toast('Added ' + disp + ' to registry', 'ok');
+      close();
+      NS.renderFunding();
+    };
+    actRow.appendChild(cancelBtn); actRow.appendChild(saveBtn);
+    box.appendChild(actRow);
+
+    document.body.appendChild(ov);
+    setTimeout(function(){ (isSubWallet ? inSub : inId).focus(); }, 50);
+
+    function escHandler(e){ if(e.key === 'Escape') close(); }
+    document.addEventListener('keydown', escHandler);
+    function close(){
+      document.removeEventListener('keydown', escHandler);
+      if(ov.parentNode) ov.parentNode.removeChild(ov);
+    }
+  };
 
   // ===== How to use: Funding guide =====
   NS.showFundingGuide = function(){
