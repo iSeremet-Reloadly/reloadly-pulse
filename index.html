@@ -12194,7 +12194,7 @@ var FUND=(function(){
     // card entries (PHAZE, GLOBETOPPER, IREWARDIFY, etc.) had empty services
     // because the old inference regex didn't include them. Gated by a flag so
     // it runs exactly once — won't override later manual edits.
-    var SVC_REINFER_FLAG = 'rl_fund_svc_reinfer_v2';
+    var SVC_REINFER_FLAG = 'rl_fund_svc_reinfer_v3';
     if(!localStorage.getItem(SVC_REINFER_FLAG)){
       r.forEach(function(p){
         if(Array.isArray(p.services) && p.services.length === 0){
@@ -12211,9 +12211,22 @@ var FUND=(function(){
     // Safe to re-run — only adds entries whose name is not already present, so
     // user deletions stay deleted on subsequent loads (the flag locks it after
     // first run anyway).
-    var GIFT_BACKFILL_FLAG = 'rl_fund_giftcard_backfill_v1';
+    var GIFT_BACKFILL_FLAG = 'rl_fund_giftcard_backfill_v2';
     if(!localStorage.getItem(GIFT_BACKFILL_FLAG)){
       var giftCardSeeds = [
+        // === Older entries (pre-existing seeds — added here to cover users
+        // whose registry was first loaded before these lived in SEED).
+        ['EZPIN','USD','EZ Pin',9200],
+        ['PHAZE','USD','Phaze',9202],
+        ['GLOBETOPPER','USD','Globetopper',9203],
+        ['AMAZON','USD','Amazon',9204],
+        ['BAMBOO_USD','USD','Bamboo USD',9205],
+        ['BAMBOO_EUR','EUR','Bamboo EUR',9206],
+        ['NEO_CURRENCY_USD','USD','Neo Currency USD',9207],
+        ['NEO_CURRENCY_EUR','EUR','Neo Currency EUR',9208],
+        ['NEO_CURRENCY_GBP','GBP','Neo Currency GBP',9209],
+        ['IREWARDIFY','USD','iRewardify',9212],
+        // === Newly seeded from the Bender hourly summary
         ['EZPINV2_USD','USD','EZ Pin V2 USD',9213],
         ['EZPINV2_CAD','CAD','EZ Pin V2 CAD',9214],
         ['EZPINV2_EUR','EUR','EZ Pin V2 EUR',9215],
@@ -12252,6 +12265,19 @@ var FUND=(function(){
       try{localStorage.setItem(GIFT_BACKFILL_FLAG, '1');}catch(e){}
     }
     if(changed) saveJSON(K.registry,r);
+    // One-time reset: if the user has a stale service filter that might be
+    // hiding chat_payments gift cards, clear it so they get the full view.
+    try{
+      var UI_RESET_FLAG = 'rl_fund_ui_reset_v1';
+      if(!localStorage.getItem(UI_RESET_FLAG)){
+        var ui = loadJSON(K.ui, {});
+        if(ui && ui.providersServiceFilter && ui.providersServiceFilter !== 'all'){
+          ui.providersServiceFilter = 'all';
+          saveJSON(K.ui, ui);
+        }
+        localStorage.setItem(UI_RESET_FLAG, '1');
+      }
+    }catch(e){console.warn('[FUND] ui reset skipped', e);}
     return r;
   };
   NS.saveRegistry=function(r){saveJSON(K.registry,r);};
