@@ -13878,11 +13878,19 @@ var FUND=(function(){
       // Walk provider rows
       for(var r=headerRowIdx+1;r<aoa.length;r++){
         var row=aoa[r]||[];
-        // Find provider name in cols 0-2 (some sheets have a "Prepaid" prefix col)
+        // Find provider name in cols 0-2. Skip the Prepaid/Postpaid indicator column
+        // AND skip Excel's broken-VLOOKUP sentinel '#N/A' so we fall through cleanly.
         var name=null;
         for(var nc=0;nc<3 && nc<row.length;nc++){
           var v=row[nc];
-          if(typeof v==='string' && v.trim() && v.trim().toLowerCase()!=='prepaid'){name=v.trim();break;}
+          if(typeof v==='string'){
+            var trimmed = v.trim();
+            var lower = trimmed.toLowerCase();
+            if(trimmed && lower !== 'prepaid' && lower !== 'postpaid' && trimmed !== '#N/A' && lower !== 'n a'){
+              name = trimmed;
+              break;
+            }
+          }
         }
         if(!name)continue;
         var normName = _normalizeName(name);
