@@ -13137,11 +13137,54 @@ var FUND=(function(){
 
     host.appendChild(_renderStatusSummary());
 
+    // Custom-window picker state
+    var ALL_WINDOWS = [1, 3, 5, 7, 14, 21, 28];
+    var WINDOW_LABELS = {1: '24h', 3: '3D', 5: '5D', 7: '7D', 14: '14D', 21: '21D', 28: '28D'};
+    var WINDOW_LABEL_LONG = {1: '24-hour', 3: '3-day', 5: '5-day', 7: '7-day', 14: '14-day', 21: '21-day', 28: '28-day'};
+    var uiF = NS.loadUI();
+    var selectedWindows = Array.isArray(uiF.forecastWindows) && uiF.forecastWindows.length
+      ? uiF.forecastWindows.filter(function(w){return ALL_WINDOWS.indexOf(w) >= 0;}).sort(function(a,b){return a-b;})
+      : [3, 7, 30];
+    if(!selectedWindows.length) selectedWindows = [3, 7, 30];
+    // 30 is still allowed as a window but isn't in ALL_WINDOWS — keep it as an
+    // implicit always-available default if previously selected.
+    if(uiF.forecastWindows == null && selectedWindows.indexOf(30) === -1) selectedWindows.push(30);
+    var windowsOpen = uiF.forecastWindowsOpen === true;
+
     var registry = NS.loadRegistry().filter(function(p){return p.isActive!==false;});
     var rows = registry.map(function(p){
       var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
-      var f = NS.computeForecast(key, p);
-      return {provider:p, key:key, forecast:f};
+      // Compute burn-rate for every selected window
+      var ratesPerWindow = {};
+      var minDaysLeft = Infinity;
+      var minWindowKey = null;
+      var totalDataPoints = 0;
+      selectedWindows.forEach(function(w){
+        var rate = NS.computeBurnRate(key, w);
+        ratesPerWindow[w] = rate;
+        totalDataPoints += (rate.dataPoints || 0);
+        if(rate.daysLeft != null && rate.daysLeft < minDaysLeft){
+          minDaysLeft = rate.daysLeft;
+          minWindowKey = w;
+        }
+      });
+      var status = NS.classifyStatus(minDaysLeft, totalDataPoints, p);
+      var anyRate = ratesPerWindow[selectedWindows[0]];
+      var currency = (anyRate && anyRate.currency) || p.currency || 'USD';
+      var current = anyRate ? anyRate.current : null;
+      var hasTopups = false;
+      selectedWindows.forEach(function(w){if(ratesPerWindow[w] && ratesPerWindow[w].hasTopups) hasTopups = true;});
+      return {
+        provider: p,
+        key: key,
+        ratesPerWindow: ratesPerWindow,
+        minDaysLeft: minDaysLeft,
+        minWindowLabel: minWindowKey != null ? WINDOW_LABELS[minWindowKey] || (minWindowKey + 'D') : '',
+        status: status,
+        current: current,
+        currency: currency,
+        hasTopups: hasTopups
+      };
     });
 
     // Sort + filter UI
@@ -13154,33 +13197,86 @@ var FUND=(function(){
     lbl.textContent='FILTER:'; ctlBar.appendChild(lbl);
     ['all','critical','watch','healthy','surplus','nodata'].forEach(function(s){
       var b = document.createElement('button');
-      var n = s==='all'?rows.length:rows.filter(function(r){return r.forecast.status===s;}).length;
+      var n = s==='all'?rows.length:rows.filter(function(r){return r.status===s;}).length;
       b.textContent = s.toUpperCase()+' ('+n+')';
       b.className='fund-btn'+(filterStatus===s?' primary':'');
       b.style.cssText += 'font-size:10px;padding:5px 10px';
       b.onclick = function(){var u=NS.loadUI();u.forecastFilter=s;NS.saveUI(u);NS.renderFunding();};
       ctlBar.appendChild(b);
     });
+    // Spacer pushes Windows toggle to the right
+    var spacer = document.createElement('span'); spacer.style.cssText='margin-left:auto'; ctlBar.appendChild(spacer);
+    var windowsBtn = document.createElement('button');
+    windowsBtn.className = 'fund-btn' + (windowsOpen ? ' primary' : '');
+    windowsBtn.innerHTML = '⏱ Windows <span style="background:rgba(0,0,0,.15);border-radius:3px;padding:1px 6px;margin-left:4px;font-size:10px">'+selectedWindows.length+'</span>';
+    windowsBtn.title = 'Show / hide the burn-rate window picker';
+    windowsBtn.onclick = function(){var u=NS.loadUI(); u.forecastWindowsOpen = !windowsOpen; NS.saveUI(u); NS.renderFunding();};
+    ctlBar.appendChild(windowsBtn);
     host.appendChild(ctlBar);
 
+    // Window picker — visible only when toggled
+    if(windowsOpen){
+      var picker = document.createElement('div');
+      picker.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:14px;padding:10px 12px;background:#0e1822;border:1px solid #1f2d3d;border-radius:8px;flex-wrap:wrap';
+      var pickLbl = document.createElement('span');
+      pickLbl.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;letter-spacing:.5px;margin-right:8px';
+      pickLbl.textContent='BURN-RATE WINDOWS:';
+      picker.appendChild(pickLbl);
+      ALL_WINDOWS.forEach(function(w){
+        var pill = document.createElement('button');
+        var on = selectedWindows.indexOf(w) >= 0;
+        pill.textContent = WINDOW_LABELS[w];
+        pill.title = WINDOW_LABEL_LONG[w] + ' burn rate window';
+        pill.style.cssText = 'background:'+(on?'var(--acc)':'#1a2533')+';color:'+(on?'#fff':'var(--mut)')+';border:1px solid '+(on?'var(--acc)':'#2a3a4d')+';border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px;min-width:42px';
+        pill.onclick = function(){
+          var u = NS.loadUI();
+          var ws = Array.isArray(u.forecastWindows) ? u.forecastWindows.slice() : selectedWindows.slice();
+          var idx = ws.indexOf(w);
+          if(idx >= 0) ws.splice(idx, 1);
+          else { ws.push(w); ws.sort(function(a,b){return a-b;}); }
+          if(ws.length === 0) ws = [3, 7, 30]; // never empty
+          u.forecastWindows = ws;
+          NS.saveUI(u); NS.renderFunding();
+        };
+        picker.appendChild(pill);
+      });
+      // Reset
+      var resetBtn = document.createElement('button');
+      resetBtn.style.cssText='background:transparent;color:var(--mut);border:none;cursor:pointer;font-size:10px;font-family:Roboto Mono,monospace;font-weight:700;margin-left:6px;text-decoration:underline';
+      resetBtn.textContent = 'Reset to 3/7/30';
+      resetBtn.onclick = function(){var u=NS.loadUI(); u.forecastWindows=[3,7,30]; NS.saveUI(u); NS.renderFunding();};
+      picker.appendChild(resetBtn);
+      host.appendChild(picker);
+    }
+
     // Apply filter
-    if(filterStatus !== 'all'){rows = rows.filter(function(r){return r.forecast.status===filterStatus;});}
+    if(filterStatus !== 'all'){rows = rows.filter(function(r){return r.status===filterStatus;});}
 
     // Sort
     function getSortVal(r){
-      switch(sortKey){
-        case 'name': return (r.provider.displayName||r.provider.name||'').toLowerCase();
-        case 'current': return -(r.forecast.threeDay.current||0);
-        case 'rate3': return -(r.forecast.threeDay.dailyAvg||0);
-        case 'rate7': return -(r.forecast.sevenDay.dailyAvg||0);
-        case 'rate30': return -(r.forecast.thirtyDay.dailyAvg||0);
-        case 'days':
-        default:
-          var d = r.forecast.minDaysLeft;
-          if(d==null) return 1e9;
-          if(!isFinite(d)) return 1e9-1;
-          return d;
+      if(sortKey === 'name') return (r.provider.displayName||r.provider.name||'').toLowerCase();
+      if(sortKey === 'current') return -(r.current||0);
+      if(sortKey === 'days' || sortKey == null){
+        var d = r.minDaysLeft;
+        if(d==null) return 1e9;
+        if(!isFinite(d)) return 1e9-1;
+        return d;
       }
+      // Dynamic rate-N sort key (e.g. rate-3, rate-7, rate-30, rate-1, ...)
+      if(sortKey.indexOf('rate-') === 0){
+        var w = parseInt(sortKey.slice(5), 10);
+        var rate = r.ratesPerWindow ? r.ratesPerWindow[w] : null;
+        return -(rate ? (rate.dailyAvg||0) : 0);
+      }
+      // Legacy keys for backwards compat with stored UI state
+      if(sortKey === 'rate3') return -((r.ratesPerWindow && r.ratesPerWindow[3] && r.ratesPerWindow[3].dailyAvg) || 0);
+      if(sortKey === 'rate7') return -((r.ratesPerWindow && r.ratesPerWindow[7] && r.ratesPerWindow[7].dailyAvg) || 0);
+      if(sortKey === 'rate30') return -((r.ratesPerWindow && r.ratesPerWindow[30] && r.ratesPerWindow[30].dailyAvg) || 0);
+      // default: days
+      var d2 = r.minDaysLeft;
+      if(d2==null) return 1e9;
+      if(!isFinite(d2)) return 1e9-1;
+      return d2;
     }
     rows.sort(function(a,b){
       var va = getSortVal(a), vb = getSortVal(b);
@@ -13197,36 +13293,45 @@ var FUND=(function(){
       var arrow = sortKey===key ? (sortOrder==='asc'?' ▲':' ▼') : '';
       return '<th class="'+cls+'" data-sort="'+key+'">'+label+arrow+(tip?fcTip(tip):'')+'</th>';
     }
-    tbl.innerHTML='<thead><tr>'
+    var theadHtml = '<thead><tr>'
       +th('name','PROVIDER','The supplier wallet. Sub-wallets (LAFRICAMOBILE, ClickMobile, Becharge, Intellexal) appear as separate rows because each one has its own balance and burn rate.')
       +'<th>MODE'+fcTip('How Pulse interacts with this provider. BENDER = Bender slash command. SWYPE = Swype Bender command (currency conversion handled). PORTAL = manual web portal lookup. ADMIN / CHAT_PAYMENTS / BILLING / UNAVAIL = excluded from burn-rate calculations because they do not burn in a comparable way.')+'</th>'
-      +th('current','CURRENT','Latest balance from the most recent snapshot you saved on the Daily Pull tab. Negative values mean the wallet is overdrawn.')
-      +th('rate3','3-DAY RATE','Average daily consumption over the last 3 snapshots. Catches recent burn spikes. Burn days = number of days within the window where balance actually went down (topup days excluded).')
-      +th('rate7','7-DAY RATE','Average daily consumption over the last 7 snapshots. Medium-term view — stable enough to ignore one-day anomalies but still recent enough to reflect current traffic.')
-      +th('rate30','30-DAY RATE','Average daily consumption over the last 30 snapshots. Long-term baseline. Smooths over weekly seasonality. Useful for steady-state suppliers.')
-      +th('days','DAYS LEFT (MIN)','How many days until the wallet is empty, computed from the MOST CONSERVATIVE (smallest days-left) of the three windows. The window that won is shown below the number. Drives the status pill.')
+      +th('current','CURRENT','Latest balance from the most recent snapshot you saved on the Daily Pull tab. Negative values mean the wallet is overdrawn.');
+    selectedWindows.forEach(function(w){
+      var lbl = (WINDOW_LABELS[w] || (w + 'D')) + ' RATE';
+      var tip = 'Average daily consumption over the last ' + w + ' snapshot' + (w!==1?'s':'') + '. ' + (
+        w===1 ? '24h gives the freshest signal — useful for spotting same-day spikes.'
+        : w<=3 ? 'Catches recent burn spikes.'
+        : w<=7 ? 'Stable middle ground — ignores one-day anomalies but stays current.'
+        : w<=14 ? 'Two-week view — useful for weekly seasonality.'
+        : w<=21 ? 'Three-week view.'
+        : 'Long-term baseline. Useful for steady-state suppliers.');
+      theadHtml += th('rate-' + w, lbl, tip);
+    });
+    theadHtml += th('days','DAYS LEFT (MIN)','How many days until the wallet is empty, computed from the MOST CONSERVATIVE (smallest days-left) of the selected windows. The window that won is shown below the number. Drives the status pill.')
       +'<th>STATUS'+fcTip('CRITICAL: ≤3 days left — act today. WATCH: ≤7 days — act this week. HEALTHY: ≤30 days — fine for now. SURPLUS: more than 30 days or no burn observed. NO DATA: fewer than 4 snapshots available — cannot forecast yet.')+'</th>'
       +'</tr></thead>';
+    tbl.innerHTML = theadHtml;
     var tb = document.createElement('tbody');
     rows.forEach(function(r){
       var tr = document.createElement('tr');
       var p = r.provider;
-      var f = r.forecast;
-      var ccy = f.threeDay.currency || p.currency || 'USD';
+      var ccy = r.currency;
       function rateCell(rate){
         if(!rate || !rate.dailyAvg) return '<td class="mut" style="text-align:right">—</td>';
         var burnDays = rate.burnDays || 0;
         return '<td class="rate-cell">'+_fmtNumber(rate.dailyAvg)+' '+ccy+'/d<small>'+burnDays+' burn day'+(burnDays!==1?'s':'')+'</small></td>';
       }
+      var rateCellsHtml = '';
+      selectedWindows.forEach(function(w){ rateCellsHtml += rateCell(r.ratesPerWindow[w]); });
+      var statusForPill = {status: r.status, minDaysLeft: r.minDaysLeft, minWindow: r.minWindowLabel};
       tr.innerHTML=
         '<td><div style="font-weight:700">'+_esc(p.displayName||p.name)+'</div><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">'+_esc(p.name)+(p.benderId!=null?' · ID '+p.benderId:'')+'</div></td>'
        +'<td><span class="fund-source-pill '+p.mode+'">'+(p.mode||'?').toUpperCase()+'</span></td>'
-       +'<td class="num">'+_fmtNumber(f.threeDay.current)+' '+_esc(ccy)+'</td>'
-       +rateCell(f.threeDay)
-       +rateCell(f.sevenDay)
-       +rateCell(f.thirtyDay)
-       +'<td class="fund-days-cell" style="color:'+(f.status==='critical'?'var(--red)':f.status==='watch'?'var(--yel)':f.status==='healthy'?'var(--grn)':'var(--mut)')+'">'+_fmtDays(f.minDaysLeft)+'<span class="window-hint">'+(f.minWindow||'')+(f.threeDay.hasTopups?' · topups skipped':'')+'</span></td>'
-       +'<td>'+_statusPillHTML(f)+'</td>';
+       +'<td class="num">'+_fmtNumber(r.current)+' '+_esc(ccy)+'</td>'
+       +rateCellsHtml
+       +'<td class="fund-days-cell" style="color:'+(r.status==='critical'?'var(--red)':r.status==='watch'?'var(--yel)':r.status==='healthy'?'var(--grn)':'var(--mut)')+'">'+_fmtDays(r.minDaysLeft)+'<span class="window-hint">'+(r.minWindowLabel||'')+(r.hasTopups?' · topups skipped':'')+'</span></td>'
+       +'<td>'+_statusPillHTML(statusForPill)+'</td>';
       tb.appendChild(tr);
     });
     if(!rows.length){
