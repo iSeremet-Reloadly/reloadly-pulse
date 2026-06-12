@@ -11959,7 +11959,7 @@ var FUND=(function(){
     [51,  'DIGICEL','USD','Digicel','bender', null, null],
     [53,  'DNS','USD','DNS','bender', null, null],
     [54,  'GAMSWITCH','GMD','Gam Switch','bender', null, null],
-    [58,  'WORLDVOICE','USD','World Voice','bender', null, null],
+    [58,  'WORLDVOICE','XAF','World Voice','bender', null, null],
     [62,  'ZONG','PKR','Zong Pakistan','bender', null, null],
     [63,  'MTN_CAMEROON','XAF','MTN Cameroon','bender', null, null],
     [71,  'AIRTEL_GABON','XAF','Airtel Gabon','bender', null, null],
@@ -12088,7 +12088,21 @@ var FUND=(function(){
       };
     });
   }
-  NS.loadRegistry=function(){var r=loadJSON(K.registry,null);if(!r){r=_seedRegistry();saveJSON(K.registry,r);}return r;};
+  NS.loadRegistry=function(){
+    var r=loadJSON(K.registry,null);
+    if(!r){r=_seedRegistry();saveJSON(K.registry,r);}
+    // Idempotent data-correction fixups for existing registries.
+    // Each one only fires if the wrong value is still in place — once corrected, it stays.
+    var changed=false;
+    r.forEach(function(p){
+      // Fix: WorldVoice was seeded with USD; the wallet actually settles in XAF.
+      if(p.name==='WORLDVOICE' && p.benderId===58 && p.currency==='USD'){
+        p.currency='XAF'; changed=true;
+      }
+    });
+    if(changed) saveJSON(K.registry,r);
+    return r;
+  };
   NS.saveRegistry=function(r){saveJSON(K.registry,r);};
   NS.loadSnapshots=function(){return loadJSON(K.snapshots,[]);};
   NS.saveSnapshots=function(s){saveJSON(K.snapshots,s);};
