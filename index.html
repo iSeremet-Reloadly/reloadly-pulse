@@ -14338,6 +14338,71 @@ var FUND=(function(){
     // Sort + filter UI state (needed by both the service chips below and the sort handlers further down)
     var uiReg = NS.loadUI();
     // Service filter chips
+    // === SEARCH BAR ===
+    var searchQuery = (uiReg.providersSearch || '');
+    var searchRow = document.createElement('div');
+    searchRow.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:nowrap';
+    var searchLbl = document.createElement('span');
+    searchLbl.style.cssText = 'font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-right:4px;flex-shrink:0';
+    searchLbl.textContent = 'SEARCH';
+    searchRow.appendChild(searchLbl);
+    var searchWrap = document.createElement('div');
+    searchWrap.style.cssText = 'position:relative;flex:1;max-width:380px';
+    var searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.id = 'fund-providers-search';
+    searchInput.placeholder = 'Type a name, currency, mode, ID...';
+    searchInput.value = searchQuery;
+    searchInput.style.cssText = 'width:100%;padding:7px 30px 7px 12px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box;outline:none';
+    searchInput.onfocus = function(){this.style.borderColor = 'var(--acc)';};
+    searchInput.onblur = function(){this.style.borderColor = 'var(--brd)';};
+    if(searchQuery){
+      var clearBtn = document.createElement('button');
+      clearBtn.innerHTML = '×';
+      clearBtn.title = 'Clear search';
+      clearBtn.style.cssText = 'position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--mut);cursor:pointer;font-size:18px;line-height:1;padding:0 6px;font-weight:700';
+      clearBtn.onclick = function(){var u=NS.loadUI(); u.providersSearch=''; NS.saveUI(u); NS.renderFunding();};
+      searchWrap.appendChild(searchInput);
+      searchWrap.appendChild(clearBtn);
+    } else {
+      searchWrap.appendChild(searchInput);
+    }
+    searchRow.appendChild(searchWrap);
+    // Result count badge (filled in below after filtering — placeholder for now)
+    var searchCountBadge = document.createElement('span');
+    searchCountBadge.id = 'fund-providers-search-count';
+    searchCountBadge.style.cssText = 'font-family:Roboto Mono,monospace;font-size:11px;color:var(--mut);font-weight:600;margin-left:6px';
+    searchRow.appendChild(searchCountBadge);
+    host.appendChild(searchRow);
+    // Debounced search → re-render with the new query
+    var _searchTimer;
+    searchInput.addEventListener('input', function(){
+      var val = this.value;
+      NS._providersSearchActive = true;   // flag to refocus after re-render
+      if(_searchTimer) clearTimeout(_searchTimer);
+      _searchTimer = setTimeout(function(){
+        var u = NS.loadUI();
+        u.providersSearch = val;
+        NS.saveUI(u);
+        NS.renderFunding();
+      }, 250);
+    });
+    // Hitting Esc clears the search and reblurs
+    searchInput.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){
+        this.value = '';
+        var u = NS.loadUI(); u.providersSearch=''; NS.saveUI(u); NS.renderFunding();
+      }
+    });
+    // Refocus + restore cursor after a re-render that originated from typing here
+    setTimeout(function(){
+      if(NS._providersSearchActive){
+        var el = document.getElementById('fund-providers-search');
+        if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+        NS._providersSearchActive = false;
+      }
+    }, 0);
+
     var svcFilter = (uiReg.providersServiceFilter || 'all');
     var svcFilterRow = document.createElement('div');
     svcFilterRow.style.cssText = 'display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center';
@@ -14466,10 +14531,33 @@ var FUND=(function(){
     }
     // Apply service filter on top of sort.
     var _svcFilter = uiReg.providersServiceFilter || 'all';
+    var _searchQ = (uiReg.providersSearch || '').trim().toLowerCase();
+    var _payMethods = NS.loadPaymentMethods();
+    function _providerKey(p){return p.subKey?(String(p.benderId)+'::'+p.subKey):(p.benderId!=null?String(p.benderId):p.name);}
+    function _matchesSearch(p){
+      if(!_searchQ) return true;
+      var pm = _payMethods[_providerKey(p)] || '';
+      var hay = [
+        p.name, p.displayName, p.currency, p.mode, p.paymentTerms, pm,
+        (p.benderId != null ? String(p.benderId) : ''),
+        (p.swypeId != null ? String(p.swypeId) : '')
+      ].join(' ').toLowerCase();
+      return hay.indexOf(_searchQ) >= 0;
+    }
     var filteredRegistry = sortedRegistry.filter(function(p){
-      if(_svcFilter === 'all') return true;
-      return (p.services||[]).indexOf(_svcFilter) >= 0;
+      if(_svcFilter !== 'all' && (p.services||[]).indexOf(_svcFilter) < 0) return false;
+      if(!_matchesSearch(p)) return false;
+      return true;
     });
+    // Show result count if search is active
+    if(_searchQ){
+      var hiddenN = sortedRegistry.length - filteredRegistry.length;
+      var countEl = document.getElementById('fund-providers-search-count');
+      if(countEl){
+        countEl.textContent = filteredRegistry.length + ' match' + (filteredRegistry.length===1?'':'es')
+          + (hiddenN>0 ? ' · ' + hiddenN + ' hidden' : '');
+      }
+    }
     // Split into active + inactive.
     var activeRegistry = filteredRegistry.filter(function(p){return p.isActive !== false;});
     var inactiveRegistry = filteredRegistry.filter(function(p){return p.isActive === false;});
