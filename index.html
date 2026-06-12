@@ -13823,6 +13823,31 @@ var FUND=(function(){
   NS.previewBackfill=function(wb){
     var registry=NS.loadRegistry();
     var byName=_buildLookup(registry);
+    // Optional Key sheet → alias map.
+    // Format: col A = Reloadly_pulse (Pulse display name), col B = Provider (raw Excel name).
+    // When a data row name fails direct lookup, parser tries the alias mapping
+    // and re-checks the registry. Lets the user keep one mapping in the spreadsheet.
+    var keyAliases = {};
+    var keySheetName = wb.SheetNames.find(function(n){return /^(key|mapping|aliases?)$/i.test(n.trim());});
+    if(keySheetName){
+      var keySheet = wb.Sheets[keySheetName];
+      var keyAoa = XLSX.utils.sheet_to_json(keySheet, {header:1, defval:null, raw:true});
+      // Skip header row (looks like ['Reloadly_pulse', 'Providers'])
+      for(var ki = 1; ki < keyAoa.length; ki++){
+        var krow = keyAoa[ki] || [];
+        var pulseName = krow[0];
+        var provName = krow[1];
+        if(typeof pulseName === 'string' && pulseName.trim() && typeof provName === 'string' && provName.trim()){
+          var pn = _normalizeName(pulseName);
+          var rn = _normalizeName(provName);
+          if(pn && rn){
+            // pulseName → original-provider-name mapping. Used when data sheets
+            // contain pulseName but the registry only has the original.
+            keyAliases[pn] = rn;
+          }
+        }
+      }
+    }
     var sheetsScanned=0, dateCols=0, valuesFound=0, unmatched={}, matchedProviders={}, dateRange={min:null,max:null};
     var snapshotsByDate={};
     var sheetNames=wb.SheetNames.filter(function(n){return /USD/i.test(n) && !/LOCAL/i.test(n);});
@@ -13860,7 +13885,13 @@ var FUND=(function(){
           if(typeof v==='string' && v.trim() && v.trim().toLowerCase()!=='prepaid'){name=v.trim();break;}
         }
         if(!name)continue;
-        var hit=byName[_normalizeName(name)];
+        var normName = _normalizeName(name);
+        var hit = byName[normName];
+        // Fall back to the Key sheet alias map: maybe the data row name is a
+        // Pulse-side name that maps to a different original provider name.
+        if(!hit && keyAliases[normName]){
+          hit = byName[keyAliases[normName]];
+        }
         if(!hit){
           // Only count if any of this row's date columns has a numeric value
           var anyVal=false;
