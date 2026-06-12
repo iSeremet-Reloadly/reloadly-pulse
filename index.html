@@ -13648,7 +13648,21 @@ var FUND=(function(){
       if(d<10) return d.toFixed(1)+'d';
       return Math.round(d)+'d';
     }
-    var methods = ['', 'MC', 'Airwallex', 'Wire', 'Crypto', 'Manual'];
+    var methods = ['', 'Wells Fargo USD', 'Moneycorp USD', 'Moneycorp EUR', 'Moneycorp GBP', 'Airwallex EUR', 'Airwallex GBP', 'Crypto', 'Wire', 'Other', 'Manual'];
+    function buildMethodOptions(sel, savedValue){
+      var seen = methods.slice();
+      // Preserve legacy values so they don't silently vanish from the UI
+      if(savedValue && seen.indexOf(savedValue) === -1) seen.push(savedValue);
+      seen.forEach(function(m){
+        var op = document.createElement('option');
+        op.value = m;
+        if(m === '') op.textContent = '— Choose —';
+        else if(methods.indexOf(m) === -1) op.textContent = m + ' (legacy)';
+        else op.textContent = m;
+        if(m === savedValue) op.selected = true;
+        sel.appendChild(op);
+      });
+    }
 
     recs.forEach(function(r){
       var tr = document.createElement('tr');
@@ -13661,9 +13675,7 @@ var FUND=(function(){
       var tdMethod = document.createElement('td');
       var methodSel = document.createElement('select');
       methodSel.className = 'fund-rec-method-sel';
-      methods.forEach(function(m){
-        var op=document.createElement('option');op.value=m;op.textContent=m||'— Choose —';if(m===r.paymentMethod)op.selected=true;methodSel.appendChild(op);
-      });
+      buildMethodOptions(methodSel, r.paymentMethod);
       methodSel.onchange = function(){NS.setPaymentMethod(r.key, this.value); r.paymentMethod = this.value;};
       tdMethod.appendChild(methodSel);
       tr.appendChild(tdMethod);
@@ -13843,7 +13855,7 @@ var FUND=(function(){
       var modeTd=document.createElement('td');var modeSel=document.createElement('select');modeSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace';['bender','swype','portal','admin','chat_payments','billing','manual','unavail'].forEach(function(m){var op=document.createElement('option');op.value=m;op.textContent=m;if(m===p.mode)op.selected=true;modeSel.appendChild(op);});modeSel.onchange=function(){p.mode=this.value;NS.saveRegistry(registry);NS.renderFunding();};modeTd.appendChild(modeSel);tr.appendChild(modeTd);
       // Payment method
       var pmKey=p.subKey?(String(p.benderId)+'::'+p.subKey):(p.benderId!=null?String(p.benderId):p.name);
-      var pmTd=document.createElement('td');var pmSel=document.createElement('select');pmSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';['','MC','Airwallex','Wire','Crypto','Manual'].forEach(function(m){var op=document.createElement('option');op.value=m;op.textContent=m||'— none —';if(m===NS.getPaymentMethod(pmKey))op.selected=true;pmSel.appendChild(op);});pmSel.onchange=function(){NS.setPaymentMethod(pmKey,this.value);};pmTd.appendChild(pmSel);tr.appendChild(pmTd);
+      var pmTd=document.createElement('td');var pmSel=document.createElement('select');pmSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';(function(){var _saved=NS.getPaymentMethod(pmKey);var _opts=['', 'Wells Fargo USD', 'Moneycorp USD', 'Moneycorp EUR', 'Moneycorp GBP', 'Airwallex EUR', 'Airwallex GBP', 'Crypto', 'Wire', 'Other', 'Manual'];if(_saved && _opts.indexOf(_saved)===-1)_opts=_opts.concat([_saved]);_opts.forEach(function(m){var op=document.createElement('option');op.value=m;if(m==='')op.textContent='— none —';else if(['', 'Wells Fargo USD', 'Moneycorp USD', 'Moneycorp EUR', 'Moneycorp GBP', 'Airwallex EUR', 'Airwallex GBP', 'Crypto', 'Wire', 'Other', 'Manual'].indexOf(m)===-1)op.textContent=m+' (legacy)';else op.textContent=m;if(m===_saved)op.selected=true;pmSel.appendChild(op);});})();pmSel.onchange=function(){NS.setPaymentMethod(pmKey,this.value);};pmTd.appendChild(pmSel);tr.appendChild(pmTd);
       // Portal URL
       var purlTd=document.createElement('td');var purl=document.createElement('input');purl.value=p.portalUrl||'';purl.placeholder='https://…';purl.style.cssText='width:160px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';purl.onchange=function(){p.portalUrl=this.value;NS.saveRegistry(registry);};purlTd.appendChild(purl);tr.appendChild(purlTd);
       // Active
