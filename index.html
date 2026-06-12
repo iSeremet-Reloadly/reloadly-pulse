@@ -13918,6 +13918,8 @@ var FUND=(function(){
     };
     hdr.appendChild(reseedBtn);
     host.appendChild(hdr);
+    // Sort + filter UI state (needed by both the service chips below and the sort handlers further down)
+    var uiReg = NS.loadUI();
     // Service filter chips
     var svcFilter = (uiReg.providersServiceFilter || 'all');
     var svcFilterRow = document.createElement('div');
@@ -13935,7 +13937,6 @@ var FUND=(function(){
     });
     host.appendChild(svcFilterRow);
     // Sort state — persists between renders
-    var uiReg = NS.loadUI();
     var regSortKey = uiReg.providersSort || 'id';
     var regSortOrder = uiReg.providersOrder || 'asc';
     function regTh(key, label){
