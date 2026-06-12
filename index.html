@@ -12828,20 +12828,22 @@ var FUND=(function(){
 
     var tw = document.createElement('div'); tw.className='fund-forecast-tablewrap';
     var tbl = document.createElement('table'); tbl.className='fund-forecast-table';
-    function th(key, label){
+    // Stop click from bubbling to the sort handler on the parent <th>
+    function fcTip(text){return ' <span class="th-info" data-tip="'+text.replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();return false;">i</span>';}
+    function th(key, label, tip){
       var cls = sortKey===key ? 'sorted' : '';
       var arrow = sortKey===key ? (sortOrder==='asc'?' ▲':' ▼') : '';
-      return '<th class="'+cls+'" data-sort="'+key+'">'+label+arrow+'</th>';
+      return '<th class="'+cls+'" data-sort="'+key+'">'+label+arrow+(tip?fcTip(tip):'')+'</th>';
     }
     tbl.innerHTML='<thead><tr>'
-      +th('name','PROVIDER')
-      +'<th>MODE</th>'
-      +th('current','CURRENT')
-      +th('rate3','3-DAY RATE')
-      +th('rate7','7-DAY RATE')
-      +th('rate30','30-DAY RATE')
-      +th('days','DAYS LEFT (MIN)')
-      +'<th>STATUS</th>'
+      +th('name','PROVIDER','The supplier wallet. Sub-wallets (LAFRICAMOBILE, ClickMobile, Becharge, Intellexal) appear as separate rows because each one has its own balance and burn rate.')
+      +'<th>MODE'+fcTip('How Pulse interacts with this provider. BENDER = Bender slash command. SWYPE = Swype Bender command (currency conversion handled). PORTAL = manual web portal lookup. ADMIN / CHAT_PAYMENTS / BILLING / UNAVAIL = excluded from burn-rate calculations because they do not burn in a comparable way.')+'</th>'
+      +th('current','CURRENT','Latest balance from the most recent snapshot you saved on the Daily Pull tab. Negative values mean the wallet is overdrawn.')
+      +th('rate3','3-DAY RATE','Average daily consumption over the last 3 snapshots. Catches recent burn spikes. Burn days = number of days within the window where balance actually went down (topup days excluded).')
+      +th('rate7','7-DAY RATE','Average daily consumption over the last 7 snapshots. Medium-term view — stable enough to ignore one-day anomalies but still recent enough to reflect current traffic.')
+      +th('rate30','30-DAY RATE','Average daily consumption over the last 30 snapshots. Long-term baseline. Smooths over weekly seasonality. Useful for steady-state suppliers.')
+      +th('days','DAYS LEFT (MIN)','How many days until the wallet is empty, computed from the MOST CONSERVATIVE (smallest days-left) of the three windows. The window that won is shown below the number. Drives the status pill.')
+      +'<th>STATUS'+fcTip('CRITICAL: ≤3 days left — act today. WATCH: ≤7 days — act this week. HEALTHY: ≤30 days — fine for now. SURPLUS: more than 30 days or no burn observed. NO DATA: fewer than 4 snapshots available — cannot forecast yet.')+'</th>'
       +'</tr></thead>';
     var tb = document.createElement('tbody');
     rows.forEach(function(r){
@@ -13546,7 +13548,8 @@ var FUND=(function(){
     var hdr = document.createElement('div');
     hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px';
     var headline = document.createElement('div');
-    headline.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:4px">Fund Now <span style="font-size:11px;color:var(--mut);font-weight:500;margin-left:8px">'+recs.length+' wallet'+(recs.length===1?'':'s')+' need attention</span></div>'
+    function _tipI2(text){return ' <span class="th-info" data-tip="'+text.replace(/"/g,'&quot;')+'">i</span>';}
+    headline.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:4px">Fund Now'+_tipI2('Prioritized list of wallets that need topping up. Sorted by urgency (critical first, then days-left ascending). Only counts active bender/swype/portal providers — admin/billing/chat-payment providers are excluded because they do not burn in a comparable way.')+' <span style="font-size:11px;color:var(--mut);font-weight:500;margin-left:8px">'+recs.length+' wallet'+(recs.length===1?'':'s')+' need attention</span></div>'
       +'<div style="font-size:11px;color:var(--mut);line-height:1.5">Sized using <b>max(3D,7D,30D)</b> burn rate × <b>'+admin.targetCoverDays+'-day cover target</b>. Round-up to wire-friendly numbers. Mark funded once you\'ve sent the wire — recommendations re-appear after 24h or when balance drops back to critical.</div>';
     hdr.appendChild(headline);
     var actions = document.createElement('div');
@@ -13581,8 +13584,10 @@ var FUND=(function(){
     // Totals strip
     var totalsBar = document.createElement('div');
     totalsBar.className = 'fund-rec-totals';
+    var _tipTotals = ' <span class="th-info" data-tip="'+('Sum of all rounded top-ups in this list, converted to USD using the most recent cached FX rate (date shown). Per-currency totals below show the actual amount you would wire in each currency. If a currency is missing from the FX cache, hit Refresh FX in the header.').replace(/"/g,'&quot;')+'">i</span>';
     var totHtml = '<div class="fund-rec-totals-headline">Total recommended: <b>≈ $'+Math.round(totals.usdEquiv).toLocaleString()+' USD</b>'
       +(totals.fxDate?'<span class="muted"> (FX '+totals.fxDate+')</span>':'')
+      +_tipTotals
       +'</div>';
     var breakdown = Object.keys(totals.byCurrency).sort().map(function(cur){
       return '<span class="fund-rec-tot-pill">'+totals.byCurrency[cur].toLocaleString()+' '+cur+'</span>';
@@ -13597,6 +13602,10 @@ var FUND=(function(){
     // Filter strip
     var filterStrip = document.createElement('div');
     filterStrip.className = 'fund-rec-filterstrip';
+    var filterLabel = document.createElement('div');
+    filterLabel.style.cssText = 'display:flex;align-items:center;font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;letter-spacing:.5px;margin-right:4px';
+    filterLabel.innerHTML = 'FILTER <span class="th-info" data-tip="Choose which wallets to include in the recommendation list. Default Critical + Watch shows everything needing attention. Critical only narrows to ≤3 days. + Healthy ≤30D includes wallets still within 30-day cover — useful for batch-funding ahead so you do not have to do this twice in the same week.">i</span>';
+    filterStrip.appendChild(filterLabel);
     var counts = {
       critwatch: NS.computeFundingRecommendations({statusFilter:['critical','watch']}).length,
       critical: NS.computeFundingRecommendations({statusFilter:['critical']}).length,
@@ -13624,16 +13633,17 @@ var FUND=(function(){
     // Recommendations table
     var tw = document.createElement('div'); tw.className = 'fund-tablewrap';
     var tbl = document.createElement('table'); tbl.className = 'fund-table fund-rec-table';
+    function tipI(text){return ' <span class="th-info" data-tip="'+text.replace(/"/g,'&quot;')+'">i</span>';}
     tbl.innerHTML = '<thead><tr>'
-      +'<th>PROVIDER</th>'
-      +'<th>METHOD</th>'
-      +'<th>CURRENT</th>'
-      +'<th>BURN RATE</th>'
-      +'<th>DAYS LEFT</th>'
-      +'<th>TARGET ('+admin.targetCoverDays+'D)</th>'
-      +'<th>TOP UP</th>'
-      +'<th>STATUS</th>'
-      +'<th>ACTION</th>'
+      +'<th>PROVIDER'+tipI('The supplier wallet. Sub-line shows the registry name and Bender ID. Multi-wallet providers (LAFRICAMOBILE, ClickMobile, Becharge, Intellexal) show each sub-wallet as its own row.')+'</th>'
+      +'<th>METHOD'+tipI('How you plan to send the funds. Pick once per provider and it sticks. Also editable in Providers tab. Required before you can mark a row funded.')+'</th>'
+      +'<th>CURRENT'+tipI('Latest balance from the most recent snapshot you saved (Daily Pull tab). Can go negative when the wallet is overdrawn — the calculation still works.')+'</th>'
+      +'<th>BURN RATE'+tipI('Average daily consumption. Uses the MAXIMUM of the 3-day, 7-day, and 30-day rolling windows. Max-of-three picks whichever window suggests the highest burn — conservative sizing so a recent spike never under-funds the wallet. The window that won is shown below the number.')+'</th>'
+      +'<th>DAYS LEFT'+tipI('How many days until the wallet is empty at the current burn rate. Drives the status pill: CRITICAL when ≤3 days, WATCH when ≤7, HEALTHY when ≤30.')+'</th>'
+      +'<th>TARGET ('+admin.targetCoverDays+'D)'+tipI('The balance you would need today to last '+admin.targetCoverDays+' days at the current burn rate. = Burn rate × '+admin.targetCoverDays+'-day cover target. Change the cover target in admin if you want a longer/shorter runway.')+'</th>'
+      +'<th>TOP UP'+tipI('Recommended top-up = Target − Current, then rounded up to a wire-friendly number. Bands: $10 / $50 / $500 / $1,000 / $5,000 depending on size. The grey "raw" number below is the exact un-rounded math.')+'</th>'
+      +'<th>STATUS'+tipI('Pulled from the Forecast tab. CRITICAL = act today. WATCH = act this week. Wallets healthier than ≤30D do not appear here unless you switch the filter to "+ Healthy ≤30D".')+'</th>'
+      +'<th>ACTION'+tipI('Click "Mark funded" once you have actually sent the wire/transfer. The row moves to the Recently marked funded log at the bottom. 24h cooldown before it can re-appear in this list — or sooner if the balance drops back into critical after Bender confirms the topup landed.')+'</th>'
       +'</tr></thead>';
     var tb = document.createElement('tbody'); tbl.appendChild(tb);
 
