@@ -13864,7 +13864,9 @@ var FUND=(function(){
     var registry=NS.loadRegistry();
     var hdr=document.createElement('div');hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px';
     var em=document.createElement('div');em.style.cssText='font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;line-height:1.55';
-    em.innerHTML='<b>'+registry.length+'</b> providers tracked. Edit display name, currency, mode, portal URL, notes as needed. Click any column header to sort. <b>Active providers always sort to the top</b>; inactive providers stay at the bottom regardless of sort.';
+    var _actCount = registry.filter(function(p){return p.isActive !== false;}).length;
+    var _inactCount = registry.length - _actCount;
+    em.innerHTML='<b>'+_actCount+'</b> active provider'+(_actCount===1?'':'s')+(_inactCount?' · <span style="color:var(--mut)">'+_inactCount+' inactive (collapsed below)</span>':'')+'. Edit display name, currency, mode, portal URL, notes as needed. Click any column header to sort.';
     hdr.appendChild(em);
     var addBtn=document.createElement('button');addBtn.className='fund-btn primary';addBtn.innerHTML='+ Add provider';
     addBtn.title='Add a new supplier wallet to the registry. For multi-wallet providers (like CSQ with General/Cubacel/Euro sub-wallets), add the first one then use the + sub button on the row.';
@@ -13887,7 +13889,7 @@ var FUND=(function(){
     function regTh(key, label){
       var cls = regSortKey === key ? 'sorted' : '';
       var arrow = regSortKey === key ? (regSortOrder === 'asc' ? ' ▲' : ' ▼') : '';
-      return '<th class="'+cls+'" data-regsort="'+key+'" style="cursor:pointer;user-select:none" title="Click to sort by this column. Active providers always stay at the top.">'+label+arrow+'</th>';
+      return '<th class="'+cls+'" data-regsort="'+key+'" style="cursor:pointer;user-select:none" title="Click to sort by this column. Sort applies to the active section above; inactive providers stay in their own collapsable section below.">'+label+arrow+'</th>';
     }
     var tw=document.createElement('div');tw.className='fund-tablewrap';
     var tbl=document.createElement('table');tbl.className='fund-table';
@@ -13922,7 +13924,7 @@ var FUND=(function(){
       if(typeof va === 'string') return regSortOrder === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
       return regSortOrder === 'asc' ? va - vb : vb - va;
     });
-    sortedRegistry.forEach(function(p,idx){
+    function buildRow(p){
       var tr=document.createElement('tr');
       tr.innerHTML='<td class="mut">'+(p.benderId!=null?p.benderId:'—')+'</td><td><b>'+_esc(p.name)+'</b></td>';
       // Display name
@@ -13956,8 +13958,12 @@ var FUND=(function(){
       };
       actTd.appendChild(delBtn);
       tr.appendChild(actTd);
-      tb.appendChild(tr);
-    });
+      return tr;
+    }
+    // Split into active + inactive after applying sort.
+    var activeRegistry = sortedRegistry.filter(function(p){return p.isActive !== false;});
+    var inactiveRegistry = sortedRegistry.filter(function(p){return p.isActive === false;});
+    activeRegistry.forEach(function(p){tb.appendChild(buildRow(p));});
     // Wire sort click handlers (active providers always stay at top)
     tbl.querySelectorAll('th[data-regsort]').forEach(function(h){
       h.onclick = function(){
@@ -13975,6 +13981,33 @@ var FUND=(function(){
     });
     tw.appendChild(tbl);
     host.appendChild(tw);
+    // Inactive providers — collapsable section
+    if(inactiveRegistry.length){
+      var inactCollapsed = uiReg.providersInactiveCollapsed !== false; // default true
+      var inactHdr = document.createElement('div');
+      inactHdr.style.cssText = 'display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;background:#0e1822;border:1px solid #1f2d3d;border-radius:8px;margin-top:14px;margin-bottom:'+(inactCollapsed?'0':'10px')+';user-select:none';
+      inactHdr.innerHTML = '<span style="font-family:Roboto Mono,monospace;font-size:11px;font-weight:700;color:var(--mut);letter-spacing:.5px">'+(inactCollapsed?'▸':'▾')+' INACTIVE PROVIDERS</span><span style="font-size:11px;color:var(--mut)">'+inactiveRegistry.length+' hidden from Daily Pull / Forecast / Fund Now</span><span style="margin-left:auto;font-size:10px;color:var(--mut)">click to '+(inactCollapsed?'expand':'collapse')+'</span>';
+      inactHdr.onclick = function(){
+        var u = NS.loadUI();
+        u.providersInactiveCollapsed = !inactCollapsed;
+        NS.saveUI(u);
+        NS.renderFunding();
+      };
+      host.appendChild(inactHdr);
+      if(!inactCollapsed){
+        var twInact = document.createElement('div'); twInact.className = 'fund-tablewrap';
+        var tblInact = document.createElement('table'); tblInact.className = 'fund-table';
+        // Same column headers — no sort handlers (sort is driven by the active table)
+        tblInact.innerHTML = '<thead><tr>'
+          +'<th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>BILLING</th>'
+          +'<th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th>NOTES</th><th></th>'
+          +'</tr></thead>';
+        var tbInact = document.createElement('tbody'); tblInact.appendChild(tbInact);
+        inactiveRegistry.forEach(function(p){tbInact.appendChild(buildRow(p));});
+        twInact.appendChild(tblInact);
+        host.appendChild(twInact);
+      }
+    }
   }
 
 
