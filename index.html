@@ -12262,6 +12262,169 @@ var FUND=(function(){
   // Multi-wallet providers (LAFRICAMOBILE, ClickMobile, etc.) have multiple Description/Amount/Currency
   // triples after a single header. We extract each triple and tag it with the parent provider header
   // that preceded it, so the apply step can match by either Description text (sub-wallet) or by parent.
+  // Parses the Bender hourly automated message titled "Current Account Balance
+  // Summary On GiftCard Providers". Each line is:
+  //   "<PROVIDER> : <amount> <CCY> [| <amount> <CCY>]* [(Note: ...)]."
+  // Returns array of {providerName, balances:[{amount, currency}], note, alsoFor}.
+  NS.parseGiftCardSummary = function(text){
+    if(!text) return [];
+    var entries = [];
+    var lines = text.split(/\r?\n/);
+    lines.forEach(function(line){
+      line = line.trim();
+      if(!line) return;
+      // Strip @here mention and the header line
+      if(/^@here$/i.test(line)) return;
+      if(/Current Account Balance Summary/i.test(line)) return;
+      // Match: NAME : (...rest)
+      var m = line.match(/^([A-Z][A-Z0-9_]+)\s*:\s*(.+)$/);
+      if(!m) return;
+      var providerName = m[1];
+      var rest = m[2].trim();
+      // Strip trailing period
+      rest = rest.replace(/\.\s*$/, '').trim();
+      // Extract trailing note in parens
+      var note = null, alsoFor = null;
+      var noteMatch = rest.match(/\s*\(([^)]+)\)\s*$/);
+      if(noteMatch){
+        note = noteMatch[1].trim();
+        rest = rest.slice(0, noteMatch.index).trim();
+        // Look for "also for X" pattern in the note
+        var alsoMatch = note.match(/also for\s+([A-Z][A-Z0-9_]+)/i);
+        if(alsoMatch) alsoFor = alsoMatch[1].toUpperCase();
+      }
+      // Extract all amount+currency pairs
+      var balances = [];
+      var seenCurrencies = {};
+      var pairRx = /(-?[\d,]+(?:\.\d+)?)\s+([A-Z]{3,4})/g;
+      var pm;
+      while((pm = pairRx.exec(rest)) !== null){
+        var amount = parseFloat(pm[1].replace(/,/g, ''));
+        if(isNaN(amount)) continue;
+        var ccy = pm[2].toUpperCase();
+        // If the same currency appears multiple times (e.g. IREWARDIFY: "X USD | 0 USD | 0 USD"),
+        // sum them rather than overwriting.
+        if(seenCurrencies[ccy] != null){
+          balances[seenCurrencies[ccy]].amount += amount;
+        } else {
+          seenCurrencies[ccy] = balances.length;
+          balances.push({amount: amount, currency: ccy});
+        }
+      }
+      if(balances.length === 0) return;
+      entries.push({providerName: providerName, balances: balances, note: note, alsoFor: alsoFor});
+    });
+    return entries;
+  };
+
+  // Quick name normalisation for known aliases between Bender's gift card output
+  // and Pulse's internal registry naming.
+  var GIFT_NAME_ALIAS = {
+    'CYSEND': 'CY_SEND'
+  };
+
+  // Apply parsed gift card entries to today's snapshot. Auto-creates registry
+  // entries for unknown providers; for multi-currency providers, splits into
+  // per-currency entries (e.g. BAMBOO USD → BAMBOO_USD, BAMBOO EUR → BAMBOO_EUR).
+  NS.applyGiftCardSummary = function(parsed){
+    if(!parsed || !parsed.length) return {applied:0, created:0, alsoForApplied:0, providers:0};
+    var registry = NS.loadRegistry();
+    var snaps = NS.loadSnapshots();
+    var todayStr = (new Date()).toISOString().slice(0, 10);
+    var snap = snaps.find(function(s){return s.date === todayStr;});
+    if(!snap){snap = {date: todayStr, balances: {}};}
+    if(!snap.balances) snap.balances = {};
+
+    var applied = 0;
+    var created = 0;
+    var alsoForApplied = 0;
+
+    function findOrCreate(providerName, currency){
+      var aliased = GIFT_NAME_ALIAS[providerName] || providerName;
+      // 1. Exact match on name + currency
+      var found = registry.find(function(x){return x.name === aliased && x.currency === currency && !x.subKey;});
+      if(found) return found;
+      // 2. Suffixed match: e.g. NEO_CURRENCY_USD
+      var suffixed = aliased + '_' + currency;
+      found = registry.find(function(x){return x.name === suffixed;});
+      if(found) return found;
+      // 3. Same name, different currency — for multi-currency providers we need
+      //    a separate entry. Auto-create it.
+      // Auto-create
+      var newName = currency === 'USD'
+        ? (registry.find(function(x){return x.name === aliased;}) ? suffixed : aliased)
+        : suffixed;
+      // Avoid double-create if a previous parse loop already added it
+      var preExisting = registry.find(function(x){return x.name === newName;});
+      if(preExisting) return preExisting;
+      var displayBase = aliased.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, function(c){return c.toUpperCase();});
+      var newP = {
+        benderId: null,
+        name: newName,
+        currency: currency,
+        displayName: displayBase + ' (' + currency + ')',
+        mode: 'chat_payments',
+        portalUrl: null,
+        subKey: null,
+        billingType: 'prepaid',
+        paymentTerms: '',
+        services: ['gift_card'],
+        notes: 'Auto-created from Bender gift card summary',
+        isActive: true
+      };
+      registry.push(newP);
+      created++;
+      return newP;
+    }
+
+    parsed.forEach(function(entry){
+      entry.balances.forEach(function(b){
+        var p = findOrCreate(entry.providerName, b.currency);
+        var key = p.subKey ? (String(p.benderId) + '::' + p.subKey) : (p.benderId != null ? String(p.benderId) : p.name);
+        snap.balances[key] = {
+          local: b.amount,
+          currency: b.currency,
+          enteredAt: new Date().toISOString(),
+          source: 'gift-card-summary'
+        };
+        applied++;
+        // "Also for X" — apply same balance to a second provider
+        if(entry.alsoFor){
+          var alsoP = findOrCreate(entry.alsoFor, b.currency);
+          var alsoKey = alsoP.subKey ? (String(alsoP.benderId) + '::' + alsoP.subKey) : (alsoP.benderId != null ? String(alsoP.benderId) : alsoP.name);
+          snap.balances[alsoKey] = {
+            local: b.amount,
+            currency: b.currency,
+            enteredAt: new Date().toISOString(),
+            source: 'gift-card-summary-aliased',
+            sourceNote: 'Mirrored from ' + entry.providerName + ' per Bender note'
+          };
+          alsoForApplied++;
+        }
+      });
+    });
+
+    snap.savedAt = new Date().toISOString();
+    var idx = snaps.findIndex(function(s){return s.date === todayStr;});
+    if(idx >= 0) snaps[idx] = snap; else snaps.push(snap);
+    NS.saveSnapshots(snaps);
+    if(created > 0) NS.saveRegistry(registry);
+
+    // Trigger alert check just like the normal save path
+    try{NS.runAlertCheck('snapshot_save');}catch(e){console.warn('[FUND] alert check failed', e);}
+
+    return {applied: applied, created: created, alsoForApplied: alsoForApplied, providers: parsed.length};
+  };
+
+  // Heuristic: does this text look like the Bender hourly gift card summary?
+  NS.looksLikeGiftCardSummary = function(text){
+    if(!text) return false;
+    if(/Current Account Balance Summary/i.test(text)) return true;
+    // Smell test: 3+ lines matching the "NAME : amount CCY" shape
+    var lines = text.split(/\r?\n/).filter(function(l){return /^[A-Z][A-Z0-9_]+\s*:\s*[\d.,-]+\s+[A-Z]{3,4}/.test(l.trim());});
+    return lines.length >= 3;
+  };
+
   NS.parseBenderResponses = function(text){
     if(!text)return [];
     var results=[];
@@ -12450,7 +12613,7 @@ var FUND=(function(){
     var admin = NS.loadAdmin();
     if(!admin.alertsEnabled){return Promise.resolve({checked:0, eligible:0, sent:0, skipped:'disabled'});}
     var registry = NS.loadRegistry().filter(function(p){
-      return p.isActive!==false && p.billingType!=='postpaid' && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');
+      return p.isActive!==false && p.billingType!=='postpaid' && Array.isArray(p.services) && p.services.length>0;
     });
     var log = NS.loadAlertLog();
     var cooldownMs = (admin.alertCooldownHours||24) * 3600000;
@@ -12522,7 +12685,10 @@ var FUND=(function(){
     var admin = NS.loadAdmin();
     var targetCover = opts.targetCover || admin.targetCoverDays || 21;
     var registry = NS.loadRegistry().filter(function(p){
-      return p.isActive!==false && p.billingType!=='postpaid' && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');
+      // Forecastable when active, prepaid, and tagged with at least one service
+      // (airtime/gift_card/utility/swype). Decoupled from mode so chat_payments-mode
+      // gift cards still appear in Fund Now.
+      return p.isActive!==false && p.billingType!=='postpaid' && Array.isArray(p.services) && p.services.length>0;
     });
     var payMethods = NS.loadPaymentMethods();
     var topupHistory = NS.loadTopupHistory();
@@ -12743,7 +12909,7 @@ var FUND=(function(){
   // Skip providers with mode='admin' / 'chat_payments' / 'billing' / 'unavail' since they don't burn
   // in a comparable way (admin computes them manually, gift cards / billing have different rhythms).
   NS.portfolioStatus = function(){
-    var registry = NS.loadRegistry().filter(function(p){return p.isActive!==false && p.billingType!=='postpaid' && (p.mode==='bender' || p.mode==='swype' || p.mode==='portal');});
+    var registry = NS.loadRegistry().filter(function(p){return p.isActive!==false && p.billingType!=='postpaid' && Array.isArray(p.services) && p.services.length>0;});
     var counts = {critical:0, watch:0, healthy:0, surplus:0, nodata:0, total:0};
     registry.forEach(function(p){
       var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
@@ -13475,6 +13641,22 @@ var FUND=(function(){
     actions.appendChild(resultsLeft);
     var applyBtn=document.createElement('button');applyBtn.className='fund-btn primary';applyBtn.innerHTML='✓ Parse + Apply';
     applyBtn.onclick=function(){
+      // Detect Bender hourly gift card summary format and dispatch to its parser.
+      if(NS.looksLikeGiftCardSummary(ta.value)){
+        var gcParsed = NS.parseGiftCardSummary(ta.value);
+        if(gcParsed.length){
+          var gcRes = NS.applyGiftCardSummary(gcParsed);
+          if(typeof toast === 'function'){
+            var gcMsg = 'Gift card summary: '+gcRes.providers+' providers · '+gcRes.applied+' balances saved'
+              + (gcRes.created ? ' · '+gcRes.created+' auto-created' : '')
+              + (gcRes.alsoForApplied ? ' · '+gcRes.alsoForApplied+' aliased' : '');
+            toast(gcMsg, 'ok');
+          }
+          ta.value = '';
+          NS.renderFunding();
+          return;
+        }
+      }
       var parsed=NS.parseBenderResponses(ta.value);
       if(!parsed.length){
         resultsLeft.innerHTML='<span class="miss">No Account Balance blocks found in the pasted text.</span>';
