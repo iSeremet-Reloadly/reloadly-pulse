@@ -13425,7 +13425,11 @@ var FUND=(function(){
     summary.innerHTML='<span>DATE: <b>'+today()+'</b></span>'
       +'<span>PROVIDERS: <b>'+registry.length+'</b></span>'
       +'<span>FILLED: <b>'+filledCount+'</b> / '+registry.length+'</span>'
-      +(snap.savedAt?'<span class="pill ok">SAVED '+new Date(snap.savedAt).toLocaleTimeString()+'</span>':'<span class="pill warn">NOT SAVED</span>');
+      +(snap.savedAt
+        ? '<span class="pill ok">SAVED '+new Date(snap.savedAt).toLocaleTimeString()+'</span>'
+        : (filledCount > 0
+           ? '<span class="pill warn" title="Your entries auto-save to your browser as you type, so they will not be lost. Click Save today\'s snapshot to officially commit the snapshot and trigger Slack alerts.">DRAFT (auto-saved)</span>'
+           : '<span class="pill warn">NOT SAVED</span>'));
     var saveBtn=document.createElement('button');saveBtn.className='fund-btn primary';saveBtn.style.marginLeft='auto';saveBtn.innerHTML='✓ Save today\'s snapshot';
     saveBtn.onclick=function(){
       if(!filledCount){if(!confirm('No balances entered. Save an empty snapshot?'))return;}
@@ -13531,6 +13535,19 @@ var FUND=(function(){
       +'</tr></thead>';
     var tb=document.createElement('tbody');tbl.appendChild(tb);
     var yesterdaySnap=_yesterdaySnapshot();
+    // Auto-save the in-memory snapshot to localStorage (debounced) so that
+    // switching tabs / reloading does not lose typed-but-unsaved balances.
+    // The explicit Save button is still the one that sets savedAt + fires alerts.
+    var _dpAutoSaveTimer = null;
+    function _dpAutoSaveSnap(){
+      if(_dpAutoSaveTimer) clearTimeout(_dpAutoSaveTimer);
+      _dpAutoSaveTimer = setTimeout(function(){
+        var allSnaps = NS.loadSnapshots();
+        var idx = allSnaps.findIndex(function(s){return s.date === snap.date;});
+        if(idx >= 0) allSnaps[idx] = snap; else allSnaps.push(snap);
+        NS.saveSnapshots(allSnaps);
+      }, 400);
+    }
     _dpRegistryForTable.forEach(function(p){
       var tr=document.createElement('tr');
       var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
@@ -13582,8 +13599,10 @@ var FUND=(function(){
         // Update USD cell
         var u=NS.localToUSD(val,p.currency,rates);
         usdCell.innerHTML=u!=null?'<span class="num">'+u.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>':'<span class="mut">—</span>';
-        // Persist to in-memory snapshot (full save happens on Save button)
         this.classList.toggle('filled', val!=null);
+        // Auto-save so switching tabs does not lose the entry. The explicit
+        // Save button still owns savedAt + alerts.
+        _dpAutoSaveSnap();
       };
       localTd.appendChild(inp);
       tr.appendChild(localTd);
