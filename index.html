@@ -12073,6 +12073,7 @@ var FUND=(function(){
     [9222,'CELLPAY','USD','CellPay (airtime + gift card)','chat_payments', null, null],
     [9223,'AMAZON_GBP','GBP','Amazon GBP','chat_payments', null, null],
     [9224,'SWYPE_MASTER','USD','Swype System Master','chat_payments', null, null],
+    [9225,'GLOBETOPPER_EUR','EUR','Globetopper EUR','chat_payments', null, null],
     [9213,'RELOADLY_STOCK','USD','Reloadly (GC Stock tab)','chat_payments', null, null],
     // === BILLING (Cellulant utilities, Buy Power) ===
     [9300,'XTRANSFER_MALI_UTIL','XOF','Xtransfer Mali Utility','billing', null, null],
@@ -12125,6 +12126,7 @@ var FUND=(function(){
         billingType:'prepaid',
         paymentTerms:'',
         services:_inferDefaultServices(r[1], r[4]),
+        swypeId: null,
         notes:'', isActive:true
       };
     });
@@ -12156,7 +12158,34 @@ var FUND=(function(){
         p.services = _inferDefaultServices(p.name, p.mode);
         changed = true;
       }
+      // Backfill: swypeId. For legacy swype-mode entries (benderId 3001-3010),
+      // derive swypeId from the offset hack and keep it explicit going forward.
+      if(p.swypeId === undefined){
+        if(p.mode === 'swype' && typeof p.benderId === 'number' && p.benderId >= 3001 && p.benderId < 3100){
+          p.swypeId = p.benderId - 3000;
+        } else {
+          p.swypeId = null;
+        }
+        changed = true;
+      }
     });
+    // One-time re-inference of empty service tags. Existing chat_payments gift
+    // card entries (PHAZE, GLOBETOPPER, IREWARDIFY, etc.) had empty services
+    // because the old inference regex didn't include them. Gated by a flag so
+    // it runs exactly once — won't override later manual edits.
+    var SVC_REINFER_FLAG = 'rl_fund_svc_reinfer_v2';
+    if(!localStorage.getItem(SVC_REINFER_FLAG)){
+      r.forEach(function(p){
+        if(Array.isArray(p.services) && p.services.length === 0){
+          var newSvcs = _inferDefaultServices(p.name, p.mode);
+          if(newSvcs.length > 0){
+            p.services = newSvcs;
+            changed = true;
+          }
+        }
+      });
+      try{localStorage.setItem(SVC_REINFER_FLAG, '1');}catch(e){}
+    }
     // One-time backfill: gift card providers from the Bender hourly summary.
     // Safe to re-run — only adds entries whose name is not already present, so
     // user deletions stay deleted on subsequent loads (the flag locks it after
@@ -12175,7 +12204,8 @@ var FUND=(function(){
         ['LIKE_CARD','USD','Like Card',9221],
         ['CELLPAY','USD','CellPay (airtime + gift card)',9222],
         ['AMAZON_GBP','GBP','Amazon GBP',9223],
-        ['SWYPE_MASTER','USD','Swype System Master',9224]
+        ['SWYPE_MASTER','USD','Swype System Master',9224],
+        ['GLOBETOPPER_EUR','EUR','Globetopper EUR',9225]
       ];
       var existingNames = {};
       r.forEach(function(p){existingNames[p.name] = true;});
@@ -13282,12 +13312,17 @@ var FUND=(function(){
       // Bender command cell
       var cmdHtml='';
       if(p.mode==='bender'&&p.benderId!=null){
-        var cmdText='/airtime/provider/balance '+p.benderId+(p.subKey?'  # '+p.subKey:'');
-        cmdHtml='<span class="bender-cmd">/airtime/provider/balance '+p.benderId+'</span>'
+        var cmdText;
+        if(p.swypeId != null){
+          cmdText='/swype/provider/balance '+p.swypeId+(p.subKey?'  # '+p.subKey:'');
+        } else {
+          cmdText='/airtime/provider/balance '+p.benderId+(p.subKey?'  # '+p.subKey:'');
+        }
+        cmdHtml='<span class="bender-cmd"' + (p.swypeId != null ? ' style="background:rgba(6,182,212,.12);color:#22d3ee"' : '') + '>'+(p.swypeId != null ? '/swype/provider/balance '+p.swypeId : '/airtime/provider/balance '+p.benderId)+'</span>'
           +(p.subKey?' <span class="mut" style="font-size:9px">→ '+_esc(p.subKey)+'</span>':'')
-          +' <button class="copy-btn" data-cmd="/airtime/provider/balance '+p.benderId+'">⎘ Copy</button>';
+          +' <button class="copy-btn" data-cmd="'+(p.swypeId != null ? '/swype/provider/balance '+p.swypeId : '/airtime/provider/balance '+p.benderId)+'">⎘ Copy</button>';
       } else if(p.mode==='swype'&&p.benderId!=null){
-        var swypeCmd='/swype/provider/balance '+(p.benderId-3000);
+        var swypeCmd='/swype/provider/balance '+(p.swypeId != null ? p.swypeId : (p.benderId-3000));
         cmdHtml='<span class="bender-cmd" style="background:rgba(6,182,212,.12);color:#22d3ee">'+swypeCmd+'</span>'
           +(p.subKey?' <span class="mut" style="font-size:9px">→ '+_esc(p.subKey)+'</span>':'')
           +' <span class="fund-source-pill swype" style="font-size:8px;margin-left:6px" title="Bender auto-pulls this every hour. No need to send the command — just paste the latest channel message.">AUTO HOURLY</span>';
@@ -13401,7 +13436,7 @@ var FUND=(function(){
     modal.appendChild(box);document.body.appendChild(modal);
     function showCurrent(){
       var p=registry[idx];
-      var cmd='/airtime/provider/balance '+p.benderId;
+      var cmd = p.swypeId != null ? '/swype/provider/balance '+p.swypeId : '/airtime/provider/balance '+p.benderId;
       navigator.clipboard.writeText(cmd);
       cmdEl.textContent=cmd;
       nameEl.textContent=(p.displayName||p.name)+' · ID '+p.benderId;
@@ -13665,7 +13700,7 @@ var FUND=(function(){
     var cLeft=document.createElement('div');cLeft.className='fund-bulk-col';
     cLeft.innerHTML='<div class="fund-bulk-col-t">1. COMMANDS TO RUN ('+registry.length+')</div>';
     var cmdList=document.createElement('div');cmdList.className='fund-bulk-list';
-    var cmdsText=registry.map(function(p){return '/airtime/provider/balance '+p.benderId;}).join('\n');
+    var cmdsText=registry.map(function(p){return p.swypeId != null ? '/swype/provider/balance '+p.swypeId : '/airtime/provider/balance '+p.benderId;}).join('\n');
     cmdList.textContent=cmdsText;
     cLeft.appendChild(cmdList);
     var cmdActions=document.createElement('div');cmdActions.style.cssText='margin-top:8px';
@@ -14178,6 +14213,7 @@ var FUND=(function(){
     var tbl=document.createElement('table');tbl.className='fund-table';
     tbl.innerHTML='<thead><tr>'
       +regTh('id','ID')
+      +'<th title="Swype slash command ID. When set, Daily Pull shows /swype/provider/balance N instead of the default airtime command.">SWYPE</th>'
       +regTh('name','NAME')
       +regTh('displayName','DISPLAY NAME')
       +regTh('currency','CCY')
@@ -14211,7 +14247,14 @@ var FUND=(function(){
     });
     function buildRow(p){
       var tr=document.createElement('tr');
-      tr.innerHTML='<td class="mut">'+(p.benderId!=null?p.benderId:'—')+'</td><td><b>'+_esc(p.name)+'</b></td>';
+      tr.innerHTML='<td class="mut">'+(p.benderId!=null?p.benderId:'—')+'</td>';
+      var swypeTd=document.createElement('td');
+      var swypeInp=document.createElement('input');swypeInp.type='number';swypeInp.value=(p.swypeId!=null?p.swypeId:'');swypeInp.placeholder='—';
+      swypeInp.style.cssText='width:50px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace;text-align:right';
+      swypeInp.title='Swype slash command ID. Fill in once you know it (run /swype/provider/balance N and confirm the name matches).';
+      swypeInp.onchange=function(){var v=this.value.trim(); p.swypeId = (v===''?null:parseInt(v,10)); if(isNaN(p.swypeId))p.swypeId=null; NS.saveRegistry(registry); NS.renderFunding();};
+      swypeTd.appendChild(swypeInp);tr.appendChild(swypeTd);
+      var nameTd=document.createElement('td');nameTd.innerHTML='<b>'+_esc(p.name)+'</b>';tr.appendChild(nameTd);
       // Display name
       var dnTd=document.createElement('td');var dni=document.createElement('input');dni.value=p.displayName||'';dni.style.cssText='width:120px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:inherit';dni.onchange=function(){p.displayName=this.value;NS.saveRegistry(registry);};dnTd.appendChild(dni);tr.appendChild(dnTd);
       // Currency
@@ -14314,7 +14357,7 @@ var FUND=(function(){
         var tblInact = document.createElement('table'); tblInact.className = 'fund-table';
         // Same column headers — no sort handlers (sort is driven by the active table)
         tblInact.innerHTML = '<thead><tr>'
-          +'<th>ID</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>SERVICE</th><th>BILLING</th><th>TERMS</th>'
+          +'<th>ID</th><th>SWYPE</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>SERVICE</th><th>BILLING</th><th>TERMS</th>'
           +'<th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th>NOTES</th><th></th>'
           +'</tr></thead>';
         var tbInact = document.createElement('tbody'); tblInact.appendChild(tbInact);
