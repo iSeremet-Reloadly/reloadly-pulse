@@ -13447,6 +13447,81 @@ var FUND=(function(){
     summary.appendChild(saveBtn);
     host.appendChild(summary);
 
+    // === SEARCH BAR ===
+    var dpSearch = (NS.loadUI().dailyPullSearch || '');
+    var dpSearchRow = document.createElement('div');
+    dpSearchRow.style.cssText = 'display:flex;gap:8px;align-items:center;margin:14px 0 8px;flex-wrap:nowrap';
+    var dpSearchLbl = document.createElement('span');
+    dpSearchLbl.style.cssText = 'font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-right:4px;flex-shrink:0';
+    dpSearchLbl.textContent = 'SEARCH';
+    dpSearchRow.appendChild(dpSearchLbl);
+    var dpSearchWrap = document.createElement('div');
+    dpSearchWrap.style.cssText = 'position:relative;flex:1;max-width:380px';
+    var dpSearchInput = document.createElement('input');
+    dpSearchInput.type = 'text';
+    dpSearchInput.id = 'fund-daily-search';
+    dpSearchInput.placeholder = 'Filter by name, currency, mode, ID...';
+    dpSearchInput.value = dpSearch;
+    dpSearchInput.style.cssText = 'width:100%;padding:7px 30px 7px 12px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box;outline:none';
+    dpSearchInput.onfocus = function(){this.style.borderColor = 'var(--acc)';};
+    dpSearchInput.onblur = function(){this.style.borderColor = 'var(--brd)';};
+    dpSearchWrap.appendChild(dpSearchInput);
+    if(dpSearch){
+      var dpClearBtn = document.createElement('button');
+      dpClearBtn.innerHTML = '×';
+      dpClearBtn.title = 'Clear search';
+      dpClearBtn.style.cssText = 'position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--mut);cursor:pointer;font-size:18px;line-height:1;padding:0 6px;font-weight:700';
+      dpClearBtn.onclick = function(){var u=NS.loadUI(); u.dailyPullSearch=''; NS.saveUI(u); NS.renderFunding();};
+      dpSearchWrap.appendChild(dpClearBtn);
+    }
+    dpSearchRow.appendChild(dpSearchWrap);
+    var dpSearchCount = document.createElement('span');
+    dpSearchCount.id = 'fund-daily-search-count';
+    dpSearchCount.style.cssText = 'font-family:Roboto Mono,monospace;font-size:11px;color:var(--mut);font-weight:600;margin-left:6px';
+    dpSearchRow.appendChild(dpSearchCount);
+    host.appendChild(dpSearchRow);
+    var _dpTimer;
+    dpSearchInput.addEventListener('input', function(){
+      var val = this.value;
+      NS._dailyPullSearchActive = true;
+      if(_dpTimer) clearTimeout(_dpTimer);
+      _dpTimer = setTimeout(function(){
+        var u = NS.loadUI(); u.dailyPullSearch = val; NS.saveUI(u); NS.renderFunding();
+      }, 250);
+    });
+    dpSearchInput.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){
+        this.value = '';
+        var u = NS.loadUI(); u.dailyPullSearch=''; NS.saveUI(u); NS.renderFunding();
+      }
+    });
+    setTimeout(function(){
+      if(NS._dailyPullSearchActive){
+        var el = document.getElementById('fund-daily-search');
+        if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+        NS._dailyPullSearchActive = false;
+      }
+    }, 0);
+
+    // Apply search filter to the visible table rows (status counts above stay
+    // showing the full portfolio — search only narrows what you see, not what
+    // the snapshot tracks).
+    var _dpQ = dpSearch.trim().toLowerCase();
+    var _dpRegistryForTable = registry.filter(function(p){
+      if(!_dpQ) return true;
+      var hay = [
+        p.name, p.displayName, p.currency, p.mode, p.paymentTerms,
+        (p.benderId != null ? String(p.benderId) : ''),
+        (p.swypeId != null ? String(p.swypeId) : '')
+      ].join(' ').toLowerCase();
+      return hay.indexOf(_dpQ) >= 0;
+    });
+    if(_dpQ){
+      var _dpHidden = registry.length - _dpRegistryForTable.length;
+      dpSearchCount.textContent = _dpRegistryForTable.length + ' match' + (_dpRegistryForTable.length===1?'':'es')
+        + (_dpHidden>0 ? ' · ' + _dpHidden + ' hidden' : '');
+    }
+
     // Table
     var tw=document.createElement('div');tw.className='fund-tablewrap';
     var tbl=document.createElement('table');tbl.className='fund-table';
@@ -13456,7 +13531,7 @@ var FUND=(function(){
       +'</tr></thead>';
     var tb=document.createElement('tbody');tbl.appendChild(tb);
     var yesterdaySnap=_yesterdaySnapshot();
-    registry.forEach(function(p){
+    _dpRegistryForTable.forEach(function(p){
       var tr=document.createElement('tr');
       var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
       var existingLocal=(snap.balances[key]&&snap.balances[key].local)!=null?snap.balances[key].local:'';
