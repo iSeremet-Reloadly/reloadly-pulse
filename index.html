@@ -14073,11 +14073,53 @@ var FUND=(function(){
               dr.innerHTML='Date range: <b style="color:var(--txt)">'+preview.dateRange.min+'</b> → <b style="color:var(--txt)">'+preview.dateRange.max+'</b>';
               previewEl.appendChild(dr);
             }
-            // Unmatched list
-            var um=Object.keys(preview.unmatched);
+            // Unmatched list — sorted alphabetically, each name clickable to copy
+            var um=Object.keys(preview.unmatched).sort(function(a,b){return a.toLowerCase().localeCompare(b.toLowerCase());});
             if(um.length){
               var unmatchedDiv=document.createElement('div');unmatchedDiv.className='fund-bf-unmatched';
-              unmatchedDiv.innerHTML='<b>Unmatched provider names</b> ('+um.length+'). Either add them in the Providers tab with the same display name, or skip if not used: '+um.join(', ');
+              var unmHdr = document.createElement('div'); unmHdr.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;color:var(--yel);font-weight:700';
+              unmHdr.innerHTML = '<span>⚠ Unmatched provider names ('+um.length+')</span>';
+              var copyAllBtn = document.createElement('button');
+              copyAllBtn.className = 'fund-btn-mini';
+              copyAllBtn.style.cssText += 'border-color:rgba(245,158,11,.4);color:var(--yel)';
+              copyAllBtn.textContent = '⎘ Copy all';
+              copyAllBtn.onclick = function(){
+                navigator.clipboard.writeText(um.join('\n')).then(function(){
+                  copyAllBtn.textContent = '✓ Copied '+um.length;
+                  setTimeout(function(){copyAllBtn.textContent='⎘ Copy all';}, 2000);
+                });
+              };
+              unmHdr.appendChild(copyAllBtn);
+              unmatchedDiv.appendChild(unmHdr);
+              var unmHint = document.createElement('div');
+              unmHint.style.cssText = 'font-size:10px;color:var(--mut);margin-bottom:8px;line-height:1.5;font-family:Inter,system-ui,sans-serif';
+              unmHint.innerHTML = 'Click any name to copy it. Then go to <b>Providers</b> tab, find the right supplier, and paste this exact text into its <b>DISPLAY NAME</b> cell. Re-import to capture its balance.';
+              unmatchedDiv.appendChild(unmHint);
+              var unmList = document.createElement('div');
+              unmList.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+              um.forEach(function(n){
+                var chip = document.createElement('button');
+                chip.textContent = n;
+                chip.title = 'Click to copy "'+n+'" to clipboard';
+                chip.style.cssText = 'background:rgba(245,158,11,.12);color:var(--yel);border:1px solid rgba(245,158,11,.4);border-radius:5px;padding:4px 9px;font-size:10px;font-family:Roboto Mono,monospace;cursor:pointer;font-weight:600';
+                chip.onclick = function(){
+                  navigator.clipboard.writeText(n).then(function(){
+                    var orig = chip.textContent;
+                    chip.textContent = '✓ '+n;
+                    chip.style.background = 'rgba(16,185,129,.18)';
+                    chip.style.color = 'var(--grn)';
+                    chip.style.borderColor = 'rgba(16,185,129,.5)';
+                    setTimeout(function(){
+                      chip.textContent = orig;
+                      chip.style.background = 'rgba(245,158,11,.12)';
+                      chip.style.color = 'var(--yel)';
+                      chip.style.borderColor = 'rgba(245,158,11,.4)';
+                    }, 1500);
+                  });
+                };
+                unmList.appendChild(chip);
+              });
+              unmatchedDiv.appendChild(unmList);
               previewEl.appendChild(unmatchedDiv);
             }
             // Action buttons
