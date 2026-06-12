@@ -12128,6 +12128,7 @@ var FUND=(function(){
         services:_inferDefaultServices(r[1], r[4]),
         swypeId: null,
         entityType: (r[1] === 'SWYPE_PRODUCT_FLOAT' ? 'product_float' : 'supplier'),
+        aliases: [],
         notes:'', isActive:true
       };
     });
@@ -12172,6 +12173,13 @@ var FUND=(function(){
       // Backfill: entityType. Defaults to 'supplier' (third-party).
       if(p.entityType === undefined){
         p.entityType = 'supplier';
+        changed = true;
+      }
+      // Backfill: aliases array — used by the Excel backfill matcher to recognise
+      // non-canonical names from spreadsheets (e.g. "Click Mobile Botswana"
+      // mapping to CLICKMOBILE with subKey Botswana). User-editable per row.
+      if(!Array.isArray(p.aliases)){
+        p.aliases = [];
         changed = true;
       }
     });
@@ -13764,11 +13772,19 @@ var FUND=(function(){
       .replace(/\s+/g,' ').trim();
   }
 
-  // Build a lookup map: normalized name → registry entry. Tries displayName first, then name, then subKey.
+  // Build a lookup map: normalized name → registry entry. Tries displayName first, then name, then subKey,
+  // then any user-defined aliases on the provider.
   function _buildLookup(registry){
     var byName={};
     registry.forEach(function(p){
       [p.displayName, p.name, p.subKey].forEach(function(k){if(k){var n=_normalizeName(k);if(n && !byName[n])byName[n]=p;}});
+      // Per-provider user aliases — wins over fuzzy fallbacks since the user explicitly mapped these.
+      if(Array.isArray(p.aliases)){
+        p.aliases.forEach(function(alias){
+          var n = _normalizeName(alias);
+          if(n) byName[n] = p; // always overwrite — user wants this binding
+        });
+      }
     });
     // Specific aliases common in the historical Excel
     var aliases = {
@@ -14593,6 +14609,7 @@ var FUND=(function(){
       +'<th>TERMS</th>'
       +'<th>PAY METHOD</th><th>PORTAL URL</th>'
       +regTh('active','ACTIVE')
+      +'<th title="Comma-separated alternate names used to match Excel backfill imports. Example: \"Click Mobile Botswana, Click-Botswana\".">ALIASES</th>'
       +'<th></th>'
       +'</tr></thead>';
     var tb=document.createElement('tbody');tbl.appendChild(tb);
@@ -14666,6 +14683,18 @@ var FUND=(function(){
       var purlTd=document.createElement('td');var purl=document.createElement('input');purl.value=p.portalUrl||'';purl.placeholder='https://…';purl.style.cssText='width:160px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';purl.onchange=function(){p.portalUrl=this.value;NS.saveRegistry(registry);};purlTd.appendChild(purl);tr.appendChild(purlTd);
       // Active
       var actTd=document.createElement('td');var actCb=document.createElement('input');actCb.type='checkbox';actCb.checked=p.isActive!==false;actCb.onchange=function(){p.isActive=this.checked;NS.saveRegistry(registry);};actTd.appendChild(actCb);tr.appendChild(actTd);
+      // Aliases (comma-separated names that should match this provider during Excel backfill)
+      var aliasTd=document.createElement('td');
+      var aliasInp=document.createElement('input');
+      aliasInp.value=(Array.isArray(p.aliases)?p.aliases.join(', '):'');
+      aliasInp.placeholder='alt name, alt name 2';
+      aliasInp.title='Comma-separated alternate names. When the Excel backfill sees one of these, it routes the balance to this provider.';
+      aliasInp.style.cssText='width:200px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:inherit';
+      aliasInp.onchange=function(){
+        p.aliases = this.value.split(',').map(function(s){return s.trim();}).filter(function(s){return !!s;});
+        NS.saveRegistry(registry);
+      };
+      aliasTd.appendChild(aliasInp);tr.appendChild(aliasTd);
       // Actions
       var actTd=document.createElement('td');actTd.style.cssText='white-space:nowrap';
       var subBtn=document.createElement('button');subBtn.className='fund-btn-mini';subBtn.textContent='+ sub';
@@ -14693,7 +14722,8 @@ var FUND=(function(){
       var hay = [
         p.name, p.displayName, p.currency, p.mode, p.paymentTerms, pm,
         (p.benderId != null ? String(p.benderId) : ''),
-        (p.swypeId != null ? String(p.swypeId) : '')
+        (p.swypeId != null ? String(p.swypeId) : ''),
+        (Array.isArray(p.aliases) ? p.aliases.join(' ') : '')
       ].join(' ').toLowerCase();
       return hay.indexOf(_searchQ) >= 0;
     }
@@ -14751,7 +14781,7 @@ var FUND=(function(){
         // Same column headers — no sort handlers (sort is driven by the active table)
         tblInact.innerHTML = '<thead><tr>'
           +'<th>ID</th><th>SWYPE</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>SERVICE</th><th>BILLING</th><th>TERMS</th>'
-          +'<th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th></th>'
+          +'<th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th>ALIASES</th><th></th>'
           +'</tr></thead>';
         var tbInact = document.createElement('tbody'); tblInact.appendChild(tbInact);
         inactiveRegistry.forEach(function(p){tbInact.appendChild(buildRow(p));});
@@ -14903,6 +14933,11 @@ var FUND=(function(){
     var inPortal = input('https://…');
     fPortal.appendChild(inPortal); box.appendChild(fPortal);
 
+    // Aliases
+    var fAliases = field('ALIASES (optional)', 'Comma-separated alternate names used by the Excel backfill matcher. Example: <code>Click Mobile Botswana, Click-Botswana</code>.');
+    var inAliases = input('alt name 1, alt name 2');
+    fAliases.appendChild(inAliases); box.appendChild(fAliases);
+
     // Notes
     var fNotes = field('NOTES (optional)', 'Free text. Anything that helps the next person understand this wallet.');
     var inNotes = input('e.g. EUR settles same-day, USD takes 2 days');
@@ -14952,6 +14987,7 @@ var FUND=(function(){
         // Fall back to the smart default if user picked none
         pickedSvcs = _inferDefaultServices(name.toUpperCase(), mode);
       }
+      var aliasesParsed = inAliases.value.split(',').map(function(s){return s.trim();}).filter(function(s){return !!s;});
       var newP = {
         benderId: benderId,
         name: name.toUpperCase(),
@@ -14965,6 +15001,7 @@ var FUND=(function(){
         services: pickedSvcs,
         swypeId: null,
         entityType: inEnt.value,
+        aliases: aliasesParsed,
         notes: inNotes.value.trim(),
         isActive: true
       };
