@@ -14389,31 +14389,66 @@ var FUND=(function(){
     var registry=NS.loadRegistry();
     snaps=snaps.slice().sort(function(a,b){return b.date.localeCompare(a.date);});
     var dates=snaps.slice(0,30).map(function(s){return s.date;});
-    // Pivot: rows = providers, cols = dates
-    var tw=document.createElement('div');tw.className='fund-tablewrap';
-    var tbl=document.createElement('table');tbl.className='fund-table';
-    var thead='<thead><tr><th>PROVIDER</th><th>CURRENCY</th>'+dates.map(function(d){return '<th style="text-align:right">'+d.slice(5)+'</th>';}).join('')+'</tr></thead>';
-    tbl.innerHTML=thead;
-    var tb=document.createElement('tbody');tbl.appendChild(tb);
-    registry.forEach(function(p){
-      var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
-      var tr=document.createElement('tr');
-      var html='<td><div class="fund-prov-name">'+_esc(p.displayName||p.name)+'</div></td><td><span class="ccy">'+_esc(p.currency||'USD')+'</span></td>';
-      dates.forEach(function(d){
-        var snap=snaps.find(function(s){return s.date===d;});
-        var bal=snap&&snap.balances[key]?snap.balances[key]:null;
-        if(bal){
-          var rates=NS.loadFX()[d]||null;
-          var usd=NS.localToUSD(bal.local, bal.currency||p.currency, rates);
-          html+='<td class="num">'+(usd!=null?usd.toFixed(2):bal.local.toFixed(2))+'</td>';
-        }else{
-          html+='<td class="mut" style="text-align:right">—</td>';
-        }
+
+    // Split into active + inactive (archived) using the Providers tab's isActive flag.
+    var activeReg = registry.filter(function(p){return p.isActive !== false;});
+    var archivedReg = registry.filter(function(p){return p.isActive === false;});
+
+    // Summary line so the user knows how the split happened
+    var hSummary = document.createElement('div');
+    hSummary.style.cssText = 'font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:12px;line-height:1.55';
+    hSummary.innerHTML = '<b>'+activeReg.length+'</b> active provider'+(activeReg.length===1?'':'s')+' · last <b>'+dates.length+'</b> snapshot'+(dates.length===1?'':'s')+(archivedReg.length?' · <span style="color:var(--mut)">'+archivedReg.length+' archived (collapsed below)</span>':'');
+    host.appendChild(hSummary);
+
+    // Build a pivot table for a given list of providers
+    function _buildHistoryTable(providers){
+      var tw=document.createElement('div');tw.className='fund-tablewrap';
+      var tbl=document.createElement('table');tbl.className='fund-table';
+      var thead='<thead><tr><th>PROVIDER</th><th>CURRENCY</th>'+dates.map(function(d){return '<th style="text-align:right">'+d.slice(5)+'</th>';}).join('')+'</tr></thead>';
+      tbl.innerHTML=thead;
+      var tb=document.createElement('tbody');tbl.appendChild(tb);
+      providers.forEach(function(p){
+        var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
+        var tr=document.createElement('tr');
+        var html='<td><div class="fund-prov-name">'+_esc(p.displayName||p.name)+'</div></td><td><span class="ccy">'+_esc(p.currency||'USD')+'</span></td>';
+        dates.forEach(function(d){
+          var snap=snaps.find(function(s){return s.date===d;});
+          var bal=snap&&snap.balances[key]?snap.balances[key]:null;
+          if(bal){
+            var rates=NS.loadFX()[d]||null;
+            var usd=NS.localToUSD(bal.local, bal.currency||p.currency, rates);
+            html+='<td class="num">'+(usd!=null?usd.toFixed(2):bal.local.toFixed(2))+'</td>';
+          }else{
+            html+='<td class="mut" style="text-align:right">—</td>';
+          }
+        });
+        tr.innerHTML=html;tb.appendChild(tr);
       });
-      tr.innerHTML=html;tb.appendChild(tr);
-    });
-    tw.appendChild(tbl);
-    host.appendChild(tw);
+      tw.appendChild(tbl);
+      return tw;
+    }
+
+    // Active providers — always visible
+    host.appendChild(_buildHistoryTable(activeReg));
+
+    // Archived providers — collapsable section (default collapsed)
+    if(archivedReg.length){
+      var uiH = NS.loadUI();
+      var archivedCollapsed = uiH.historyArchivedCollapsed !== false; // default true
+      var archHdr = document.createElement('div');
+      archHdr.style.cssText = 'display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;margin-top:14px;margin-bottom:'+(archivedCollapsed?'0':'10px')+';user-select:none';
+      archHdr.innerHTML = '<span style="font-family:Roboto Mono,monospace;font-size:11px;font-weight:700;color:var(--mut);letter-spacing:.5px">'+(archivedCollapsed?'▸':'▾')+' ARCHIVED PROVIDERS</span><span style="font-size:11px;color:var(--mut)">'+archivedReg.length+' inactive (toggled off in Providers tab)</span><span style="margin-left:auto;font-size:10px;color:var(--mut)">click to '+(archivedCollapsed?'expand':'collapse')+'</span>';
+      archHdr.onclick = function(){
+        var u = NS.loadUI();
+        u.historyArchivedCollapsed = !archivedCollapsed;
+        NS.saveUI(u);
+        NS.renderFunding();
+      };
+      host.appendChild(archHdr);
+      if(!archivedCollapsed){
+        host.appendChild(_buildHistoryTable(archivedReg));
+      }
+    }
   }
 
   function _renderRegistry(host){
