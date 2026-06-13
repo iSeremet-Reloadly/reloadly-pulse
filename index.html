@@ -11932,7 +11932,8 @@ var FUND=(function(){
     ui:'rl_fund_ui_v1',
     alertLog:'rl_fund_alert_log_v1',
     topupHistory:'rl_fund_topup_history_v1',
-    paymentMethods:'rl_fund_pay_methods_v1'
+    paymentMethods:'rl_fund_pay_methods_v1',
+    lastHourlyReport:'rl_fund_last_hourly_report_v1'
   };
 
   // Seeded provider registry from the 2026 Prepaid Accounts workbook.
@@ -12400,6 +12401,152 @@ var FUND=(function(){
   // Summary On GiftCard Providers". Each line is:
   //   "<PROVIDER> : <amount> <CCY> [| <amount> <CCY>]* [(Note: ...)]."
   // Returns array of {providerName, balances:[{amount, currency}], note, alsoFor}.
+  // Parses Bender's "Hourly Airtime Provider Balance Report" posted to #funding-bot.
+  // Returns {stats, entries, failures} where:
+  //   stats = {queried, successful, failed, durationSec}
+  //   entries = array of {benderId, name, wallets:[{description, amount, currency}]}
+  //   failures = array of {benderId, name}
+  NS.parseHourlyReport = function(text){
+    if(!text) return null;
+    if(!/Hourly Airtime Provider Balance Report/i.test(text)) return null;
+    var entries = [];
+    var failures = [];
+    var stats = null;
+    var lines = text.split(/\r?\n/);
+    var statsLine = null;
+    for(var i=0;i<lines.length;i++){
+      if(/Providers queried/i.test(lines[i])){statsLine = lines[i]; break;}
+    }
+    if(statsLine){
+      var nums = statsLine.match(/\d+/g);
+      if(nums && nums.length >= 4){
+        stats = {queried:+nums[0], successful:+nums[1], failed:+nums[2], durationSec:+nums[3]};
+      }
+    }
+    var inSuccess = false, inFail = false, current = null;
+    for(var li=0; li<lines.length; li++){
+      var raw = lines[li];
+      var line = raw.trim();
+      if(/Successful provider balances/i.test(line)){inSuccess=true; inFail=false; current=null; continue;}
+      if(/Provider balance failures/i.test(line)){inSuccess=false; inFail=true; current=null; continue;}
+      if(!inSuccess && !inFail) continue;
+      // Provider header line — "ID NAME"
+      var hm = line.match(/^(\d+)\s+([A-Z][A-Z0-9_]*)$/);
+      if(hm){
+        var pid = parseInt(hm[1], 10);
+        var pname = hm[2];
+        if(inSuccess){ current = {benderId:pid, name:pname, wallets:[]}; entries.push(current); }
+        else if(inFail){ failures.push({benderId:pid, name:pname}); }
+        continue;
+      }
+      // Wallet row within successful section — "Description: amount CURRENCY"
+      if(inSuccess && current){
+        var wm = raw.match(/^\s+(.+?):\s+(-?[\d,]+(?:\.\d+)?)\s+([A-Z]{3,4})\s*$/);
+        if(wm){
+          var amount = parseFloat(wm[2].replace(/,/g, ''));
+          if(!isNaN(amount)){
+            current.wallets.push({description: wm[1].trim(), amount: amount, currency: wm[3].toUpperCase()});
+          }
+        }
+      }
+    }
+    return {stats: stats, entries: entries, failures: failures};
+  };
+
+  // Apply a parsed hourly report to today's snapshot. Routes balances by
+  // benderId + fuzzy subKey match (so "Botswana BWP Wallet" finds the registry
+  // row with benderId=10 and subKey=Botswana etc.).
+  NS.applyHourlyReport = function(parsed){
+    if(!parsed || !parsed.entries || !parsed.entries.length) return {applied:0, providers:0, unmatched:0, failures:0};
+    var registry = NS.loadRegistry();
+    var snaps = NS.loadSnapshots();
+    var todayStr = (new Date()).toISOString().slice(0, 10);
+    var snap = snaps.find(function(s){return s.date === todayStr;});
+    if(!snap){ snap = {date: todayStr, balances: {}}; }
+    if(!snap.balances) snap.balances = {};
+
+    var applied = 0;
+    var unmatched = 0;
+    var providersTouched = 0;
+
+    function findRegistryEntry(benderId, walletDesc){
+      var matches = registry.filter(function(p){return p.benderId === benderId;});
+      if(!matches.length) return null;
+      var wn = String(walletDesc||'').toLowerCase().trim();
+      // Strip common suffixes that don't appear in subKeys
+      var wclean = wn.replace(/\s*wallet\s*$/i, '').trim();
+      // 1. General → entry with no subKey or subKey=General
+      if(/^general$/i.test(walletDesc) || matches.length === 1){
+        return matches.find(function(p){return !p.subKey || /^general$/i.test(p.subKey||'');}) || matches[0];
+      }
+      // 2. Exact subKey match (case-insensitive, trimmed)
+      var exact = matches.find(function(p){
+        if(!p.subKey) return false;
+        var sn = String(p.subKey).toLowerCase().trim();
+        return sn === wn || sn === wclean;
+      });
+      if(exact) return exact;
+      // 3. subKey contained in walletDesc or vice versa
+      var contains = matches.find(function(p){
+        if(!p.subKey) return false;
+        var sn = String(p.subKey).toLowerCase().trim();
+        return wn.indexOf(sn) >= 0 || sn.indexOf(wn) >= 0 || wclean.indexOf(sn) >= 0 || sn.indexOf(wclean) >= 0;
+      });
+      if(contains) return contains;
+      // 4. Token-overlap: split on non-alphanum and compare
+      var wt = wclean.split(/[^a-z0-9]+/).filter(Boolean);
+      var byTok = matches.find(function(p){
+        if(!p.subKey) return false;
+        var sn = String(p.subKey).toLowerCase();
+        return wt.length>0 && wt.every(function(t){return sn.indexOf(t)>=0;});
+      });
+      return byTok || null;
+    }
+
+    parsed.entries.forEach(function(entry){
+      providersTouched++;
+      entry.wallets.forEach(function(w){
+        var found = findRegistryEntry(entry.benderId, w.description);
+        if(!found){ unmatched++; return; }
+        var key = found.subKey ? (String(found.benderId) + '::' + found.subKey) : (found.benderId != null ? String(found.benderId) : found.name);
+        snap.balances[key] = {
+          local: w.amount,
+          currency: w.currency,
+          enteredAt: new Date().toISOString(),
+          source: 'hourly-airtime-report'
+        };
+        applied++;
+      });
+    });
+
+    snap.savedAt = new Date().toISOString();
+    var sidx = snaps.findIndex(function(s){return s.date === todayStr;});
+    if(sidx >= 0) snaps[sidx] = snap; else snaps.push(snap);
+    NS.saveSnapshots(snaps);
+
+    // Stash the report (stats + failures) for the Daily Pull status strip
+    try{
+      saveJSON(K.lastHourlyReport, {
+        at: new Date().toISOString(),
+        stats: parsed.stats,
+        failures: parsed.failures || [],
+        appliedCount: applied,
+        unmatchedCount: unmatched
+      });
+    }catch(e){}
+
+    // Fire alert check
+    try{NS.runAlertCheck('hourly_report');}catch(e){console.warn('[FUND] alert check failed', e);}
+
+    return {applied: applied, providers: providersTouched, unmatched: unmatched, failures: (parsed.failures||[]).length};
+  };
+
+  NS.looksLikeHourlyAirtimeReport = function(text){
+    return !!text && /Hourly Airtime Provider Balance Report/i.test(text);
+  };
+
+  NS.loadLastHourlyReport = function(){return loadJSON(K.lastHourlyReport, null);};
+
   NS.parseGiftCardSummary = function(text){
     if(!text) return [];
     var entries = [];
@@ -13372,6 +13519,51 @@ var FUND=(function(){
     // Portfolio status summary
     host.appendChild(_renderStatusSummary());
 
+    // === HOURLY REPORT STATUS STRIP ===
+    var lastHR = NS.loadLastHourlyReport();
+    if(lastHR){
+      var hrStrip = document.createElement('div');
+      hrStrip.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;margin-bottom:12px;font-size:11px;flex-wrap:wrap;font-family:Roboto Mono,monospace';
+      var hrAgeMin = Math.round((Date.now() - Date.parse(lastHR.at)) / 60000);
+      var hrAgeLabel = hrAgeMin < 60 ? (hrAgeMin + ' min ago') : (Math.round(hrAgeMin/60) + ' hr ago');
+      var s = lastHR.stats || {};
+      var hrInfo = document.createElement('div');
+      hrInfo.style.cssText = 'flex:1;color:var(--mut);display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+      hrInfo.innerHTML = '<span style="color:var(--txt);font-weight:700">BENDER HOURLY</span>'
+        + '<span class="pill ok" style="font-size:9px">' + (s.successful||lastHR.appliedCount||0) + ' OK</span>'
+        + ((s.failed && s.failed>0) ? '<span class="pill warn" style="font-size:9px">' + s.failed + ' FAILED</span>' : '')
+        + '<span style="color:var(--mut)">'+hrAgeLabel+'</span>';
+      if(lastHR.unmatchedCount){
+        hrInfo.innerHTML += '<span class="pill warn" style="font-size:9px;background:rgba(245,158,11,.18);color:var(--yel)">'+lastHR.unmatchedCount+' unmatched</span>';
+      }
+      hrStrip.appendChild(hrInfo);
+      // Show failures inline (collapsable)
+      if(lastHR.failures && lastHR.failures.length){
+        var failsBtn = document.createElement('button');
+        failsBtn.className = 'fund-btn-mini';
+        failsBtn.textContent = 'Show failures';
+        var failsExpanded = false;
+        var failsDetail = document.createElement('div');
+        failsDetail.style.cssText = 'flex-basis:100%;display:none;flex-wrap:wrap;gap:5px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--brd)';
+        lastHR.failures.forEach(function(f){
+          var chip = document.createElement('span');
+          chip.style.cssText = 'background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:4px;padding:3px 8px;font-size:10px;font-family:Roboto Mono,monospace';
+          chip.textContent = f.benderId + ' ' + f.name;
+          failsDetail.appendChild(chip);
+        });
+        failsBtn.onclick = function(){
+          failsExpanded = !failsExpanded;
+          failsDetail.style.display = failsExpanded ? 'flex' : 'none';
+          failsBtn.textContent = failsExpanded ? 'Hide failures' : ('Show '+lastHR.failures.length+' failures');
+        };
+        failsBtn.textContent = 'Show '+lastHR.failures.length+' failures';
+        hrStrip.appendChild(failsBtn);
+        hrStrip.appendChild(failsDetail);
+      }
+      host.appendChild(hrStrip);
+    }
+
+
     // FX strip
     var fxStrip=document.createElement('div');fxStrip.className='fund-fx-strip';
     if(rates){
@@ -14019,6 +14211,22 @@ var FUND=(function(){
     var applyBtn=document.createElement('button');applyBtn.className='fund-btn primary';applyBtn.innerHTML='✓ Parse + Apply';
     applyBtn.onclick=function(){
       // Detect Bender hourly gift card summary format and dispatch to its parser.
+      // Detect Bender's "Hourly Airtime Provider Balance Report" automated post.
+      if(NS.looksLikeHourlyAirtimeReport(ta.value)){
+        var hrParsed = NS.parseHourlyReport(ta.value);
+        if(hrParsed){
+          var hrRes = NS.applyHourlyReport(hrParsed);
+          if(typeof toast === 'function'){
+            var hrMsg = 'Hourly report: '+hrRes.providers+' providers · '+hrRes.applied+' balances'
+              + (hrRes.unmatched ? ' · '+hrRes.unmatched+' unmatched' : '')
+              + (hrRes.failures ? ' · '+hrRes.failures+' failed by Bender' : '');
+            toast(hrMsg, 'ok');
+          }
+          ta.value = '';
+          NS.renderFunding();
+          return;
+        }
+      }
       if(NS.looksLikeGiftCardSummary(ta.value)){
         var gcParsed = NS.parseGiftCardSummary(ta.value);
         if(gcParsed.length){
