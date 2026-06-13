@@ -12477,35 +12477,66 @@ var FUND=(function(){
     function findRegistryEntry(benderId, walletDesc){
       var matches = registry.filter(function(p){return p.benderId === benderId;});
       if(!matches.length) return null;
-      var wn = String(walletDesc||'').toLowerCase().trim();
-      // Strip common suffixes that don't appear in subKeys
-      var wclean = wn.replace(/\s*wallet\s*$/i, '').trim();
-      // 1. General → entry with no subKey or subKey=General
+      var wd = String(walletDesc||'');
+      // 1. General → entry with no subKey or subKey=General. Also when the
+      //    provider has only one entry (no sub-wallets), use it.
       if(/^general$/i.test(walletDesc) || matches.length === 1){
         return matches.find(function(p){return !p.subKey || /^general$/i.test(p.subKey||'');}) || matches[0];
       }
-      // 2. Exact subKey match (case-insensitive, trimmed)
-      var exact = matches.find(function(p){
-        if(!p.subKey) return false;
-        var sn = String(p.subKey).toLowerCase().trim();
-        return sn === wn || sn === wclean;
+      // 2. Smarter token-based matching against displayName, subKey, and name.
+      //    Filters stopwords ("mobile", "wallet", "account", etc.) and handles
+      //    CamelCase splits so "Lafrica Mobile Burkina" ↔ "Lafrica-Burkina"
+      //    and "Lafrica Mobile DR Congo" ↔ "Lafrica-DRCongo" both match cleanly.
+      var STOPWORDS = ['mobile','wallet','account','the','and','master','sub','of','daily','usage'];
+      function tokenize(s){
+        return String(s||'')
+          .replace(/([a-z])([A-Z])/g, '$1 $2')  // camelCase → camel Case
+          .toLowerCase()
+          .split(/[\s\-_,.&'"\(\)\/]+/)
+          .filter(function(t){return t && t.length > 1 && STOPWORDS.indexOf(t) < 0;});
+      }
+      var wTokens = tokenize(wd);
+      if(!wTokens.length){
+        // Description is just stopwords — fall back to first match
+        return matches[0];
+      }
+      // Score each (entry, candidate-string) pair. Pick the highest scorer.
+      var bestMatch = null;
+      var bestScore = 0;
+      matches.forEach(function(p){
+        var candStrings = [p.displayName, p.subKey, p.name].filter(Boolean);
+        candStrings.forEach(function(s){
+          var cTokens = tokenize(s);
+          if(cTokens.length === 0) return;
+          // Token sets equal → top score (100)
+          var setsEq = cTokens.length === wTokens.length &&
+                       cTokens.every(function(t){return wTokens.indexOf(t) >= 0;});
+          if(setsEq){
+            if(bestScore < 100){bestScore = 100; bestMatch = p;}
+            return;
+          }
+          // Otherwise: subset overlap. If the shorter set is fully contained in
+          // the longer, score = 10 × common count (so longer overlap wins over
+          // shorter, e.g. "Lafrica Senegal Data" beats "Lafrica Senegal").
+          var common = cTokens.filter(function(t){return wTokens.indexOf(t) >= 0;}).length;
+          if(common === 0) return;
+          var shorterLen = Math.min(cTokens.length, wTokens.length);
+          if(common === shorterLen){
+            var score = common * 10;
+            if(score > bestScore){bestScore = score; bestMatch = p;}
+          }
+        });
       });
-      if(exact) return exact;
-      // 3. subKey contained in walletDesc or vice versa
-      var contains = matches.find(function(p){
-        if(!p.subKey) return false;
-        var sn = String(p.subKey).toLowerCase().trim();
-        return wn.indexOf(sn) >= 0 || sn.indexOf(wn) >= 0 || wclean.indexOf(sn) >= 0 || sn.indexOf(wclean) >= 0;
-      });
-      if(contains) return contains;
-      // 4. Token-overlap: split on non-alphanum and compare
-      var wt = wclean.split(/[^a-z0-9]+/).filter(Boolean);
-      var byTok = matches.find(function(p){
-        if(!p.subKey) return false;
-        var sn = String(p.subKey).toLowerCase();
-        return wt.length>0 && wt.every(function(t){return sn.indexOf(t)>=0;});
-      });
-      return byTok || null;
+      if(bestMatch) return bestMatch;
+      // Final fallback: original substring contains check
+      var wn = wd.toLowerCase().trim();
+      var wclean = wn.replace(/\s*wallet\s*$/i, '').trim();
+      return matches.find(function(p){
+        return [p.displayName, p.subKey, p.name].filter(Boolean).some(function(s){
+          var sn = String(s).toLowerCase().trim();
+          return wn.indexOf(sn) >= 0 || sn.indexOf(wn) >= 0 || wclean.indexOf(sn) >= 0 || sn.indexOf(wclean) >= 0;
+        });
+      }) || null;
     }
 
     parsed.entries.forEach(function(entry){
