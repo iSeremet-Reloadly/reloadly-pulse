@@ -12478,10 +12478,23 @@ var FUND=(function(){
       var matches = registry.filter(function(p){return p.benderId === benderId;});
       if(!matches.length) return null;
       var wd = String(walletDesc||'');
-      // 1. General → entry with no subKey or subKey=General. Also when the
-      //    provider has only one entry (no sub-wallets), use it.
-      if(/^general$/i.test(walletDesc) || matches.length === 1){
-        return matches.find(function(p){return !p.subKey || /^general$/i.test(p.subKey||'');}) || matches[0];
+      // 1a. Single-entry provider — no ambiguity, use it.
+      if(matches.length === 1){
+        return matches[0];
+      }
+      // 1b. "General" wallet — require an explicit General signal so we don't
+      //     accidentally route to a sub-wallet that happens to have no subKey
+      //     set (e.g. CSQ-Euro could grab General if it was loosely picked).
+      if(/^general$/i.test(walletDesc)){
+        var generalMatch = matches.find(function(p){
+          if(p.subKey && /^general$/i.test(p.subKey)) return true;
+          if(p.displayName && /\bgeneral\b/i.test(p.displayName)) return true;
+          // Conservative fallback: if exactly one entry has BOTH no subKey
+          // AND a displayName that does not look like a sub-wallet (no
+          // hyphen/underscore/space-separated sub-token), accept it as General.
+          return false;
+        });
+        return generalMatch || null;
       }
       // 2. Smarter token-based matching against displayName, subKey, and name.
       //    Filters stopwords ("mobile", "wallet", "account", etc.) and handles
