@@ -12603,6 +12603,71 @@ var FUND=(function(){
     return {applied: applied, providers: providersTouched, unmatched: unmatched, failures: (parsed.failures||[]).length};
   };
 
+  // Fetch the latest "Hourly Airtime Provider Balance Report" from Slack via
+  // the Cloudflare Worker proxy. Returns the Worker's JSON response.
+  NS.fetchLatestHourly = function(){
+    var admin = NS.loadAdmin();
+    var url = admin.workerUrl;
+    if(!url) return Promise.resolve({error: 'no_worker_url'});
+    return fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'latest_hourly'})
+    }).then(function(r){return r.json();}).catch(function(e){return {error: 'network', detail: String(e)};});
+  };
+
+  // Pulls the latest hourly report and applies it iff it's newer than what we
+  // last applied. Pass {force:true} to bypass the ts check.
+  NS.syncHourly = function(opts){
+    opts = opts || {};
+    return NS.fetchLatestHourly().then(function(r){
+      if(!r || !r.ok || !r.found){
+        return {synced: false, reason: (r && (r.error || (r.found===false ? 'no_report_found' : 'unknown'))) || 'unknown'};
+      }
+      var LAST_TS_KEY = 'rl_fund_last_hourly_applied_ts';
+      var lastTs = localStorage.getItem(LAST_TS_KEY) || '0';
+      if(!opts.force && r.ts && parseFloat(r.ts) <= parseFloat(lastTs)){
+        return {synced: false, reason: 'already_applied', lastTs: lastTs, latestTs: r.ts};
+      }
+      var parsed = NS.parseHourlyReport(r.text);
+      if(!parsed || !parsed.entries.length){
+        return {synced: false, reason: 'parse_failed_or_empty'};
+      }
+      var applied = NS.applyHourlyReport(parsed);
+      try{localStorage.setItem(LAST_TS_KEY, r.ts || String(Date.now()/1000));}catch(e){}
+      return {
+        synced: true,
+        applied: applied,
+        ts: r.ts,
+        postedAt: r.postedAt,
+        fromCache: r.fromCache === true
+      };
+    });
+  };
+
+  // Track the running auto-sync interval so we can clear it when navigating
+  // away from the Funding module.
+  NS._stopAutoSync = function(){
+    if(window._fundAutoSyncInterval){
+      clearInterval(window._fundAutoSyncInterval);
+      window._fundAutoSyncInterval = null;
+    }
+  };
+
+  NS._startAutoSync = function(){
+    NS._stopAutoSync();
+    // Poll every 10 minutes. The cron refreshes the KV cache every hour, so
+    // even when no Pulse tab has been open for a while, the next poll picks up
+    // whatever the cron last cached.
+    window._fundAutoSyncInterval = setInterval(function(){
+      NS.syncHourly().then(function(r){
+        if(r.synced && typeof toast === 'function'){
+          toast('Bender hourly synced ('+r.applied.applied+' balances · '+r.applied.failures+' failed)', 'ok');
+        }
+      }).catch(function(){});
+    }, 10 * 60 * 1000);
+  };
+
   NS.looksLikeHourlyAirtimeReport = function(text){
     if(!text) return false;
     // Strong markers — any one of these guarantees hourly-report format
@@ -13152,6 +13217,18 @@ var FUND=(function(){
   // ===== MAIN RENDERER =====
   NS.renderFunding=function(){
     var main=document.getElementById('main');if(!main)return;main.innerHTML='';
+    // Auto-sync hourly report once per Funding render. Don't await — the result
+    // arrives a few seconds later and the next render shows the updated data.
+    // First call kicks off the interval timer so subsequent renders don't stack.
+    if(!window._fundAutoSyncStarted){
+      window._fundAutoSyncStarted = true;
+      try{
+        NS.syncHourly().then(function(r){
+          if(r.synced){NS.renderFunding();}
+        }).catch(function(){});
+        NS._startAutoSync();
+      }catch(e){console.warn('[FUND] auto-sync init failed', e);}
+    }
     var ui=NS.loadUI();
     var wrap=document.createElement('div');wrap.className='fund-wrap';
 
@@ -13616,6 +13693,24 @@ var FUND=(function(){
         hrInfo.innerHTML += '<span class="pill warn" style="font-size:9px;background:rgba(245,158,11,.18);color:var(--yel)">'+lastHR.unmatchedCount+' unmatched</span>';
       }
       hrStrip.appendChild(hrInfo);
+      // Manual sync now button
+      var syncBtn = document.createElement('button');
+      syncBtn.className = 'fund-btn-mini';
+      syncBtn.innerHTML = '↻ Sync now';
+      syncBtn.title = 'Pull the latest Bender hourly report from Slack and apply it.';
+      syncBtn.onclick = function(){
+        syncBtn.disabled = true; syncBtn.innerHTML = 'Syncing…';
+        NS.syncHourly({force:true}).then(function(r){
+          if(r.synced){
+            if(typeof toast === 'function') toast('Synced '+r.applied.applied+' balances ('+r.applied.failures+' failed)', 'ok');
+            NS.renderFunding();
+          } else {
+            if(typeof toast === 'function') toast('Sync: '+r.reason, 'info');
+            syncBtn.disabled = false; syncBtn.innerHTML = '↻ Sync now';
+          }
+        });
+      };
+      hrStrip.appendChild(syncBtn);
       // Show failures inline (collapsable)
       if(lastHR.failures && lastHR.failures.length){
         var failsBtn = document.createElement('button');
@@ -13722,6 +13817,56 @@ var FUND=(function(){
     summary.appendChild(saveBtn);
     host.appendChild(summary);
 
+    // === AUTO vs MANUAL TOGGLE ===
+    var ui_dp = NS.loadUI();
+    var dpMode = ui_dp.dailyPullMode || 'all';
+    var _lastHR_dp = NS.loadLastHourlyReport();
+    var _hrFailIds = {};
+    if(_lastHR_dp && Array.isArray(_lastHR_dp.failures)){
+      _lastHR_dp.failures.forEach(function(f){if(f.benderId!=null)_hrFailIds[f.benderId]=true;});
+    }
+    function _classifyProviderRow(p){
+      var key = p.subKey?(String(p.benderId)+'::'+p.subKey):(p.benderId!=null?String(p.benderId):p.name);
+      var b = snap.balances && snap.balances[key];
+      if(b && b.source){
+        var s = b.source;
+        if(s === 'hourly-airtime-report') return 'AUTO_HOURLY';
+        if(s === 'gift-card-summary' || s === 'gift-card-summary-aliased') return 'AUTO_GC';
+        return 'MANUAL'; // bulk-parse, manual entry, etc.
+      }
+      // No balance — predict bucket
+      if(p.benderId != null && _hrFailIds[p.benderId]) return 'BENDER_FAIL';
+      if(p.mode === 'bender' || p.mode === 'swype' || p.mode === 'chat_payments') return 'EMPTY_AUTO';
+      return 'EMPTY_MANUAL';
+    }
+    var _allBuckets = registry.map(function(p){return {p:p, bucket:_classifyProviderRow(p)};});
+    function _isAuto(bucket){return bucket==='AUTO_HOURLY' || bucket==='AUTO_GC';}
+    function _isManual(bucket){return bucket==='MANUAL' || bucket==='BENDER_FAIL' || bucket==='EMPTY_MANUAL';}
+    var _autoCount = _allBuckets.filter(function(x){return _isAuto(x.bucket);}).length;
+    var _manualCount = _allBuckets.filter(function(x){return _isManual(x.bucket) || x.bucket==='EMPTY_AUTO' && _hrFailIds[x.p.benderId];}).length;
+    // For "needs manual" we want: explicit manual + bender failures + empty manual modes
+    // BUT also flag empty_auto where Bender failed (already inside _hrFailIds via _classifyProviderRow as BENDER_FAIL)
+    var _needsManualCount = _allBuckets.filter(function(x){return _isManual(x.bucket);}).length;
+    var dpToggleRow = document.createElement('div');
+    dpToggleRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin:14px 0 8px';
+    var dpToggleLbl = document.createElement('span');
+    dpToggleLbl.style.cssText = 'font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-right:4px;flex-shrink:0';
+    dpToggleLbl.textContent = 'SHOW';
+    dpToggleRow.appendChild(dpToggleLbl);
+    [
+      {v:'all',     l:'All',          ct:registry.length, c:'var(--acc)'},
+      {v:'auto',    l:'Auto-pulled ✓', ct:_autoCount,      c:'var(--grn)'},
+      {v:'manual',  l:'Needs manual ⚠', ct:_needsManualCount, c:'var(--yel)'}
+    ].forEach(function(opt){
+      var b = document.createElement('button');
+      var on = dpMode === opt.v;
+      b.style.cssText = 'background:'+(on?opt.c:'var(--surf2)')+';color:'+(on?'#fff':'var(--mut)')+';border:1px solid '+(on?opt.c:'var(--brd)')+';border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px';
+      b.innerHTML = opt.l + ' <span style="background:rgba(0,0,0,.15);border-radius:3px;padding:1px 6px;margin-left:4px;font-size:10px">'+opt.ct+'</span>';
+      b.onclick = function(){var u=NS.loadUI(); u.dailyPullMode=opt.v; NS.saveUI(u); NS.renderFunding();};
+      dpToggleRow.appendChild(b);
+    });
+    host.appendChild(dpToggleRow);
+
     // === SEARCH BAR ===
     var dpSearch = (NS.loadUI().dailyPullSearch || '');
     var dpSearchRow = document.createElement('div');
@@ -13778,18 +13923,24 @@ var FUND=(function(){
       }
     }, 0);
 
-    // Apply search filter to the visible table rows (status counts above stay
-    // showing the full portfolio — search only narrows what you see, not what
-    // the snapshot tracks).
+    // Apply search + auto/manual filter to the visible rows (status counts and
+    // bulk paste still show the full portfolio).
     var _dpQ = dpSearch.trim().toLowerCase();
     var _dpRegistryForTable = registry.filter(function(p){
-      if(!_dpQ) return true;
-      var hay = [
-        p.name, p.displayName, p.currency, p.mode, p.paymentTerms,
-        (p.benderId != null ? String(p.benderId) : ''),
-        (p.swypeId != null ? String(p.swypeId) : '')
-      ].join(' ').toLowerCase();
-      return hay.indexOf(_dpQ) >= 0;
+      if(_dpQ){
+        var hay = [
+          p.name, p.displayName, p.currency, p.mode, p.paymentTerms,
+          (p.benderId != null ? String(p.benderId) : ''),
+          (p.swypeId != null ? String(p.swypeId) : '')
+        ].join(' ').toLowerCase();
+        if(hay.indexOf(_dpQ) < 0) return false;
+      }
+      if(dpMode !== 'all'){
+        var b = _classifyProviderRow(p);
+        if(dpMode === 'auto' && !_isAuto(b)) return false;
+        if(dpMode === 'manual' && !_isManual(b)) return false;
+      }
+      return true;
     });
     if(_dpQ){
       var _dpHidden = registry.length - _dpRegistryForTable.length;
@@ -13801,7 +13952,7 @@ var FUND=(function(){
     var tw=document.createElement('div');tw.className='fund-tablewrap';
     var tbl=document.createElement('table');tbl.className='fund-table';
     tbl.innerHTML='<thead><tr>'
-      +'<th>BENDER COMMAND</th><th>PROVIDER</th><th>SOURCE</th><th>CURRENCY</th>'
+      +'<th>BENDER COMMAND</th><th>PROVIDER</th><th>MODE</th><th>ORIGIN</th><th>CURRENCY</th>'
       +'<th style="text-align:right">LOCAL BALANCE</th><th style="text-align:right">USD BALANCE</th><th>YESTERDAY</th><th>DAYS LEFT</th><th>NOTES</th>'
       +'</tr></thead>';
     var tb=document.createElement('tbody');tbl.appendChild(tb);
@@ -13855,9 +14006,27 @@ var FUND=(function(){
         cmdHtml='<span class="mut">live balance not available</span>';
       } else { cmdHtml='<span class="mut">—</span>'; }
       var sourceCls=p.mode==='bender'?'bender':p.mode==='portal'?'portal':p.mode==='unavail'?'unavail':'manual';
+      var _bucket = _classifyProviderRow(p);
+      var _badgeMap = {
+        AUTO_HOURLY: {label:'AUTO HOURLY', bg:'rgba(16,185,129,.18)', fg:'var(--grn)', border:'rgba(16,185,129,.4)'},
+        AUTO_GC:     {label:'GC SUMMARY',  bg:'rgba(16,185,129,.18)', fg:'var(--grn)', border:'rgba(16,185,129,.4)'},
+        MANUAL:      {label:'MANUAL',      bg:'rgba(245,158,11,.14)', fg:'var(--yel)', border:'rgba(245,158,11,.4)'},
+        BENDER_FAIL: {label:'BENDER FAILED', bg:'rgba(239,68,68,.14)', fg:'var(--red)', border:'rgba(239,68,68,.4)'},
+        EMPTY_AUTO:  {label:'PENDING',     bg:'transparent',          fg:'var(--mut)', border:'var(--brd)'},
+        EMPTY_MANUAL:{label:'AWAITING',    bg:'transparent',          fg:'var(--mut)', border:'var(--brd)'}
+      };
+      var _b = _badgeMap[_bucket] || _badgeMap.EMPTY_MANUAL;
+      var _badgeHtml = '<span style="display:inline-block;padding:2px 7px;font-size:8px;font-weight:700;font-family:Roboto Mono,monospace;letter-spacing:.4px;border-radius:4px;background:'+_b.bg+';color:'+_b.fg+';border:1px solid '+_b.border+';white-space:nowrap" title="'+
+        (_bucket==='BENDER_FAIL' ? 'Bender failed to pull this in the last hourly report. Enter manually or wait for the next hour.' :
+         _bucket==='AUTO_HOURLY' ? 'Populated automatically from the Bender hourly report.' :
+         _bucket==='AUTO_GC' ? 'Populated automatically from the Bender gift card summary.' :
+         _bucket==='MANUAL' ? 'You typed this in (or it came from bulk paste).' :
+         _bucket==='EMPTY_AUTO' ? 'No balance yet today. Bender should pull this on the next hourly.' :
+         'No balance yet today. You will need to enter this manually.') + '">'+_b.label+'</span>';
       tr.innerHTML='<td>'+cmdHtml+'</td>'
         +'<td><div class="fund-prov-name">'+_esc(p.displayName||p.name)+'</div><div class="fund-prov-sub">'+_esc(p.name)+(p.benderId!=null?' · ID '+p.benderId:'')+'</div></td>'
         +'<td><span class="fund-source-pill '+sourceCls+'">'+(p.mode||'?').toUpperCase()+'</span></td>'
+        +'<td>'+_badgeHtml+'</td>'
         +'<td><span class="ccy">'+_esc(p.currency||'USD')+'</span></td>';
       // Local balance input cell
       var localTd=document.createElement('td');localTd.style.textAlign='right';
