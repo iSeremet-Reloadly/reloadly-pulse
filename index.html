@@ -12408,7 +12408,9 @@ var FUND=(function(){
   //   failures = array of {benderId, name}
   NS.parseHourlyReport = function(text){
     if(!text) return null;
-    if(!/Hourly Airtime Provider Balance Report/i.test(text)) return null;
+    // Use the lenient detection — the dispatcher has already vetted this is hourly
+    // format, but if parseHourlyReport is called directly we still want to confirm.
+    if(!NS.looksLikeHourlyAirtimeReport(text)) return null;
     var entries = [];
     var failures = [];
     var stats = null;
