@@ -13867,6 +13867,23 @@ var FUND=(function(){
     });
     host.appendChild(dpToggleRow);
 
+    // === SERVICE FILTER CHIPS ===
+    var dpSvcFilter = (NS.loadUI().dailyPullServiceFilter || 'all');
+    var dpSvcRow = document.createElement('div');
+    dpSvcRow.style.cssText = 'display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center';
+    dpSvcRow.innerHTML = '<span style="font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-right:4px">SERVICE</span>';
+    var dpSvcCounts = {all:registry.length, airtime:0, gift_card:0, utility:0, swype:0};
+    registry.forEach(function(p){(p.services||[]).forEach(function(s){if(dpSvcCounts[s]!=null)dpSvcCounts[s]++;});});
+    [{v:'all',l:'All'},{v:'airtime',l:'Airtime',c:'#22d3ee'},{v:'gift_card',l:'Gift card',c:'#f59e0b'},{v:'utility',l:'Utility',c:'#10b981'},{v:'swype',l:'Swype',c:'#a78bfa'}].forEach(function(opt){
+      var btn = document.createElement('button');
+      var active = dpSvcFilter === opt.v;
+      btn.style.cssText = 'background:'+(active?(opt.c||'var(--acc)'):'var(--surf2)')+';color:'+(active?'#fff':'var(--mut)')+';border:1px solid '+(active?(opt.c||'var(--acc)'):'var(--brd)')+';border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px';
+      btn.innerHTML = opt.l + ' <span style="background:rgba(0,0,0,.15);border-radius:3px;padding:1px 5px;margin-left:4px;font-size:10px">'+dpSvcCounts[opt.v]+'</span>';
+      btn.onclick = function(){var u=NS.loadUI(); u.dailyPullServiceFilter=opt.v; NS.saveUI(u); NS.renderFunding();};
+      dpSvcRow.appendChild(btn);
+    });
+    host.appendChild(dpSvcRow);
+
     // === SEARCH BAR ===
     var dpSearch = (NS.loadUI().dailyPullSearch || '');
     var dpSearchRow = document.createElement('div');
@@ -13939,6 +13956,9 @@ var FUND=(function(){
         var b = _classifyProviderRow(p);
         if(dpMode === 'auto' && !_isAuto(b)) return false;
         if(dpMode === 'manual' && !_isManual(b)) return false;
+      }
+      if(dpSvcFilter !== 'all'){
+        if(!Array.isArray(p.services) || p.services.indexOf(dpSvcFilter) < 0) return false;
       }
       return true;
     });
