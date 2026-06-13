@@ -13973,7 +13973,7 @@ var FUND=(function(){
     var tbl=document.createElement('table');tbl.className='fund-table';
     tbl.innerHTML='<thead><tr>'
       +'<th>BENDER COMMAND</th><th>PROVIDER</th><th>MODE</th><th>ORIGIN</th><th>CURRENCY</th>'
-      +'<th style="text-align:right">LOCAL BALANCE</th><th style="text-align:right">USD BALANCE</th><th>YESTERDAY</th><th>DAYS LEFT</th><th>NOTES</th>'
+      +'<th style="text-align:right">LOCAL BALANCE</th><th style="text-align:right">USD BALANCE</th><th>YESTERDAY</th><th>DAYS LEFT</th>'
       +'</tr></thead>';
     var tb=document.createElement('tbody');tbl.appendChild(tb);
     var yesterdaySnap=_yesterdaySnapshot();
@@ -14043,6 +14043,18 @@ var FUND=(function(){
          _bucket==='MANUAL' ? 'You typed this in (or it came from bulk paste).' :
          _bucket==='EMPTY_AUTO' ? 'No balance yet today. Bender should pull this on the next hourly.' :
          'No balance yet today. You will need to enter this manually.') + '">'+_b.label+'</span>';
+      // Capture timestamp — only shown if we actually have a balance entry today
+      var _capturedAt = (snap.balances && snap.balances[key] && snap.balances[key].enteredAt) ? snap.balances[key].enteredAt : null;
+      if(_capturedAt){
+        var _capMs = Date.parse(_capturedAt);
+        var _capAge = Date.now() - _capMs;
+        var _capLabel;
+        if(_capAge < 60000) _capLabel = 'just now';
+        else if(_capAge < 3600000) _capLabel = Math.round(_capAge/60000) + ' min ago';
+        else if(_capAge < 86400000) _capLabel = Math.round(_capAge/3600000) + ' hr ago';
+        else _capLabel = new Date(_capMs).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        _badgeHtml += '<div style="font-size:8px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:3px;letter-spacing:.3px" title="'+new Date(_capMs).toLocaleString()+'">'+_capLabel+'</div>';
+      }
       tr.innerHTML='<td>'+cmdHtml+'</td>'
         +'<td><div class="fund-prov-name">'+_esc(p.displayName||p.name)+'</div><div class="fund-prov-sub">'+_esc(p.name)+(p.benderId!=null?' · ID '+p.benderId:'')+'</div></td>'
         +'<td><span class="fund-source-pill '+sourceCls+'">'+(p.mode||'?').toUpperCase()+'</span></td>'
@@ -14083,9 +14095,6 @@ var FUND=(function(){
       var fc=NS.computeForecast(key, p);
       dlTd.innerHTML=_statusPillHTML(fc);
       tr.appendChild(dlTd);
-      // Notes
-      var notesTd=document.createElement('td');notesTd.style.fontSize='10px';notesTd.style.color='var(--mut)';notesTd.textContent=p.notes||'';
-      tr.appendChild(notesTd);
       tb.appendChild(tr);
     });
     tw.appendChild(tbl);
