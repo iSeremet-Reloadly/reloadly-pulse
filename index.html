@@ -12423,7 +12423,10 @@ var FUND=(function(){
         stats = {queried:+nums[0], successful:+nums[1], failed:+nums[2], durationSec:+nums[3]};
       }
     }
-    var inSuccess = false, inFail = false, current = null;
+    // Default to "successful" mode so fragment pastes without the explicit section
+    // header still extract balance entries. Only switch when we explicitly see the
+    // "Provider balance failures" marker.
+    var inSuccess = true, inFail = false, current = null;
     for(var li=0; li<lines.length; li++){
       var raw = lines[li];
       var line = raw.trim();
@@ -12542,7 +12545,24 @@ var FUND=(function(){
   };
 
   NS.looksLikeHourlyAirtimeReport = function(text){
-    return !!text && /Hourly Airtime Provider Balance Report/i.test(text);
+    if(!text) return false;
+    // Strong markers — any one of these guarantees hourly-report format
+    if(/Hourly Airtime Provider Balance Report/i.test(text)) return true;
+    if(/Providers queried\s*:\s*\d+\s*\|\s*Successful\s*:\s*\d+\s*\|\s*Failed/i.test(text)) return true;
+    if(/Successful provider balances/i.test(text)) return true;
+    if(/Provider balance failures/i.test(text)) return true;
+    // Soft marker — 3+ lines that look like "ID PROVIDER_NAME" followed by an
+    // indented "Description: amount CCY" line. This catches partial pastes.
+    var lines = text.split(/\r?\n/);
+    var hits = 0;
+    for(var i = 0; i < lines.length - 1; i++){
+      if(/^\s*\d+\s+[A-Z][A-Z0-9_]*\s*$/.test(lines[i]) &&
+         /^\s+.+?:\s+-?[\d,]+(?:\.\d+)?\s+[A-Z]{3,4}\s*$/.test(lines[i+1])){
+        hits++;
+        if(hits >= 3) return true;
+      }
+    }
+    return false;
   };
 
   NS.loadLastHourlyReport = function(){return loadJSON(K.lastHourlyReport, null);};
@@ -14213,8 +14233,10 @@ var FUND=(function(){
       // Detect Bender hourly gift card summary format and dispatch to its parser.
       // Detect Bender's "Hourly Airtime Provider Balance Report" automated post.
       if(NS.looksLikeHourlyAirtimeReport(ta.value)){
+        console.log('[FUND] Routing to Hourly Airtime Provider Balance Report parser');
         var hrParsed = NS.parseHourlyReport(ta.value);
-        if(hrParsed){
+        console.log('[FUND] Hourly parse result:', hrParsed && {entries: hrParsed.entries.length, failures: hrParsed.failures.length, stats: hrParsed.stats});
+        if(hrParsed && hrParsed.entries.length > 0){
           var hrRes = NS.applyHourlyReport(hrParsed);
           if(typeof toast === 'function'){
             var hrMsg = 'Hourly report: '+hrRes.providers+' providers · '+hrRes.applied+' balances'
