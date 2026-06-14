@@ -14958,7 +14958,7 @@ var FUND=(function(){
     function tipI(text){return ' <span class="th-info" data-tip="'+text.replace(/"/g,'&quot;')+'">i</span>';}
     tbl.innerHTML = '<thead><tr>'
       +'<th>PROVIDER'+tipI('The supplier wallet. Sub-line shows the registry name and Bender ID. Multi-wallet providers (LAFRICAMOBILE, ClickMobile, Becharge, Intellexal) show each sub-wallet as its own row.')+'</th>'
-      +'<th>METHOD'+tipI('How you plan to send the funds. Pick once per provider and it sticks. Also editable in Providers tab. Required before you can mark a row funded.')+'</th>'
+
       +'<th>CURRENT'+tipI('Latest balance from the most recent snapshot you saved (Daily Pull tab). Can go negative when the wallet is overdrawn — the calculation still works.')+'</th>'
       +'<th>BURN RATE'+tipI('Average daily consumption. Uses the MAXIMUM of the 3-day, 7-day, and 30-day rolling windows. Max-of-three picks whichever window suggests the highest burn — conservative sizing so a recent spike never under-funds the wallet. The window that won is shown below the number.')+'</th>'
       +'<th>DAYS LEFT'+tipI('How many days until the wallet is empty at the current burn rate. Drives the status pill: CRITICAL when ≤3 days, WATCH when ≤7, HEALTHY when ≤30.')+'</th>'
@@ -15028,14 +15028,7 @@ var FUND=(function(){
       tdProv.innerHTML = '<div style="font-weight:700">'+_esc(r.provider.displayName||r.provider.name)+'</div>'
         +'<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+_esc(r.provider.name)+(r.provider.benderId!=null?' · ID '+r.provider.benderId:'')+(r.provider.subKey?' · '+_esc(r.provider.subKey):'')+'</div>';
       tr.appendChild(tdProv);
-      // Method dropdown
-      var tdMethod = document.createElement('td');
-      var methodSel = document.createElement('select');
-      methodSel.className = 'fund-rec-method-sel';
-      buildMethodOptions(methodSel, r.paymentMethod);
-      methodSel.onchange = function(){NS.setPaymentMethod(r.key, this.value); r.paymentMethod = this.value;};
-      tdMethod.appendChild(methodSel);
-      tr.appendChild(tdMethod);
+
       // Current
       var tdCur = document.createElement('td'); tdCur.className='num'; tdCur.innerHTML = fmtNum(r.current, r.currency) + _fmtUsdSub(r.current, r.currency); tr.appendChild(tdCur);
       // Burn rate
@@ -15070,48 +15063,58 @@ var FUND=(function(){
       actBtn.className = 'fund-btn-mini fund-rec-fund-btn';
       actBtn.innerHTML = '✓ Mark funded';
       actBtn.onclick = function(){
-        if(!r.paymentMethod){
-          if(typeof toast==='function')toast('Pick a payment method first','warn');
-          methodSel.focus();
-          return;
-        }
-        // Replace cell content with a popup form: "Sent X CCY via Method? [amount input] [confirm/cancel]"
-        var methodCcy = _methodCurrency(r.paymentMethod) || r.currency;
-        // Suggested amount in method's currency
-        var suggestedMethodAmt;
-        if(methodCcy === r.currency){
-          suggestedMethodAmt = r.topupRounded;
-        } else {
+        // Popup form: method picker + amount input. Decision view stays clean —
+        // method is configured at the moment of marking funded, not before.
+        function recalcSuggested(method){
+          var mc = _methodCurrency(method) || r.currency;
+          if(mc === r.currency) return {amt: r.topupRounded, ccy: mc};
           var topupUsd = _toUSD(r.topupRounded, r.currency);
-          if(topupUsd != null && methodCcy === 'USD'){
-            suggestedMethodAmt = Math.round(topupUsd);
-          } else if(topupUsd != null && _fxRates && _fxRates[methodCcy]){
-            // USD → methodCcy: divide by fx rate (since rates are USD-per-local)
-            suggestedMethodAmt = Math.round(topupUsd / _fxRates[methodCcy]);
-          } else {
-            suggestedMethodAmt = r.topupRounded;
-          }
+          var amt;
+          if(topupUsd != null && mc === 'USD') amt = Math.round(topupUsd);
+          else if(topupUsd != null && _fxRates && _fxRates[mc]) amt = Math.round(topupUsd / _fxRates[mc]);
+          else amt = r.topupRounded;
+          return {amt: amt, ccy: mc};
         }
         tdAct.innerHTML = '';
         var form = document.createElement('div');
         form.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:stretch';
-        var labelLine = document.createElement('div');
-        labelLine.style.cssText = 'font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace';
-        labelLine.innerHTML = 'Sent via <b>'+_esc(r.paymentMethod)+'</b>';
-        form.appendChild(labelLine);
+        // Method picker
+        var methodSel = document.createElement('select');
+        methodSel.className = 'fund-rec-method-sel';
+        methodSel.style.cssText = 'min-width:140px';
+        buildMethodOptions(methodSel, r.paymentMethod);
+        form.appendChild(methodSel);
+        // Amount input + currency tag
         var inputRow = document.createElement('div');
         inputRow.style.cssText = 'display:flex;align-items:center;gap:4px';
         var amtInput = document.createElement('input');
         amtInput.type = 'number';
         amtInput.step = '0.01';
-        amtInput.value = suggestedMethodAmt;
+        amtInput.placeholder = 'Amount sent';
         amtInput.style.cssText = 'width:90px;padding:4px 8px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:5px;font-size:11px;font-family:Roboto Mono,monospace;text-align:right';
         var ccyLabel = document.createElement('span');
-        ccyLabel.style.cssText = 'font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700';
-        ccyLabel.textContent = methodCcy;
-        inputRow.appendChild(amtInput);
-        inputRow.appendChild(ccyLabel);
+        ccyLabel.style.cssText = 'font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;min-width:30px';
+        inputRow.appendChild(amtInput); inputRow.appendChild(ccyLabel);
         form.appendChild(inputRow);
+        // Pre-fill based on the currently-selected method
+        function syncFromMethod(){
+          var s = recalcSuggested(methodSel.value);
+          amtInput.value = s.amt;
+          ccyLabel.textContent = s.ccy;
+        }
+        if(r.paymentMethod){
+          syncFromMethod();
+        } else {
+          ccyLabel.textContent = r.currency;
+          amtInput.placeholder = 'Pick a method';
+        }
+        methodSel.onchange = function(){
+          NS.setPaymentMethod(r.key, this.value);
+          r.paymentMethod = this.value;
+          syncFromMethod();
+          amtInput.focus(); amtInput.select();
+        };
+        // Buttons
         var btnRow = document.createElement('div');
         btnRow.style.cssText = 'display:flex;gap:4px';
         var yes = document.createElement('button'); yes.className='fund-btn-mini'; yes.style.background='var(--grn)'; yes.style.borderColor='var(--grn)'; yes.style.color='#fff'; yes.textContent='Confirm';
@@ -15119,14 +15122,23 @@ var FUND=(function(){
         btnRow.appendChild(yes); btnRow.appendChild(no);
         form.appendChild(btnRow);
         tdAct.appendChild(form);
-        amtInput.focus(); amtInput.select();
+        if(r.paymentMethod){ amtInput.focus(); amtInput.select(); }
+        else methodSel.focus();
         yes.onclick = function(){
+          if(!methodSel.value){
+            if(typeof toast==='function')toast('Pick a payment method','warn');
+            methodSel.focus();
+            return;
+          }
           var sentAmt = parseFloat(amtInput.value);
           if(isNaN(sentAmt) || sentAmt <= 0){
             if(typeof toast==='function')toast('Enter a valid amount','warn');
             amtInput.focus();
             return;
           }
+          var methodCcy = _methodCurrency(methodSel.value) || r.currency;
+          // Persist the method choice as the per-provider default for next time
+          NS.setPaymentMethod(r.key, methodSel.value);
           NS.markFunded({
             key: r.key,
             providerName: r.provider.displayName || r.provider.name,
@@ -15134,10 +15146,10 @@ var FUND=(function(){
             amount: r.topupRounded,
             sentAmount: sentAmt,
             sentCurrency: methodCcy,
-            method: r.paymentMethod,
+            method: methodSel.value,
             notes: r.burnWindow+' window @ '+r.targetCover+'d cover'
           });
-          if(typeof toast==='function')toast('Marked '+(r.provider.displayName||r.provider.name)+' funded ('+sentAmt+' '+methodCcy+' via '+r.paymentMethod+')','ok');
+          if(typeof toast==='function')toast('Marked '+(r.provider.displayName||r.provider.name)+' funded ('+sentAmt+' '+methodCcy+' via '+methodSel.value+')','ok');
           NS.renderFunding();
         };
         no.onclick = function(){NS.renderFunding();};
