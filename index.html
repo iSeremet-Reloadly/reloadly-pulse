@@ -12731,6 +12731,18 @@ var FUND=(function(){
 
   NS._startAutoSync = function(){
     NS._stopAutoSync();
+    // Also sync the moment the tab regains focus — common case: user comes back
+    // to the tab and the data is stale, expects the latest right away.
+    if(!window._fundVisListener){
+      window._fundVisListener = function(){
+        if(!document.hidden){
+          NS.syncAll().then(function(r){
+            if(r.synced){NS.renderFunding();}
+          }).catch(function(){});
+        }
+      };
+      document.addEventListener('visibilitychange', window._fundVisListener);
+    }
     // Poll every 10 minutes. The cron refreshes the KV cache every hour, so
     // even when no Pulse tab has been open for a while, the next poll picks up
     // whatever the cron last cached.
@@ -12744,7 +12756,7 @@ var FUND=(function(){
           toast(msg, 'ok');
         }
       }).catch(function(){});
-    }, 10 * 60 * 1000);
+    }, 5 * 60 * 1000);
   };
 
   NS.looksLikeHourlyAirtimeReport = function(text){
@@ -13277,7 +13289,11 @@ var FUND=(function(){
   };
 
   // Records a topup locally. The Bender response on next snapshot will confirm the balance jump.
-  // payload: {key, providerName, currency, amount, method, notes}
+  // payload: {key, providerName, currency, amount, sentAmount, sentCurrency, method, notes}
+  //   currency      — wallet currency (e.g. XOF for an XOF wallet)
+  //   amount        — amount in wallet currency (the recommended top-up)
+  //   sentAmount    — amount actually wired (in sentCurrency)
+  //   sentCurrency  — the payment method's currency (e.g. USD for Wells Fargo, EUR for Moneycorp EUR)
   NS.markFunded = function(payload){
     var hist = NS.loadTopupHistory();
     hist.push({
@@ -13285,6 +13301,8 @@ var FUND=(function(){
       providerName: payload.providerName,
       currency: payload.currency,
       amount: payload.amount,
+      sentAmount: payload.sentAmount != null ? payload.sentAmount : payload.amount,
+      sentCurrency: payload.sentCurrency || payload.currency,
       method: payload.method || '',
       notes: payload.notes || '',
       fundedAt: new Date().toISOString()
@@ -14768,7 +14786,7 @@ var FUND=(function(){
     var ui = NS.loadUI();
     var filter = ui.recsFilter || 'critwatch'; // 'critwatch' | 'critical' | 'watch' | 'all'
     var admin = NS.loadAdmin();
-    var COVER_OPTIONS = [1, 3, 7, 14, 21, 28];
+    var COVER_OPTIONS = [1, 3, 4, 7, 14, 21, 28];
     var selectedCoverDays = ui.recsCoverDays;
     if(COVER_OPTIONS.indexOf(selectedCoverDays) < 0){
       selectedCoverDays = admin.targetCoverDays || 21;
@@ -14817,6 +14835,53 @@ var FUND=(function(){
       });
     };
     actions.appendChild(copyBtn);
+    // Export to .csv file (downloadable)
+    var exportBtn = document.createElement('button');
+    exportBtn.className = 'fund-btn';
+    exportBtn.innerHTML = '⬇ Export CSV';
+    exportBtn.onclick = function(){
+      var headers = ['Provider','Currency','Current','Current USD','Burn rate','Burn USD/d','Burn window','Days left','Target','Target USD','Top up','Top up USD','Method','Method currency','Status'];
+      var lines = [headers.join(',')];
+      recs.forEach(function(r){
+        var curUsd = _toUSD(r.current, r.currency);
+        var burnUsd = _toUSD(r.burnRate, r.currency);
+        var tgtUsd = _toUSD(r.target, r.currency);
+        var topupUsd = _toUSD(r.topupRounded, r.currency);
+        function csvCell(v){
+          var s = String(v == null ? '' : v);
+          if(/[,"\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+          return s;
+        }
+        lines.push([
+          csvCell(r.provider.displayName || r.provider.name),
+          r.currency,
+          (r.current != null ? r.current.toFixed(2) : ''),
+          (curUsd != null ? curUsd.toFixed(2) : ''),
+          (r.burnRate != null ? r.burnRate.toFixed(2) : ''),
+          (burnUsd != null ? burnUsd.toFixed(2) : ''),
+          r.burnWindow,
+          (isFinite(r.daysLeft) ? r.daysLeft.toFixed(1) : 'inf'),
+          (r.target != null ? Math.round(r.target) : ''),
+          (tgtUsd != null ? Math.round(tgtUsd) : ''),
+          r.topupRounded,
+          (topupUsd != null ? Math.round(topupUsd) : ''),
+          csvCell(r.paymentMethod || ''),
+          (_methodCurrency(r.paymentMethod) || ''),
+          r.status
+        ].join(','));
+      });
+      var csv = lines.join('\n');
+      var blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'fund-now-' + new Date().toISOString().slice(0,10) + '-' + selectedCoverDays + 'd.csv';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(url);}, 1000);
+      exportBtn.innerHTML = '✓ Exported ' + recs.length;
+      setTimeout(function(){exportBtn.innerHTML = '⬇ Export CSV';}, 2200);
+    };
+    actions.appendChild(exportBtn);
     hdr.appendChild(actions);
     host.appendChild(hdr);
 
@@ -14904,6 +14969,31 @@ var FUND=(function(){
       +'</tr></thead>';
     var tb = document.createElement('tbody'); tbl.appendChild(tb);
 
+    // FX cache lookup for the totals/USD-equivalent display.
+    var _fxCacheForRecs = NS.loadFX();
+    var _fxDates = Object.keys(_fxCacheForRecs).filter(function(k){return /^\d{4}-\d{2}-\d{2}$/.test(k);}).sort();
+    var _fxRates = _fxDates.length ? _fxCacheForRecs[_fxDates[_fxDates.length - 1]] : null;
+    function _toUSD(amt, ccy){
+      if(amt == null || isNaN(amt)) return null;
+      if(ccy === 'USD') return amt;
+      if(!_fxRates || typeof _fxRates[ccy] !== 'number') return null;
+      return amt * _fxRates[ccy];
+    }
+    function _fmtUsdSub(amt, ccy){
+      var u = _toUSD(amt, ccy);
+      if(u == null || ccy === 'USD') return '';
+      var rounded = Math.abs(u) >= 1000 ? Math.round(u).toLocaleString() : u.toFixed(2);
+      return '<div style="font-size:9px;color:var(--mut);font-weight:400">≈ $' + rounded + ' USD</div>';
+    }
+    // Extract currency from a payment method label, e.g. "Moneycorp EUR" → "EUR".
+    function _methodCurrency(pm){
+      if(!pm) return null;
+      var m = pm.match(/\b([A-Z]{3})\s*$/);
+      if(m) return m[1];
+      if(/crypto/i.test(pm)) return 'USD';
+      return null;
+    }
+
     function fmtNum(n, ccy){
       if(!isFinite(n)) return '—';
       var d = Math.abs(n) >= 1000 ? 0 : (Math.abs(n) >= 10 ? 1 : 2);
@@ -14947,10 +15037,12 @@ var FUND=(function(){
       tdMethod.appendChild(methodSel);
       tr.appendChild(tdMethod);
       // Current
-      var tdCur = document.createElement('td'); tdCur.className='num'; tdCur.innerHTML = fmtNum(r.current, r.currency); tr.appendChild(tdCur);
+      var tdCur = document.createElement('td'); tdCur.className='num'; tdCur.innerHTML = fmtNum(r.current, r.currency) + _fmtUsdSub(r.current, r.currency); tr.appendChild(tdCur);
       // Burn rate
       var tdBurn = document.createElement('td'); tdBurn.className='num';
-      tdBurn.innerHTML = fmtNum(r.burnRate, r.currency)+'/d<div style="font-size:9px;color:var(--mut);font-weight:400">'+r.burnWindow+' window (max)</div>';
+      var _burnUsd = _toUSD(r.burnRate, r.currency);
+      var _burnUsdHtml = (_burnUsd != null && r.currency !== 'USD') ? ' <span style="color:var(--mut);font-size:10px;font-weight:400">≈ $'+(_burnUsd>=1000?Math.round(_burnUsd).toLocaleString():_burnUsd.toFixed(2))+'/d</span>' : '';
+      tdBurn.innerHTML = fmtNum(r.burnRate, r.currency)+'/d'+_burnUsdHtml+'<div style="font-size:9px;color:var(--mut);font-weight:400">'+r.burnWindow+' window (max)</div>';
       tr.appendChild(tdBurn);
       // Days left
       var tdDays = document.createElement('td'); tdDays.className='num';
@@ -14958,11 +15050,14 @@ var FUND=(function(){
       tr.appendChild(tdDays);
       // Target
       var tdTgt = document.createElement('td'); tdTgt.className='num mut';
-      tdTgt.innerHTML = fmtNum(r.target, r.currency);
+      tdTgt.innerHTML = fmtNum(r.target, r.currency) + _fmtUsdSub(r.target, r.currency);
       tr.appendChild(tdTgt);
       // Top up (the headline number)
       var tdTopup = document.createElement('td'); tdTopup.className='num';
+      var _topupUsd = _toUSD(r.topupRounded, r.currency);
+      var _topupUsdHtml = (_topupUsd != null && r.currency !== 'USD') ? '<div style="font-size:10px;color:var(--mut);font-weight:600">≈ $'+(_topupUsd>=1000?Math.round(_topupUsd).toLocaleString():_topupUsd.toFixed(2))+' USD</div>' : '';
       tdTopup.innerHTML = '<b style="font-size:13px;color:var(--acc)">'+fmtNum(r.topupRounded, r.currency)+'</b>'
+        + _topupUsdHtml
         +'<div style="font-size:9px;color:var(--mut);font-weight:400">raw '+fmtNum(r.topupRaw, r.currency)+'</div>';
       tr.appendChild(tdTopup);
       // Status pill
@@ -14980,24 +15075,69 @@ var FUND=(function(){
           methodSel.focus();
           return;
         }
-        // Inline confirm
+        // Replace cell content with a popup form: "Sent X CCY via Method? [amount input] [confirm/cancel]"
+        var methodCcy = _methodCurrency(r.paymentMethod) || r.currency;
+        // Suggested amount in method's currency
+        var suggestedMethodAmt;
+        if(methodCcy === r.currency){
+          suggestedMethodAmt = r.topupRounded;
+        } else {
+          var topupUsd = _toUSD(r.topupRounded, r.currency);
+          if(topupUsd != null && methodCcy === 'USD'){
+            suggestedMethodAmt = Math.round(topupUsd);
+          } else if(topupUsd != null && _fxRates && _fxRates[methodCcy]){
+            // USD → methodCcy: divide by fx rate (since rates are USD-per-local)
+            suggestedMethodAmt = Math.round(topupUsd / _fxRates[methodCcy]);
+          } else {
+            suggestedMethodAmt = r.topupRounded;
+          }
+        }
         tdAct.innerHTML = '';
-        var label = document.createElement('span');
-        label.style.cssText = 'font-size:10px;color:var(--mut);margin-right:6px';
-        label.textContent = fmtNum(r.topupRounded, r.currency).replace(/<[^>]+>/g,'')+' '+r.currency+' via '+r.paymentMethod+'?';
-        tdAct.appendChild(label);
+        var form = document.createElement('div');
+        form.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:stretch';
+        var labelLine = document.createElement('div');
+        labelLine.style.cssText = 'font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace';
+        labelLine.innerHTML = 'Sent via <b>'+_esc(r.paymentMethod)+'</b>';
+        form.appendChild(labelLine);
+        var inputRow = document.createElement('div');
+        inputRow.style.cssText = 'display:flex;align-items:center;gap:4px';
+        var amtInput = document.createElement('input');
+        amtInput.type = 'number';
+        amtInput.step = '0.01';
+        amtInput.value = suggestedMethodAmt;
+        amtInput.style.cssText = 'width:90px;padding:4px 8px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:5px;font-size:11px;font-family:Roboto Mono,monospace;text-align:right';
+        var ccyLabel = document.createElement('span');
+        ccyLabel.style.cssText = 'font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700';
+        ccyLabel.textContent = methodCcy;
+        inputRow.appendChild(amtInput);
+        inputRow.appendChild(ccyLabel);
+        form.appendChild(inputRow);
+        var btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:4px';
         var yes = document.createElement('button'); yes.className='fund-btn-mini'; yes.style.background='var(--grn)'; yes.style.borderColor='var(--grn)'; yes.style.color='#fff'; yes.textContent='Confirm';
         var no = document.createElement('button'); no.className='fund-btn-mini'; no.textContent='Cancel';
+        btnRow.appendChild(yes); btnRow.appendChild(no);
+        form.appendChild(btnRow);
+        tdAct.appendChild(form);
+        amtInput.focus(); amtInput.select();
         yes.onclick = function(){
+          var sentAmt = parseFloat(amtInput.value);
+          if(isNaN(sentAmt) || sentAmt <= 0){
+            if(typeof toast==='function')toast('Enter a valid amount','warn');
+            amtInput.focus();
+            return;
+          }
           NS.markFunded({
             key: r.key,
             providerName: r.provider.displayName || r.provider.name,
             currency: r.currency,
             amount: r.topupRounded,
+            sentAmount: sentAmt,
+            sentCurrency: methodCcy,
             method: r.paymentMethod,
             notes: r.burnWindow+' window @ '+r.targetCover+'d cover'
           });
-          if(typeof toast==='function')toast('Marked '+(r.provider.displayName||r.provider.name)+' funded ('+r.topupRounded+' '+r.currency+' via '+r.paymentMethod+')','ok');
+          if(typeof toast==='function')toast('Marked '+(r.provider.displayName||r.provider.name)+' funded ('+sentAmt+' '+methodCcy+' via '+r.paymentMethod+')','ok');
           NS.renderFunding();
         };
         no.onclick = function(){NS.renderFunding();};
