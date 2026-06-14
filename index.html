@@ -15282,38 +15282,205 @@ var FUND=(function(){
     }
     var registry=NS.loadRegistry();
     snaps=snaps.slice().sort(function(a,b){return b.date.localeCompare(a.date);});
-    var dates=snaps.slice(0,30).map(function(s){return s.date;});
 
-    // Split into active + inactive (archived) using the Providers tab's isActive flag.
+    // === View mode: daily / weekly / monthly ===
+    var uiH_v = NS.loadUI();
+    var viewMode = uiH_v.historyView;
+    if(['daily','weekly','monthly'].indexOf(viewMode) < 0) viewMode = 'daily';
+
+    function _isoWeekKey(dateStr){
+      var d = new Date(dateStr + 'T00:00:00Z');
+      var target = new Date(d.valueOf());
+      var dayNum = (d.getUTCDay() + 6) % 7;
+      target.setUTCDate(target.getUTCDate() - dayNum + 3);
+      var firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
+      var diff = (target - firstThursday) / 86400000;
+      var weekNum = 1 + Math.round(diff / 7);
+      return target.getUTCFullYear() + '-W' + String(weekNum).padStart(2, '0');
+    }
+
+    // columns = [{snapDate, label, snap}], newest first
+    var columns;
+    if(viewMode === 'daily'){
+      columns = snaps.slice(0, 30).map(function(s){return {snapDate: s.date, label: s.date.slice(5), snap: s};});
+    } else if(viewMode === 'weekly'){
+      var byWeek = {};
+      snaps.forEach(function(s){
+        var k = _isoWeekKey(s.date);
+        if(!byWeek[k] || s.date > byWeek[k].date) byWeek[k] = s;
+      });
+      columns = Object.keys(byWeek).sort().reverse().slice(0, 16).map(function(k){
+        return {snapDate: byWeek[k].date, label: 'W' + k.split('-W')[1] + ' ' + k.slice(2, 4), snap: byWeek[k]};
+      });
+    } else {
+      var byMonth = {};
+      snaps.forEach(function(s){
+        var k = s.date.slice(0, 7);
+        if(!byMonth[k] || s.date > byMonth[k].date) byMonth[k] = s;
+      });
+      columns = Object.keys(byMonth).sort().reverse().slice(0, 12).map(function(k){
+        var d = new Date(k + '-01T00:00:00Z');
+        var lbl = d.toLocaleString('en', {month: 'short'}) + ' ' + k.slice(2, 4);
+        return {snapDate: byMonth[k].date, label: lbl, snap: byMonth[k]};
+      });
+    }
+
+    // === Split active vs archived ===
     var activeReg = registry.filter(function(p){return p.isActive !== false;});
     var archivedReg = registry.filter(function(p){return p.isActive === false;});
 
-    // Summary line so the user knows how the split happened
+    // === Search query ===
+    var hSearch = (uiH_v.historySearch || '');
+    var hQ = hSearch.trim().toLowerCase();
+    function _matchesH(p){
+      if(!hQ) return true;
+      var hay = [p.name, p.displayName, p.currency, p.mode].join(' ').toLowerCase();
+      return hay.indexOf(hQ) >= 0;
+    }
+    var activeFiltered = activeReg.filter(_matchesH);
+    var archivedFiltered = archivedReg.filter(_matchesH);
+
+    // === Summary line ===
     var hSummary = document.createElement('div');
     hSummary.style.cssText = 'font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:12px;line-height:1.55';
-    hSummary.innerHTML = '<b>'+activeReg.length+'</b> active provider'+(activeReg.length===1?'':'s')+' · last <b>'+dates.length+'</b> snapshot'+(dates.length===1?'':'s')+(archivedReg.length?' · <span style="color:var(--mut)">'+archivedReg.length+' archived (collapsed below)</span>':'');
+    var totalSnaps = snaps.length;
+    hSummary.innerHTML = '<b>'+activeFiltered.length+'</b> active provider'+(activeFiltered.length===1?'':'s')+(hQ?' matching':' shown')+' · '+columns.length+' '+viewMode+' columns · '+totalSnaps+' snapshots total'+(archivedFiltered.length?' · <span style="color:var(--mut)">'+archivedFiltered.length+' archived (collapsed below)</span>':'');
     host.appendChild(hSummary);
 
-    // Build a pivot table for a given list of providers
+    // === Toolbar: SEARCH + VIEW pills + Export CSV ===
+    var hToolbar = document.createElement('div');
+    hToolbar.style.cssText = 'display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap';
+
+    // Search input
+    var hSearchWrap = document.createElement('div');
+    hSearchWrap.style.cssText = 'position:relative;flex:0 1 300px;display:flex;align-items:center;gap:6px';
+    var hSearchLbl = document.createElement('span');
+    hSearchLbl.style.cssText = 'font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;flex-shrink:0';
+    hSearchLbl.textContent = 'SEARCH';
+    hSearchWrap.appendChild(hSearchLbl);
+    var hSearchInputBox = document.createElement('div');
+    hSearchInputBox.style.cssText = 'position:relative;flex:1';
+    var hSearchInput = document.createElement('input');
+    hSearchInput.type = 'text';
+    hSearchInput.id = 'fund-history-search';
+    hSearchInput.placeholder = 'name, currency, mode…';
+    hSearchInput.value = hSearch;
+    hSearchInput.style.cssText = 'width:100%;padding:7px 30px 7px 12px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box;outline:none';
+    hSearchInput.onfocus = function(){this.style.borderColor = 'var(--acc)';};
+    hSearchInput.onblur = function(){this.style.borderColor = 'var(--brd)';};
+    hSearchInputBox.appendChild(hSearchInput);
+    if(hSearch){
+      var hClearBtn = document.createElement('button');
+      hClearBtn.innerHTML = '×';
+      hClearBtn.style.cssText = 'position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--mut);cursor:pointer;font-size:18px;line-height:1;padding:0 6px;font-weight:700';
+      hClearBtn.onclick = function(){var u=NS.loadUI(); u.historySearch=''; NS.saveUI(u); NS.renderFunding();};
+      hSearchInputBox.appendChild(hClearBtn);
+    }
+    hSearchWrap.appendChild(hSearchInputBox);
+    var _hTimer;
+    hSearchInput.addEventListener('input', function(){
+      var val = this.value;
+      NS._historySearchActive = true;
+      if(_hTimer) clearTimeout(_hTimer);
+      _hTimer = setTimeout(function(){
+        var u = NS.loadUI(); u.historySearch = val; NS.saveUI(u); NS.renderFunding();
+      }, 250);
+    });
+    hSearchInput.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){
+        this.value = '';
+        var u = NS.loadUI(); u.historySearch=''; NS.saveUI(u); NS.renderFunding();
+      }
+    });
+    setTimeout(function(){
+      if(NS._historySearchActive){
+        var el = document.getElementById('fund-history-search');
+        if(el){el.focus(); el.setSelectionRange(el.value.length, el.value.length);}
+        NS._historySearchActive = false;
+      }
+    }, 0);
+    hToolbar.appendChild(hSearchWrap);
+
+    // View pills
+    var hViewWrap = document.createElement('div');
+    hViewWrap.style.cssText = 'display:flex;align-items:center;gap:6px';
+    var hViewLbl = document.createElement('span');
+    hViewLbl.style.cssText = 'font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;flex-shrink:0';
+    hViewLbl.textContent = 'VIEW';
+    hViewWrap.appendChild(hViewLbl);
+    [{v:'daily',l:'Daily'},{v:'weekly',l:'Weekly'},{v:'monthly',l:'Monthly'}].forEach(function(opt){
+      var btn = document.createElement('button');
+      var on = viewMode === opt.v;
+      btn.textContent = opt.l;
+      btn.style.cssText = 'background:'+(on?'var(--acc)':'var(--surf2)')+';color:'+(on?'#fff':'var(--mut)')+';border:1px solid '+(on?'var(--acc)':'var(--brd)')+';border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px';
+      btn.onclick = function(){var u=NS.loadUI(); u.historyView=opt.v; NS.saveUI(u); NS.renderFunding();};
+      hViewWrap.appendChild(btn);
+    });
+    hToolbar.appendChild(hViewWrap);
+
+    // Export CSV button
+    var hExportBtn = document.createElement('button');
+    hExportBtn.className = 'fund-btn';
+    hExportBtn.innerHTML = '⬇ Export CSV';
+    hExportBtn.style.cssText += 'margin-left:auto';
+    hExportBtn.onclick = function(){
+      function csvCell(v){
+        var s = String(v == null ? '' : v);
+        if(/[,"\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+      }
+      var providersAll = activeFiltered.concat(archivedFiltered);
+      var headers = ['Provider', 'Currency', 'Active'].concat(columns.map(function(c){return c.label + ' (' + c.snapDate + ')';}));
+      var lines = [headers.map(csvCell).join(',')];
+      providersAll.forEach(function(p){
+        var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
+        var row = [
+          csvCell(p.displayName || p.name),
+          csvCell(p.currency || 'USD'),
+          (p.isActive !== false ? 'Active' : 'Archived')
+        ];
+        columns.forEach(function(c){
+          var bal = c.snap && c.snap.balances && c.snap.balances[key];
+          if(bal){
+            var rates = NS.loadFX()[c.snapDate] || null;
+            var usd = NS.localToUSD(bal.local, bal.currency || p.currency, rates);
+            row.push(usd != null ? usd.toFixed(2) : bal.local.toFixed(2));
+          } else row.push('');
+        });
+        lines.push(row.join(','));
+      });
+      var blob = new Blob([lines.join('\n')], {type: 'text/csv;charset=utf-8'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'pulse-history-' + viewMode + '-' + new Date().toISOString().slice(0,10) + '.csv';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(url);}, 1000);
+      hExportBtn.innerHTML = '✓ Exported '+providersAll.length+' rows';
+      setTimeout(function(){hExportBtn.innerHTML = '⬇ Export CSV';}, 2200);
+    };
+    hToolbar.appendChild(hExportBtn);
+    host.appendChild(hToolbar);
+
+    // Build a pivot table for a given list of providers — uses 'columns' from outer scope
     function _buildHistoryTable(providers){
       var tw=document.createElement('div');tw.className='fund-tablewrap';
       var tbl=document.createElement('table');tbl.className='fund-table';
-      var thead='<thead><tr><th>PROVIDER</th><th>CURRENCY</th>'+dates.map(function(d){return '<th style="text-align:right">'+d.slice(5)+'</th>';}).join('')+'</tr></thead>';
+      var thead='<thead><tr><th>PROVIDER</th><th>CURRENCY</th>'+columns.map(function(c){return '<th style="text-align:right">'+_esc(c.label)+'</th>';}).join('')+'</tr></thead>';
       tbl.innerHTML=thead;
       var tb=document.createElement('tbody');tbl.appendChild(tb);
       providers.forEach(function(p){
         var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
         var tr=document.createElement('tr');
         var html='<td><div class="fund-prov-name">'+_esc(p.displayName||p.name)+'</div></td><td><span class="ccy">'+_esc(p.currency||'USD')+'</span></td>';
-        dates.forEach(function(d){
-          var snap=snaps.find(function(s){return s.date===d;});
-          var bal=snap&&snap.balances[key]?snap.balances[key]:null;
+        columns.forEach(function(c){
+          var bal = c.snap && c.snap.balances ? c.snap.balances[key] : null;
           if(bal){
-            var rates=NS.loadFX()[d]||null;
-            var usd=NS.localToUSD(bal.local, bal.currency||p.currency, rates);
-            html+='<td class="num">'+(usd!=null?usd.toFixed(2):bal.local.toFixed(2))+'</td>';
-          }else{
-            html+='<td class="mut" style="text-align:right">—</td>';
+            var rates = NS.loadFX()[c.snapDate] || null;
+            var usd = NS.localToUSD(bal.local, bal.currency || p.currency, rates);
+            html += '<td class="num">'+(usd != null ? usd.toFixed(2) : bal.local.toFixed(2))+'</td>';
+          } else {
+            html += '<td class="mut" style="text-align:right">—</td>';
           }
         });
         tr.innerHTML=html;tb.appendChild(tr);
@@ -15323,7 +15490,16 @@ var FUND=(function(){
     }
 
     // Active providers — always visible
-    host.appendChild(_buildHistoryTable(activeReg));
+    if(!activeFiltered.length && hQ){
+      var noMatchActive = document.createElement('div');
+      noMatchActive.style.cssText = 'padding:20px;text-align:center;color:var(--mut);font-family:Roboto Mono,monospace;font-size:11px;border:1px dashed var(--brd);border-radius:8px';
+      noMatchActive.textContent = 'No active providers match "' + hSearch + '"';
+      host.appendChild(noMatchActive);
+    } else {
+      host.appendChild(_buildHistoryTable(activeFiltered));
+    }
+    // Keep this section's archived block referencing the filtered list
+    archivedReg = archivedFiltered;
 
     // Archived providers — collapsable section (default collapsed)
     if(archivedReg.length){
