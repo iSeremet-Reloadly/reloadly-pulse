@@ -14080,12 +14080,44 @@ var FUND=(function(){
         + (_dpHidden>0 ? ' · ' + _dpHidden + ' hidden' : '');
     }
 
+    // === DAYS LEFT WINDOW PICKER ===
+    var DP_DAYS_WINDOWS = [1, 3, 4, 7, 14, 21, 30];
+    var DP_DAYS_LABELS = {1: '24h', 3: '3D', 4: '4D', 7: '7D', 14: '14D', 21: '21D', 30: '30D'};
+    var dpDaysWindow = (function(){
+      var w = NS.loadUI().dailyPullDaysWindow;
+      return DP_DAYS_WINDOWS.indexOf(w) >= 0 ? w : 30;
+    })();
+    var dpDaysRow = document.createElement('div');
+    dpDaysRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap';
+    var dpDaysLbl = document.createElement('span');
+    dpDaysLbl.style.cssText = 'font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-right:4px';
+    dpDaysLbl.innerHTML = 'DAYS LEFT WINDOW <span class="th-info" data-tip="Choose which burn-rate window drives the DAYS LEFT column. 24h = freshest signal (catches today\'s spike). 3D-7D = recent trend. 30D = stable baseline. Smaller windows react faster but can be noisy if traffic spiked.">i</span>';
+    dpDaysRow.appendChild(dpDaysLbl);
+    DP_DAYS_WINDOWS.forEach(function(w){
+      var pill = document.createElement('button');
+      var on = w === dpDaysWindow;
+      pill.textContent = DP_DAYS_LABELS[w];
+      pill.title = (w === 1 ? '24-hour' : (w + '-day')) + ' burn rate window';
+      pill.style.cssText = 'background:'+(on?'var(--acc)':'var(--surf2)')+';color:'+(on?'#fff':'var(--mut)')+';border:1px solid '+(on?'var(--acc)':'var(--brd)')+';border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px;min-width:42px';
+      pill.onclick = function(){var u = NS.loadUI(); u.dailyPullDaysWindow = w; NS.saveUI(u); NS.renderFunding();};
+      dpDaysRow.appendChild(pill);
+    });
+    host.appendChild(dpDaysRow);
+
     // Table
     var tw=document.createElement('div');tw.className='fund-tablewrap';
     var tbl=document.createElement('table');tbl.className='fund-table';
+    function dpTipI(text){return ' <span class="th-info" data-tip="'+text.replace(/"/g,'&quot;')+'">i</span>';}
     tbl.innerHTML='<thead><tr>'
-      +'<th>BENDER COMMAND</th><th>PROVIDER</th><th>MODE</th><th>ORIGIN</th><th>CURRENCY</th>'
-      +'<th style="text-align:right">LOCAL BALANCE</th><th style="text-align:right">USD BALANCE</th><th>YESTERDAY</th><th>DAYS LEFT</th>'
+      +'<th>BENDER COMMAND'+dpTipI('The /airtime/provider/balance or /swype/provider/balance command Bender runs to return this wallet\'s balance. For portal-mode providers, shows the URL where you check manually. Chat-payments providers come from the hourly Slack feed (no command shown).')+'</th>'
+      +'<th>PROVIDER'+dpTipI('Wallet display name with the internal name (uppercase identifier) and Bender ID beneath for reference.')+'</th>'
+      +'<th>MODE'+dpTipI('How Pulse interacts with this wallet. BENDER = Bender slash command. SWYPE = Swype command. PORTAL = manual web portal lookup. CHAT_PAYMENTS = gift card hourly Slack feed. ADMIN / BILLING / MANUAL = manual entry.')+'</th>'
+      +'<th>ORIGIN'+dpTipI('Where today\'s balance came from. AUTO HOURLY = pulled by Bender hourly. GC SUMMARY = gift card summary. MANUAL = you typed it. BENDER FAILED = Bender failed to pull. The small line below shows when the balance was captured.')+'</th>'
+      +'<th>CURRENCY'+dpTipI('Wallet\'s native currency code. Edit in Providers tab if it changes.')+'</th>'
+      +'<th style="text-align:right">LOCAL BALANCE'+dpTipI('Today\'s balance in the wallet\'s own currency. Click to type/correct it manually. Auto-saves on edit so tab switches do not lose your typing.')+'</th>'
+      +'<th style="text-align:right">USD BALANCE'+dpTipI('Today\'s balance converted to USD using the most recent cached FX rate (D-1). Hit Refresh FX in the header if the conversion looks stale.')+'</th>'
+      +'<th>YESTERDAY'+dpTipI('Yesterday\'s balance for comparison. Helps you eyeball one-day consumption.')+'</th>'
+      +'<th>DAYS LEFT'+dpTipI('How many days until the wallet is empty based on the selected burn-rate window. Click the pills above to switch windows: 24h is the freshest signal, 30D is the most stable baseline. Status pill colors: CRITICAL (≤3d) red, WATCH (≤7d) yellow, HEALTHY (≤30d) green.')+'</th>'
       +'</tr></thead>';
     var tb=document.createElement('tbody');tbl.appendChild(tb);
     var yesterdaySnap=_yesterdaySnapshot();
@@ -14202,10 +14234,27 @@ var FUND=(function(){
         ydTd.innerHTML='<span style="font-size:10px">'+(ydUsd!=null?ydUsd.toFixed(2):ydBal.local)+'</span>';
       }else ydTd.textContent='—';
       tr.appendChild(ydTd);
-      // Days left forecast cell
+      // Days left cell — uses the user-selected window from the picker above
       var dlTd=document.createElement('td');
-      var fc=NS.computeForecast(key, p);
-      dlTd.innerHTML=_statusPillHTML(fc);
+      var dpRate = NS.computeBurnRate(key, dpDaysWindow);
+      // Build a forecast-like object the existing _statusPillHTML helper expects
+      var dpForecast = {
+        status: 'nodata',
+        minDaysLeft: dpRate.daysLeft != null ? dpRate.daysLeft : null,
+        minWindow: DP_DAYS_LABELS[dpDaysWindow]
+      };
+      // Classify using the existing thresholds: ≤3 critical, ≤7 watch, ≤30 healthy, > surplus
+      if(dpRate.dataPoints != null && dpRate.dataPoints >= 2){
+        if(dpRate.daysLeft != null && isFinite(dpRate.daysLeft)){
+          if(dpRate.daysLeft <= 3) dpForecast.status = 'critical';
+          else if(dpRate.daysLeft <= 7) dpForecast.status = 'watch';
+          else if(dpRate.daysLeft <= 30) dpForecast.status = 'healthy';
+          else dpForecast.status = 'surplus';
+        } else {
+          dpForecast.status = 'surplus';
+        }
+      }
+      dlTd.innerHTML = _statusPillHTML(dpForecast);
       tr.appendChild(dlTd);
       tb.appendChild(tr);
     });
