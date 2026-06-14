@@ -12301,6 +12301,8 @@ var FUND=(function(){
     if(a.planDays==null)a.planDays=30;
     if(a.alertsEnabled==null)a.alertsEnabled=true;
     if(a.alertCooldownHours==null)a.alertCooldownHours=24;
+    if(a.urgentHours==null)a.urgentHours=4;
+    if(a.urgentCooldownHours==null)a.urgentCooldownHours=1;
     if(a.workerUrl==null)a.workerUrl='https://reloadly-pulse-slack-proxy.dlubovci.workers.dev';
     if(a.alertsChannelLabel==null)a.alertsChannelLabel='#funding-alerts';
     return a;
@@ -13089,42 +13091,70 @@ var FUND=(function(){
   // save. Posts via the Cloudflare Worker — the Worker forwards to chat.postMessage with
   // the SECRET_SLACK_ALERTS_CHANNEL.
   NS.formatAlertMessage = function(alerts){
-    function fmt(n, cur){
-      if(n==null || !isFinite(n)) return '—';
-      var abs=Math.abs(n);
-      var digits = abs>=1000?0:(abs>=10?1:2);
-      return n.toLocaleString('en-US',{minimumFractionDigits:digits, maximumFractionDigits:digits}) + (cur?(' '+cur):'');
+    var admin = NS.loadAdmin();
+    var urgentHours = admin.urgentHours || 4;
+    // Express the time-remaining for an alert row using whichever unit reads best.
+    function timeLabel(daysLeft){
+      if(daysLeft == null || !isFinite(daysLeft)) return 'no burn observed';
+      var hours = daysLeft * 24;
+      if(hours <= 1){
+        return 'less than 1 hour remaining';
+      }
+      if(hours <= urgentHours){
+        return hours.toFixed(1) + ' hours remaining';
+      }
+      if(hours < 24){
+        return Math.round(hours) + ' hours left';
+      }
+      if(daysLeft < 1.5){
+        return '<1 day left';
+      }
+      if(daysLeft < 10){
+        return daysLeft.toFixed(1) + ' days left';
+      }
+      return Math.round(daysLeft) + ' days left';
     }
-    function daysLabel(d){
-      if(!isFinite(d)) return '∞';
-      if(d<1) return '<1';
-      if(d<10) return d.toFixed(1);
-      return Math.round(d).toString();
+    // Split alerts into three tiers based on time remaining
+    var urgent = [], critical = [], watch = [];
+    alerts.forEach(function(a){
+      var hoursLeft = a.forecast.minDaysLeft * 24;
+      var tier;
+      if(a.forecast.status === 'critical'){
+        tier = (hoursLeft <= urgentHours) ? 'urgent' : 'critical';
+      } else {
+        tier = 'watch';
+      }
+      a._tier = tier;  // stash for cooldown bookkeeping in runAlertCheck
+      if(tier === 'urgent') urgent.push(a);
+      else if(tier === 'critical') critical.push(a);
+      else watch.push(a);
+    });
+    var totalCount = urgent.length + critical.length + watch.length;
+    var lines = [];
+    var headlineParts = [];
+    if(urgent.length) headlineParts.push(urgent.length + ' urgent');
+    if(critical.length) headlineParts.push(critical.length + ' critical');
+    if(watch.length) headlineParts.push(watch.length + ' watch');
+    lines.push('🚨 *Funding alert* — ' + headlineParts.join(' · ') + ' supplier' + (totalCount===1?'':'s'));
+    function emitRow(a){
+      var name = a.provider.displayName || a.provider.name;
+      lines.push('• ' + name + ' — ' + timeLabel(a.forecast.minDaysLeft));
     }
-    var crit = alerts.filter(function(a){return a.forecast.status==='critical';});
-    var watch = alerts.filter(function(a){return a.forecast.status==='watch';});
-    var headline = '🚨 *Funding alert* — ';
-    var parts = [];
-    if(crit.length) parts.push(crit.length+' critical');
-    if(watch.length) parts.push(watch.length+' watch');
-    headline += parts.join(', ') + ' wallet'+((crit.length+watch.length)===1?'':'s')+' need attention';
-    var lines = [headline, ''];
-    function line(a){
-      var p = a.provider;
-      var f = a.forecast;
-      var emoji = f.status==='critical' ? '🔴' : '🟡';
-      var win = f.minWindow || '?';
-      var bestRate = win==='3D'?f.threeDay : win==='7D'?f.sevenDay : f.thirtyDay;
-      var cur = (bestRate && bestRate.currency) || p.currency || 'USD';
-      var name = p.displayName || p.name;
-      lines.push(emoji + ' *' + name + '* (' + cur + ') — ' + daysLabel(f.minDaysLeft) + ' days left (' + win + ' rate)');
-      var detail = '   Current: ' + fmt(bestRate.current, cur) + ' · Avg burn: ' + fmt(bestRate.dailyAvg, cur) + '/d';
-      if(bestRate.hasTopups) detail += ' · topups skipped';
-      lines.push(detail);
+    if(urgent.length){
+      lines.push('');
+      lines.push('⚡ *URGENT* (≤' + urgentHours + ' hours):');
+      urgent.forEach(emitRow);
     }
-    crit.forEach(line);
-    if(crit.length && watch.length) lines.push('');
-    watch.forEach(line);
+    if(critical.length){
+      lines.push('');
+      lines.push('🔴 *CRITICAL* (≤3 days):');
+      critical.forEach(emitRow);
+    }
+    if(watch.length){
+      lines.push('');
+      lines.push('🟡 *WATCH* (≤7 days):');
+      watch.forEach(emitRow);
+    }
     lines.push('');
     lines.push('View in Pulse → https://reloadly-tasks.github.io/task-manager/');
     return lines.join('\n');
@@ -13150,7 +13180,9 @@ var FUND=(function(){
       return p.isActive!==false && p.billingType!=='postpaid' && p.entityType!=='product_float' && Array.isArray(p.services) && p.services.length>0;
     });
     var log = NS.loadAlertLog();
-    var cooldownMs = (admin.alertCooldownHours||24) * 3600000;
+    var defaultCooldownMs = (admin.alertCooldownHours||24) * 3600000;
+    var urgentCooldownMs = (admin.urgentCooldownHours||1) * 3600000;
+    var urgentHrs = admin.urgentHours || 4;
     var now = Date.now();
     var eligible = [];
     var stillCritical = []; // status persisted but in cooldown — don't re-fire, but keep their log entry
@@ -13158,13 +13190,20 @@ var FUND=(function(){
       var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
       var f = NS.computeForecast(key, p);
       if(f.status!=='critical' && f.status!=='watch') return;
+      // Derive tier for cooldown purposes (urgent = within urgentHours)
+      var hoursLeft = f.minDaysLeft * 24;
+      var tier = (f.status === 'critical' && hoursLeft <= urgentHrs) ? 'urgent' : f.status;
+      var cooldownMs = (tier === 'urgent') ? urgentCooldownMs : defaultCooldownMs;
       var last = log[key];
+      // Tier transition counts as "status changed" so degraded providers
+      // (critical → urgent) trigger a fresh alert immediately.
+      var tierChanged = !last || (last.tier || last.status) !== tier;
       var statusChanged = !last || last.status !== f.status;
       var cooldownExpired = !last || (now - last.at) >= cooldownMs;
-      if(statusChanged || cooldownExpired){
-        eligible.push({provider:p, forecast:f, key:key});
+      if(tierChanged || statusChanged || cooldownExpired){
+        eligible.push({provider:p, forecast:f, key:key, tier:tier});
       } else {
-        stillCritical.push({key:key, status:f.status});
+        stillCritical.push({key:key, status:f.status, tier:tier});
       }
     });
     if(!eligible.length){
@@ -13174,7 +13213,7 @@ var FUND=(function(){
     return NS.postSlackAlert(text).then(function(res){
       if(res && res.ok){
         eligible.forEach(function(a){
-          log[a.key] = {at:now, status:a.forecast.status, trigger:trigger||'snapshot_save'};
+          log[a.key] = {at:now, status:a.forecast.status, tier:(a.tier||a.forecast.status), trigger:trigger||'snapshot_save'};
         });
         NS.saveAlertLog(log);
         return {checked:registry.length, eligible:eligible.length, sent:eligible.length, providers:eligible.map(function(a){return a.provider.name;}), trigger:trigger||null, ts:res.ts};
