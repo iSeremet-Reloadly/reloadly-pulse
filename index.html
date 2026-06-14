@@ -11854,6 +11854,13 @@ var PP=(function(){
 .fund-source-pill.billing{background:rgba(16,185,129,.18);color:var(--grn)}
 .fund-portal-link{color:var(--yel);text-decoration:none;font-family:'Roboto Mono',monospace;font-size:10px;border-bottom:1px dashed var(--yel)}
 .fund-portal-link:hover{filter:brightness(1.2)}
+/* Open-in-new-tab buttons for portal / admin modes — match the bender copy button visual */
+.fund-action-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:6px;font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.3px;text-decoration:none;cursor:pointer;border:1px solid var(--brd);background:var(--surf2);color:var(--txt);transition:background .12s,border-color .12s,transform .08s}
+.fund-action-btn:hover{transform:translateY(-1px)}
+.fund-action-btn.portal{color:var(--yel);border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08)}
+.fund-action-btn.portal:hover{background:rgba(245,158,11,.18);border-color:var(--yel)}
+.fund-action-btn.admin{color:#a855f7;border-color:rgba(168,85,247,.4);background:rgba(168,85,247,.08)}
+.fund-action-btn.admin:hover{background:rgba(168,85,247,.18);border-color:#a855f7}
 /* === Bulk parser card === */
 .fund-bulk-card{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:16px 18px;margin-bottom:18px}
 .fund-bulk-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px}
@@ -14157,11 +14164,11 @@ var FUND=(function(){
           +(p.subKey?' <span class="mut" style="font-size:9px">→ '+_esc(p.subKey)+'</span>':'')
           +' <span class="fund-source-pill swype" style="font-size:8px;margin-left:6px" title="Bender auto-pulls this every hour. No need to send the command — just paste the latest channel message.">AUTO HOURLY</span>';
       } else if(p.mode==='portal'&&p.portalUrl){
-        cmdHtml='<a class="fund-portal-link" href="'+_esc(p.portalUrl)+'" target="_blank">'+_esc(p.portalUrl)+' ↗</a>';
+        cmdHtml='<a class="fund-action-btn portal" href="'+_esc(p.portalUrl)+'" target="_blank" rel="noopener" title="Open '+_esc(p.portalUrl)+' in a new tab">↗ Open portal</a>';
       } else if(p.mode==='portal'){
         cmdHtml='<span class="mut">portal — set URL in Providers tab</span>';
       } else if(p.mode==='admin'){
-        cmdHtml='<span class="mut" style="color:var(--yel)">admin computes manually</span>';
+        cmdHtml='<a class="fund-action-btn admin" href="https://admin.reloadly.com/" target="_blank" rel="noopener" title="Open Reloadly admin dashboard in a new tab">↗ Open admin dashboard</a>';
       } else if(p.mode==='chat_payments'){
         cmdHtml='<span class="mut" style="color:#c084fc">gift card · hourly Slack feed</span>';
       } else if(p.mode==='billing'){
