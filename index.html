@@ -12645,6 +12645,81 @@ var FUND=(function(){
     });
   };
 
+  // Fetch latest of EACH Bender message type from #funding-bot.
+  NS.fetchLatestAll = function(){
+    var admin = NS.loadAdmin();
+    var url = admin.workerUrl;
+    if(!url) return Promise.resolve({error: 'no_worker_url'});
+    return fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'latest_all'})
+    }).then(function(r){return r.json();}).catch(function(e){return {error: 'network', detail: String(e)};});
+  };
+
+  // Sync all three types. Each is deduped by message ts so we never re-apply
+  // the same message. Returns a summary of what was applied per type.
+  NS.syncAll = function(opts){
+    opts = opts || {};
+    return NS.fetchLatestAll().then(function(r){
+      if(!r || !r.ok){
+        return {synced: false, reason: (r && r.error) || 'unknown'};
+      }
+      var LAST_KEY = 'rl_fund_last_sync_ts_v2';
+      var lastTs = {};
+      try{lastTs = JSON.parse(localStorage.getItem(LAST_KEY) || '{}');}catch(e){}
+      var applied = {hourly: null, giftCard: null, swype: 0};
+      var anyApplied = false;
+
+      // 1. Hourly airtime report
+      if(r.hourly && r.hourly.text && (opts.force || !lastTs.hourly || parseFloat(r.hourly.ts) > parseFloat(lastTs.hourly))){
+        var hParsed = NS.parseHourlyReport(r.hourly.text);
+        if(hParsed && hParsed.entries.length){
+          applied.hourly = NS.applyHourlyReport(hParsed);
+          lastTs.hourly = r.hourly.ts;
+          anyApplied = true;
+        }
+      }
+
+      // 2. Gift card summary
+      if(r.giftCard && r.giftCard.text && (opts.force || !lastTs.giftCard || parseFloat(r.giftCard.ts) > parseFloat(lastTs.giftCard))){
+        var gcParsed = NS.parseGiftCardSummary(r.giftCard.text);
+        if(gcParsed && gcParsed.length){
+          applied.giftCard = NS.applyGiftCardSummary(gcParsed);
+          lastTs.giftCard = r.giftCard.ts;
+          anyApplied = true;
+        }
+      }
+
+      // 3. Swype per-provider responses — apply each new one
+      if(Array.isArray(r.swype) && r.swype.length){
+        // Sort oldest first so we apply in order
+        var swypeMsgs = r.swype.slice().sort(function(a,b){return parseFloat(a.ts) - parseFloat(b.ts);});
+        var latestSwypeTs = lastTs.swype || '0';
+        swypeMsgs.forEach(function(m){
+          if(opts.force || parseFloat(m.ts) > parseFloat(latestSwypeTs)){
+            var swypeParsed = NS.parseBenderResponses(m.text);
+            if(swypeParsed && swypeParsed.length){
+              NS.applyBenderResponses(swypeParsed);
+              latestSwypeTs = m.ts;
+              applied.swype++;
+              anyApplied = true;
+            }
+          }
+        });
+        lastTs.swype = latestSwypeTs;
+      }
+
+      try{localStorage.setItem(LAST_KEY, JSON.stringify(lastTs));}catch(e){}
+      return {
+        synced: anyApplied,
+        applied: applied,
+        lastTs: lastTs,
+        fromCache: r.fromCache === true
+      };
+    });
+  };
+
   // Track the running auto-sync interval so we can clear it when navigating
   // away from the Funding module.
   NS._stopAutoSync = function(){
@@ -12660,9 +12735,13 @@ var FUND=(function(){
     // even when no Pulse tab has been open for a while, the next poll picks up
     // whatever the cron last cached.
     window._fundAutoSyncInterval = setInterval(function(){
-      NS.syncHourly().then(function(r){
+      NS.syncAll().then(function(r){
         if(r.synced && typeof toast === 'function'){
-          toast('Bender hourly synced ('+r.applied.applied+' balances · '+r.applied.failures+' failed)', 'ok');
+          var msg = 'Bender synced';
+          if(r.applied.hourly) msg += ' · hourly '+r.applied.hourly.applied;
+          if(r.applied.giftCard) msg += ' · gift '+r.applied.giftCard.applied;
+          if(r.applied.swype) msg += ' · swype '+r.applied.swype+' msg';
+          toast(msg, 'ok');
         }
       }).catch(function(){});
     }, 10 * 60 * 1000);
@@ -13223,7 +13302,7 @@ var FUND=(function(){
     if(!window._fundAutoSyncStarted){
       window._fundAutoSyncStarted = true;
       try{
-        NS.syncHourly().then(function(r){
+        NS.syncAll().then(function(r){
           if(r.synced){NS.renderFunding();}
         }).catch(function(){});
         NS._startAutoSync();
@@ -13700,12 +13779,16 @@ var FUND=(function(){
       syncBtn.title = 'Pull the latest Bender hourly report from Slack and apply it.';
       syncBtn.onclick = function(){
         syncBtn.disabled = true; syncBtn.innerHTML = 'Syncing…';
-        NS.syncHourly({force:true}).then(function(r){
+        NS.syncAll({force:true}).then(function(r){
           if(r.synced){
-            if(typeof toast === 'function') toast('Synced '+r.applied.applied+' balances ('+r.applied.failures+' failed)', 'ok');
+            var parts = [];
+            if(r.applied.hourly) parts.push('hourly '+r.applied.hourly.applied);
+            if(r.applied.giftCard) parts.push('gift '+r.applied.giftCard.applied);
+            if(r.applied.swype) parts.push('swype '+r.applied.swype+' msg');
+            if(typeof toast === 'function') toast('Synced ('+parts.join(' · ')+')', 'ok');
             NS.renderFunding();
           } else {
-            if(typeof toast === 'function') toast('Sync: '+r.reason, 'info');
+            if(typeof toast === 'function') toast('Sync: '+(r.reason || 'nothing new'), 'info');
             syncBtn.disabled = false; syncBtn.innerHTML = '↻ Sync now';
           }
         });
