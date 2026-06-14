@@ -12662,6 +12662,17 @@ var FUND=(function(){
   NS.syncAll = function(opts){
     opts = opts || {};
     return NS.fetchLatestAll().then(function(r){
+      // Graceful fallback: if the Worker doesn't know latest_all yet (hasn't been
+      // redeployed since we added gift card + swype support), fall back to
+      // latest_hourly so the existing flow keeps working.
+      if(r && r.error === 'unknown_action'){
+        return NS.syncHourly(opts).then(function(hr){
+          if(hr.synced){
+            return {synced: true, applied: {hourly: hr.applied, giftCard: null, swype: 0}, fallback: 'hourly_only', reason: 'worker_pre_latest_all'};
+          }
+          return {synced: false, reason: hr.reason || 'fallback_failed', fallback: 'hourly_only'};
+        });
+      }
       if(!r || !r.ok){
         return {synced: false, reason: (r && r.error) || 'unknown'};
       }
