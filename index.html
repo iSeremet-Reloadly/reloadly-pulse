@@ -1232,7 +1232,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
       <div class="sb-lbl">PRICING & SUPPLIERS</div>
       <div class="ni" id="nav-pricing" onclick="go('pricing')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#06b6d4,#3b82f6)"></div>Pricing (Ops)</div><div class="cnt" id="c-pricing"></div></div>
       <div class="ni" id="nav-proposals" onclick="go('proposals')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#06b6d4)"></div>Proposals</div><div class="cnt" id="c-proposals"></div></div>
-      <div class="ni" id="nav-funding" onclick="go('funding')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#a855f7,#06b6d4)"></div>Funding</div><div class="cnt" id="c-funding"></div></div>
+      <div class="ni" id="nav-funding" onclick="go('funding')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#a855f7,#06b6d4)"></div>Supplier Wallet Ops</div><div class="cnt" id="c-funding"></div></div>
     </div>
     <div class="sb-lbl">TOOLS</div>
     <div class="ni" id="nav-perf" onclick="go('perf')"><div class="ni-l"><div class="dd" style="background:#8b5cf6"></div>Performance</div></div>
@@ -13342,7 +13342,7 @@ var FUND=(function(){
 
     // Header
     var hdr=document.createElement('div');hdr.className='fund-hdr';
-    hdr.innerHTML='<div><div class="fund-title">Funding</div><div class="fund-sub">Supplier wallet balances · burn rate · forecast</div></div>';
+    hdr.innerHTML='<div><div class="fund-title">Supplier Wallet Ops</div><div class="fund-sub">Balances · burn rate · forecast · funding decisions</div></div>';
     var tools=document.createElement('div');tools.className='fund-tools';
     var refreshFxBtn=document.createElement('button');refreshFxBtn.className='fund-btn';refreshFxBtn.innerHTML='⟲ Refresh FX';
     refreshFxBtn.title='Re-fetch the latest reference rates from exchangerate.host (D-1).';
