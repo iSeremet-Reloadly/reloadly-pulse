@@ -11940,7 +11940,8 @@ var FUND=(function(){
     alertLog:'rl_fund_alert_log_v1',
     topupHistory:'rl_fund_topup_history_v1',
     paymentMethods:'rl_fund_pay_methods_v1',
-    lastHourlyReport:'rl_fund_last_hourly_report_v1'
+    lastHourlyReport:'rl_fund_last_hourly_report_v1',
+    hourlyArchive:'rl_fund_hourly_archive_v1'
   };
 
   // Seeded provider registry from the 2026 Prepaid Accounts workbook.
@@ -12299,6 +12300,39 @@ var FUND=(function(){
   NS.saveRegistry=function(r){saveJSON(K.registry,r);};
   NS.loadSnapshots=function(){return loadJSON(K.snapshots,[]);};
   NS.saveSnapshots=function(s){saveJSON(K.snapshots,s);};
+  // Hourly archive — forward-only history of snapshots captured by the hourly
+  // sync. One entry per (date,hour) bucket; same-hour applies replace the
+  // existing bucket so we don't accumulate duplicates if the worker fires
+  // twice in the same hour. Capped at 168 (7 days × 24h).
+  NS.HOURLY_ARCHIVE_CAP = 168;
+  NS.loadHourlyArchive=function(){return loadJSON(K.hourlyArchive,[]);};
+  NS.saveHourlyArchive=function(a){saveJSON(K.hourlyArchive,a);};
+  // Append a snapshot to the hourly archive. Slims each balance to {local,
+  // currency} so the archive stays small. source: tag for debugging only.
+  NS._appendHourlyArchive=function(snap, source){
+    if(!snap || !snap.balances) return;
+    var d = new Date();
+    var pad = function(n){return n<10?'0'+n:String(n);};
+    var bucket = snap.date + ' ' + pad(d.getHours());
+    var slim = {};
+    Object.keys(snap.balances).forEach(function(k){
+      var b = snap.balances[k];
+      if(b == null) return;
+      slim[k] = {local: b.local, currency: b.currency};
+    });
+    var entry = {bucket: bucket, at: d.toISOString(), source: source||'hourly', balances: slim};
+    var arch = NS.loadHourlyArchive();
+    // Replace existing same-bucket entry (latest sync of the hour wins)
+    var idx = arch.findIndex(function(e){return e.bucket === bucket;});
+    if(idx >= 0){ arch[idx] = entry; }
+    else { arch.push(entry); }
+    // Sort by ISO timestamp, evict oldest beyond cap
+    arch.sort(function(a,b){return a.at.localeCompare(b.at);});
+    if(arch.length > NS.HOURLY_ARCHIVE_CAP){
+      arch = arch.slice(arch.length - NS.HOURLY_ARCHIVE_CAP);
+    }
+    try{ NS.saveHourlyArchive(arch); }catch(e){console.warn('[FUND] hourly archive save failed',e);}
+  };
   NS.loadFX=function(){return loadJSON(K.fx,{});};
   NS.saveFX=function(f){saveJSON(K.fx,f);};
   NS.loadAdmin=function(){
@@ -12613,6 +12647,10 @@ var FUND=(function(){
         unmatchedCount: unmatched
       });
     }catch(e){}
+
+    // Preserve a hour-bucketed copy of the current snapshot so History → Hourly
+    // can show balance progression hour-by-hour. Daily snap stays single-per-day.
+    try{NS._appendHourlyArchive(snap, 'hourly-airtime-report');}catch(e){console.warn('[FUND] hourly archive append failed',e);}
 
     // Fire alert check
     try{NS.runAlertCheck('hourly_report');}catch(e){console.warn('[FUND] alert check failed', e);}
@@ -12954,6 +12992,8 @@ var FUND=(function(){
     if(idx >= 0) snaps[idx] = snap; else snaps.push(snap);
     NS.saveSnapshots(snaps);
     if(created > 0) NS.saveRegistry(registry);
+    // Mirror to hourly archive — gift card summary is also a per-hour Slack feed.
+    try{NS._appendHourlyArchive(snap, 'gift-card-summary');}catch(e){console.warn('[FUND] hourly archive append failed',e);}
 
     // Trigger alert check just like the normal save path
     try{NS.runAlertCheck('snapshot_save');}catch(e){console.warn('[FUND] alert check failed', e);}
@@ -15482,7 +15522,7 @@ var FUND=(function(){
     // === View mode: daily / weekly / monthly ===
     var uiH_v = NS.loadUI();
     var viewMode = uiH_v.historyView;
-    if(['daily','weekly','monthly'].indexOf(viewMode) < 0) viewMode = 'daily';
+    if(['hourly','daily','weekly','monthly'].indexOf(viewMode) < 0) viewMode = 'daily';
 
     function _isoWeekKey(dateStr){
       var d = new Date(dateStr + 'T00:00:00Z');
@@ -15497,7 +15537,22 @@ var FUND=(function(){
 
     // columns = [{snapDate, label, snap}], newest first
     var columns;
-    if(viewMode === 'daily'){
+    if(viewMode === 'hourly'){
+      // Pull from the hourly archive. Newest first, capped at 48 visible columns
+      // (2 days) so the table stays readable. Label = 'MM-DD HHh'.
+      var arch = NS.loadHourlyArchive();
+      var slice = arch.slice().reverse().slice(0, 48);
+      columns = slice.map(function(e){
+        var parts = e.bucket.split(' '); // ['YYYY-MM-DD','HH']
+        var mmdd = parts[0].slice(5);
+        var hh = parts[1] || '00';
+        return {
+          snapDate: e.at.slice(0, 16).replace('T', ' '),  // 'YYYY-MM-DD HH:MM'
+          label: mmdd + ' ' + hh + 'h',
+          snap: {date: e.bucket, balances: e.balances}
+        };
+      });
+    } else if(viewMode === 'daily'){
       columns = snaps.slice(0, 30).map(function(s){return {snapDate: s.date, label: s.date.slice(5), snap: s};});
     } else if(viewMode === 'weekly'){
       var byWeek = {};
@@ -15540,8 +15595,20 @@ var FUND=(function(){
     var hSummary = document.createElement('div');
     hSummary.style.cssText = 'font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:12px;line-height:1.55';
     var totalSnaps = snaps.length;
-    hSummary.innerHTML = '<b>'+activeFiltered.length+'</b> active provider'+(activeFiltered.length===1?'':'s')+(hQ?' matching':' shown')+' · '+columns.length+' '+viewMode+' columns · '+totalSnaps+' snapshots total'+(archivedFiltered.length?' · <span style="color:var(--mut)">'+archivedFiltered.length+' archived (collapsed below)</span>':'');
+    var _archCount = (viewMode === 'hourly') ? NS.loadHourlyArchive().length : null;
+    var _totalLabel = (viewMode === 'hourly')
+      ? (_archCount + ' hourly snapshots archived (max ' + NS.HOURLY_ARCHIVE_CAP + ')')
+      : (totalSnaps + ' snapshots total');
+    hSummary.innerHTML = '<b>'+activeFiltered.length+'</b> active provider'+(activeFiltered.length===1?'':'s')+(hQ?' matching':' shown')+' · '+columns.length+' '+viewMode+' columns · '+_totalLabel+(archivedFiltered.length?' · <span style="color:var(--mut)">'+archivedFiltered.length+' archived (collapsed below)</span>':'');
     host.appendChild(hSummary);
+    // First-run hint: Hourly archive is forward-only, so users seeing zero
+    // columns right after deploy need a one-liner explaining why.
+    if(viewMode === 'hourly' && columns.length === 0){
+      var hHint = document.createElement('div');
+      hHint.style.cssText = 'background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.25);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:11px;color:var(--mut);line-height:1.5';
+      hHint.innerHTML = 'Hourly archive is empty. It captures a snapshot each time the hourly Bender feed syncs — values will start appearing here within the hour. Daily/Weekly/Monthly views still work right away.';
+      host.appendChild(hHint);
+    }
 
     // === Toolbar: SEARCH + VIEW pills + Export CSV ===
     var hToolbar = document.createElement('div');
@@ -15604,7 +15671,7 @@ var FUND=(function(){
     hViewLbl.style.cssText = 'font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;flex-shrink:0';
     hViewLbl.textContent = 'VIEW';
     hViewWrap.appendChild(hViewLbl);
-    [{v:'daily',l:'Daily'},{v:'weekly',l:'Weekly'},{v:'monthly',l:'Monthly'}].forEach(function(opt){
+    [{v:'hourly',l:'Hourly'},{v:'daily',l:'Daily'},{v:'weekly',l:'Weekly'},{v:'monthly',l:'Monthly'}].forEach(function(opt){
       var btn = document.createElement('button');
       var on = viewMode === opt.v;
       btn.textContent = opt.l;
