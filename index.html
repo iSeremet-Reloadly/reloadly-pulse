@@ -14130,21 +14130,78 @@ var FUND=(function(){
     dpSearchCount.style.cssText = 'font-family:Roboto Mono,monospace;font-size:11px;color:var(--mut);font-weight:600;margin-left:6px';
     dpSearchRow.appendChild(dpSearchCount);
     host.appendChild(dpSearchRow);
-    var _dpTimer;
+    // In-place filter — walks <tr data-haystack> and toggles display.
+    // No re-render, no forecast recompute. Counts update from the DOM.
+    function _dpApplyFilter(q){
+      var qq = (q||'').trim().toLowerCase();
+      var rows = tb.querySelectorAll('tr');
+      var shown = 0, hidden = 0;
+      for(var i=0;i<rows.length;i++){
+        var row = rows[i];
+        if(!qq || (row.dataset.haystack && row.dataset.haystack.indexOf(qq) >= 0)){
+          row.style.display = '';
+          shown++;
+        } else {
+          row.style.display = 'none';
+          hidden++;
+        }
+      }
+      if(dpSearchCount){
+        if(qq){
+          dpSearchCount.textContent = shown + ' match' + (shown===1?'':'es')
+            + (hidden>0 ? ' · ' + hidden + ' hidden' : '');
+        } else {
+          dpSearchCount.textContent = '';
+        }
+      }
+      // Toggle the clear (×) button visibility based on whether there's a query.
+      if(qq && !document.getElementById('fund-daily-search-clear')){
+        var btn = document.createElement('button');
+        btn.id = 'fund-daily-search-clear';
+        btn.innerHTML = '×';
+        btn.title = 'Clear search';
+        btn.style.cssText = 'position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--mut);cursor:pointer;font-size:18px;line-height:1;padding:0 6px;font-weight:700';
+        btn.onclick = function(){
+          dpSearchInput.value = '';
+          _dpApplyFilter('');
+          _dpPersistSearch('');
+          dpSearchInput.focus();
+        };
+        dpSearchWrap.appendChild(btn);
+      } else if(!qq){
+        var ex = document.getElementById('fund-daily-search-clear');
+        if(ex) ex.remove();
+      }
+    }
+    // Persist the search value to UI state — debounced separately and longer (800ms),
+    // so we don't thrash localStorage on every keystroke. The persistence does NOT
+    // trigger a re-render; the filter is already applied in-place.
+    var _dpPersistTimer = null;
+    function _dpPersistSearch(val){
+      if(_dpPersistTimer) clearTimeout(_dpPersistTimer);
+      _dpPersistTimer = setTimeout(function(){
+        var u = NS.loadUI(); u.dailyPullSearch = val; NS.saveUI(u);
+      }, 800);
+    }
     dpSearchInput.addEventListener('input', function(){
       var val = this.value;
-      NS._dailyPullSearchActive = true;
-      if(_dpTimer) clearTimeout(_dpTimer);
-      _dpTimer = setTimeout(function(){
-        var u = NS.loadUI(); u.dailyPullSearch = val; NS.saveUI(u); NS.renderFunding();
-      }, 250);
+      _dpApplyFilter(val);
+      _dpPersistSearch(val);
     });
     dpSearchInput.addEventListener('keydown', function(e){
       if(e.key === 'Escape'){
         this.value = '';
-        var u = NS.loadUI(); u.dailyPullSearch=''; NS.saveUI(u); NS.renderFunding();
+        _dpApplyFilter('');
+        _dpPersistSearch('');
       }
     });
+    // Replace the pre-built clear button (if any) with our managed one so the new
+    // listener logic owns its lifecycle.
+    var _existingClear = dpSearchWrap.querySelector('button');
+    if(_existingClear) _existingClear.remove();
+    // Apply the persisted query once the rows exist. Defer to a microtask so the
+    // table is fully appended before we walk it.
+    setTimeout(function(){ if(dpSearch) _dpApplyFilter(dpSearch); }, 0);
     setTimeout(function(){
       if(NS._dailyPullSearchActive){
         var el = document.getElementById('fund-daily-search');
@@ -14153,18 +14210,11 @@ var FUND=(function(){
       }
     }, 0);
 
-    // Apply search + auto/manual filter to the visible rows (status counts and
-    // bulk paste still show the full portfolio).
+    // Mode + service filters still prune the registry that gets rendered — those
+    // are pill clicks (low frequency, cheap to re-render). Freetext search is applied
+    // via in-place DOM hide on the rendered rows so typing stays snappy.
     var _dpQ = dpSearch.trim().toLowerCase();
     var _dpRegistryForTable = registry.filter(function(p){
-      if(_dpQ){
-        var hay = [
-          p.name, p.displayName, p.currency, p.mode, p.paymentTerms,
-          (p.benderId != null ? String(p.benderId) : ''),
-          (p.swypeId != null ? String(p.swypeId) : '')
-        ].join(' ').toLowerCase();
-        if(hay.indexOf(_dpQ) < 0) return false;
-      }
       if(dpMode !== 'all'){
         var b = _classifyProviderRow(p);
         if(dpMode === 'auto' && !_isAuto(b)) return false;
@@ -14175,11 +14225,6 @@ var FUND=(function(){
       }
       return true;
     });
-    if(_dpQ){
-      var _dpHidden = registry.length - _dpRegistryForTable.length;
-      dpSearchCount.textContent = _dpRegistryForTable.length + ' match' + (_dpRegistryForTable.length===1?'':'es')
-        + (_dpHidden>0 ? ' · ' + _dpHidden + ' hidden' : '');
-    }
 
     // === DAYS LEFT WINDOW PICKER ===
     var DP_DAYS_WINDOWS = [1, 3, 4, 7, 14, 21, 30];
@@ -14237,6 +14282,13 @@ var FUND=(function(){
     }
     _dpRegistryForTable.forEach(function(p){
       var tr=document.createElement('tr');
+      // Searchable haystack used by the in-place search filter. Lowercased + joined
+      // so the input listener can do a single indexOf rather than touching forecast/FX.
+      tr.dataset.haystack = [
+        p.name, p.displayName, p.currency, p.mode, p.paymentTerms,
+        (p.benderId != null ? String(p.benderId) : ''),
+        (p.swypeId != null ? String(p.swypeId) : '')
+      ].join(' ').toLowerCase();
       var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
       var existingLocal=(snap.balances[key]&&snap.balances[key].local)!=null?snap.balances[key].local:'';
       var usd=NS.localToUSD(parseFloat(existingLocal), p.currency, rates);
