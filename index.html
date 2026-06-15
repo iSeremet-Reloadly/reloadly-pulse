@@ -12978,6 +12978,19 @@ var FUND=(function(){
     while((hm=headerRx.exec(text))!==null){
       headers.push({pos:hm.index, name:hm[1].trim().toUpperCase()});
     }
+    // Shape C header — compact "<id> NAME" on its own line. Bender uses this
+    // form for the short balance responses. We register these as headers too so
+    // any subsequent indented "desc: amount CCY" rows can be tagged with the
+    // right parent provider. Iterate line-by-line so multi-line `text` works.
+    var _lines = text.split(/\r?\n/);
+    var _off = 0;
+    _lines.forEach(function(ln){
+      var m = ln.match(/^\s*(\d+)\s+([A-Z][A-Z0-9_]*)\s*$/);
+      if(m){ headers.push({pos:_off, name:m[2].trim().toUpperCase()}); }
+      _off += ln.length + 1;
+    });
+    // Sort headers by position so headerFor() still works after we appended
+    headers.sort(function(a,b){return a.pos - b.pos;});
     function headerFor(pos){
       var last=null;
       for(var i=0;i<headers.length;i++){if(headers[i].pos<=pos)last=headers[i];else break;}
@@ -13028,6 +13041,33 @@ var FUND=(function(){
         shape:'B'
       });
     });
+
+    // Shape C — compact "<desc>: <amount> <ccy>" lines, typically indented
+    // beneath a "<id> NAME" header registered above. Skip lines that already
+    // matched Shape B (pipe-separated) and lines that are part of Shape A's
+    // key:value blocks (Description:/Amount:/Currency:) to avoid double-counting.
+    lines.forEach(function(ln,i){
+      // Reject Shape A keyword lines
+      if(/^\s*(?:Description|Amount|Currency)\s*:/i.test(ln)) return;
+      // Reject Shape B (has pipes)
+      if(ln.indexOf('|') >= 0) return;
+      var cm = ln.match(/^\s*([^:\n\r]+?)\s*:\s*(-?[0-9.,]+)\s+([A-Za-z]{3,4})\s*$/);
+      if(!cm) return;
+      var desc = cm[1].trim();
+      // Skip the verbose header line ("Account Balance Details: ...") if any
+      if(/^Account Balance Details/i.test(desc)) return;
+      var amt = parseFloat(cm[2].replace(/,/g,'').trim());
+      if(isNaN(amt)) return;
+      var ccy = cm[3].trim().toUpperCase();
+      results.push({
+        parentName: headerFor(lineOffsets[i]),
+        description: desc,
+        amount: amt,
+        currency: ccy,
+        shape: 'C'
+      });
+    });
+
     return results;
   };
 
