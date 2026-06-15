@@ -12133,6 +12133,7 @@ var FUND=(function(){
         subKey: subKey,
         billingType:'prepaid',
         paymentTerms:'',
+        cycleDays:null,
         services:_inferDefaultServices(r[1], r[4]),
         swypeId: null,
         entityType: (r[1] === 'SWYPE_PRODUCT_FLOAT' ? 'product_float' : 'supplier'),
@@ -12160,6 +12161,12 @@ var FUND=(function(){
       // Backfill: paymentTerms (free text for postpaid providers like "7 net 3", "monthly net 15").
       if(p.paymentTerms == null){
         p.paymentTerms=''; changed=true;
+      }
+      // Backfill: cycleDays. Per-supplier funding cycle in days. null means follow the
+      // global cover pills in Fund Now. Set to e.g. 7 if you always batch-fund this
+      // supplier weekly regardless of the global slider.
+      if(p.cycleDays === undefined){
+        p.cycleDays = null; changed = true;
       }
       // Backfill: services array. Inferred from name + mode for existing providers
       // using the same logic the seed uses. User can adjust per-row via the Providers tab.
@@ -12263,6 +12270,7 @@ var FUND=(function(){
             subKey: null,
             billingType: 'prepaid',
             paymentTerms: '',
+            cycleDays: null,
             services: _inferDefaultServices(s[0], 'chat_payments'),
             notes: '',
             isActive: true
@@ -12904,6 +12912,7 @@ var FUND=(function(){
         subKey: null,
         billingType: 'prepaid',
         paymentTerms: '',
+        cycleDays: null,
         services: ['gift_card'],
         notes: 'Auto-created from Bender gift card summary',
         isActive: true
@@ -13320,7 +13329,11 @@ var FUND=(function(){
       var picked = candidates.reduce(function(m,c){return c.rate > m.rate ? c : m;}, candidates[0]);
       var currency = picked.src.currency || p.currency || 'USD';
       var current = picked.src.current;
-      var target = picked.rate * targetCover;
+      // Per-supplier cycle override — if cycleDays is set on the provider, use it.
+      // Otherwise the row uses the global targetCover passed in from the cover pills.
+      var hasCustomCycle = (typeof p.cycleDays === 'number' && p.cycleDays > 0);
+      var effectiveCover = hasCustomCycle ? p.cycleDays : targetCover;
+      var target = picked.rate * effectiveCover;
       var raw = Math.max(0, target - current);
       var rounded = _roundFundingAmount(raw);
       if(rounded <= 0) return;
@@ -13341,7 +13354,9 @@ var FUND=(function(){
         target: target,
         topupRaw: raw,
         topupRounded: rounded,
-        targetCover: targetCover,
+        targetCover: effectiveCover,
+        globalCover: targetCover,
+        usesCustomCycle: hasCustomCycle,
         paymentMethod: payMethods[key] || '',
         status: f.status,
         recentlyFunded: !!recent
@@ -15108,7 +15123,7 @@ var FUND=(function(){
       +'<th>CURRENT'+tipI('Latest balance from the most recent snapshot you saved (Daily Pull tab). Can go negative when the wallet is overdrawn — the calculation still works.')+'</th>'
       +'<th>BURN RATE'+tipI('Average daily consumption. Uses the MAXIMUM of the 3-day, 7-day, and 30-day rolling windows. Max-of-three picks whichever window suggests the highest burn — conservative sizing so a recent spike never under-funds the wallet. The window that won is shown below the number.')+'</th>'
       +'<th>DAYS LEFT'+tipI('How many days until the wallet is empty at the current burn rate. Drives the status pill: CRITICAL when ≤3 days, WATCH when ≤7, HEALTHY when ≤30.')+'</th>'
-      +'<th>TARGET ('+selectedCoverDays+'D)'+tipI('The balance you would need today to last '+selectedCoverDays+' days at the current burn rate. = Burn rate × '+selectedCoverDays+'-day cover target. Use the COVER pills above to recompute for a different window.')+'</th>'
+      +'<th>TARGET'+tipI('Balance needed to last the row\'s cover days at the current burn rate. = Burn rate × cover. Most rows use the global '+selectedCoverDays+'D cover from the pills above; suppliers with a per-supplier CYCLE set in Providers use that instead (chip under the supplier name shows the override). The (Nd) under each TARGET value reports exactly which cover was applied.')+'</th>'
       +'<th>TOP UP'+tipI('Recommended top-up = Target − Current, then rounded up to a wire-friendly number. Bands: $10 / $50 / $500 / $1,000 / $5,000 depending on size. The grey "raw" number below is the exact un-rounded math.')+'</th>'
       +'<th>STATUS'+tipI('Pulled from the Forecast tab. CRITICAL = act today. WATCH = act this week. Wallets healthier than ≤30D do not appear here unless you switch the filter to "+ Healthy ≤30D".')+'</th>'
       +'<th>ACTION'+tipI('Click "Mark funded" once you have actually sent the wire/transfer. The row moves to the Recently marked funded log at the bottom. 24h cooldown before it can re-appear in this list — or sooner if the balance drops back into critical after Bender confirms the topup landed.')+'</th>'
@@ -15169,10 +15184,59 @@ var FUND=(function(){
 
     recs.forEach(function(r){
       var tr = document.createElement('tr');
-      // Provider
+      // Provider — with optional cycle override chip
       var tdProv = document.createElement('td');
-      tdProv.innerHTML = '<div style="font-weight:700">'+_esc(r.provider.displayName||r.provider.name)+'</div>'
-        +'<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+_esc(r.provider.name)+(r.provider.benderId!=null?' · ID '+r.provider.benderId:'')+(r.provider.subKey?' · '+_esc(r.provider.subKey):'')+'</div>';
+      var _provName = _esc(r.provider.displayName||r.provider.name);
+      var _provSub = _esc(r.provider.name)+(r.provider.benderId!=null?' · ID '+r.provider.benderId:'')+(r.provider.subKey?' · '+_esc(r.provider.subKey):'');
+      tdProv.innerHTML = '<div style="font-weight:700">'+_provName+'</div>'
+        +'<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+_provSub+'</div>';
+      // Cycle chip — always present. Subtle when following global, accent-coloured when custom.
+      var cycleChip = document.createElement('span');
+      var _isCustom = r.usesCustomCycle;
+      var _chipBg = _isCustom ? 'rgba(108,99,255,.18)' : 'var(--surf2)';
+      var _chipFg = _isCustom ? 'var(--acc)' : 'var(--mut)';
+      var _chipBrd = _isCustom ? 'var(--acc)' : 'var(--brd)';
+      cycleChip.style.cssText = 'display:inline-block;margin-top:4px;background:'+_chipBg+';color:'+_chipFg+';font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.4px;font-family:Roboto Mono,monospace;border:1px solid '+_chipBrd+';cursor:pointer;user-select:none';
+      cycleChip.textContent = (_isCustom ? '✎ cycle: ' : 'cycle: ') + r.targetCover + 'D' + (_isCustom ? '' : ' (global)');
+      cycleChip.title = _isCustom
+        ? 'Per-supplier override — this row uses '+r.targetCover+'D cover instead of the global '+r.globalCover+'D. Click to change or clear.'
+        : 'Following the global '+r.globalCover+'D cover. Click to set a per-supplier override for this row only.';
+      cycleChip.onclick = function(){
+        var current = r.usesCustomCycle ? String(r.targetCover) : '';
+        var answer = prompt(
+          'Funding cycle for '+(r.provider.displayName||r.provider.name)+'\n\n'+
+          'Number of days of cover each top-up should size for.\n'+
+          'Leave blank to follow the global cover pills.\n'+
+          'Common values: 1, 3, 4, 7, 14, 21, 28.',
+          current
+        );
+        if(answer === null) return; // cancelled
+        var trimmed = answer.trim();
+        var registry = NS.loadRegistry();
+        var pIdx = registry.findIndex(function(rp){
+          if(rp.benderId !== r.provider.benderId) return false;
+          if(r.provider.subKey){ return rp.subKey === r.provider.subKey; }
+          return !rp.subKey;
+        });
+        if(pIdx < 0){ if(typeof toast==='function')toast('Provider not found in registry','warn'); return; }
+        if(trimmed === ''){
+          registry[pIdx].cycleDays = null;
+        } else {
+          var n = parseInt(trimmed, 10);
+          if(isNaN(n) || n < 1 || n > 365){
+            if(typeof toast==='function')toast('Enter a whole number 1-365 (or leave blank)','warn');
+            return;
+          }
+          registry[pIdx].cycleDays = n;
+        }
+        NS.saveRegistry(registry);
+        if(typeof toast==='function')toast(
+          trimmed === '' ? 'Cleared cycle override — follows global' : 'Cycle set to '+trimmed+'D for '+(r.provider.displayName||r.provider.name),
+          'ok'
+        );
+        NS.renderFunding();
+      };
+      tdProv.appendChild(cycleChip);
       tr.appendChild(tdProv);
 
       // Current
@@ -15187,9 +15251,10 @@ var FUND=(function(){
       var tdDays = document.createElement('td'); tdDays.className='num';
       tdDays.innerHTML = '<b style="color:'+(r.status==='critical'?'var(--red)':r.status==='watch'?'var(--yel)':'var(--txt)')+'">'+fmtDays(r.daysLeft)+'</b>';
       tr.appendChild(tdDays);
-      // Target
+      // Target — show which cover days were applied so it's always transparent
       var tdTgt = document.createElement('td'); tdTgt.className='num mut';
-      tdTgt.innerHTML = fmtNum(r.target, r.currency) + _fmtUsdSub(r.target, r.currency);
+      var _tgtCoverNote = '<div style="font-size:9px;color:var(--mut);font-weight:400;font-family:Roboto Mono,monospace">'+r.targetCover+'D cover'+(r.usesCustomCycle?' (custom)':'')+'</div>';
+      tdTgt.innerHTML = fmtNum(r.target, r.currency) + _fmtUsdSub(r.target, r.currency) + _tgtCoverNote;
       tr.appendChild(tdTgt);
       // Top up (the headline number)
       var tdTopup = document.createElement('td'); tdTopup.className='num';
@@ -15716,6 +15781,7 @@ var FUND=(function(){
       +'<th>SERVICE</th>'
       +regTh('billingType','BILLING')
       +'<th>TERMS</th>'
+      +'<th title="Per-supplier funding cycle in days. Overrides the global cover pills in Fund Now for this supplier only. Leave blank to follow the global cover (e.g. set 7 if you always batch-fund this supplier weekly).">CYCLE</th>'
       +'<th>PAY METHOD</th><th>PORTAL URL</th>'
       +regTh('active','ACTIVE')
       +'<th></th>'
@@ -15784,6 +15850,20 @@ var FUND=(function(){
       termsi.title='Payment terms for postpaid providers. Examples: "7 net 3" = invoiced every 7 days, paid within 3. "monthly net 15" = invoiced monthly, paid within 15 days. Free text — write whatever makes sense.';
       termsi.onchange=function(){p.paymentTerms=this.value;NS.saveRegistry(registry);};
       termsTd.appendChild(termsi);tr.appendChild(termsTd);
+      // Cycle (per-supplier funding cycle override; blank = follow global cover in Fund Now)
+      var cycleTd=document.createElement('td');
+      var cyclei=document.createElement('input');cyclei.type='number';cyclei.min='1';cyclei.max='365';
+      cyclei.value=(typeof p.cycleDays==='number' && p.cycleDays>0?p.cycleDays:'');
+      cyclei.placeholder='—';
+      cyclei.style.cssText='width:55px;padding:4px 6px;background:var(--surf2);border:1px solid '+(typeof p.cycleDays==='number' && p.cycleDays>0?'rgba(108,99,255,.5)':'var(--brd)')+';color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace;text-align:right';
+      cyclei.title='Per-supplier funding cycle in days. Overrides the global cover pills in Fund Now for this supplier only. Leave blank to follow global. Examples: 7 = batch-fund weekly, 14 = bi-weekly, 28 = monthly.';
+      cyclei.onchange=function(){
+        var v=this.value.trim();
+        if(v===''){p.cycleDays=null;}
+        else {var n=parseInt(v,10); p.cycleDays=(isNaN(n)||n<1||n>365)?null:n;}
+        NS.saveRegistry(registry);NS.renderFunding();
+      };
+      cycleTd.appendChild(cyclei);tr.appendChild(cycleTd);
       // Payment method
       var pmKey=p.subKey?(String(p.benderId)+'::'+p.subKey):(p.benderId!=null?String(p.benderId):p.name);
       var pmTd=document.createElement('td');var pmSel=document.createElement('select');pmSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';(function(){var _saved=NS.getPaymentMethod(pmKey);var _opts=['', 'Wells Fargo USD', 'Zenith NGN', 'Moneycorp USD', 'Moneycorp EUR', 'Moneycorp GBP', 'Moneycorp ZAR', 'Airwallex EUR', 'Airwallex GBP', 'Crypto', 'Wire', 'Other', 'Manual'];if(_saved && _opts.indexOf(_saved)===-1)_opts=_opts.concat([_saved]);_opts.forEach(function(m){var op=document.createElement('option');op.value=m;if(m==='')op.textContent='— none —';else if(['', 'Wells Fargo USD', 'Zenith NGN', 'Moneycorp USD', 'Moneycorp EUR', 'Moneycorp GBP', 'Moneycorp ZAR', 'Airwallex EUR', 'Airwallex GBP', 'Crypto', 'Wire', 'Other', 'Manual'].indexOf(m)===-1)op.textContent=m+' (legacy)';else op.textContent=m;if(m===_saved)op.selected=true;pmSel.appendChild(op);});})();pmSel.onchange=function(){NS.setPaymentMethod(pmKey,this.value);};pmTd.appendChild(pmSel);tr.appendChild(pmTd);
@@ -15818,7 +15898,8 @@ var FUND=(function(){
       var hay = [
         p.name, p.displayName, p.currency, p.mode, p.paymentTerms, pm,
         (p.benderId != null ? String(p.benderId) : ''),
-        (p.swypeId != null ? String(p.swypeId) : '')
+        (p.swypeId != null ? String(p.swypeId) : ''),
+        (typeof p.cycleDays === 'number' ? p.cycleDays+'d' : '')
       ].join(' ').toLowerCase();
       return hay.indexOf(_searchQ) >= 0;
     }
@@ -15876,7 +15957,7 @@ var FUND=(function(){
         // Same column headers — no sort handlers (sort is driven by the active table)
         tblInact.innerHTML = '<thead><tr>'
           +'<th>ID</th><th>SWYPE</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>SERVICE</th><th>BILLING</th><th>TERMS</th>'
-          +'<th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th></th>'
+          +'<th>CYCLE</th><th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th></th>'
           +'</tr></thead>';
         var tbInact = document.createElement('tbody'); tblInact.appendChild(tbInact);
         inactiveRegistry.forEach(function(p){tbInact.appendChild(buildRow(p));});
@@ -16087,6 +16168,7 @@ var FUND=(function(){
         subKey: subKey,
         billingType: inBill.value,
         paymentTerms: inTerms.value.trim(),
+        cycleDays: null,
         services: pickedSvcs,
         swypeId: null,
         entityType: inEnt.value,
