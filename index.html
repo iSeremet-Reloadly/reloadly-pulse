@@ -16017,10 +16017,105 @@ var FUND=(function(){
     var _inactCount = registry.length - _actCount;
     em.innerHTML='<b>'+_actCount+'</b> active provider'+(_actCount===1?'':'s')+(_inactCount?' · <span style="color:var(--mut)">'+_inactCount+' inactive (collapsed below)</span>':'')+'. Edit display name, currency, mode, portal URL as needed. Click any column header to sort. Filter by service using the chips below.';
     hdr.appendChild(em);
+    var actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+    // Export Registry — downloads the current registry as a JSON file the user can share with
+    // teammates. Their browser's registry is per-localStorage, so this is the manual sync path.
+    var exportBtn=document.createElement('button');exportBtn.className='fund-btn';exportBtn.innerHTML='⬇ Export';
+    exportBtn.title='Download the current provider registry as a JSON file. Share this with a teammate so they can import it — registry edits (applyDays, cycleDays, payment methods, services, etc) do not sync between browsers automatically.';
+    exportBtn.onclick=function(){
+      var reg = NS.loadRegistry();
+      var payload = {
+        exported_at: new Date().toISOString(),
+        exported_by: (window.currentUser && window.currentUser.email) || 'unknown',
+        count: reg.length,
+        format: 'rl_fund_registry_v1',
+        registry: reg
+      };
+      var json = JSON.stringify(payload, null, 2);
+      var blob = new Blob([json], {type:'application/json;charset=utf-8'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'pulse-registry-' + (new Date().toISOString().slice(0,10)) + '.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(url);}, 1000);
+      if(typeof toast==='function')toast('Exported '+reg.length+' providers — share the JSON file','ok');
+    };
+    actions.appendChild(exportBtn);
+    // Import Registry — opens a file picker, parses, shows a confirmation summary, then merges.
+    // Merge rules: match by (benderId, subKey); update editable fields only; append unmatched.
+    var importBtn=document.createElement('button');importBtn.className='fund-btn';importBtn.innerHTML='⬆ Import';
+    importBtn.title='Import a registry JSON file from a teammate. Merges by (Bender ID + sub-wallet) — updates editable fields like applyDays, cycleDays, services, payment terms. Adds new providers. Never deletes your local entries.';
+    importBtn.onclick=function(){
+      var f=document.createElement('input');f.type='file';f.accept='application/json,.json';
+      f.onchange=function(){
+        var file=f.files && f.files[0]; if(!file)return;
+        var rd=new FileReader();
+        rd.onload=function(){
+          try{
+            var data=JSON.parse(rd.result);
+            var incoming = Array.isArray(data) ? data : (data.registry || data);
+            if(!Array.isArray(incoming)){
+              if(typeof toast==='function')toast('Invalid registry file — expected JSON array or {registry: [...]}','err');
+              return;
+            }
+            var local = NS.loadRegistry();
+            // Compound key for matching: benderId + subKey (handles multi-wallet providers).
+            function keyOf(p){return (p.benderId == null ? 'name:'+p.name : 'id:'+p.benderId) + (p.subKey ? '::'+p.subKey : '');}
+            var localIdx = {};
+            local.forEach(function(p, i){ localIdx[keyOf(p)] = i; });
+            // Fields safe to overlay from import — config that the team curates.
+            // Structural fields (benderId, name, subKey) are NEVER overwritten on match.
+            var OVERLAY_FIELDS = ['displayName','mode','services','billingType','paymentTerms','cycleDays','applyDays','portalUrl','isActive','swypeId','entityType','currency'];
+            var willUpdate = 0, willAdd = 0, sameCount = 0;
+            incoming.forEach(function(rem){
+              var k = keyOf(rem);
+              if(localIdx[k] == null){ willAdd++; return; }
+              var cur = local[localIdx[k]];
+              // Has anything actually changed across overlay fields?
+              var diff = false;
+              OVERLAY_FIELDS.forEach(function(f){
+                if(JSON.stringify(cur[f]) !== JSON.stringify(rem[f])) diff = true;
+              });
+              if(diff) willUpdate++; else sameCount++;
+            });
+            var meta = data.exported_by ? ('From: '+data.exported_by+'\\nOn: '+(data.exported_at||'?')+'\\n\\n') : '';
+            var msg = meta + 'Import summary:\\n'
+              + '  • ' + willUpdate + ' provider' + (willUpdate===1?'':'s') + ' will be updated\\n'
+              + '  • ' + willAdd + ' new provider' + (willAdd===1?'':'s') + ' will be added\\n'
+              + '  • ' + sameCount + ' already match (no change)\\n\\n'
+              + 'Your local entries that are not in the import will be kept as-is. Proceed?';
+            if(!confirm(msg)) return;
+            // Apply: overlay editable fields on match, append on miss
+            incoming.forEach(function(rem){
+              var k = keyOf(rem);
+              if(localIdx[k] == null){
+                local.push(rem);
+              } else {
+                var cur = local[localIdx[k]];
+                OVERLAY_FIELDS.forEach(function(f){
+                  if(rem[f] !== undefined) cur[f] = rem[f];
+                });
+              }
+            });
+            NS.saveRegistry(local);
+            if(typeof toast==='function')toast('Imported: '+willUpdate+' updated, '+willAdd+' added','ok');
+            NS.renderFunding();
+          }catch(e){
+            console.error('Import failed:', e);
+            if(typeof toast==='function')toast('Import failed: '+(e.message||e),'err');
+          }
+        };
+        rd.readAsText(file);
+      };
+      f.click();
+    };
+    actions.appendChild(importBtn);
     var addBtn=document.createElement('button');addBtn.className='fund-btn primary';addBtn.innerHTML='+ Add provider';
     addBtn.title='Add a new supplier wallet to the registry. For multi-wallet providers (like CSQ with General/Cubacel/Euro sub-wallets), add the first one then use the + sub button on the row.';
     addBtn.onclick=function(){NS.showAddProviderModal({});};
-    hdr.appendChild(addBtn);
+    actions.appendChild(addBtn);
+    hdr.appendChild(actions);
     host.appendChild(hdr);
     // Sort + filter UI state (needed by both the service chips below and the sort handlers further down)
     var uiReg = NS.loadUI();
