@@ -13232,6 +13232,45 @@ var FUND=(function(){
   NS.formatAlertMessage = function(alerts){
     var admin = NS.loadAdmin();
     var urgentHours = admin.urgentHours || 4;
+    // Build a per-key index of the most recent Mark Funded event so each alert
+    // row can show whether the wire has already been sent. Lookback capped at
+    // 30 days — older topups aren't relevant to the current alert state.
+    var _now = Date.now();
+    var _topupByKey = {};
+    NS.loadTopupHistory().forEach(function(t){
+      if(!t || !t.key || !t.fundedAt) return;
+      var existing = _topupByKey[t.key];
+      if(!existing || t.fundedAt > existing.fundedAt) _topupByKey[t.key] = t;
+    });
+    // Format the "funded N ago" suffix. Compares funded age against the
+    // provider's applyDays (lead time) so the team can tell at a glance:
+    //   - within apply window → settling (no action needed)
+    //   - past apply window   → should have landed (escalate to supplier)
+    //   - no applyDays set    → just informational
+    function fundedSuffix(provider, key){
+      var t = _topupByKey[key];
+      if(!t) return '';
+      var ageMs = _now - Date.parse(t.fundedAt);
+      if(!isFinite(ageMs) || ageMs < 0 || ageMs > 30*86400000) return '';
+      var ageDays = ageMs / 86400000;
+      var ageStr;
+      if(ageDays < 1/24) ageStr = '<1h';
+      else if(ageDays < 1) ageStr = Math.max(1, Math.round(ageMs / 3600000)) + 'h';
+      else if(ageDays < 10) ageStr = (Math.round(ageDays*10)/10) + 'd';
+      else ageStr = Math.round(ageDays) + 'd';
+      var applyDays = (provider && typeof provider.applyDays === 'number') ? provider.applyDays : 0;
+      if(applyDays > 0 && ageDays < applyDays){
+        return '   💸 funded ' + ageStr + ' ago — settling (' + applyDays + 'd lead)';
+      }
+      if(applyDays > 0){
+        return '   ⚠ funded ' + ageStr + ' ago — should have landed';
+      }
+      // applyDays = 0 (same-day funding): a day-old topup that hasn't landed is worth flagging
+      if(ageDays >= 1){
+        return '   ⚠ funded ' + ageStr + ' ago — should have landed';
+      }
+      return '   💸 funded ' + ageStr + ' ago';
+    }
     // Express the time-remaining for an alert row using whichever unit reads best.
     function timeLabel(daysLeft){
       if(daysLeft == null || !isFinite(daysLeft)) return 'no burn observed';
@@ -13277,7 +13316,7 @@ var FUND=(function(){
     lines.push('🚨 *Funding alert* — ' + headlineParts.join(' · ') + ' supplier' + (totalCount===1?'':'s'));
     function emitRow(a){
       var name = a.provider.displayName || a.provider.name;
-      lines.push('• ' + name + ' — ' + timeLabel(a.forecast.minDaysLeft));
+      lines.push('• ' + name + ' — ' + timeLabel(a.forecast.minDaysLeft) + fundedSuffix(a.provider, a.key));
     }
     if(urgent.length){
       lines.push('');
