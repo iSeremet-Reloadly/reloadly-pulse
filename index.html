@@ -16302,6 +16302,50 @@ var FUND=(function(){
     syncPill.onclick=function(){NS.pullSharedRegistry();};
     actions.appendChild(syncPill);
     setTimeout(function(){NS._updateSyncIndicator();}, 50);
+    // Reset to defaults — nuclear option. Wipes the local registry, reseeds
+    // from the hard-coded SEED in this file, then pushes the clean state to
+    // the Worker so every other Pulse converges on the baseline within 5 sec.
+    var resetBtn = document.createElement('button');
+    resetBtn.className = 'fund-btn';
+    resetBtn.style.borderColor = 'rgba(239,68,68,.5)';
+    resetBtn.style.color = 'var(--red)';
+    resetBtn.innerHTML = '↺ Reset';
+    resetBtn.title = 'Wipe the registry and reload the baseline from code. This affects everyone on the team — the clean seed pushes to the Worker and overwrites the shared registry. Any custom edits (applyDays, cycleDays, services tags, payment methods, portal URLs, custom display names) made by anyone are lost.';
+    resetBtn.onclick = function(){
+      var cur = NS.loadRegistry();
+      var msg = 'Reset registry to defaults?\\n\\n'
+        + 'This will:\\n'
+        + '  • Wipe your local registry (currently ' + cur.length + ' providers)\\n'
+        + '  • Reload the baseline ' + (typeof _seedRegistry === 'function' ? _seedRegistry().length : '~126') + ' providers from code\\n'
+        + '  • Push the clean state to the Cloudflare Worker\\n'
+        + '  • Every other Pulse will pick up the reset within 5 seconds\\n\\n'
+        + 'LOST in the process:\\n'
+        + '  • Any custom applyDays / cycleDays / portal URLs set since launch\\n'
+        + '  • Any payment methods picked per provider\\n'
+        + '  • Any services tags added or removed\\n'
+        + '  • Any auto-created gift-card providers (will re-appear on next gift-card summary post)\\n'
+        + '  • Any new providers added manually\\n\\n'
+        + 'Snapshots / topup history / alerts / FX cache are NOT touched.\\n\\n'
+        + 'Type RESET to confirm:';
+      var ans = prompt(msg, '');
+      if(ans !== 'RESET'){
+        if(ans !== null && typeof toast==='function')toast('Reset cancelled — did not type RESET','warn');
+        return;
+      }
+      try{
+        localStorage.removeItem(K.registry);
+        // loadRegistry will re-seed from _seedRegistry() on this next call
+        var fresh = NS.loadRegistry();
+        // Force a push so the Worker (and every other Pulse) gets the clean state
+        NS.pushSharedRegistry();
+        if(typeof toast==='function')toast('Reset to '+fresh.length+' baseline providers — pushing to team…','ok');
+        NS.renderFunding();
+      }catch(e){
+        if(typeof toast==='function')toast('Reset failed: '+e.message,'err');
+        console.error('[FUND] reset failed:', e);
+      }
+    };
+    actions.appendChild(resetBtn);
     // Dedupe — scans the registry for providers with the same normalised key
     // (same Bender ID + sub-wallet, or same name + currency for ID-less rows).
     // Keeps the most recently modified row per group, merges non-null fields,
