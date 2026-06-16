@@ -1315,32 +1315,32 @@ function assigneeOptions(selected){
 
 // User Registry
 var USER_REGISTRY={
-  'dlubovci@reloadly.com':  {name:'Dren Lubovci',        role:'COO',                        dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true, canAccessPricing:true},
-  'mfrancis@reloadly.com':  {name:'Michel Francis',       role:'CEO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true, canAccessPricing:true},
-  'ehirlemann@reloadly.com':{name:'Enrique Hirlemann',    role:'CRO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true, canAccessPricing:true},
-  'epiard@reloadly.com':    {name:'Emmanuel Piard',       role:'CTO',                        dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true, canAccessPricing:true},
-  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',      role:'Product Manager',            dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true, canAccessPricing:true},
-  'sgonzalez@reloadly.com': {name:'Sergio Sanchez',       role:'Head of Engineering',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
-  'echibueze@reloadly.com': {name:'Chibueze Eziokwubundu',role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
-  'dcamacho@reloadly.com':  {name:'Daniel Camacho',       role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
-  'mzakari@reloadly.com':   {name:'Salim Zakari',         role:'Front-end Developer',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
-  'iseremet@reloadly.com':  {name:'Johnny Seremet',       role:'Front-end Manager',          dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
-  'aberisha@reloadly.com':  {name:'Alketa Berisha',       role:'AR/AP/Recons',               dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true},
-  'dperrin@reloadly.com':   {name:'Damian Perrin',        role:'Head of Finance',            dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true},
-  'ipaez@reloadly.com':     {name:'Irene Paez',           role:'Technical Support Manager',  dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
-  'gkrasniqi@reloadly.com': {name:'Gramos Krasniqi',      role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
-  'nperfetto@reloadly.com': {name:'Nicolas Perfetto',     role:'Technical Support Lead',     dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
-  'dbassey@reloadly.com':   {name:'David Bassey',         role:'Pricing / Provisioning',     dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true},
-  'hriconlla@reloadly.com': {name:'Hermes',               role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
-  'mmontoya@reloadly.com':  {name:'Max Montoya',          role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
-  'jcmartinez@reloadly.com':{name:'Julio Martinez',       role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
-  'srascon@reloadly.com':   {name:'Sophia Rascon',        role:'Onboarding & Implementation',dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true},
-  'nstephan@reloadly.com':  {name:'Nick Stephan',         role:'Sales',                      dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true},
-  'mpatterson@reloadly.com':{name:'Monty Patterson',      role:'Marketing',                  dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false},
+  'dlubovci@reloadly.com':  {name:'Dren Lubovci',        role:'COO',                        dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
+  'mfrancis@reloadly.com':  {name:'Michel Francis',       role:'CEO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
+  'ehirlemann@reloadly.com':{name:'Enrique Hirlemann',    role:'CRO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
+  'epiard@reloadly.com':    {name:'Emmanuel Piard',       role:'CTO',                        dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
+  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',      role:'Product Manager',            dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
+  'sgonzalez@reloadly.com': {name:'Sergio Sanchez',       role:'Head of Engineering',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'echibueze@reloadly.com': {name:'Chibueze Eziokwubundu',role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'dcamacho@reloadly.com':  {name:'Daniel Camacho',       role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'mzakari@reloadly.com':   {name:'Salim Zakari',         role:'Front-end Developer',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'iseremet@reloadly.com':  {name:'Johnny Seremet',       role:'Front-end Manager',          dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'aberisha@reloadly.com':  {name:'Alketa Berisha',       role:'AR/AP/Recons',               dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true, canAccessProposals:false, canAccessWalletOps:true},
+  'dperrin@reloadly.com':   {name:'Damian Perrin',        role:'Head of Finance',            dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
+  'ipaez@reloadly.com':     {name:'Irene Paez',           role:'Technical Support Manager',  dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'gkrasniqi@reloadly.com': {name:'Gramos Krasniqi',      role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'nperfetto@reloadly.com': {name:'Nicolas Perfetto',     role:'Technical Support Lead',     dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'dbassey@reloadly.com':   {name:'David Bassey',         role:'Pricing / Provisioning',     dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
+  'hriconlla@reloadly.com': {name:'Hermes',               role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'mmontoya@reloadly.com':  {name:'Max Montoya',          role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'jcmartinez@reloadly.com':{name:'Julio Martinez',       role:'Technical Support',          dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'srascon@reloadly.com':   {name:'Sophia Rascon',        role:'Onboarding & Implementation',dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:false},
+  'nstephan@reloadly.com':  {name:'Nick Stephan',         role:'Sales',                      dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:false},
+  'mpatterson@reloadly.com':{name:'Monty Patterson',      role:'Marketing',                  dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:true, canAccessWalletOps:false},
   'fguibert@reloadly.com':  {name:'Florencia Guibert',    role:'Marketing Analyst',          dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false}
 };
 var currentUser=null;
-var CFG={Management:{p:'MGT',col:'#7700ff',cls:'mgt'},Operations:{p:'OPS',col:'#09faa3',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'},
+var CFG={Management:{p:'MGT',col:'#7700ff',cls:'mgt', canAccessProposals:true, canAccessWalletOps:false},Operations:{p:'OPS',col:'#09faa3',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'},
   Sales:{p:'SAL',col:'#2778c4',cls:'sal'}};
 var STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
 var PRIORITIES=['Critical','High','Medium','Low'];
@@ -1414,7 +1414,7 @@ function init(){
   var saved=localStorage.getItem('rl_user_email');
   var profile=saved?USER_REGISTRY[saved]:null;
   if(profile&&hasPassword(saved)){
-    currentUser={email:saved,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin};
+    currentUser={email:saved,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin,canAccessProposals:!!profile.canAccessProposals||!!profile.isAdmin,canAccessWalletOps:!!profile.canAccessWalletOps||!!profile.isAdmin};
     loadData();
   }else{
     localStorage.removeItem('rl_user_email');
@@ -1458,7 +1458,7 @@ function gateSetupPwd(){
   errEl.textContent='';
   setPassword(email,p1).then(function(){
     var profile=USER_REGISTRY[email];
-    window.currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin};
+    window.currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin,canAccessProposals:!!profile.canAccessProposals||!!profile.isAdmin,canAccessWalletOps:!!profile.canAccessWalletOps||!!profile.isAdmin};
     localStorage.setItem('rl_user_email',email);
     document.getElementById('gate').style.display='none';
     loadData();logEntry('First sign-in by '+profile.name,'edit');autoSave();
@@ -1517,7 +1517,7 @@ function gateLogin(){
   verifyPassword(email,pwd).then(function(ok){
     btn.textContent='Sign In';btn.disabled=false;
     if(!ok){errEl.textContent='Incorrect password. Try again.';document.getElementById('gate-pwd').value='';return;}
-    currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin};
+    currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin,canAccessProposals:!!profile.canAccessProposals||!!profile.isAdmin,canAccessWalletOps:!!profile.canAccessWalletOps||!!profile.isAdmin};
     localStorage.setItem('rl_user_email',email);
     document.getElementById('gate').style.display='none';
     loadData();logEntry('Signed in as '+profile.role,'edit');autoSave();
@@ -1535,7 +1535,15 @@ function renderUserPill(){
   var expBtn=document.getElementById('export-btn');
   if(expBtn)expBtn.style.display=currentUser.canExport?'flex':'none';
   var an=document.getElementById('nav-admin');if(an)an.style.display=isAdmin()?'flex':'none';
-  var pg=document.getElementById('nav-pricing-group');if(pg)pg.style.display=canAccessPricing()?'block':'none';
+  // Sidebar group container: show if the user has access to ANY of the three modules.
+  var _canPricing = canAccessPricing();
+  var _canProposals = canAccessProposals();
+  var _canWallet = canAccessWalletOps();
+  var pg=document.getElementById('nav-pricing-group');if(pg)pg.style.display=(_canPricing||_canProposals||_canWallet)?'block':'none';
+  // Per-child visibility — independent gates so a user only sees what they can access.
+  var _np=document.getElementById('nav-pricing');if(_np)_np.style.display=_canPricing?'':'none';
+  var _npp=document.getElementById('nav-proposals');if(_npp)_npp.style.display=_canProposals?'':'none';
+  var _nf=document.getElementById('nav-funding');if(_nf)_nf.style.display=_canWallet?'':'none';
 }
 function signOut(){
   if(!confirm('Sign out?'))return;
@@ -1705,6 +1713,8 @@ function toggleTheme(){var isDark=document.documentElement.getAttribute('data-th
 function applyStoredTheme(){var t=localStorage.getItem('rl_theme')||'dark';document.documentElement.setAttribute('data-theme',t);setTimeout(function(){var btn=document.getElementById('theme-btn');if(btn)btn.textContent=t==='light'?'☀️ LIGHT':'🌙 DARK';},50);}
 function isAdmin(){return currentUser&&currentUser.isAdmin===true;}
 function canAccessPricing(){return currentUser&&(currentUser.canAccessPricing===true||currentUser.isAdmin===true);}
+function canAccessProposals(){return currentUser&&(currentUser.canAccessProposals===true||currentUser.isAdmin===true);}
+function canAccessWalletOps(){return currentUser&&(currentUser.canAccessWalletOps===true||currentUser.isAdmin===true);}
 function renderAdmin(){
   if(!isAdmin()){renderDash();return;}
   var tab = window._adminTab || 'users';
@@ -1749,7 +1759,7 @@ function _renderAdminUsers(){
   html+='</div>';
   // Permission headers get a small "(session)" tag so the table itself reflects the warning above.
   function _shCol(label){return '<th>'+label+' <span style="font-size:8px;color:var(--mut);font-weight:400;letter-spacing:.3px;display:block;margin-top:1px">(session)</span></th>';}
-  html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME '+'<span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>ROLE <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>DEPT <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+'<th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
+  html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME '+'<span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>ROLE <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>DEPT <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+_shCol('PROPOSALS')+_shCol('WALLET OPS')+'<th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
   entries.forEach(function(kv){
     var e=kv[0],u=kv[1],you=currentUser&&currentUser.email===e;
     var archived=ARCHIVED_USERS.indexOf(e)>-1;
@@ -1769,7 +1779,9 @@ function _renderAdminUsers(){
     html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canExport"'+(u.canExport?' checked':'')+' title="Export access.'+_sessionNote+'"></td>';
     html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canViewAll"'+(u.canViewAll?' checked':'')+' title="View all departments.'+_sessionNote+'"></td>';
     html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="isAdmin"'+(u.isAdmin?' checked':'')+' title="Admin access.'+_sessionNote+'"></td>';
-    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessPricing"'+(u.canAccessPricing?' checked':'')+' title="Pricing, Proposals &amp; Supplier Wallet Ops access.'+_sessionNote+'"></td>';
+    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessPricing"'+(u.canAccessPricing?' checked':'')+' title="Pricing (Ops) access.'+_sessionNote+'"></td>';
+    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessProposals"'+(u.canAccessProposals?' checked':'')+' title="Proposals access.'+_sessionNote+'"></td>';
+    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessWalletOps"'+(u.canAccessWalletOps?' checked':'')+' title="Supplier Wallet Ops access.'+_sessionNote+'"></td>';
     // Password status
     html+='<td style="text-align:center">'+(hasPassword(e)?'<span style="color:var(--grn)">✓</span>':'<span style="color:var(--red)">&ndash;</span>')+'</td>';
     // Actions: Set Password + Archive/Restore
@@ -1913,7 +1925,10 @@ function render(){
 }
 function go(v){
   if(!data||!currentUser)return;
-  if((v==='pricing'||v==='proposals'||v==='funding')&&!canAccessPricing()){if(typeof toast==='function')toast('Access restricted','err');return;}
+  // Per-route access gate — each module has its own permission now.
+  if(v==='pricing' && !canAccessPricing()){if(typeof toast==='function')toast('Access restricted','err');return;}
+  if(v==='proposals' && !canAccessProposals()){if(typeof toast==='function')toast('Access restricted','err');return;}
+  if(v==='funding' && !canAccessWalletOps()){if(typeof toast==='function')toast('Access restricted','err');return;}
   view=v;fStatus='All';fSearch='';
   document.querySelectorAll('.ni').forEach(function(e){e.classList.remove('active');});
   var el=document.getElementById('nav-'+v);if(el)el.classList.add('active');
