@@ -14394,22 +14394,83 @@ var FUND=(function(){
     });
     host.appendChild(dpDaysRow);
 
+    // === SORT STATE ===
+    // Persist column sort across renders. Defaults: provider asc (most natural reading).
+    var _dpSortKey = NS.loadUI().dailyPullSort || 'provider';
+    var _dpSortOrder = NS.loadUI().dailyPullOrder || 'asc';
+    var DP_SORT_KEYS = {cmd:1, provider:1, mode:1, origin:1, currency:1, daysLeft:1};
+    if(!DP_SORT_KEYS[_dpSortKey]){ _dpSortKey = 'provider'; _dpSortOrder = 'asc'; }
+
+    // Sort comparator — extracts a comparable value per column.
+    function _dpSortValue(p){
+      switch(_dpSortKey){
+        case 'cmd':
+          // Group by mode, then numeric benderId within each group so the
+          // command column reads cleanly: all bender, then portal, then admin etc.
+          return (p.mode||'zzz') + '|' + (p.benderId != null ? String(p.benderId).padStart(8,'0') : 'zzz');
+        case 'provider':
+          return (p.displayName || p.name || '').toLowerCase();
+        case 'mode':
+          return p.mode || '';
+        case 'origin':
+          // Same classifier the SHOW pills use — auto / manual / failed bucket.
+          return _classifyProviderRow(p);
+        case 'currency':
+          return p.currency || '';
+        case 'daysLeft':
+          var k = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
+          var r = NS.computeBurnRate(k, dpDaysWindow);
+          // Treat null/∞ as "very large" so they sink to the bottom on asc.
+          return (r && r.daysLeft != null && isFinite(r.daysLeft)) ? r.daysLeft : 999999;
+        default:
+          return '';
+      }
+    }
+    _dpRegistryForTable.sort(function(a, b){
+      var va = _dpSortValue(a), vb = _dpSortValue(b);
+      var cmp = (typeof va === 'string') ? va.localeCompare(vb) : (va - vb);
+      return _dpSortOrder === 'asc' ? cmp : -cmp;
+    });
+
     // Table
     var tw=document.createElement('div');tw.className='fund-tablewrap';
     var tbl=document.createElement('table');tbl.className='fund-table';
     function dpTipI(text){return ' <span class="th-info" data-tip="'+text.replace(/"/g,'&quot;')+'">i</span>';}
+    // Sortable header helper — adds click handler + arrow + cursor.
+    function _dpTh(key, label, tip, extraStyle){
+      var arrow = (_dpSortKey === key) ? (_dpSortOrder === 'asc' ? ' ▲' : ' ▼') : '';
+      var cls = (_dpSortKey === key) ? ' sorted' : '';
+      var style = 'cursor:pointer;user-select:none' + (extraStyle ? ';'+extraStyle : '');
+      return '<th class="'+cls+'" data-dpsort="'+key+'" style="'+style+'" title="Click to sort by this column.">'+label+arrow+dpTipI(tip)+'</th>';
+    }
     tbl.innerHTML='<thead><tr>'
-      +'<th>BENDER COMMAND'+dpTipI('The /airtime/provider/balance or /swype/provider/balance command Bender runs to return this wallet\'s balance. For portal-mode providers, shows the URL where you check manually. Chat-payments providers come from the hourly Slack feed (no command shown).')+'</th>'
-      +'<th>PROVIDER'+dpTipI('Wallet display name with the internal name (uppercase identifier) and Bender ID beneath for reference.')+'</th>'
-      +'<th>MODE'+dpTipI('How Pulse interacts with this wallet. BENDER = Bender slash command. SWYPE = Swype command. PORTAL = manual web portal lookup. CHAT_PAYMENTS = gift card hourly Slack feed. ADMIN / BILLING / MANUAL = manual entry.')+'</th>'
-      +'<th>ORIGIN'+dpTipI('Where today\'s balance came from. AUTO HOURLY = pulled by Bender hourly. GC SUMMARY = gift card summary. MANUAL = you typed it. BENDER FAILED = Bender failed to pull. The small line below shows when the balance was captured.')+'</th>'
-      +'<th>CURRENCY'+dpTipI('Wallet\'s native currency code. Edit in Providers tab if it changes.')+'</th>'
+      +_dpTh('cmd','BENDER COMMAND','The /airtime/provider/balance or /swype/provider/balance command Bender runs to return this wallet\'s balance. For portal-mode providers, shows the URL where you check manually. Chat-payments providers come from the hourly Slack feed (no command shown).')
+      +_dpTh('provider','PROVIDER','Wallet display name with the internal name (uppercase identifier) and Bender ID beneath for reference.')
+      +_dpTh('mode','MODE','How Pulse interacts with this wallet. BENDER = Bender slash command. SWYPE = Swype command. PORTAL = manual web portal lookup. CHAT_PAYMENTS = gift card hourly Slack feed. ADMIN / BILLING / MANUAL = manual entry.')
+      +_dpTh('origin','ORIGIN','Where today\'s balance came from. AUTO HOURLY = pulled by Bender hourly. GC SUMMARY = gift card summary. MANUAL = you typed it. BENDER FAILED = Bender failed to pull. The small line below shows when the balance was captured.')
+      +_dpTh('currency','CURRENCY','Wallet\'s native currency code. Edit in Providers tab if it changes.')
       +'<th style="text-align:right">LOCAL BALANCE'+dpTipI('Today\'s balance in the wallet\'s own currency. Click to type/correct it manually. Auto-saves on edit so tab switches do not lose your typing.')+'</th>'
       +'<th style="text-align:right">USD BALANCE'+dpTipI('Today\'s balance converted to USD using the most recent cached FX rate (D-1). Hit Refresh FX in the header if the conversion looks stale.')+'</th>'
       +'<th>YESTERDAY'+dpTipI('Yesterday\'s balance for comparison. Helps you eyeball one-day consumption.')+'</th>'
-      +'<th>DAYS LEFT'+dpTipI('How many days until the wallet is empty based on the selected burn-rate window. Click the pills above to switch windows: 24h is the freshest signal, 30D is the most stable baseline. Status pill colors: CRITICAL (≤3d) red, WATCH (≤7d) yellow, HEALTHY (≤30d) green.')+'</th>'
+      +_dpTh('daysLeft','DAYS LEFT','How many days until the wallet is empty based on the selected burn-rate window. Click the pills above to switch windows: 24h is the freshest signal, 30D is the most stable baseline. Status pill colors: CRITICAL (≤3d) red, WATCH (≤7d) yellow, HEALTHY (≤30d) green.')
       +'</tr></thead>';
     var tb=document.createElement('tbody');tbl.appendChild(tb);
+    // Click handlers — same column flips order, different column starts asc.
+    setTimeout(function(){
+      tbl.querySelectorAll('th[data-dpsort]').forEach(function(th){
+        th.onclick = function(){
+          var k = this.dataset.dpsort;
+          var u = NS.loadUI();
+          if(u.dailyPullSort === k){
+            u.dailyPullOrder = (u.dailyPullOrder === 'asc') ? 'desc' : 'asc';
+          } else {
+            u.dailyPullSort = k;
+            u.dailyPullOrder = 'asc';
+          }
+          NS.saveUI(u); NS.renderFunding();
+        };
+      });
+    }, 0);
     var yesterdaySnap=_yesterdaySnapshot();
     // Auto-save the in-memory snapshot to localStorage (debounced) so that
     // switching tabs / reloading does not lose typed-but-unsaved balances.
