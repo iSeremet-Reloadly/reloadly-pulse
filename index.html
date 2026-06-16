@@ -12581,10 +12581,10 @@ var FUND=(function(){
       text='⚠ Sync error'; tip=NS.SYNC.message || 'Last sync attempt failed';
     } else {
       bg='rgba(16,185,129,.15)'; fg='var(--grn)'; brd='var(--grn)';
-      text='● Synced'+(ageStr?' '+ageStr:'');
-      tip = 'Registry shared with team via Cloudflare Worker.'
-        + (NS.SYNC.updatedBy ? '\\nLast remote change: '+NS.SYNC.updatedBy+(NS.SYNC.updatedAt?' at '+NS.SYNC.updatedAt:'') : '')
-        + '\\nClick to pull now.';
+      text='● Synced'+(ageStr?' '+ageStr:'')+' · auto every 5 min';
+      tip = 'Registry shared with team via Cloudflare Worker. Auto-pulls every 5 minutes when the tab is active, and instantly when you switch back to Pulse.'
+        + (NS.SYNC.updatedBy ? '\\n\\nLast remote change: '+NS.SYNC.updatedBy+(NS.SYNC.updatedAt?' at '+NS.SYNC.updatedAt:'') : '')
+        + '\\n\\nClick this pill to pull now (force refresh).';
     }
     el.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:5px;font-size:10px;font-weight:700;font-family:Roboto Mono,monospace;letter-spacing:.3px;cursor:pointer;user-select:none;background:'+bg+';color:'+fg+';border:1px solid '+brd;
     el.title = tip;
@@ -13109,14 +13109,16 @@ var FUND=(function(){
     NS._stopAutoSync();
     // Initial: pull the shared registry so the user starts with the team's latest config.
     try{NS.pullSharedRegistry();}catch(e){}
-    // 5-second registry meta-poll. Cheap "did anything change?" check — only
-    // triggers a full pull when remote updatedAt actually moved. Means every
-    // user sees every edit within 5 seconds without thrashing the Worker.
+    // 5-minute registry meta-poll. The pill in the Providers header makes the
+    // cadence visible to users; for instant propagation they can click the pill
+    // (force pull) or just switch tabs back to Pulse (visibilitychange triggers
+    // a sync). 5 minutes scales to the whole company without burning the
+    // Cloudflare free tier (~12 polls/user/hour vs 720 at 5s).
     if(!window._fundRegistryPollInterval){
       window._fundRegistryPollInterval = setInterval(function(){
         if(document.hidden) return; // pause when tab is in background
         try{NS.pollSharedRegistry();}catch(e){}
-      }, 5 * 1000);
+      }, 5 * 60 * 1000);
     }
     // Also sync the moment the tab regains focus — common case: user comes back
     // to the tab and the data is stale, expects the latest right away.
@@ -16297,8 +16299,8 @@ var FUND=(function(){
     // Click to force a pull. _updateSyncIndicator below fills in styles + text.
     var syncPill=document.createElement('span');syncPill.id='fund-sync-indicator';
     syncPill.style.cssText='display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:5px;font-size:10px;font-weight:700;font-family:Roboto Mono,monospace;letter-spacing:.3px;cursor:pointer;user-select:none;background:rgba(108,99,255,.18);color:var(--acc);border:1px solid var(--acc)';
-    syncPill.textContent='⟳ Sync';
-    syncPill.title='Registry shared with team via Cloudflare Worker. Click to pull now.';
+    syncPill.textContent='⟳ Sync · every 5 min';
+    syncPill.title='Registry shared with team via Cloudflare Worker. Auto-pulls every 5 minutes while the tab is active. Click to pull now.';
     syncPill.onclick=function(){NS.pullSharedRegistry();};
     actions.appendChild(syncPill);
     setTimeout(function(){NS._updateSyncIndicator();}, 50);
