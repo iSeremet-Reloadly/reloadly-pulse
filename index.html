@@ -12342,7 +12342,56 @@ var FUND=(function(){
   // (benderId, name, subKey) are never overwritten on merge.
   NS.REGISTRY_SYNC_FIELDS = ['displayName','mode','services','billingType','paymentTerms','cycleDays','applyDays','portalUrl','isActive','swypeId','entityType','currency','notes'];
   NS.SYNC = {pulling:false, pushing:false, lastPullAt:0, lastPushAt:0, status:'idle', message:'', updatedBy:'', updatedAt:''};
-  function _regSyncKey(p){return (p.benderId==null?'name:'+(p.name||'')+'::'+(p.currency||''):'id:'+p.benderId) + (p.subKey?'::'+p.subKey:'');}
+  // Normalised compound key for syncing/deduping providers across browsers.
+  // Trim + lowercase to avoid near-miss duplicates like "Lafrica Mobile Burkina"
+  // vs "lafrica mobile burkina" being treated as different rows on merge.
+  function _norm(s){return String(s||'').trim().toLowerCase();}
+  function _regSyncKey(p){
+    var base = p.benderId == null
+      ? 'name:'+_norm(p.name)+'::'+_norm(p.currency)
+      : 'id:'+p.benderId;
+    return base + (p.subKey ? '::'+_norm(p.subKey) : '');
+  }
+  // Find duplicate providers (same normalised key, multiple rows). Returns
+  // {groups: [[p1,p2],...], total: N} so callers can show counts before merging.
+  NS.findDuplicateProviders = function(){
+    var reg = NS.loadRegistry();
+    var groups = {};
+    reg.forEach(function(p, i){
+      var k = _regSyncKey(p);
+      if(!groups[k]) groups[k] = [];
+      groups[k].push({p: p, idx: i});
+    });
+    var dupes = Object.keys(groups).filter(function(k){return groups[k].length > 1;}).map(function(k){return groups[k];});
+    var total = dupes.reduce(function(n, g){return n + (g.length - 1);}, 0);
+    return {groups: dupes, total: total};
+  };
+  // Dedupe in place. Per group, keep the most-recently-modified provider as
+  // the canonical row and discard the rest. Overlay any non-null editable
+  // fields from discards onto the keeper so we don't silently lose data.
+  NS.dedupeRegistry = function(){
+    var res = NS.findDuplicateProviders();
+    if(res.total === 0) return {removed: 0, groupsCleaned: 0};
+    var reg = NS.loadRegistry();
+    var indicesToRemove = {};
+    res.groups.forEach(function(group){
+      // Sort by lastModified desc (most recent first); falls back to insertion order
+      group.sort(function(a, b){
+        return (b.p.lastModified || 0) - (a.p.lastModified || 0);
+      });
+      var keeper = group[0].p;
+      // Merge non-null fields from later (discarded) duplicates into the keeper
+      group.slice(1).forEach(function(item){
+        NS.REGISTRY_SYNC_FIELDS.forEach(function(f){
+          if(keeper[f] == null && item.p[f] != null) keeper[f] = item.p[f];
+        });
+        indicesToRemove[item.idx] = true;
+      });
+    });
+    var cleaned = reg.filter(function(p, i){return !indicesToRemove[i];});
+    NS.saveRegistry(cleaned); // triggers push to worker so all users get clean state
+    return {removed: res.total, groupsCleaned: res.groups.length};
+  };
   function _saveRegistryRaw(r){saveJSON(K.registry,r);}
   NS.saveRegistry=function(r, opts){
     opts = opts || {};
@@ -16253,6 +16302,39 @@ var FUND=(function(){
     syncPill.onclick=function(){NS.pullSharedRegistry();};
     actions.appendChild(syncPill);
     setTimeout(function(){NS._updateSyncIndicator();}, 50);
+    // Dedupe — scans the registry for providers with the same normalised key
+    // (same Bender ID + sub-wallet, or same name + currency for ID-less rows).
+    // Keeps the most recently modified row per group, merges non-null fields,
+    // pushes the cleaned registry to the Worker so all users converge.
+    var dupCheck = NS.findDuplicateProviders();
+    var dedupeBtn = document.createElement('button');
+    dedupeBtn.className = 'fund-btn';
+    var _dupBadge = dupCheck.total > 0 ? ' <span style="background:rgba(245,158,11,.25);color:var(--yel);padding:1px 6px;border-radius:3px;font-size:9px;margin-left:2px">'+dupCheck.total+'</span>' : '';
+    dedupeBtn.innerHTML = '⚒ Dedupe' + _dupBadge;
+    dedupeBtn.title = dupCheck.total > 0
+      ? ('Detected '+dupCheck.total+' duplicate row'+(dupCheck.total===1?'':'s')+' across '+dupCheck.groups.length+' provider'+(dupCheck.groups.length===1?'':'s')+'. Click to merge — keeper is the most recently edited row per group; non-null fields from discards merge into the keeper.')
+      : 'No duplicates detected. Click to re-scan after a sync.';
+    if(dupCheck.total > 0){
+      dedupeBtn.style.borderColor = 'rgba(245,158,11,.55)';
+      dedupeBtn.style.color = 'var(--yel)';
+    }
+    dedupeBtn.onclick = function(){
+      var res = NS.findDuplicateProviders();
+      if(res.total === 0){
+        if(typeof toast==='function')toast('No duplicates found','ok');
+        return;
+      }
+      var groupSummary = res.groups.slice(0, 5).map(function(g){
+        var p = g[0].p;
+        return '  • '+(p.displayName||p.name)+' × '+g.length;
+      }).join('\\n');
+      var more = res.groups.length > 5 ? '\\n  • … and '+(res.groups.length - 5)+' more' : '';
+      if(!confirm('Found '+res.total+' duplicate row'+(res.total===1?'':'s')+' across '+res.groups.length+' provider'+(res.groups.length===1?'':'s')+':\\n\\n'+groupSummary+more+'\\n\\nKeeper per group: most recently edited row.\\nNon-null fields from the discards will overlay onto the keeper.\\nProceed?')) return;
+      var out = NS.dedupeRegistry();
+      if(typeof toast==='function')toast('Removed '+out.removed+' duplicate row'+(out.removed===1?'':'s'), 'ok');
+      NS.renderFunding();
+    };
+    actions.appendChild(dedupeBtn);
     // Export Registry — downloads the current registry as a JSON file the user can share with
     // teammates. Their browser's registry is per-localStorage, so this is the manual sync path.
     var exportBtn=document.createElement('button');exportBtn.className='fund-btn';exportBtn.innerHTML='⬇ Export';
