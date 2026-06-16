@@ -16053,7 +16053,82 @@ var FUND=(function(){
     });
     function buildRow(p){
       var tr=document.createElement('tr');
-      tr.innerHTML='<td class="mut">'+(p.benderId!=null?p.benderId:'—')+'</td>';
+      // BENDER ID — editable. When a provider migrates from portal→bender
+      // (e.g. Laos), the user sets the ID here. If there's already historical
+      // data under the old key, prompt to migrate it cleanly.
+      var bidTd=document.createElement('td');
+      var bidInp=document.createElement('input');bidInp.type='number';bidInp.min='1';
+      bidInp.value=(p.benderId!=null?p.benderId:'');
+      bidInp.placeholder='—';
+      var _bidNeedsFill = (p.mode === 'bender' && p.benderId == null);
+      bidInp.style.cssText='width:60px;padding:4px 6px;background:var(--surf2);border:1px solid '+(_bidNeedsFill?'rgba(245,158,11,.7)':'var(--brd)')+';color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace;text-align:right';
+      bidInp.title='Bender slash command ID. Editable so providers that migrate (portal → bender) can be updated in place. If this provider has historical data under the current ID, you will be asked whether to migrate it on change.';
+      bidInp.onchange=function(){
+        var raw = this.value.trim();
+        var newId = (raw==='' ? null : parseInt(raw, 10));
+        if(newId != null && (isNaN(newId) || newId < 1)){
+          if(typeof toast==='function')toast('Bender ID must be a positive number (or blank)','warn');
+          this.value = (p.benderId!=null?p.benderId:'');
+          return;
+        }
+        var oldId = p.benderId;
+        if(newId === oldId) return; // no-op
+        // Compute old + new snapshot keys for this provider
+        var oldKey = p.subKey ? (String(oldId)+'::'+p.subKey) : (oldId!=null?String(oldId):p.name);
+        var newKey = p.subKey ? (String(newId)+'::'+p.subKey) : (newId!=null?String(newId):p.name);
+        // Count any data tied to the old key across snapshot history + ancillary stores
+        var snaps = NS.loadSnapshots();
+        var snapHits = snaps.reduce(function(n, s){return n + (s.balances && s.balances[oldKey] ? 1 : 0);}, 0);
+        var topupHits = NS.loadTopupHistory().filter(function(h){return h.key === oldKey;}).length;
+        var payMethods = NS.loadPaymentMethods();
+        var hasPm = !!payMethods[oldKey];
+        var alertLog = NS.loadAlertLog();
+        var hasAlert = !!alertLog[oldKey];
+        var totalHits = snapHits + topupHits + (hasPm?1:0) + (hasAlert?1:0);
+        if(totalHits > 0){
+          var msg = 'This provider has data tied to the current ID:\\n'
+            + '  • ' + snapHits + ' daily snapshot' + (snapHits===1?'':'s') + '\\n'
+            + '  • ' + topupHits + ' topup record' + (topupHits===1?'':'s') + '\\n'
+            + (hasPm ? '  • saved payment method\\n' : '')
+            + (hasAlert ? '  • alert cooldown entry\\n' : '')
+            + '\\nMigrate it to the new ID? (Cancel keeps the old data orphaned but does not delete it.)';
+          if(!confirm(msg)){
+            // Still update the ID — just don't migrate data
+            p.benderId = newId;
+            NS.saveRegistry(registry); NS.renderFunding();
+            if(typeof toast==='function')toast('ID updated; old data left under "'+oldKey+'"','warn');
+            return;
+          }
+          // Migrate all four stores from oldKey → newKey
+          snaps.forEach(function(s){
+            if(s.balances && s.balances[oldKey] != null){
+              if(s.balances[newKey] == null) s.balances[newKey] = s.balances[oldKey];
+              delete s.balances[oldKey];
+            }
+          });
+          NS.saveSnapshots(snaps);
+          var hist = NS.loadTopupHistory();
+          hist.forEach(function(h){ if(h.key === oldKey) h.key = newKey; });
+          NS.saveTopupHistory(hist);
+          if(hasPm){
+            payMethods[newKey] = payMethods[oldKey];
+            delete payMethods[oldKey];
+            saveJSON(K.paymentMethods, payMethods);
+          }
+          if(hasAlert){
+            alertLog[newKey] = alertLog[oldKey];
+            delete alertLog[oldKey];
+            saveJSON(K.alertLog, alertLog);
+          }
+        }
+        p.benderId = newId;
+        NS.saveRegistry(registry); NS.renderFunding();
+        if(typeof toast==='function'){
+          if(totalHits > 0) toast('ID updated and ' + totalHits + ' record' + (totalHits===1?'':'s') + ' migrated to new key', 'ok');
+          else toast('Bender ID set to ' + (newId == null ? '—' : newId), 'ok');
+        }
+      };
+      bidTd.appendChild(bidInp);tr.appendChild(bidTd);
       var swypeTd=document.createElement('td');
       var swypeInp=document.createElement('input');swypeInp.type='number';swypeInp.value=(p.swypeId!=null?p.swypeId:'');swypeInp.placeholder='—';
       swypeInp.style.cssText='width:50px;padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace;text-align:right';
