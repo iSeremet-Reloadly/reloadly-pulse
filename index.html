@@ -16108,27 +16108,49 @@ var FUND=(function(){
     // Sort state — persists between renders
     var regSortKey = uiReg.providersSort || 'id';
     var regSortOrder = uiReg.providersOrder || 'asc';
-    function regTh(key, label){
+    // Inline (i) bubble matching the Daily Pull pattern — use data-tip so the
+    // custom hover styling kicks in, with quote-escaping for the text content.
+    function regTipI(text){return ' <span class="th-info" data-tip="'+text.replace(/"/g,'&quot;')+'">i</span>';}
+    function regTh(key, label, tip){
       var cls = regSortKey === key ? 'sorted' : '';
       var arrow = regSortKey === key ? (regSortOrder === 'asc' ? ' ▲' : ' ▼') : '';
-      return '<th class="'+cls+'" data-regsort="'+key+'" style="cursor:pointer;user-select:none" title="Click to sort by this column. Sort applies to the active section above; inactive providers stay in their own collapsable section below.">'+label+arrow+'</th>';
+      var sortHint = 'Click to sort by this column. Sort applies to the active section above; inactive providers stay in their own collapsable section below.';
+      var tipBubble = tip ? regTipI(tip) : '';
+      return '<th class="'+cls+'" data-regsort="'+key+'" style="cursor:pointer;user-select:none" title="'+sortHint+'">'+label+arrow+tipBubble+'</th>';
     }
     var tw=document.createElement('div');tw.className='fund-tablewrap';
     var tbl=document.createElement('table');tbl.className='fund-table';
+    // Tooltip content per column — describes both what the column is and how
+    // to use it, so the Providers tab can self-onboard new team members.
+    var TIP_ID = 'Bender slash command ID. Editable inline — type a new ID when a provider moves from portal to bender (e.g. Laos). If historical data exists under the old ID, you will be asked whether to migrate it. Amber border when mode=bender but ID is blank means "this needs filling".';
+    var TIP_SWYPE = 'Swype slash command ID. Optional — fill when you know it. When set, Daily Pull shows /swype/provider/balance N instead of the default airtime command. Run the command in Slack first to confirm the wallet name matches before saving.';
+    var TIP_NAME = 'Internal uppercase identifier — used by Pulse\'s Bender response parser to match wallets to registry entries. Do not change unless Bender\'s response format changes. Use Display Name for human-friendly labels.';
+    var TIP_DISPNAME = 'Human-readable label shown everywhere in Pulse (Fund Now, Slack alerts, History, Daily Pull). Edit freely to clarify which wallet this is — does not affect Bender matching.';
+    var TIP_CCY = 'Wallet\'s native currency code (USD, EUR, NGN, etc). Drives the USD conversion in Daily Pull and Fund Now via the cached FX rate. If a currency does not convert, hit Refresh FX in the header.';
+    var TIP_MODE = 'How Pulse interacts with this wallet. BENDER = auto-pulled by Bender slash command. SWYPE = swype command. PORTAL = manual web portal lookup (Daily Pull shows an "Open portal" button). CHAT_PAYMENTS = gift card hourly Slack feed. ADMIN / BILLING / MANUAL = manual entry only.';
+    var TIP_SERVICE = 'Tag what this wallet serves. Click each letter to toggle: A = Airtime, G = Gift card, U = Utility, S = Swype. Drives the SERVICE filter chips in Daily Pull and Forecast — providers with no service tag are excluded from Fund Now.';
+    var TIP_BILLING = 'Prepaid (you wire money in advance) or Postpaid (supplier invoices you). Postpaid wallets are excluded from Forecast burn-rate and Fund Now since their balance shows what you owe, not what you can spend.';
+    var TIP_TERMS = 'Free-text payment terms for postpaid providers. Examples: "7 net 3" (invoiced every 7 days, paid within 3), "monthly net 15", "net 30". Leave blank for prepaid.';
+    var TIP_CYCLE = 'Per-supplier funding cycle in days. Overrides the global cover pills in Fund Now for this supplier only. Blank = follow global. Examples: 7 if you batch-fund this supplier weekly, 14 bi-weekly, 28 monthly. The accent border means a custom cycle is set.';
+    var TIP_APPLY = 'Funding lead time — days the supplier typically takes to apply funds after a wire is sent. Shifts critical/watch thresholds earlier so the supplier gets flagged in time to wire before stockout. A 3-day-settlement supplier becomes critical at 6 days remaining (3 + crit threshold). 0 = same-day funding.';
+    var TIP_PAYM = 'How you typically wire funds to this supplier (Wells Fargo USD, Moneycorp EUR, Airwallex GBP, etc). Pre-selected in the Mark Funded popup. The currency suffix drives the USD-to-method-currency conversion shown in Fund Now.';
+    var TIP_PORTAL = 'Web URL for portal-mode providers. Daily Pull and Fund Now show an "Open portal" button that opens this URL in a new tab. Required for mode=portal rows so the team has a one-click jump to check the balance.';
+    var TIP_ACTIVE = 'Uncheck to archive. Archived wallets drop to the collapsable Inactive section at the bottom and stop appearing in Fund Now, Forecast, alerts, and the Daily Pull table. Toggle back on to restore.';
     tbl.innerHTML='<thead><tr>'
-      +regTh('id','ID')
-      +'<th title="Swype slash command ID. When set, Daily Pull shows /swype/provider/balance N instead of the default airtime command.">SWYPE</th>'
-      +regTh('name','NAME')
-      +regTh('displayName','DISPLAY NAME')
-      +regTh('currency','CCY')
-      +regTh('mode','MODE')
-      +'<th>SERVICE</th>'
-      +regTh('billingType','BILLING')
-      +'<th>TERMS</th>'
-      +'<th title="Per-supplier funding cycle in days. Overrides the global cover pills in Fund Now for this supplier only. Leave blank to follow the global cover (e.g. set 7 if you always batch-fund this supplier weekly).">CYCLE</th>'
-      +'<th title="Funding lead time — days the supplier typically takes to apply funds after a wire/transfer is sent. Shifts the critical/watch thresholds earlier: a supplier with 3-day settlement gets flagged at 6 days remaining (crit threshold + lead time). Leave 0 for same-day funding.">APPLY DAYS</th>'
-      +'<th>PAY METHOD</th><th>PORTAL URL</th>'
-      +regTh('active','ACTIVE')
+      +regTh('id','ID', TIP_ID)
+      +'<th title="Swype slash command ID.">SWYPE'+regTipI(TIP_SWYPE)+'</th>'
+      +regTh('name','NAME', TIP_NAME)
+      +regTh('displayName','DISPLAY NAME', TIP_DISPNAME)
+      +regTh('currency','CCY', TIP_CCY)
+      +regTh('mode','MODE', TIP_MODE)
+      +'<th>SERVICE'+regTipI(TIP_SERVICE)+'</th>'
+      +regTh('billingType','BILLING', TIP_BILLING)
+      +'<th>TERMS'+regTipI(TIP_TERMS)+'</th>'
+      +'<th>CYCLE'+regTipI(TIP_CYCLE)+'</th>'
+      +'<th>APPLY DAYS'+regTipI(TIP_APPLY)+'</th>'
+      +'<th>PAY METHOD'+regTipI(TIP_PAYM)+'</th>'
+      +'<th>PORTAL URL'+regTipI(TIP_PORTAL)+'</th>'
+      +regTh('active','ACTIVE', TIP_ACTIVE)
       +'<th></th>'
       +'</tr></thead>';
     var tb=document.createElement('tbody');tbl.appendChild(tb);
@@ -16391,8 +16413,8 @@ var FUND=(function(){
         var tblInact = document.createElement('table'); tblInact.className = 'fund-table';
         // Same column headers — no sort handlers (sort is driven by the active table)
         tblInact.innerHTML = '<thead><tr>'
-          +'<th>ID</th><th>SWYPE</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>SERVICE</th><th>BILLING</th><th>TERMS</th>'
-          +'<th>CYCLE</th><th>APPLY DAYS</th><th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th></th>'
+          +'<th>ID'+regTipI(TIP_ID)+'</th><th>SWYPE'+regTipI(TIP_SWYPE)+'</th><th>NAME'+regTipI(TIP_NAME)+'</th><th>DISPLAY NAME'+regTipI(TIP_DISPNAME)+'</th><th>CCY'+regTipI(TIP_CCY)+'</th><th>MODE'+regTipI(TIP_MODE)+'</th><th>SERVICE'+regTipI(TIP_SERVICE)+'</th><th>BILLING'+regTipI(TIP_BILLING)+'</th><th>TERMS'+regTipI(TIP_TERMS)+'</th>'
+          +'<th>CYCLE'+regTipI(TIP_CYCLE)+'</th><th>APPLY DAYS'+regTipI(TIP_APPLY)+'</th><th>PAY METHOD'+regTipI(TIP_PAYM)+'</th><th>PORTAL URL'+regTipI(TIP_PORTAL)+'</th><th>ACTIVE'+regTipI(TIP_ACTIVE)+'</th><th></th>'
           +'</tr></thead>';
         var tbInact = document.createElement('tbody'); tblInact.appendChild(tbInact);
         inactiveRegistry.forEach(function(p){tbInact.appendChild(buildRow(p));});
