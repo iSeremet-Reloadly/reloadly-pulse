@@ -12332,7 +12332,183 @@ var FUND=(function(){
     }catch(e){console.warn('[FUND] ui reset skipped', e);}
     return r;
   };
-  NS.saveRegistry=function(r){saveJSON(K.registry,r);};
+  // ═════════════════════════════════════════════════════════════════════════
+  // Shared registry sync — the registry lives in browser localStorage by default,
+  // but we now mirror it to the Cloudflare Worker's KV so every Pulse instance
+  // converges. Conflicts are resolved per-provider via lastModified timestamps,
+  // last-writer-wins. See NS.pullSharedRegistry / NS.pushSharedRegistry below.
+  // ═════════════════════════════════════════════════════════════════════════
+  // Fields the team curates (synced across users). Structural identifiers
+  // (benderId, name, subKey) are never overwritten on merge.
+  NS.REGISTRY_SYNC_FIELDS = ['displayName','mode','services','billingType','paymentTerms','cycleDays','applyDays','portalUrl','isActive','swypeId','entityType','currency','notes'];
+  NS.SYNC = {pulling:false, pushing:false, lastPullAt:0, lastPushAt:0, status:'idle', message:'', updatedBy:'', updatedAt:''};
+  function _regSyncKey(p){return (p.benderId==null?'name:'+(p.name||'')+'::'+(p.currency||''):'id:'+p.benderId) + (p.subKey?'::'+p.subKey:'');}
+  function _saveRegistryRaw(r){saveJSON(K.registry,r);}
+  NS.saveRegistry=function(r, opts){
+    opts = opts || {};
+    if(!opts.skipSync){
+      // Per-provider lastModified stamping: only providers whose synced fields
+      // actually changed get bumped. Keeps remote merge deterministic.
+      var oldReg = loadJSON(K.registry, []);
+      var oldByKey = {};
+      oldReg.forEach(function(p){ oldByKey[_regSyncKey(p)] = p; });
+      var now = Date.now();
+      r.forEach(function(np){
+        var op = oldByKey[_regSyncKey(np)];
+        if(!op){ np.lastModified = now; return; }
+        var diff = false;
+        NS.REGISTRY_SYNC_FIELDS.forEach(function(f){
+          if(JSON.stringify(op[f]) !== JSON.stringify(np[f])) diff = true;
+        });
+        if(diff) np.lastModified = now;
+        else if(op.lastModified) np.lastModified = op.lastModified;
+      });
+    }
+    _saveRegistryRaw(r);
+    if(!opts.skipSync){ NS._scheduleRegistryPush(); }
+  };
+  var _regPushTimer = null;
+  NS._scheduleRegistryPush = function(){
+    if(_regPushTimer) clearTimeout(_regPushTimer);
+    _regPushTimer = setTimeout(function(){ NS.pushSharedRegistry(); }, 2000);
+  };
+  NS.pushSharedRegistry = function(){
+    var admin = NS.loadAdmin();
+    var url = admin.workerUrl;
+    if(!url) return Promise.resolve({ok:false, error:'no_worker_url'});
+    if(NS.SYNC.pushing) return Promise.resolve({ok:false, error:'busy'});
+    NS.SYNC.pushing = true;
+    NS.SYNC.status = 'syncing';
+    NS._updateSyncIndicator();
+    var by = (window.currentUser && window.currentUser.email) || 'unknown';
+    return fetch(url, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'put_registry', registry: NS.loadRegistry(), by: by})
+    }).then(function(r){return r.json();}).then(function(res){
+      NS.SYNC.pushing = false;
+      NS.SYNC.lastPushAt = Date.now();
+      NS.SYNC.status = res.ok ? 'idle' : 'error';
+      NS.SYNC.message = res.ok ? '' : ('Push failed: '+(res.error||'unknown'));
+      NS._updateSyncIndicator();
+      return res;
+    }).catch(function(e){
+      NS.SYNC.pushing = false;
+      NS.SYNC.status = 'error';
+      NS.SYNC.message = 'Push error: '+(e.message||e);
+      NS._updateSyncIndicator();
+      return {ok:false, error:String(e)};
+    });
+  };
+  NS.pullSharedRegistry = function(){
+    var admin = NS.loadAdmin();
+    var url = admin.workerUrl;
+    if(!url) return Promise.resolve({ok:false, error:'no_worker_url'});
+    if(NS.SYNC.pulling) return Promise.resolve({ok:false, error:'busy'});
+    NS.SYNC.pulling = true;
+    NS.SYNC.status = 'syncing';
+    NS._updateSyncIndicator();
+    return fetch(url, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'get_registry'})
+    }).then(function(r){return r.json();}).then(function(res){
+      NS.SYNC.pulling = false;
+      NS.SYNC.lastPullAt = Date.now();
+      if(!res.ok){
+        NS.SYNC.status = 'error';
+        NS.SYNC.message = 'Pull failed: '+(res.error||'unknown');
+        NS._updateSyncIndicator();
+        return res;
+      }
+      if(!res.found || !Array.isArray(res.registry) || !res.registry.length){
+        // No shared registry yet — seed it from ours so the next pull works.
+        NS.SYNC.status = 'idle';
+        NS.SYNC.message = 'first sync — seeded shared registry';
+        NS._scheduleRegistryPush();
+        NS._updateSyncIndicator();
+        return {ok:true, seeded:true};
+      }
+      NS.SYNC.updatedBy = res.updatedBy || '';
+      NS.SYNC.updatedAt = res.updatedAt || '';
+      // Per-provider merge: remote wins where its lastModified is newer.
+      var local = loadJSON(K.registry, []);
+      var localByKey = {};
+      local.forEach(function(p, i){ localByKey[_regSyncKey(p)] = {idx: i, p: p}; });
+      var changed = 0, added = 0;
+      res.registry.forEach(function(rp){
+        var k = _regSyncKey(rp);
+        var match = localByKey[k];
+        if(!match){ local.push(rp); added++; return; }
+        var rmod = rp.lastModified || 0;
+        var lmod = match.p.lastModified || 0;
+        if(rmod > lmod){
+          NS.REGISTRY_SYNC_FIELDS.forEach(function(f){
+            if(rp[f] !== undefined) match.p[f] = rp[f];
+          });
+          match.p.lastModified = rmod;
+          changed++;
+        }
+      });
+      if(changed > 0 || added > 0){
+        // skipSync so the pull doesn't bounce back into a push.
+        NS.saveRegistry(local, {skipSync: true});
+        NS.SYNC.message = changed + ' updated, ' + added + ' added · from ' + (NS.SYNC.updatedBy || 'team');
+        if(typeof toast === 'function' && !window._fundFirstPullDone){
+          // Only toast on subsequent pulls — startup is silent.
+        } else if(typeof toast === 'function'){
+          var parts = [];
+          if(changed) parts.push(changed+' updated');
+          if(added) parts.push(added+' added');
+          toast('Registry sync: '+parts.join(', '), 'ok');
+        }
+        // Trigger a re-render only if the user is currently on the funding view.
+        if(typeof NS.renderFunding === 'function' && document.querySelector('#nav-funding.active')){
+          try{NS.renderFunding();}catch(e){}
+        }
+      } else {
+        NS.SYNC.message = '';
+      }
+      window._fundFirstPullDone = true;
+      NS.SYNC.status = 'idle';
+      NS._updateSyncIndicator();
+      return {ok:true, changed: changed, added: added};
+    }).catch(function(e){
+      NS.SYNC.pulling = false;
+      NS.SYNC.status = 'error';
+      NS.SYNC.message = 'Pull error: '+(e.message||e);
+      NS._updateSyncIndicator();
+      return {ok:false, error:String(e)};
+    });
+  };
+  // Hook for the Providers tab to update the small pill in its header
+  NS._updateSyncIndicator = function(){
+    var el = document.getElementById('fund-sync-indicator');
+    if(!el) return;
+    var status = NS.SYNC.status;
+    var bg, fg, brd, text, tip;
+    var ageStr = '';
+    if(NS.SYNC.lastPullAt){
+      var ageMs = Date.now() - NS.SYNC.lastPullAt;
+      if(ageMs < 60000) ageStr = Math.round(ageMs/1000)+'s ago';
+      else if(ageMs < 3600000) ageStr = Math.round(ageMs/60000)+'m ago';
+      else ageStr = Math.round(ageMs/3600000)+'h ago';
+    }
+    if(status === 'syncing'){
+      bg='rgba(108,99,255,.18)'; fg='var(--acc)'; brd='var(--acc)';
+      text='⟳ Syncing…'; tip='Talking to the Cloudflare Worker';
+    } else if(status === 'error'){
+      bg='rgba(239,68,68,.15)'; fg='var(--red)'; brd='var(--red)';
+      text='⚠ Sync error'; tip=NS.SYNC.message || 'Last sync attempt failed';
+    } else {
+      bg='rgba(16,185,129,.15)'; fg='var(--grn)'; brd='var(--grn)';
+      text='● Synced'+(ageStr?' '+ageStr:'');
+      tip = 'Registry shared with team via Cloudflare Worker.'
+        + (NS.SYNC.updatedBy ? '\\nLast remote change: '+NS.SYNC.updatedBy+(NS.SYNC.updatedAt?' at '+NS.SYNC.updatedAt:'') : '')
+        + '\\nClick to pull now.';
+    }
+    el.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:5px;font-size:10px;font-weight:700;font-family:Roboto Mono,monospace;letter-spacing:.3px;cursor:pointer;user-select:none;background:'+bg+';color:'+fg+';border:1px solid '+brd;
+    el.title = tip;
+    el.textContent = text;
+  };
   NS.loadSnapshots=function(){return loadJSON(K.snapshots,[]);};
   NS.saveSnapshots=function(s){saveJSON(K.snapshots,s);};
   // Hourly archive — forward-only history of snapshots captured by the hourly
@@ -12846,6 +13022,8 @@ var FUND=(function(){
 
   NS._startAutoSync = function(){
     NS._stopAutoSync();
+    // Initial: pull the shared registry so the user starts with the team's latest config.
+    try{NS.pullSharedRegistry();}catch(e){}
     // Also sync the moment the tab regains focus — common case: user comes back
     // to the tab and the data is stale, expects the latest right away.
     if(!window._fundVisListener){
@@ -12854,13 +13032,15 @@ var FUND=(function(){
           NS.syncAll().then(function(r){
             if(r.synced){NS.renderFunding();}
           }).catch(function(){});
+          // Pull shared registry alongside hourly — same trigger, same expectation.
+          try{NS.pullSharedRegistry();}catch(e){}
         }
       };
       document.addEventListener('visibilitychange', window._fundVisListener);
     }
-    // Poll every 10 minutes. The cron refreshes the KV cache every hour, so
+    // Poll every 5 minutes. The cron refreshes the KV cache every hour, so
     // even when no Pulse tab has been open for a while, the next poll picks up
-    // whatever the cron last cached.
+    // whatever the cron last cached. Registry pulls piggyback on the same tick.
     window._fundAutoSyncInterval = setInterval(function(){
       NS.syncAll().then(function(r){
         if(r.synced && typeof toast === 'function'){
@@ -12871,6 +13051,7 @@ var FUND=(function(){
           toast(msg, 'ok');
         }
       }).catch(function(){});
+      try{NS.pullSharedRegistry();}catch(e){}
     }, 5 * 60 * 1000);
   };
 
@@ -16018,6 +16199,15 @@ var FUND=(function(){
     em.innerHTML='<b>'+_actCount+'</b> active provider'+(_actCount===1?'':'s')+(_inactCount?' · <span style="color:var(--mut)">'+_inactCount+' inactive (collapsed below)</span>':'')+'. Edit display name, currency, mode, portal URL as needed. Click any column header to sort. Filter by service using the chips below.';
     hdr.appendChild(em);
     var actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+    // Sync status pill — shows whether the registry is in sync with the Worker.
+    // Click to force a pull. _updateSyncIndicator below fills in styles + text.
+    var syncPill=document.createElement('span');syncPill.id='fund-sync-indicator';
+    syncPill.style.cssText='display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:5px;font-size:10px;font-weight:700;font-family:Roboto Mono,monospace;letter-spacing:.3px;cursor:pointer;user-select:none;background:rgba(108,99,255,.18);color:var(--acc);border:1px solid var(--acc)';
+    syncPill.textContent='⟳ Sync';
+    syncPill.title='Registry shared with team via Cloudflare Worker. Click to pull now.';
+    syncPill.onclick=function(){NS.pullSharedRegistry();};
+    actions.appendChild(syncPill);
+    setTimeout(function(){NS._updateSyncIndicator();}, 50);
     // Export Registry — downloads the current registry as a JSON file the user can share with
     // teammates. Their browser's registry is per-localStorage, so this is the manual sync path.
     var exportBtn=document.createElement('button');exportBtn.className='fund-btn';exportBtn.innerHTML='⬇ Export';
