@@ -12135,6 +12135,7 @@ var FUND=(function(){
         billingType:'prepaid',
         paymentTerms:'',
         cycleDays:null,
+        applyDays:0,
         services:_inferDefaultServices(r[1], r[4]),
         swypeId: null,
         entityType: (r[1] === 'SWYPE_PRODUCT_FLOAT' ? 'product_float' : 'supplier'),
@@ -12168,6 +12169,13 @@ var FUND=(function(){
       // supplier weekly regardless of the global slider.
       if(p.cycleDays === undefined){
         p.cycleDays = null; changed = true;
+      }
+      // Backfill: applyDays. Lead time (days) for the supplier to apply funds
+      // once a wire/transfer is sent. Shifts the critical/watch thresholds earlier
+      // so the tool flags suppliers in time to land the wire before stockout.
+      // 0 (default) = same-day funding (no lead time).
+      if(p.applyDays === undefined){
+        p.applyDays = 0; changed = true;
       }
       // Backfill: services array. Inferred from name + mode for existing providers
       // using the same logic the seed uses. User can adjust per-row via the Providers tab.
@@ -12272,6 +12280,7 @@ var FUND=(function(){
             billingType: 'prepaid',
             paymentTerms: '',
             cycleDays: null,
+            applyDays: 0,
             services: _inferDefaultServices(s[0], 'chat_payments'),
             notes: '',
             isActive: true
@@ -12951,6 +12960,7 @@ var FUND=(function(){
         billingType: 'prepaid',
         paymentTerms: '',
         cycleDays: null,
+        applyDays: 0,
         services: ['gift_card'],
         notes: 'Auto-created from Bender gift card summary',
         isActive: true
@@ -13585,9 +13595,15 @@ var FUND=(function(){
     // If we have less than 2 snapshots total, no useful forecast
     if(totalDataPoints < 4 || minDays == null) return 'nodata';
     if(!isFinite(minDays)) return 'surplus';   // no burn observed
-    if(minDays <= crit) return 'critical';
-    if(minDays <= watch) return 'watch';
-    if(minDays <= plan) return 'healthy';
+    // Per-provider funding lead time. Subtract from minDays before comparing
+    // to thresholds so a supplier with 3-day settlement gets flagged critical
+    // at 6 days remaining (= crit threshold + lead time). Default 0 keeps the
+    // pre-lead-time semantics for any provider where it isn't set.
+    var applyDays = (provider && typeof provider.applyDays === 'number' && provider.applyDays > 0) ? provider.applyDays : 0;
+    var effectiveDays = minDays - applyDays;
+    if(effectiveDays <= crit) return 'critical';
+    if(effectiveDays <= watch) return 'watch';
+    if(effectiveDays <= plan) return 'healthy';
     return 'surplus';
   };
 
@@ -15329,6 +15345,16 @@ var FUND=(function(){
         NS.renderFunding();
       };
       tdProv.appendChild(cycleChip);
+      // Lead time chip — visible only when applyDays > 0. Amber to differentiate
+      // from the cycle chip (acc-coloured). Read-only here; edit from Providers tab.
+      var _lead = (typeof r.provider.applyDays === 'number' && r.provider.applyDays > 0) ? r.provider.applyDays : 0;
+      if(_lead > 0){
+        var leadChip = document.createElement('span');
+        leadChip.style.cssText = 'display:inline-block;margin-top:4px;margin-left:5px;background:rgba(245,158,11,.16);color:#f59e0b;border:1px solid rgba(245,158,11,.55);font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.4px;font-family:Roboto Mono,monospace';
+        leadChip.textContent = 'lead: ' + _lead + 'd';
+        leadChip.title = 'Funding lead time — supplier typically takes ' + _lead + ' day' + (_lead===1?'':'s') + ' to apply funds. The forecast classification is shifted ' + _lead + ' day' + (_lead===1?'':'s') + ' earlier so this row appears in time to wire before stockout. Edit in Providers tab.';
+        tdProv.appendChild(leadChip);
+      }
       tr.appendChild(tdProv);
 
       // Current
@@ -15901,6 +15927,7 @@ var FUND=(function(){
       +regTh('billingType','BILLING')
       +'<th>TERMS</th>'
       +'<th title="Per-supplier funding cycle in days. Overrides the global cover pills in Fund Now for this supplier only. Leave blank to follow the global cover (e.g. set 7 if you always batch-fund this supplier weekly).">CYCLE</th>'
+      +'<th title="Funding lead time — days the supplier typically takes to apply funds after a wire/transfer is sent. Shifts the critical/watch thresholds earlier: a supplier with 3-day settlement gets flagged at 6 days remaining (crit threshold + lead time). Leave 0 for same-day funding.">APPLY DAYS</th>'
       +'<th>PAY METHOD</th><th>PORTAL URL</th>'
       +regTh('active','ACTIVE')
       +'<th></th>'
@@ -15983,6 +16010,20 @@ var FUND=(function(){
         NS.saveRegistry(registry);NS.renderFunding();
       };
       cycleTd.appendChild(cyclei);tr.appendChild(cycleTd);
+      // Apply days (funding lead time — days for the supplier to apply funds after wire sent)
+      var applyTd=document.createElement('td');
+      var applyi=document.createElement('input');applyi.type='number';applyi.min='0';applyi.max='30';
+      applyi.value=(typeof p.applyDays==='number' && p.applyDays>0?p.applyDays:'');
+      applyi.placeholder='0';
+      applyi.style.cssText='width:55px;padding:4px 6px;background:var(--surf2);border:1px solid '+(typeof p.applyDays==='number' && p.applyDays>0?'rgba(245,158,11,.55)':'var(--brd)')+';color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace;text-align:right';
+      applyi.title='Funding lead time in days — how long the supplier typically takes to apply funds after a wire/transfer is sent. Shifts the critical/watch classification earlier so the tool flags this supplier in time to land the wire before stockout. 0 = same-day funding. Examples: 3 = 3-day wire settlement.';
+      applyi.onchange=function(){
+        var v=this.value.trim();
+        if(v===''){p.applyDays=0;}
+        else {var n=parseInt(v,10); p.applyDays=(isNaN(n)||n<0||n>30)?0:n;}
+        NS.saveRegistry(registry);NS.renderFunding();
+      };
+      applyTd.appendChild(applyi);tr.appendChild(applyTd);
       // Payment method
       var pmKey=p.subKey?(String(p.benderId)+'::'+p.subKey):(p.benderId!=null?String(p.benderId):p.name);
       var pmTd=document.createElement('td');var pmSel=document.createElement('select');pmSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';(function(){var _saved=NS.getPaymentMethod(pmKey);var _opts=['', 'Wells Fargo USD', 'Zenith NGN', 'Moneycorp USD', 'Moneycorp EUR', 'Moneycorp GBP', 'Moneycorp ZAR', 'Airwallex EUR', 'Airwallex GBP', 'Crypto', 'Wire', 'Other', 'Manual'];if(_saved && _opts.indexOf(_saved)===-1)_opts=_opts.concat([_saved]);_opts.forEach(function(m){var op=document.createElement('option');op.value=m;if(m==='')op.textContent='— none —';else if(['', 'Wells Fargo USD', 'Zenith NGN', 'Moneycorp USD', 'Moneycorp EUR', 'Moneycorp GBP', 'Moneycorp ZAR', 'Airwallex EUR', 'Airwallex GBP', 'Crypto', 'Wire', 'Other', 'Manual'].indexOf(m)===-1)op.textContent=m+' (legacy)';else op.textContent=m;if(m===_saved)op.selected=true;pmSel.appendChild(op);});})();pmSel.onchange=function(){NS.setPaymentMethod(pmKey,this.value);};pmTd.appendChild(pmSel);tr.appendChild(pmTd);
@@ -16018,7 +16059,8 @@ var FUND=(function(){
         p.name, p.displayName, p.currency, p.mode, p.paymentTerms, pm,
         (p.benderId != null ? String(p.benderId) : ''),
         (p.swypeId != null ? String(p.swypeId) : ''),
-        (typeof p.cycleDays === 'number' ? p.cycleDays+'d' : '')
+        (typeof p.cycleDays === 'number' ? p.cycleDays+'d' : ''),
+        (typeof p.applyDays === 'number' && p.applyDays>0 ? 'lead '+p.applyDays+'d' : '')
       ].join(' ').toLowerCase();
       return hay.indexOf(_searchQ) >= 0;
     }
@@ -16076,7 +16118,7 @@ var FUND=(function(){
         // Same column headers — no sort handlers (sort is driven by the active table)
         tblInact.innerHTML = '<thead><tr>'
           +'<th>ID</th><th>SWYPE</th><th>NAME</th><th>DISPLAY NAME</th><th>CCY</th><th>MODE</th><th>SERVICE</th><th>BILLING</th><th>TERMS</th>'
-          +'<th>CYCLE</th><th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th></th>'
+          +'<th>CYCLE</th><th>APPLY DAYS</th><th>PAY METHOD</th><th>PORTAL URL</th><th>ACTIVE</th><th></th>'
           +'</tr></thead>';
         var tbInact = document.createElement('tbody'); tblInact.appendChild(tbInact);
         inactiveRegistry.forEach(function(p){tbInact.appendChild(buildRow(p));});
@@ -16288,6 +16330,7 @@ var FUND=(function(){
         billingType: inBill.value,
         paymentTerms: inTerms.value.trim(),
         cycleDays: null,
+        applyDays: 0,
         services: pickedSvcs,
         swypeId: null,
         entityType: inEnt.value,
