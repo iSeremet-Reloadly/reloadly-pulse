@@ -1740,7 +1740,16 @@ function _renderAdminUsers(){
   var entries=Object.entries(USER_REGISTRY);
   var html='<div class="ptitle">User Management</div><div class="psub">'+entries.length+' registered users &middot; only admins can see this</div>';
   html+=_adminTabBar('users');
-  html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME</th><th>ROLE</th><th>DEPT</th><th>EXPORT</th><th>VIEW ALL</th><th>ADMIN</th><th>PRICING</th><th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
+  // Honesty banner — every edit to this table updates USER_REGISTRY in memory
+  // only. autoSave() persists tasks + the activity log, not the user registry.
+  // Changes vanish on reload and never reach other users' browsers.
+  html+='<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.4);border-radius:8px;padding:12px 16px;margin:12px 0 16px;display:flex;gap:12px;align-items:flex-start;font-size:12px;line-height:1.55;color:var(--txt)">';
+  html+='<span style="color:var(--yel);font-size:18px;line-height:1;flex-shrink:0">⚠</span>';
+  html+='<div><b style="color:var(--yel)">Session-only edits.</b> Changes to name, role, dept, and the EXPORT / VIEW ALL / ADMIN / PRICING toggles update the user registry in memory only — they do not persist on reload and are not visible to other users.<br><span style="color:var(--mut)">To grant or revoke access durably, edit <code style="background:var(--surf2);padding:1px 5px;border-radius:3px;font-family:Roboto Mono,monospace;font-size:11px">USER_REGISTRY</code> in <code style="background:var(--surf2);padding:1px 5px;border-radius:3px;font-family:Roboto Mono,monospace;font-size:11px">index.html</code> and commit. Password set/change (PWD column) <i>does</i> persist locally.</span></div>';
+  html+='</div>';
+  // Permission headers get a small "(session)" tag so the table itself reflects the warning above.
+  function _shCol(label){return '<th>'+label+' <span style="font-size:8px;color:var(--mut);font-weight:400;letter-spacing:.3px;display:block;margin-top:1px">(session)</span></th>';}
+  html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME '+'<span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>ROLE <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>DEPT <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+'<th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
   entries.forEach(function(kv){
     var e=kv[0],u=kv[1],you=currentUser&&currentUser.email===e;
     var archived=ARCHIVED_USERS.indexOf(e)>-1;
@@ -1756,10 +1765,11 @@ function _renderAdminUsers(){
     DEPTS.forEach(function(d){html+='<option'+(u.dept===d?' selected':'')+'>'+d+'</option>';});
     html+='</select></td>';
     // Toggles: Export, ViewAll, Admin
-    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canExport"'+(u.canExport?' checked':'')+' title="Export access"></td>';
-    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canViewAll"'+(u.canViewAll?' checked':'')+' title="View all departments"></td>';
-    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="isAdmin"'+(u.isAdmin?' checked':'')+' title="Admin access"></td>';
-    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessPricing"'+(u.canAccessPricing?' checked':'')+' title="Pricing &amp; Proposals access"></td>';
+    var _sessionNote=' Session-only — toggles this user record in memory but does not persist or propagate to other users. Edit USER_REGISTRY in index.html to make it durable.';
+    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canExport"'+(u.canExport?' checked':'')+' title="Export access.'+_sessionNote+'"></td>';
+    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canViewAll"'+(u.canViewAll?' checked':'')+' title="View all departments.'+_sessionNote+'"></td>';
+    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="isAdmin"'+(u.isAdmin?' checked':'')+' title="Admin access.'+_sessionNote+'"></td>';
+    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessPricing"'+(u.canAccessPricing?' checked':'')+' title="Pricing, Proposals &amp; Supplier Wallet Ops access.'+_sessionNote+'"></td>';
     // Password status
     html+='<td style="text-align:center">'+(hasPassword(e)?'<span style="color:var(--grn)">✓</span>':'<span style="color:var(--red)">&ndash;</span>')+'</td>';
     // Actions: Set Password + Archive/Restore
@@ -1810,9 +1820,10 @@ function _renderAdminUsers(){
       USER_REGISTRY[email][field]=el.value.trim();
       if(currentUser&&currentUser.email===email)currentUser[field]=el.value.trim();
     }
-    logEntry('Admin updated '+email+': '+field,'edit');
+    logEntry('Admin updated '+email+': '+field+' (session-only)','edit');
     autoSave();
-    toast('Saved ✓','ok');
+    // Honest toast — autoSave only persists tasks + activity log, not USER_REGISTRY.
+    toast('Updated (session only — commit USER_REGISTRY to persist)','warn');
   });
 
   // ── Wire up Set Password ───────────────────────────────────────────────────
