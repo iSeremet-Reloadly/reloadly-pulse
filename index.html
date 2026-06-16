@@ -15084,16 +15084,27 @@ var FUND=(function(){
     copyBtn.className = 'fund-btn';
     copyBtn.innerHTML = '⎘ Copy as TSV';
     copyBtn.onclick = function(){
-      var lines = ['Provider\tCurrency\tCurrent\tBurn rate (window)\tDays left\tTarget\tTop-up\tMethod\tStatus'];
+      // USD-aware TSV — local amount + USD equivalent side-by-side so paste
+      // targets (Excel funding tracker) get both views without recomputing FX.
+      // Uses the same _toUSD helper that drives the on-screen USD sublines.
+      function _tsvUsd(amt, ccy){
+        var u = _toUSD(amt, ccy);
+        if(u == null) return '';
+        return Math.abs(u) >= 1000 ? String(Math.round(u)) : u.toFixed(2);
+      }
+      var lines = ['Provider\tCurrency\tCurrent (local)\tCurrent (USD)\tBurn rate (window)\tDays left\tTarget (local)\tTarget (USD)\tTop-up (local)\tTop-up (USD)\tMethod\tStatus'];
       recs.forEach(function(r){
         lines.push([
           r.provider.displayName || r.provider.name,
           r.currency,
           Math.round(r.current * 100) / 100,
+          _tsvUsd(r.current, r.currency),
           Math.round(r.burnRate * 100) / 100 + ' (' + r.burnWindow + ')',
           isFinite(r.daysLeft) ? r.daysLeft.toFixed(1) : 'inf',
           Math.round(r.target),
+          _tsvUsd(r.target, r.currency),
           r.topupRounded,
+          _tsvUsd(r.topupRounded, r.currency),
           r.paymentMethod || '—',
           r.status
         ].join('\t'));
