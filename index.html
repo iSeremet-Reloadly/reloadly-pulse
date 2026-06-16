@@ -16569,14 +16569,27 @@ var FUND=(function(){
       tr.appendChild(svcTd);
       // Billing type
       var billTd=document.createElement('td');var billSel=document.createElement('select');billSel.style.cssText='padding:4px 6px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:4px;font-size:10px';['prepaid','postpaid'].forEach(function(b){var op=document.createElement('option');op.value=b;op.textContent=b;if(b===(p.billingType||'prepaid'))op.selected=true;billSel.appendChild(op);});billSel.title='Postpaid providers are excluded from Forecast burn-rate and Fund Now recommendations — they invoice on a billing cycle, so their balance is what you owe, not what you can spend.';billSel.onchange=function(){p.billingType=this.value;NS.saveRegistry(registry);NS.renderFunding();};billTd.appendChild(billSel);tr.appendChild(billTd);
-      // Payment terms (free text, used for postpaid)
+      // Payment terms — only meaningful for postpaid suppliers. Prepaid rows
+      // get a muted dash placeholder so the table reads cleanly.
       var termsTd=document.createElement('td');
-      var termsi=document.createElement('input');termsi.value=p.paymentTerms||'';termsi.placeholder=(p.billingType==='postpaid'?'e.g. 7 net 3, monthly net 15':'—');
-      var _termsBorder=(p.billingType==='postpaid'?'rgba(108,99,255,.5)':'var(--brd)');
-      termsi.style.cssText='width:130px;padding:4px 6px;background:var(--surf2);border:1px solid '+_termsBorder+';color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace';
-      termsi.title='Payment terms for postpaid providers. Examples: "7 net 3" = invoiced every 7 days, paid within 3. "monthly net 15" = invoiced monthly, paid within 15 days. Free text — write whatever makes sense.';
-      termsi.onchange=function(){p.paymentTerms=this.value;NS.saveRegistry(registry);};
-      termsTd.appendChild(termsi);tr.appendChild(termsTd);
+      if(p.billingType === 'postpaid'){
+        var termsi=document.createElement('input');
+        termsi.value=p.paymentTerms||'';
+        termsi.placeholder='e.g. 7 net 3, monthly net 15';
+        termsi.style.cssText='width:130px;padding:4px 6px;background:var(--surf2);border:1px solid rgba(108,99,255,.5);color:var(--txt);border-radius:4px;font-size:10px;font-family:Roboto Mono,monospace';
+        termsi.title='Payment terms for postpaid providers. Examples: "7 net 3" = invoiced every 7 days, paid within 3. "monthly net 15" = invoiced monthly, paid within 15 days. Free text — write whatever makes sense.';
+        termsi.onchange=function(){p.paymentTerms=this.value;NS.saveRegistry(registry);};
+        termsTd.appendChild(termsi);
+      } else {
+        // Prepaid: no invoice terms. Show a muted dash, preserve any stored
+        // value silently so toggling postpaid ↔ prepaid doesn't lose data.
+        var dash=document.createElement('span');
+        dash.style.cssText='color:var(--mut);font-size:11px;opacity:.55;font-family:Roboto Mono,monospace';
+        dash.textContent='—';
+        dash.title='Payment terms only apply to postpaid suppliers. Switch BILLING to postpaid if this provider invoices you.';
+        termsTd.appendChild(dash);
+      }
+      tr.appendChild(termsTd);
       // Cycle (per-supplier funding cycle override; blank = follow global cover in Fund Now)
       var cycleTd=document.createElement('td');
       var cyclei=document.createElement('input');cyclei.type='number';cyclei.min='1';cyclei.max='365';
