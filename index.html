@@ -12399,6 +12399,35 @@ var FUND=(function(){
       return {ok:false, error:String(e)};
     });
   };
+  // Lightweight poll — checks ONLY the metadata (updatedAt + count). Fires every
+  // 5 seconds. Full pullSharedRegistry only triggers when remote updatedAt actually
+  // changed. Keeps the Worker / KV under a few hundred requests/day instead of
+  // ~17k per active user per day.
+  NS._lastSeenRegistryUpdatedAt = '';
+  NS.pollSharedRegistry = function(){
+    var admin = NS.loadAdmin();
+    var url = admin.workerUrl;
+    if(!url) return Promise.resolve({ok:false, error:'no_worker_url'});
+    if(NS.SYNC.pulling || NS.SYNC.pushing) return Promise.resolve({ok:false, error:'busy'});
+    return fetch(url, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'get_registry_meta'})
+    }).then(function(r){return r.json();}).then(function(res){
+      if(!res || !res.ok || !res.found) return {ok:false, skipped:true};
+      // First call after page load: just record the timestamp, don't pull.
+      // Otherwise the user would see a redundant sync immediately on every load.
+      if(!NS._lastSeenRegistryUpdatedAt){
+        NS._lastSeenRegistryUpdatedAt = res.updatedAt || '';
+        return {ok:true, initialized:true};
+      }
+      if(res.updatedAt && res.updatedAt !== NS._lastSeenRegistryUpdatedAt){
+        // Remote moved — pull the full registry and apply.
+        NS._lastSeenRegistryUpdatedAt = res.updatedAt;
+        return NS.pullSharedRegistry();
+      }
+      return {ok:true, unchanged:true};
+    }).catch(function(){return {ok:false, error:'network'};});
+  };
   NS.pullSharedRegistry = function(){
     var admin = NS.loadAdmin();
     var url = admin.workerUrl;
@@ -12429,6 +12458,9 @@ var FUND=(function(){
       }
       NS.SYNC.updatedBy = res.updatedBy || '';
       NS.SYNC.updatedAt = res.updatedAt || '';
+      // Mark this updatedAt as the latest seen so the 5-sec poller doesn't
+      // re-pull the same payload.
+      if(res.updatedAt) NS._lastSeenRegistryUpdatedAt = res.updatedAt;
       // Per-provider merge: remote wins where its lastModified is newer.
       var local = loadJSON(K.registry, []);
       var localByKey = {};
@@ -13018,12 +13050,25 @@ var FUND=(function(){
       clearInterval(window._fundAutoSyncInterval);
       window._fundAutoSyncInterval = null;
     }
+    if(window._fundRegistryPollInterval){
+      clearInterval(window._fundRegistryPollInterval);
+      window._fundRegistryPollInterval = null;
+    }
   };
 
   NS._startAutoSync = function(){
     NS._stopAutoSync();
     // Initial: pull the shared registry so the user starts with the team's latest config.
     try{NS.pullSharedRegistry();}catch(e){}
+    // 5-second registry meta-poll. Cheap "did anything change?" check — only
+    // triggers a full pull when remote updatedAt actually moved. Means every
+    // user sees every edit within 5 seconds without thrashing the Worker.
+    if(!window._fundRegistryPollInterval){
+      window._fundRegistryPollInterval = setInterval(function(){
+        if(document.hidden) return; // pause when tab is in background
+        try{NS.pollSharedRegistry();}catch(e){}
+      }, 5 * 1000);
+    }
     // Also sync the moment the tab regains focus — common case: user comes back
     // to the tab and the data is stale, expects the latest right away.
     if(!window._fundVisListener){
