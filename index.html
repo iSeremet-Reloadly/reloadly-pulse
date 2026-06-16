@@ -12558,6 +12558,7 @@ var FUND=(function(){
 
     var applied = 0;
     var unmatched = 0;
+    var unmatchedDetails = [];  // {benderId, walletDesc, walletCurrency, walletAmount}
     var providersTouched = 0;
 
     function findRegistryEntry(benderId, walletDesc, walletCurrency){
@@ -12655,7 +12656,19 @@ var FUND=(function(){
       providersTouched++;
       entry.wallets.forEach(function(w){
         var found = findRegistryEntry(entry.benderId, w.description, w.currency);
-        if(!found){ unmatched++; return; }
+        if(!found){
+          unmatched++;
+          // Preserve the diagnostic so the user can see why nothing landed —
+          // most often it's a missing subKey or a name/currency variant.
+          unmatchedDetails.push({
+            benderId: entry.benderId,
+            providerName: entry.providerName || '',
+            walletDesc: w.description || '',
+            walletCurrency: w.currency || '',
+            walletAmount: w.amount
+          });
+          return;
+        }
         var key = found.subKey ? (String(found.benderId) + '::' + found.subKey) : (found.benderId != null ? String(found.benderId) : found.name);
         snap.balances[key] = {
           local: w.amount,
@@ -12679,7 +12692,8 @@ var FUND=(function(){
         stats: parsed.stats,
         failures: parsed.failures || [],
         appliedCount: applied,
-        unmatchedCount: unmatched
+        unmatchedCount: unmatched,
+        unmatchedDetails: unmatchedDetails
       });
     }catch(e){}
 
@@ -13981,7 +13995,15 @@ var FUND=(function(){
         + ((s.failed && s.failed>0) ? '<span class="pill warn" style="font-size:9px">' + s.failed + ' FAILED</span>' : '')
         + '<span style="color:var(--mut)">'+hrAgeLabel+'</span>';
       if(lastHR.unmatchedCount){
-        hrInfo.innerHTML += '<span class="pill warn" style="font-size:9px;background:rgba(245,158,11,.18);color:var(--yel)">'+lastHR.unmatchedCount+' unmatched</span>';
+        var hasUnmatchedDetails = Array.isArray(lastHR.unmatchedDetails) && lastHR.unmatchedDetails.length;
+        var unmPill = document.createElement('span');
+        unmPill.className = 'pill warn';
+        unmPill.style.cssText = 'font-size:9px;background:rgba(245,158,11,.18);color:var(--yel)'+(hasUnmatchedDetails?';cursor:pointer;text-decoration:underline dotted':'');
+        unmPill.textContent = lastHR.unmatchedCount + ' unmatched';
+        unmPill.title = hasUnmatchedDetails
+          ? 'Click to see which providers were in the report but had no matching registry entry'
+          : 'Older sync — re-run Sync now to capture the unmatched details';
+        hrInfo.appendChild(unmPill);
       }
       hrStrip.appendChild(hrInfo);
       // Manual sync now button
@@ -14006,6 +14028,46 @@ var FUND=(function(){
         });
       };
       hrStrip.appendChild(syncBtn);
+      // Show unmatched inline (collapsable) — wired to the pill above.
+      // Each chip: "<id> <providerName> — <walletDesc> <ccy>" so the user can
+      // tell whether the gap is a missing subKey, a name variant, or a new currency.
+      if(Array.isArray(lastHR.unmatchedDetails) && lastHR.unmatchedDetails.length){
+        var unmDetail = document.createElement('div');
+        unmDetail.style.cssText = 'flex-basis:100%;display:none;flex-wrap:wrap;gap:5px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--brd)';
+        var unmHeader = document.createElement('div');
+        unmHeader.style.cssText = 'flex-basis:100%;font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:4px;letter-spacing:.3px';
+        unmHeader.innerHTML = '<b style="color:var(--yel)">UNMATCHED</b> — Bender returned a balance but no registry entry matched. Most likely a missing sub-wallet name or a new currency variant. <a href="#" id="fund-unm-edit-link" style="color:var(--acc);text-decoration:underline;font-size:10px">→ Edit Providers</a>';
+        unmDetail.appendChild(unmHeader);
+        lastHR.unmatchedDetails.forEach(function(d){
+          var chip = document.createElement('span');
+          chip.style.cssText = 'background:rgba(245,158,11,.12);color:var(--yel);border:1px solid rgba(245,158,11,.35);border-radius:4px;padding:3px 8px;font-size:10px;font-family:Roboto Mono,monospace;cursor:default';
+          var amtStr = (d.walletAmount != null && isFinite(d.walletAmount)) ? d.walletAmount.toLocaleString() : '—';
+          chip.textContent = (d.benderId != null ? d.benderId : '?') + ' ' + (d.providerName || '?') +
+            ' — ' + (d.walletDesc || 'General') + ' (' + (d.walletCurrency || '?') + ') · ' + amtStr;
+          chip.title = 'benderId=' + d.benderId + ' · walletDesc="' + d.walletDesc + '" · currency=' + d.walletCurrency + ' · amount=' + d.walletAmount + '\n\nAction: open Providers tab and either add a sub-wallet matching this description or correct the existing entry\'s currency/name.';
+          unmDetail.appendChild(chip);
+        });
+        hrStrip.appendChild(unmDetail);
+        // Wire the pill click toggle (declared above as unmPill)
+        if(typeof unmPill !== 'undefined' && unmPill){
+          var unmExpanded = false;
+          unmPill.onclick = function(){
+            unmExpanded = !unmExpanded;
+            unmDetail.style.display = unmExpanded ? 'flex' : 'none';
+          };
+        }
+        // Edit Providers link jumps to the Providers tab
+        setTimeout(function(){
+          var lnk = document.getElementById('fund-unm-edit-link');
+          if(lnk){
+            lnk.onclick = function(ev){
+              ev.preventDefault();
+              var u = NS.loadUI(); u.activeTab = 'providers'; NS.saveUI(u);
+              NS.renderFunding();
+            };
+          }
+        }, 0);
+      }
       // Show failures inline (collapsable)
       if(lastHR.failures && lastHR.failures.length){
         var failsBtn = document.createElement('button');
