@@ -13063,21 +13063,14 @@ var FUND=(function(){
         }
       }
 
-      // 3. Swype per-provider responses — apply each new one
+      // 3. Swype per-provider responses — DISABLED. Swype is Reloadly's internal
+      // product float, not a supplier balance we need to track. We still advance
+      // lastTs so re-enabling later doesn't replay the whole history.
       if(Array.isArray(r.swype) && r.swype.length){
-        // Sort oldest first so we apply in order
         var swypeMsgs = r.swype.slice().sort(function(a,b){return parseFloat(a.ts) - parseFloat(b.ts);});
         var latestSwypeTs = lastTs.swype || '0';
         swypeMsgs.forEach(function(m){
-          if(opts.force || parseFloat(m.ts) > parseFloat(latestSwypeTs)){
-            var swypeParsed = NS.parseBenderResponses(m.text);
-            if(swypeParsed && swypeParsed.length){
-              NS.applyBenderResponses(swypeParsed);
-              latestSwypeTs = m.ts;
-              applied.swype++;
-              anyApplied = true;
-            }
-          }
+          if(parseFloat(m.ts) > parseFloat(latestSwypeTs)) latestSwypeTs = m.ts;
         });
         lastTs.swype = latestSwypeTs;
       }
