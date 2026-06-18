@@ -13280,8 +13280,21 @@ var FUND=(function(){
       return newP;
     }
 
+    // Providers we never want to track through the gift card summary.
+    // SWYPE here is Reloadly's internal product float (not a supplier balance).
+    var GIFT_SUMMARY_SKIP = {'SWYPE': true};
     parsed.forEach(function(entry){
+      if(GIFT_SUMMARY_SKIP[entry.providerName]) return;
       entry.balances.forEach(function(b){
+        // Only auto-create a new registry entry when there's a meaningful balance.
+        // Stops gift card summaries with 50+ zero-balance currencies (e.g.
+        // NEO_CURRENCY) from polluting the registry with empty shells.
+        var aliasedName = GIFT_NAME_ALIAS[entry.providerName] || entry.providerName;
+        var preExists = registry.find(function(x){
+          return (x.name === aliasedName && x.currency === b.currency && !x.subKey)
+              || (x.name === aliasedName + '_' + b.currency);
+        });
+        if(!preExists && b.amount === 0) return;
         var p = findOrCreate(entry.providerName, b.currency);
         var key = p.subKey ? (String(p.benderId) + '::' + p.subKey) : (p.benderId != null ? String(p.benderId) : p.name);
         snap.balances[key] = {
