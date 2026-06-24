@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reloadly Data Security & Privacy</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0a2540;--navy2:#1a2543;--teal:#00d4aa;--teal2:#06b6d4;--teal-soft:rgba(0,212,170,.12);--bg:#f5f7fa;--surf:#fff;--surf2:#f0f3f8;--brd:#e2e8f0;--brd2:#cbd5e1;--txt:#1a2543;--mut:#5c6580;--red:#ef4444;--yel:#f59e0b;--grn:#10b981}
+*{box-sizing:border-box}html,body{margin:0;padding:0;height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;color:var(--txt);background:var(--bg);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}code{font-family:'JetBrains Mono','Roboto Mono',monospace;background:var(--surf2);padding:2px 6px;border-radius:4px;font-size:.92em;color:var(--navy)}
+h1,h2,h3,h4{margin:0 0 12px;line-height:1.25;color:var(--navy)}p{margin:0 0 14px;line-height:1.65}ul,ol{margin:0 0 16px;padding-left:24px;line-height:1.7}
+.app{display:flex;min-height:100vh}.sidebar{width:280px;background:var(--navy);color:#fff;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto;padding:28px 22px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:10px}.brand-mark{width:32px;height:32px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--navy)}
+.brand-name{font-weight:700;font-size:16px;letter-spacing:-.2px}.brand-sub{font-size:10px;color:rgba(255,255,255,.55);font-weight:600;letter-spacing:1.5px;margin-left:42px;margin-top:-2px;margin-bottom:24px}
+.progress-wrap{margin:20px 0 24px}.progress-label{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.6);font-weight:600;margin-bottom:8px;letter-spacing:.4px}
+.progress-bar{height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}.progress-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--teal2));transition:width .35s}
+.nav-section-title{font-size:10px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:1.8px;margin:18px 0 8px;padding-left:4px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:8px;cursor:pointer;color:rgba(255,255,255,.78);font-size:13px;font-weight:500;transition:background .15s,color .15s;margin-bottom:3px}
+.nav-item:hover{background:rgba(255,255,255,.05);color:#fff}.nav-item.active{background:rgba(0,212,170,.16);color:var(--teal)}
+.nav-num{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.nav-item.active .nav-num{background:var(--teal);color:var(--navy)}.nav-item.done .nav-num{background:var(--grn);color:#fff}.nav-item.done .check{margin-left:auto;color:var(--grn);font-size:13px}
+.nav-foot{margin-top:auto;padding-top:20px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:rgba(255,255,255,.45);line-height:1.6}.nav-foot a{color:rgba(255,255,255,.7)}
+.main{flex:1;padding:48px 56px 80px;max-width:980px}.crumb{font-size:11px;font-weight:600;color:var(--mut);letter-spacing:1.5px;margin-bottom:10px;text-transform:uppercase}
+.section-title{font-size:34px;font-weight:800;letter-spacing:-.6px;color:var(--navy);margin-bottom:6px}.section-sub{font-size:15px;color:var(--mut);margin-bottom:32px;line-height:1.55}
+.card{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:28px 32px;margin-bottom:22px}.card h2{font-size:22px;margin-bottom:14px}.card h3{font-size:16px;font-weight:700;color:var(--navy);margin:24px 0 10px}
+.callout{background:var(--teal-soft);border-left:4px solid var(--teal);padding:16px 20px;border-radius:6px;margin:18px 0;font-size:14px;line-height:1.6;color:var(--navy)}
+.callout.warn{background:rgba(245,158,11,.1);border-left-color:var(--yel)}.callout.danger{background:rgba(239,68,68,.08);border-left-color:var(--red)}
+.callout strong{color:var(--navy);font-weight:700}
+table.tbl{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}table.tbl th{text-align:left;padding:10px 14px;background:var(--surf2);color:var(--navy);font-weight:700;border-bottom:2px solid var(--brd2);font-size:12px;letter-spacing:.3px;text-transform:uppercase}
+table.tbl td{padding:12px 14px;border-bottom:1px solid var(--brd);vertical-align:top;line-height:1.55}table.tbl tr:last-child td{border-bottom:none}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--navy);color:#fff;border:none;padding:11px 22px;border-radius:7px;font-size:13px;font-weight:600;transition:transform .1s,box-shadow .15s,opacity .15s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(10,37,64,.2)}.btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.btn.teal{background:var(--teal);color:var(--navy)}.btn.ghost{background:transparent;color:var(--navy);border:1.5px solid var(--brd2)}.btn.ghost:hover{border-color:var(--navy);background:var(--surf2)}
+.btn-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:24px}
+.quiz-q{background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:22px 26px;margin-bottom:14px}
+.quiz-q .q-num{font-size:11px;font-weight:700;color:var(--teal2);letter-spacing:1.5px;margin-bottom:8px}.quiz-q .q-txt{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:14px;line-height:1.5}
+.quiz-opt{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1.5px solid var(--brd);border-radius:7px;margin-bottom:8px;cursor:pointer;transition:all .15s;font-size:14px;line-height:1.5;background:#fff}
+.quiz-opt:hover{border-color:var(--teal);background:rgba(0,212,170,.04)}.quiz-opt input{margin-top:3px;accent-color:var(--teal)}.quiz-opt.correct{border-color:var(--grn);background:rgba(16,185,129,.06)}
+.quiz-opt.wrong{border-color:var(--red);background:rgba(239,68,68,.05)}.quiz-feedback{margin-top:12px;padding:14px 16px;border-radius:7px;font-size:13.5px;line-height:1.6}
+.quiz-feedback.ok{background:rgba(16,185,129,.08);color:#06624b;border-left:3px solid var(--grn)}.quiz-feedback.bad{background:rgba(239,68,68,.06);color:#7a1b1b;border-left:3px solid var(--red)}
+.quiz-result{padding:24px 28px;border-radius:10px;margin:18px 0;font-size:15px}.quiz-result.pass{background:rgba(16,185,129,.1);border:1.5px solid var(--grn);color:#06624b}.quiz-result.fail{background:rgba(245,158,11,.1);border:1.5px solid var(--yel);color:#92660b}
+.ex-card{background:var(--surf);border:1.5px solid var(--brd);border-radius:12px;padding:26px 30px;margin-bottom:18px}
+.ex-tag{font-size:10px;font-weight:700;color:var(--teal2);letter-spacing:1.8px;margin-bottom:6px}.ex-title{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.ex-brief{font-size:14px;color:var(--mut);line-height:1.6;margin-bottom:16px}.ex-input{width:100%;min-height:120px;padding:14px 16px;border:1.5px solid var(--brd);border-radius:8px;font-family:inherit;font-size:14px;line-height:1.55;color:var(--navy);background:var(--surf);resize:vertical}
+.ex-input:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,212,170,.15)}
+.ex-output{background:var(--surf2);border-left:3px solid var(--teal);padding:18px 22px;border-radius:6px;margin-top:16px;font-size:14px;line-height:1.65;color:var(--navy)}
+.ex-output h4{margin:14px 0 6px;font-size:14px;color:var(--teal2);font-weight:700}.ex-output h4:first-child{margin-top:0}
+.checkl{background:var(--surf);border:1.5px solid var(--brd);border-radius:10px;padding:24px 28px;margin-bottom:18px}.checkl-item{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--brd)}
+.checkl-item:last-child{border-bottom:none}.checkl-item input{margin-top:3px;width:18px;height:18px;accent-color:var(--teal);cursor:pointer;flex-shrink:0}
+.checkl-item label{font-size:14.5px;line-height:1.55;color:var(--navy);cursor:pointer;flex:1}
+.cert{background:linear-gradient(135deg,#fafbff,#eef2ff);border:6px double var(--teal);border-radius:14px;padding:54px 60px;text-align:center;font-family:Georgia,serif;color:var(--navy);margin:30px 0}
+.cert-eyebrow{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:4px;color:var(--teal2);margin-bottom:16px}.cert-title{font-size:32px;font-weight:800;line-height:1.2;margin-bottom:6px}
+.cert-sub{font-family:'Inter',sans-serif;font-size:13px;color:var(--mut);margin-bottom:36px}.cert-pres{font-family:'Inter',sans-serif;font-size:12px;color:var(--mut);letter-spacing:1.5px;margin-bottom:8px}
+.cert-name{font-size:40px;font-weight:700;border-bottom:2px solid var(--navy);padding-bottom:10px;display:inline-block;margin-bottom:30px}
+.cert-body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.65;margin-bottom:38px;max-width:560px;margin-left:auto;margin-right:auto}
+.cert-meta{display:flex;justify-content:space-around;gap:24px;flex-wrap:wrap;font-family:'Inter',sans-serif}.cert-meta-block{text-align:center}
+.cert-meta-lbl{font-size:10px;color:var(--mut);letter-spacing:1.5px;margin-bottom:5px;font-family:'JetBrains Mono',monospace}.cert-meta-val{font-size:14px;font-weight:700;color:var(--navy)}
+.cert-foot{margin-top:36px;padding-top:20px;border-top:1px solid rgba(0,212,170,.3);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--mut)}
+.gate{background:rgba(245,158,11,.08);border:1px dashed var(--yel);border-radius:10px;padding:18px 22px;margin:20px 0;font-size:14px;color:#92660b;line-height:1.55}
+@media(max-width:880px){.sidebar{display:none}.main{padding:28px 24px}}@media print{.sidebar{display:none}.main{padding:0}.btn-row,.nav-foot{display:none}}
+</style></head><body>
+<div class="app">
+<aside class="sidebar">
+<div class="brand"><div class="brand-mark">R</div><div class="brand-name">Reloadly Security</div></div>
+<div class="brand-sub">DATA SECURITY & PRIVACY</div>
+<input id="learner-name" placeholder="Your full name" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-family:inherit;font-size:13px;padding:9px 12px;border-radius:6px;width:100%;margin-bottom:10px">
+<input id="learner-email" placeholder="you@reloadly.com" type="email" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-family:inherit;font-size:12px;padding:8px 12px;border-radius:6px;width:100%">
+<div class="progress-wrap"><div class="progress-label"><span>Progress</span><span id="progress-pct">0%</span></div><div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div></div>
+<div class="nav-section-title">CURRICULUM</div>
+<div class="nav-item" data-step="s1"><div class="nav-num">1</div><span>Data Classification</span><span class="check">✓</span></div>
+<div class="nav-item" data-step="s2"><div class="nav-num">2</div><span>Customer PII Handling</span><span class="check">✓</span></div>
+<div class="nav-item" data-step="s3"><div class="nav-num">3</div><span>Credentials & Secrets</span><span class="check">✓</span></div>
+<div class="nav-item" data-step="s4"><div class="nav-num">4</div><span>Incident Response</span><span class="check">✓</span></div>
+<div class="nav-section-title">PRACTICE</div>
+<div class="nav-item" data-step="ex"><div class="nav-num">5</div><span>Practical Drills</span><span class="check">✓</span></div>
+<div class="nav-section-title">CERTIFICATION</div>
+<div class="nav-item" data-step="checklist"><div class="nav-num">6</div><span>Validation Checklist</span><span class="check">✓</span></div>
+<div class="nav-item" data-step="cert"><div class="nav-num">7</div><span>Get Certificate</span><span class="check">✓</span></div>
+<div class="nav-foot">Spot something concerning? <a href="#">#security-help</a> on Slack — they would rather hear from you.</div>
+</aside>
+<main class="main" id="main"></main></div>
+<script>
+const STORAGE_KEY='rl_security_v1';
+const STEPS=['s1','s2','s3','s4','ex','checklist','cert'];
+const STEP_NAMES={s1:'Session 1 of 4 · Data Classification',s2:'Session 2 of 4 · Customer PII Handling',s3:'Session 3 of 4 · Credentials & Secrets',s4:'Session 4 of 4 · Incident Response',ex:'Practice · Drills',checklist:'Certification · Checklist',cert:'Certification · Your Certificate'};
+function loadState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){return{}}}
+function saveState(s){localStorage.setItem(STORAGE_KEY,JSON.stringify(s))}
+function getState(){const s=loadState();s.quiz=s.quiz||{};s.exercises=s.exercises||{};s.checklist=s.checklist||{};s.completedSteps=s.completedSteps||{};s.learner=s.learner||{};return s}
+function isStepComplete(step){const s=getState();if(step.startsWith('s'))return!!(s.quiz[step]&&s.quiz[step].passed);if(step==='ex')return Object.keys(s.exercises).length>=4;if(step==='checklist'){return['ck1','ck2','ck3','ck4','ck5','ck6'].every(k=>s.checklist[k])}if(step==='cert')return!!s.completedSteps.cert;return false}
+var currentStep=null;
+function recalcProgress(){const done=STEPS.filter(isStepComplete).length;const pct=Math.round((done/STEPS.length)*100);const fill=document.getElementById('progress-fill');const pe=document.getElementById('progress-pct');if(fill)fill.style.width=pct+'%';if(pe)pe.textContent=pct+'%';document.querySelectorAll('.nav-item').forEach(el=>{el.classList.toggle('done',isStepComplete(el.dataset.step))});if(currentStep){const m=document.getElementById('main');if(m){const c=isStepComplete(currentStep);m.querySelectorAll('button').forEach(b=>{const t=(b.textContent||'').trim();if(t.indexOf('Continue')===0||t.indexOf('certificate')>=0)b.disabled=!c})}}}
+function setActiveNav(s){document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.step===s))}
+function go(step){if(step==='cert'&&!STEPS.slice(0,-1).every(isStepComplete)){alert('Complete every section before claiming your certificate.');return}currentStep=step;setActiveNav(step);const m=document.getElementById('main');m.innerHTML='';m.appendChild(renderStep(step));window.scrollTo({top:0,behavior:'smooth'});recalcProgress()}
+function el(tag,attrs,html){const e=document.createElement(tag);if(attrs)Object.entries(attrs).forEach(([k,v])=>{if(k==='class')e.className=v;else if(k==='style')e.style.cssText=v;else e.setAttribute(k,v)});if(html)e.innerHTML=html;return e}
+function shellHeader(step,title,sub){const h=el('div');h.innerHTML='<div class="crumb">'+STEP_NAMES[step]+'</div><h1 class="section-title">'+title+'</h1><div class="section-sub">'+sub+'</div>';return h}
+function nextButton(s){const i=STEPS.indexOf(s);if(i===-1||i===STEPS.length-1)return null;const n=STEPS[i+1];const b=el('button',{class:'btn'});b.textContent=n==='cert'?'🏆 Get my certificate →':'Continue →';b.onclick=()=>go(n);if(!isStepComplete(s))b.disabled=true;return b}
+function prevButton(s){const i=STEPS.indexOf(s);if(i<=0)return null;const p=STEPS[i-1];const b=el('button',{class:'btn ghost'});b.textContent='← Back';b.onclick=()=>go(p);return b}
+function renderStep(step){switch(step){case 's1':return renderS1();case 's2':return renderS2();case 's3':return renderS3();case 's4':return renderS4();case 'ex':return renderExercises();case 'checklist':return renderChecklist();case 'cert':return renderCertificate()}}
+
+function renderS1(){const w=el('div');w.appendChild(shellHeader('s1','Data Classification','Reloadly classifies all data into four tiers. Know the tiers, know what handling each requires.'));
+w.appendChild(el('div',{class:'card'},`<h2>The four tiers</h2>
+<table class="tbl"><thead><tr><th>Tier</th><th>Examples</th><th>Handling</th></tr></thead><tbody>
+<tr><td><strong>Public</strong></td><td>Marketing site copy, published API docs, press releases, job descriptions</td><td>No restrictions — already published.</td></tr>
+<tr><td><strong>Internal</strong></td><td>Internal Slack messages, sprint plans, OKRs, vendor names, employee org chart</td><td>Reloadly employees only. Don't share externally. Fine in approved AI tools.</td></tr>
+<tr><td><strong>Confidential</strong></td><td>Customer pricing, supplier contract terms, revenue numbers, strategy docs, source code</td><td>Need-to-know within Reloadly. Don't paste into external tools without redaction. Not for personal email.</td></tr>
+<tr><td><strong>Restricted</strong></td><td>Customer PII, payment instrument data, API keys / secrets, financial records of named customers, regulatory submissions</td><td>Strictly need-to-know. Never paste into AI, personal email, Slack DM screenshots, or any unapproved system. Encryption at rest, MFA required to access.</td></tr>
+</tbody></table>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>The 30-second classification test</h2>
+<p>When you're not sure, ask three questions in order:</p>
+<ol>
+<li><strong>Does it identify a specific person?</strong> (Name, email, phone, ID, account number tied to a name.) If yes → Restricted.</li>
+<li><strong>Could a competitor or attacker use it to harm Reloadly?</strong> (Pricing, contracts, secrets, code.) If yes → Confidential at minimum.</li>
+<li><strong>Would it embarrass Reloadly if leaked?</strong> (Internal frustration, half-baked strategy, draft positioning.) If yes → Internal at minimum.</li>
+</ol>
+<p>When in doubt, classify up — treat as the more restrictive tier. The friction cost is small; the leak cost is enormous.</p>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Where each tier can live</h2>
+<table class="tbl"><thead><tr><th></th><th>Public</th><th>Internal</th><th>Confidential</th><th>Restricted</th></tr></thead><tbody>
+<tr><td>Reloadly Slack (channels)</td><td>✓</td><td>✓</td><td>✓ (private channels)</td><td>✗</td></tr>
+<tr><td>Reloadly Google Workspace</td><td>✓</td><td>✓</td><td>✓</td><td>✓ (with access controls)</td></tr>
+<tr><td>Approved AI tools (Claude, ChatGPT Enterprise)</td><td>✓</td><td>✓</td><td>✓ (sanitised)</td><td>✗ (never)</td></tr>
+<tr><td>Personal email / phone</td><td>✓</td><td>✗</td><td>✗</td><td>✗</td></tr>
+<tr><td>Unapproved third-party SaaS</td><td>✓</td><td>requires review</td><td>requires review</td><td>✗</td></tr>
+<tr><td>External / customer communications</td><td>✓</td><td>✗ unless cleared</td><td>✗ unless contracted</td><td>✗ never</td></tr>
+</tbody></table>
+<div class="callout warn"><strong>Most common mistake:</strong> treating "internal" data as casual. A Slack message naming a customer's renewal date is Confidential — competitor poaching at renewal is a real risk. Don't screenshot to a personal phone.</div>`));
+
+w.appendChild(renderQuiz('s1',[
+{q:'A customer\'s email address inside a support ticket — which tier?',opts:['Public','Internal','Confidential','Restricted'],a:3,feedback:{ok:'✓ Right. Identifies a specific person → Restricted. PII is the highest tier; never in unapproved tools, never in personal email, sanitise before any AI use.',bad:'✗ Customer email is PII — it identifies a specific person. That puts it in the Restricted tier. The handling rule: never paste raw into AI, never to personal email, sanitise before sharing for help.'}},
+{q:'You see internal sprint plans in a Slack screenshot saved to your personal phone\'s photo roll. What\'s wrong?',opts:['Nothing — sprint plans are just Internal','Internal data shouldn\'t be on personal devices outside Reloadly\'s control','Sprint plans are Public','Sprint plans are Restricted'],a:1,feedback:{ok:'✓ Right. Internal data must stay within Reloadly-controlled systems. Personal phones aren\'t covered by MDM, may auto-backup to consumer cloud, may be shared via accidental notifications.',bad:'✗ Internal data — even if it\'s "just" a sprint plan — must stay within Reloadly-managed systems. Personal phones aren\'t MDM-controlled, they auto-backup to consumer iCloud/Google Photos, and screenshots leak via accidental notifications.'}},
+{q:'You\'re drafting an email to a prospect mentioning Reloadly\'s pricing model. Which tier and what\'s the action?',opts:['Public — send freely','Internal — only mention to teammates','Confidential — pricing details are commercially sensitive; share only with the prospect named in the contract, and only what they\'re already entitled to see','Restricted — never share with anyone'],a:2,feedback:{ok:'✓ Right. Reloadly\'s pricing model is Confidential. Share with the contracted customer, scoped to what they\'re entitled to see (typically their specific quote, not the full pricing matrix).',bad:'✗ Pricing is Confidential. You can share with a contracted prospect, but only the specific terms they\'re entitled to — not Reloadly\'s broader pricing matrix or how it compares across customers. That\'s commercial competitive information.'}}
+]));
+const r=el('div',{class:'btn-row'});const n=nextButton('s1');if(n)r.appendChild(n);w.appendChild(r);return w}
+
+function renderS2(){const w=el('div');w.appendChild(shellHeader('s2','Customer PII Handling','What counts as PII at Reloadly, how to handle it, and the specific rules around the systems where it lives.'));
+w.appendChild(el('div',{class:'card'},`<h2>What is PII?</h2>
+<p>Personally Identifiable Information — anything that, on its own or combined, identifies a specific human. At Reloadly the categories that matter most:</p>
+<ul>
+<li><strong>Direct identifiers</strong> — full name, email, phone, mailing address, government ID number</li>
+<li><strong>Financial identifiers</strong> — full credit card number, bank account number, IBAN, transaction history tied to a name</li>
+<li><strong>Behavioural identifiers</strong> — IP address, device ID, geolocation, account login history (only PII when combined with the above)</li>
+<li><strong>Sensitive PII</strong> — anything in the above plus health, religion, sexuality, political view — extra protections required under GDPR</li>
+</ul>
+<p>An anonymous customer ID like <code>cust_8e3f...</code> is <strong>not</strong> PII as long as the lookup table from ID to name is access-controlled. As soon as you put the name next to it, it becomes PII.</p>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>The PII handling rules</h2>
+<table class="tbl"><thead><tr><th>Situation</th><th>Rule</th></tr></thead><tbody>
+<tr><td>Customer pastes PII in a support ticket</td><td>Treat the whole ticket as Restricted. Sanitise before pasting into AI tools. Never forward externally.</td></tr>
+<tr><td>Debugging an issue with eng help</td><td>Reproduce with synthetic data, or anonymise the values (<code>customer_email</code>, <code>account_id_X</code>). The bug doesn't need real values.</td></tr>
+<tr><td>Sales prospecting</td><td>Public LinkedIn data is fine. Don't compile databases of personal info from scraping. Don't combine public data sources to deanonymise.</td></tr>
+<tr><td>Marketing analytics</td><td>Use aggregated data. Individual-customer dashboards are need-to-know only.</td></tr>
+<tr><td>Customer leaving Reloadly</td><td>Honour deletion requests via the documented process — within regulatory timelines (GDPR: 30 days unless legally required to retain).</td></tr>
+</tbody></table>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>The "would I be comfortable on the front page?" test</h2>
+<p>Before doing anything with customer data, ask: <em>"If this action ended up on the front page of TechCrunch tomorrow, would I be comfortable defending it?"</em></p>
+<p>If yes → proceed. If no → don't do it. This single test catches more bad decisions than any policy ever written.</p>
+<div class="callout warn"><strong>Real example:</strong> "I'll just download this customer list to my laptop to work on the weekend." Front-page test: "Reloadly employee took customer list home, lost laptop, all customer data leaked." → Don't do it.</div>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Sanitising in practice</h2>
+<p>If you need AI or external help with content that contains PII:</p>
+<ol>
+<li><strong>Identify what's PII</strong> — names, emails, phones, IDs, financial numbers</li>
+<li><strong>Replace with placeholders</strong> — <code>[customer_name]</code>, <code>[customer_email]</code>, <code>[account_id]</code>, <code>[transaction_id]</code>, <code>[amount]</code></li>
+<li><strong>Keep the structure and the issue</strong> — the part you need help with (the bug, the question, the pattern) stays intact</li>
+<li><strong>Verify before sending</strong> — scan once more for anything you missed</li>
+</ol>
+<div class="callout"><strong>Real example:</strong> "Jane Doe (jane@gmail.com, account 4499-...) topup to 0801234567 89 failed at 14:32." becomes "[customer] ([email], [account]) topup to [phone] failed at 14:32." — AI still gets enough to help; PII never left.</div>`));
+
+w.appendChild(renderQuiz('s2',[
+{q:'A customer sends you their full card number to resolve a charge dispute. What\'s the right next action?',opts:['Paste their message into Claude to help draft a reply','Forward the whole message to your senior teammate via Slack','Redact the card number before doing anything else; never let the raw number leave the secure inbox','Reply manually with no AI assistance'],a:2,feedback:{ok:'✓ Right. Card numbers are restricted — redact first, then do whatever else you need. They should never leave the original secure inbox in raw form. After redacting, AI assistance is fine.',bad:'✗ The first action — before AI, before forwarding, before anything — is to redact the card number. Raw card numbers must never leave the secure inbox they arrived in. After redacting, you can use approved AI tools to help draft the reply.'}},
+{q:'Which is OK to paste into an approved AI tool to help debug?',opts:['"jane.doe@gmail.com hit a 500 error at 14:32 on topup to 080123 4567 89, txn_id reloadly_98e2a3f"','"customer_email hit a 500 error at 14:32 on topup to phone_redacted, txn_id_X"','"My customer hit a 500 error around 2:30pm today, I forget the details exactly"','None — debugging customer issues with AI is never allowed'],a:1,feedback:{ok:'✓ Right. Anonymised version keeps everything AI needs (timing, action, error type) without any real PII. This is the pattern: sanitise structurally, retain the bug shape.',bad:'✗ The anonymised version (Option B) is the right answer. AI doesn\'t need the real email, phone, or txn ID to help you reason about the error. Option A leaks PII; Option C is too vague to be useful; Option D is too restrictive — sanitised debugging is fine and useful.'}},
+{q:'Front-page test — which of these does it flag?',opts:['You discuss aggregated customer metrics in a quarterly all-hands','You download the full customer list to a personal laptop "just for weekend work"','You ask Claude to help draft a customer-facing FAQ','You access a customer\'s account (with their consent) to investigate a complaint'],a:1,feedback:{ok:'✓ Right. The headline writes itself — "Reloadly employee takes customer list home, loses laptop, data leaks." The other three are fine: aggregated metrics aren\'t PII, FAQ drafting doesn\'t need PII, and consented investigation is part of the job.',bad:'✗ The headline test catches Option B: "Reloadly employee took customer list home." Personal laptops aren\'t MDM-controlled. The other three are fine — aggregated metrics aren\'t PII, FAQ drafting doesn\'t need real PII, and consented account access is standard support work.'}}
+]));
+const r=el('div',{class:'btn-row'});const p=prevButton('s2');if(p)r.appendChild(p);const n=nextButton('s2');if(n)r.appendChild(n);w.appendChild(r);return w}
+
+function renderS3(){const w=el('div');w.appendChild(shellHeader('s3','Credentials, Secrets & Production Data','Passwords, API keys, OAuth tokens, production database access. The highest-risk category at Reloadly.'));
+w.appendChild(el('div',{class:'card'},`<h2>Why secrets are different</h2>
+<p>A leaked customer email is bad. A leaked production API key is catastrophic — it can drain supplier wallets, send fraudulent topups, expose the entire customer database. Secrets get extra rules because the blast radius is much larger.</p>
+<table class="tbl"><thead><tr><th>What counts as a secret</th></tr></thead><tbody>
+<tr><td>API keys (any production or staging key)</td></tr>
+<tr><td>OAuth tokens, JWTs, session tokens</td></tr>
+<tr><td>Database passwords, SSH keys, certificates</td></tr>
+<tr><td>Service account credentials (AWS, GCP, Cloudflare, etc.)</td></tr>
+<tr><td>Slack tokens (xoxb-, xoxp-)</td></tr>
+<tr><td>Stripe keys, payment processor credentials</td></tr>
+<tr><td>Personal: your work password, MFA backup codes, SSH private keys</td></tr>
+</tbody></table>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Where secrets live (and don't)</h2>
+<table class="tbl"><thead><tr><th>Place</th><th>Production secrets</th><th>Staging secrets</th></tr></thead><tbody>
+<tr><td>1Password / Reloadly secrets manager</td><td>✓ correct home</td><td>✓</td></tr>
+<tr><td>Cloudflare Worker secrets / Vercel env / AWS Secrets Manager</td><td>✓ correct home for runtime</td><td>✓</td></tr>
+<tr><td>Git repository (even private)</td><td>✗ never — even in private repos</td><td>✗ never</td></tr>
+<tr><td>Slack DMs, channels, screenshots</td><td>✗ never</td><td>✗</td></tr>
+<tr><td>Personal email / phone / cloud storage</td><td>✗ never</td><td>✗</td></tr>
+<tr><td>AI tools (any)</td><td>✗ never</td><td>✗ never</td></tr>
+<tr><td>Local <code>.env</code> file on dev laptop</td><td>✗ use staging keys locally</td><td>✓ fine</td></tr>
+</tbody></table>
+<div class="callout danger"><strong>Critical:</strong> if you commit a secret to git — even just locally before pushing — assume it's compromised and rotate it immediately. Git history is forever. Tools like GitGuardian scan public repos within seconds of a commit landing.</div>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Production data is treated as a secret</h2>
+<p>The production database contains customer PII, transaction histories, supplier credentials, and balances. Treat queries against it the same way you'd treat a secret:</p>
+<ul>
+<li><strong>No bulk exports</strong> to laptops or local files unless explicitly authorised and time-limited</li>
+<li><strong>No SELECT * FROM customers</strong> in pipelines that log to external systems</li>
+<li><strong>Query results with PII never go to AI tools</strong> — anonymise or use synthetic data</li>
+<li><strong>Production access is logged</strong> — assume every query you run is audited (because it is)</li>
+</ul>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Your personal account is part of the surface area</h2>
+<p>Most security incidents at fintechs start with a single employee account compromise. Your hygiene matters:</p>
+<ul>
+<li><strong>MFA on everything</strong> — Google Workspace, GitHub, AWS, Slack, the password manager itself. Use the authenticator app, not SMS where avoidable.</li>
+<li><strong>Unique strong passwords</strong> via 1Password. Never reuse the same password across systems.</li>
+<li><strong>Don't approve unexpected MFA prompts</strong> — push-bombing is a real attack. If you didn't initiate, deny.</li>
+<li><strong>Lock your laptop</strong> when you walk away (even at home). Screen lock + disk encryption.</li>
+<li><strong>Don't install browser extensions blindly</strong> — they can read everything you see in the browser.</li>
+</ul>`));
+
+w.appendChild(renderQuiz('s3',[
+{q:'You realise you committed an API key to git locally but haven\'t pushed yet. What\'s the right action?',opts:['Edit the file to remove it, then commit a fix — no one will see it','Force-push to overwrite the bad commit','Assume the key is compromised, rotate it immediately, then clean up the commit','Leave it — local commits aren\'t a real leak'],a:2,feedback:{ok:'✓ Right. Treat it as compromised the moment it was committed — laptops get stolen, drives get cloned, you might forget and push later. Rotate the key, then clean up. Cheaper to rotate than to clean up a leak.',bad:'✗ The right move is to assume the key is compromised the moment it landed in git locally — laptops get stolen, you might forget and push it later, syncing tools might back up the .git directory to cloud storage. Rotate the key (cheap) before cleaning up the commit (also do that).'}},
+{q:'You get an unexpected MFA push prompt at 11pm. What do you do?',opts:['Approve — it might be a system trying to refresh your session','Deny the prompt, then check with #security-help','Ignore it; it\'ll go away','Approve and then reset your password just in case'],a:1,feedback:{ok:'✓ Right. Unexpected MFA = potential attack. Deny first, then investigate. Push-bombing relies on you approving "just to make it stop". That\'s exactly the trap.',bad:'✗ Unexpected MFA prompts are a known attack pattern — push-bombing. Approve = attacker is in. Always deny first, then investigate via #security-help. If your account is genuinely trying to refresh, denying is harmless; the legitimate flow will retry.'}},
+{q:'You\'re debugging a slow SQL query and want help from Claude. The query returned 50 rows of customer data. What\'s the right move?',opts:['Paste the query and a few rows of output into Claude','Paste only the query (no result data) and describe the slowness symptoms','Run the query against staging with synthetic data and paste those results','Both B and C are fine; never A'],a:3,feedback:{ok:'✓ Right. The query itself isn\'t sensitive (it doesn\'t contain customer values, just structure). Customer values are. Either describe the symptoms without data, or rerun against synthetic. Never paste real customer rows.',bad:'✗ Both B and C are correct paths. The query structure isn\'t sensitive — the customer data in the results is. Paste the query without results, OR rerun against synthetic data and use those. Never paste real customer values into AI, even for debugging.'}}
+]));
+const r=el('div',{class:'btn-row'});const p=prevButton('s3');if(p)r.appendChild(p);const n=nextButton('s3');if(n)r.appendChild(n);w.appendChild(r);return w}
+
+function renderS4(){const w=el('div');w.appendChild(shellHeader('s4','Incident Response','When something has gone wrong (or might have), every minute matters. The playbook is simple — follow it.'));
+w.appendChild(el('div',{class:'card'},`<h2>What counts as a security incident</h2>
+<ul>
+<li><strong>Confirmed leak</strong> — secrets exposed, customer data accessed by unauthorised party</li>
+<li><strong>Suspected compromise</strong> — unusual login, unexpected password reset email, an account that "feels off"</li>
+<li><strong>Phishing engagement</strong> — you clicked a link, downloaded an attachment, entered credentials on a fake page</li>
+<li><strong>Lost device</strong> — laptop, phone, hardware key — anything that could grant access to Reloadly systems</li>
+<li><strong>Insider concern</strong> — a colleague behaving unusually with sensitive data</li>
+<li><strong>Customer-reported anomaly</strong> — customer says someone else accessed their account / saw their data</li>
+</ul>
+<div class="callout warn">"I'm not sure if this is an incident" is itself a reason to report. The security team would rather investigate ten false alarms than miss one real incident.</div>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>The first 15 minutes</h2>
+<ol>
+<li><strong>Don't panic, don't delete.</strong> Evidence matters. If you clicked a phishing link, take a screenshot of the page; don't close it until security says you can.</li>
+<li><strong>Contain — if obvious.</strong> If a secret was leaked, rotate it. If a laptop was lost, lock it remotely via MDM. If an account was compromised, force a password reset and revoke active sessions.</li>
+<li><strong>Report.</strong> Slack #security-help with a brief description. If urgent (active breach in progress) also page the on-call security contact.</li>
+<li><strong>Write down what happened.</strong> Time, what you did, what you saw, who else was involved. Memory is unreliable; logs of memory are evidence.</li>
+</ol>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Reporting format</h2>
+<p>When you ping #security-help, include:</p>
+<table class="tbl"><thead><tr><th>Field</th><th>Example</th></tr></thead><tbody>
+<tr><td>What happened</td><td>"Clicked a phishing link, entered my Google password on what looked like a Workspace login page."</td></tr>
+<tr><td>When (exact time)</td><td>"14:32 UTC, June 24"</td></tr>
+<tr><td>Systems involved</td><td>"My personal Google Workspace account, possibly Reloadly systems by extension"</td></tr>
+<tr><td>What I've done so far</td><td>"Took a screenshot, changed my password, revoked sessions, MFA reset"</td></tr>
+<tr><td>What I need</td><td>"Help confirming whether any Reloadly access was compromised"</td></tr>
+</tbody></table>
+<p>Five bullets in a Slack message. Don't write a five-page incident report; security can ask for more.</p>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>What happens next</h2>
+<p>Security takes over the response. You may be asked to:</p>
+<ul>
+<li>Hand over your laptop for forensic imaging (you'll get a loaner)</li>
+<li>Reset credentials on systems you can't access yourself</li>
+<li>Sit in a 30-minute incident review call</li>
+<li>Help write a post-incident note describing what happened (with PII / specifics redacted)</li>
+</ul>
+<p>None of this is punishment. The goal is containment, then learning. People who report quickly are protecting Reloadly; people who hide incidents are the actual risk.</p>
+<div class="callout"><strong>From the security team:</strong> nobody has ever been fired at Reloadly for reporting an incident, including incidents they caused. Concealment, however, is a different conversation.</div>`));
+
+w.appendChild(renderQuiz('s4',[
+{q:'You realise an hour after the fact that you clicked a phishing link and entered your password. What\'s the order?',opts:['Change password → report to security','Report to security → wait for their instructions','Change password → revoke sessions → report to security with what you\'ve done','Delete the email so no one sees it → change password → report'],a:2,feedback:{ok:'✓ Right. Contain first (change password, revoke sessions), then report. Don\'t wait — minutes matter. Delete-the-email is wrong; security needs the evidence.',bad:'✗ The right order is contain first (change password, revoke sessions), then report with a summary of what you did. Don\'t wait for instructions before containment — minutes count. Don\'t delete evidence; security needs to see the phishing email.'}},
+{q:'You notice a colleague is downloading large customer reports to a USB drive. They mumble something about "personal backup". What do you do?',opts:['Mind your own business — they\'re a colleague','Confront them directly','Privately report it to #security-help; let them investigate','Tell their manager'],a:2,feedback:{ok:'✓ Right. Insider concerns go to security, not to the colleague (you might tip off real malice) or their manager (who has a relationship). Security investigates discreetly.',bad:'✗ Insider concerns go to security. Confronting the colleague tips them off if it\'s malicious; going to their manager involves someone with a personal relationship who may hesitate to act. Security has the investigative tools and the obligation.'}},
+{q:'You\'re unsure whether what you saw counts as an incident. What\'s the right move?',opts:['Wait — if it was serious, it\'ll become obvious','Ask in #security-help — "not sure if this is an incident" is a valid reason to report','Wait until the end of the day so you can bundle multiple small things','Ask your manager instead of security'],a:1,feedback:{ok:'✓ Right. Report uncertainty. Security would rather investigate ten false alarms than miss one real incident. Latency is the enemy.',bad:'✗ Report uncertainty immediately. The security team explicitly prefers ten "probably nothing" reports to one missed real incident. Waiting or bundling adds latency — and latency is the enemy of containment.'}}
+]));
+const r=el('div',{class:'btn-row'});const p=prevButton('s4');if(p)r.appendChild(p);const n=nextButton('s4');if(n)r.appendChild(n);w.appendChild(r);return w}
+
+const EXERCISES=[
+{id:'ex1',tag:'DRILL 1 OF 4 · CLASSIFICATION',title:'Classify five pieces of data',brief:`For each item, write its tier (Public / Internal / Confidential / Restricted):
+
+A. A customer's full name and email
+B. Reloadly's marketing landing page copy
+C. The pricing offered to a specific named enterprise customer
+D. A draft of next quarter's product roadmap (not yet announced)
+E. A staging API key for a non-production system`,placeholder:'A. Restricted\nB. Public\n…',
+evaluate:t=>{const ts=t.toLowerCase();const c={a:/a[\.\)]\s*restricted/i.test(t),b:/b[\.\)]\s*public/i.test(t),c:/c[\.\)]\s*confidential/i.test(t),d:/d[\.\)]\s*(internal|confidential)/i.test(t),e:/e[\.\)]\s*(confidential|restricted)/i.test(t)};const s=Object.values(c).filter(Boolean).length;return{score:s,feedback:`<h4>Rubric</h4><ul><li><strong>A · customer name + email</strong> ${c.a?'✓':'—'} <em>Restricted (PII)</em></li><li><strong>B · marketing copy</strong> ${c.b?'✓':'—'} <em>Public</em></li><li><strong>C · pricing for named customer</strong> ${c.c?'✓':'—'} <em>Confidential (commercial)</em></li><li><strong>D · unannounced roadmap</strong> ${c.d?'✓':'—'} <em>Internal or Confidential (depending on sensitivity)</em></li><li><strong>E · staging API key</strong> ${c.e?'✓':'—'} <em>Confidential or Restricted (treat all keys as secrets)</em></li></ul><h4>Score: ${s}/5</h4>`}}},
+{id:'ex2',tag:'DRILL 2 OF 4 · SANITISE',title:'Sanitise a real customer message',brief:`A customer wrote: "Hi, I'm Maria Garcia (maria.g.84@gmail.com, account 4499-1212-9876-5432, balance €1,847.32). My topup to phone +34 612 345 678 for €30 failed at 14:32 UTC today. Order ref ORD-7E2A9F. Can you help?"
+
+Rewrite this to remove every PII / financial item while keeping enough context for an engineer to investigate.`,placeholder:'Sanitised version…',
+evaluate:t=>{const c={noName:!/maria/i.test(t)&&!/garcia/i.test(t),noEmail:!/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(t),noCard:!/\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}/.test(t),noPhone:!/\+?\s*\d{2,3}\s+\d{3}\s+\d{3}/.test(t)&&!/\b\d{10,}\b/.test(t.replace(/[\s-]/g,'')),keptIssue:/topup|failed|14:32/i.test(t),keptOrderRef:/(ord-|order ref|reference)/i.test(t),usedPlaceholders:/\[|customer|account_|order_|email_redacted/i.test(t)};const s=Object.values(c).filter(Boolean).length;return{score:s,feedback:`<h4>Rubric</h4><ul><li><strong>Removed name</strong> ${c.noName?'✓':'✗'}</li><li><strong>Removed email</strong> ${c.noEmail?'✓':'✗'}</li><li><strong>Removed card number</strong> ${c.noCard?'✓':'✗'}</li><li><strong>Removed phone</strong> ${c.noPhone?'✓':'✗'}</li><li><strong>Kept the issue (topup failed, timestamp)</strong> ${c.keptIssue?'✓':'—'}</li><li><strong>Kept the order ref (non-PII, useful for lookup)</strong> ${c.keptOrderRef?'✓':'—'}</li><li><strong>Used placeholder convention</strong> ${c.usedPlaceholders?'✓':'—'}</li></ul><h4>Score: ${s}/7</h4><h4>Reference example</h4>Customer ([customer], [email], [account]) topup to [recipient_phone] for [amount] failed at 14:32 UTC. Order ref ORD-7E2A9F. Investigating.`}}},
+{id:'ex3',tag:'DRILL 3 OF 4 · SECRETS MANAGEMENT',title:'Decide the right home for each secret',brief:`For each scenario, write where the secret should live and one sentence on why:
+
+A. A production API key for our payments processor
+B. A staging Slack bot token used by a dev team
+C. Your personal Reloadly password
+D. A throwaway SSH key for a one-off contractor`,placeholder:'A. …\nB. …\n…',
+evaluate:t=>{const c={hasA:/a[\.\)]/i.test(t),hasB:/b[\.\)]/i.test(t),hasC:/c[\.\)]/i.test(t),hasD:/d[\.\)]/i.test(t),mentionsManager:/(1password|password manager|secrets manager|vault|aws secrets|cloudflare|env|environment)/i.test(t),avoidsGit:/(not in git|never.*git|outside git|except git)/i.test(t)||true,substantive:t.trim().length>100};const s=Object.values(c).filter(Boolean).length;return{score:s,feedback:`<h4>Rubric</h4><ul><li><strong>All four scenarios addressed (A-D)</strong> ${c.hasA&&c.hasB&&c.hasC&&c.hasD?'✓':'—'}</li><li><strong>Mentions an actual secrets manager / vault</strong> ${c.mentionsManager?'✓':'— name a specific tool: 1Password / AWS Secrets Manager / Cloudflare Worker secrets / .env file (staging only)'}</li><li><strong>Substantive answer</strong> ${c.substantive?'✓':'— go deeper'}</li></ul><h4>Score: ${s}/7</h4><h4>Reference example</h4>A. <strong>Production API key</strong> → Cloudflare Worker secrets (or equivalent runtime secrets manager) for the running service; 1Password for the human copy. Never in git, never in Slack, never in env files on dev laptops.<br>B. <strong>Staging Slack bot token</strong> → 1Password for the team; the dev's local .env file is fine since it's staging. Treat carefully but lower stakes than production.<br>C. <strong>Personal Reloadly password</strong> → 1Password as the canonical store. MFA required. Never written down, never in a file, never in a browser autofill outside 1P.<br>D. <strong>Throwaway SSH key</strong> → 1Password (shared vault) with an explicit deletion date / rotation reminder. Revoke when the engagement ends.`}}},
+{id:'ex4',tag:'DRILL 4 OF 4 · INCIDENT REPORT',title:'Write a security incident report',brief:`You realise that 30 minutes ago you accidentally pasted a partial API key into a Slack DM to a teammate. You immediately deleted the message but Slack retains edit/delete history. Write the 5-bullet incident report you'd send to #security-help, following the format from Session 4.`,placeholder:'**What happened:** …',
+evaluate:t=>{const c={whatHappened:/(what happened|happened|key|pasted|api)/i.test(t),timestamp:/(\d{1,2}:\d{2}|when|time|ago|minutes)/i.test(t),systems:/(slack|dm|message|production|staging|system)/i.test(t),actionsTaken:/(deleted|rotated|reset|removed|notified|contained)/i.test(t),askForHelp:/(need|help|confirm|investigate|advice|check|next)/i.test(t),fiveBullets:(t.match(/^\s*[-*•]|\*\*|^\s*\d[\.\)]|^[a-e][\.\)]/gm)||[]).length>=4||t.split('\n').filter(l=>l.trim()).length>=4,concise:t.length<800};const s=Object.values(c).filter(Boolean).length;return{score:s,feedback:`<h4>Rubric</h4><ul><li><strong>Names what happened</strong> ${c.whatHappened?'✓':'—'}</li><li><strong>Includes a timestamp / "when"</strong> ${c.timestamp?'✓':'—'}</li><li><strong>Names systems involved</strong> ${c.systems?'✓':'—'}</li><li><strong>Lists actions already taken</strong> ${c.actionsTaken?'✓':'—'}</li><li><strong>Says what help you need</strong> ${c.askForHelp?'✓':'—'}</li><li><strong>Structured (bullets / fields)</strong> ${c.fiveBullets?'✓':'—'}</li><li><strong>Concise (≤800 chars)</strong> ${c.concise?'✓':'—'}</li></ul><h4>Score: ${s}/7</h4><h4>Reference example</h4><strong>What happened:</strong> Pasted a partial production API key into a Slack DM ~30 minutes ago. Deleted the message immediately but Slack retains edit history.<br><strong>When:</strong> 14:32 UTC today.<br><strong>Systems involved:</strong> Slack (workspace DM, retained in history). Underlying key is for the payments processor — production.<br><strong>Actions taken:</strong> Deleted the message. Rotated the key in the secrets manager. Updated the running service. Notified my teammate so they delete the DM on their side too.<br><strong>What I need:</strong> Confirm whether Slack's edit history retains the original content visibly, and whether anything else needs follow-up (audit log review, customer notification, etc.).`}}}
+];
+function renderExercises(){const w=el('div');w.appendChild(shellHeader('ex','Practical Drills','Four scenarios. Complete all four to unlock the validation checklist.'));const state=getState();EXERCISES.forEach(ex=>{const c=el('div',{class:'ex-card'});c.innerHTML='<div class="ex-tag">'+ex.tag+'</div><div class="ex-title">'+ex.title+'</div><div class="ex-brief">'+ex.brief.replace(/\n/g,'<br>')+'</div>';const ta=el('textarea',{class:'ex-input',placeholder:ex.placeholder});ta.value=state.exercises[ex.id]||'';c.appendChild(ta);const br=el('div',{class:'btn-row'});const sub=el('button',{class:'btn teal'},'Evaluate my answer');br.appendChild(sub);const rst=el('button',{class:'btn ghost'},'Clear');br.appendChild(rst);c.appendChild(br);const out=el('div');if(state.exercises[ex.id]){const r=ex.evaluate(state.exercises[ex.id]);out.appendChild(buildOut(r))}c.appendChild(out);sub.onclick=()=>{const v=ta.value.trim();if(v.length<20){alert('Please write a longer answer (at least 20 characters).');return}const s=getState();s.exercises[ex.id]=v;saveState(s);const r=ex.evaluate(v);out.innerHTML='';out.appendChild(buildOut(r));recalcProgress()};rst.onclick=()=>{ta.value='';const s=getState();delete s.exercises[ex.id];saveState(s);out.innerHTML='';recalcProgress()};w.appendChild(c)});const r=el('div',{class:'btn-row'});const p=prevButton('ex');if(p)r.appendChild(p);const n=nextButton('ex');if(n)r.appendChild(n);w.appendChild(r);return w}
+function buildOut(r){const o=el('div',{class:'ex-output'});o.innerHTML=r.feedback;return o}
+
+function renderQuiz(sid,qs){const w=el('div');w.appendChild(el('h2',{style:'margin-top:32px;font-size:22px;color:var(--navy)'},'Knowledge check'));w.appendChild(el('p',{style:'color:var(--mut);font-size:14px;margin-bottom:18px'},'Pass with '+qs.length+'/'+qs.length+' to mark this session complete.'));const state=getState();state.quiz[sid]=state.quiz[sid]||{answers:{},attempts:0,passed:false};const qs2=state.quiz[sid];
+qs.forEach((q,qi)=>{const qc=el('div',{class:'quiz-q'});qc.innerHTML='<div class="q-num">QUESTION '+(qi+1)+' OF '+qs.length+'</div><div class="q-txt">'+q.q+'</div>';const opts=el('div');q.opts.forEach((o,oi)=>{const l=el('label',{class:'quiz-opt'});const i=el('input',{type:'radio',name:sid+'-q'+qi});if(qs2.answers[qi]===oi)i.checked=true;l.appendChild(i);l.appendChild(el('span',{},o));opts.appendChild(l)});qc.appendChild(opts);const fb=el('div',{style:'display:none'});qc.appendChild(fb);w.appendChild(qc);qc._show=ok=>{fb.className='quiz-feedback '+(ok?'ok':'bad');fb.style.display='block';fb.innerHTML=ok?q.feedback.ok:q.feedback.bad;opts.querySelectorAll('.quiz-opt').forEach((l,oi)=>{l.classList.remove('correct','wrong');if(oi===q.a)l.classList.add('correct');else if(opts.querySelectorAll('input')[oi].checked)l.classList.add('wrong')})}});
+const rb=el('div');const sub=el('button',{class:'btn'},'Submit answers');const rt=el('button',{class:'btn ghost',style:'display:none'},'↻ Retake quiz');const sr=el('div',{class:'btn-row'});sr.appendChild(sub);sr.appendChild(rt);w.appendChild(sr);w.appendChild(rb);
+sub.onclick=()=>{let ans=0;qs.forEach((q,qi)=>{w.querySelectorAll('input[name="'+sid+'-q'+qi+'"]').forEach(i=>{if(i.checked)ans++})});if(ans<qs.length){alert('Please answer all '+qs.length+' questions before submitting.');return}let cor=0;qs.forEach((q,qi)=>{const ins=w.querySelectorAll('input[name="'+sid+'-q'+qi+'"]');let pk=null;ins.forEach((i,oi)=>{if(i.checked)pk=oi});if(pk===null)return;w.querySelectorAll('.quiz-q')[qi]._show(pk===q.a);if(pk===q.a)cor++});const s=getState();s.quiz[sid]=s.quiz[sid]||{answers:{},attempts:0,passed:false};s.quiz[sid].attempts=(s.quiz[sid].attempts||0)+1;const p=cor===qs.length;s.quiz[sid].passed=p||s.quiz[sid].passed;saveState(s);const rs=el('div',{class:'quiz-result '+(p?'pass':'fail')});rs.innerHTML=p?'<strong>✓ Passed</strong> — '+cor+'/'+qs.length+' on attempt '+s.quiz[sid].attempts+'. Continue below.':'<strong>Almost there</strong> — '+cor+'/'+qs.length+'. Review the feedback and retake.';rb.innerHTML='';rb.appendChild(rs);rt.style.display=p?'none':'inline-flex';sub.style.display=p?'none':'inline-flex';recalcProgress();if(p)setTimeout(()=>rs.scrollIntoView({behavior:'smooth',block:'center'}),100)};
+rt.onclick=()=>{w.querySelectorAll('.quiz-q').forEach(qc=>{qc.querySelectorAll('.quiz-opt').forEach(l=>l.classList.remove('correct','wrong'));qc.querySelectorAll('input').forEach(i=>i.checked=false);const fb=qc.querySelector('.quiz-feedback');if(fb)fb.style.display='none'});rb.innerHTML='';sub.style.display='inline-flex';rt.style.display='none'};
+if(qs2.passed){qs.forEach((q,qi)=>{const ins=w.querySelectorAll('input[name="'+sid+'-q'+qi+'"]');if(ins[q.a])ins[q.a].checked=true;w.querySelectorAll('.quiz-q')[qi]._show(true)});const rs=el('div',{class:'quiz-result pass'},'<strong>✓ Previously passed</strong> — retake any time for a refresher.');rb.appendChild(rs);rt.style.display='inline-flex';sub.style.display='none'}return w}
+
+function renderChecklist(){const w=el('div');w.appendChild(shellHeader('checklist','Validation Checklist','Six non-negotiable principles. Tick each to acknowledge before claiming the certificate.'));const items=[{id:'ck1',html:'<b>I know the four data tiers.</b> Public / Internal / Confidential / Restricted — and I will classify up when in doubt.'},{id:'ck2',html:'<b>Customer PII is sacred.</b> I will never paste raw customer PII (name, email, phone, ID, account number) into AI tools, personal email, personal cloud, or any unapproved system.'},{id:'ck3',html:'<b>Production data and secrets are treated equally.</b> No bulk customer-data exports to my laptop. No real customer rows in AI prompts. No secrets in git, Slack, or any non-secret-manager location.'},{id:'ck4',html:'<b>MFA on everything.</b> Google Workspace, GitHub, AWS, Slack, 1Password — every account that touches Reloadly has MFA enabled, using the authenticator app where possible.'},{id:'ck5',html:'<b>I will not approve unexpected MFA prompts.</b> Push-bombing is a known attack — deny first, then investigate.'},{id:'ck6',html:'<b>If I think I might have had an incident, I report it.</b> #security-help is the channel, "I\'m not sure if this counts" is a valid reason to report. Nobody is punished for reporting honestly and quickly.'}];const c=el('div',{class:'checkl'});const state=getState();items.forEach(it=>{const r=el('div',{class:'checkl-item'});const cb=el('input',{type:'checkbox',id:it.id});if(state.checklist[it.id])cb.checked=true;const l=el('label',{for:it.id},it.html);cb.onchange=()=>{const s=getState();s.checklist[it.id]=cb.checked;saveState(s);recalcProgress()};r.appendChild(cb);r.appendChild(l);c.appendChild(r)});w.appendChild(c);w.appendChild(el('div',{class:'callout'},'Tick all six and the certificate step unlocks.'));const r=el('div',{class:'btn-row'});const p=prevButton('checklist');if(p)r.appendChild(p);const n=nextButton('checklist');if(n)r.appendChild(n);w.appendChild(r);return w}
+
+function renderCertificate(){const w=el('div');const state=getState();const allDone=STEPS.slice(0,-1).every(isStepComplete);if(!allDone){w.appendChild(shellHeader('cert','Certificate locked','Complete every section before claiming.'));const miss=STEPS.slice(0,-1).filter(s=>!isStepComplete(s)).map(s=>STEP_NAMES[s]);w.appendChild(el('div',{class:'gate'},'Still to complete:<ul>'+miss.map(m=>'<li>'+m+'</li>').join('')+'</ul>'));return w}
+const name=(document.getElementById('learner-name')||{}).value||state.learner.name||'Reloadly Team Member';const email=(document.getElementById('learner-email')||{}).value||state.learner.email||'';if(!name.trim()||!email.trim()){w.appendChild(shellHeader('cert','Almost there','Add your name and Reloadly email in the sidebar.'));return w}
+if(!state.completedSteps.cert){state.completedSteps.cert=new Date().toISOString();state.learner={name,email};saveState(state);recalcProgress()}
+const dt=new Date(state.completedSteps.cert);const ds=dt.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});const ts=dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});const id='RL-SEC-'+dt.toISOString().slice(0,10).replace(/-/g,'')+'-'+(email.split('@')[0]||'rl').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+w.appendChild(shellHeader('cert','Certificate Issued','Congratulations.'));const c=el('div',{class:'cert'});c.innerHTML=`<div class="cert-eyebrow">RELOADLY · CERTIFICATE OF COMPLETION</div><div class="cert-title">Data Security & Privacy</div><div class="cert-sub">Internal training & certification program · 2026</div><div class="cert-pres">PRESENTED TO</div><div class="cert-name">${esc(name)}</div><div class="cert-body">For successfully completing every session, passing all knowledge checks, four practical drills, and committing to the six non-negotiable data security principles.</div><div class="cert-meta"><div class="cert-meta-block"><div class="cert-meta-lbl">COMPLETED ON</div><div class="cert-meta-val">${ds}</div><div style="font-size:11px;color:var(--mut);margin-top:3px">${ts} (local)</div></div><div class="cert-meta-block"><div class="cert-meta-lbl">CERTIFICATE ID</div><div class="cert-meta-val" style="font-family:'JetBrains Mono',monospace;font-size:13px">${id}</div></div><div class="cert-meta-block"><div class="cert-meta-lbl">VERIFY</div><div class="cert-meta-val" style="font-size:12px">Pulse → Performance → Courses</div></div></div><div class="cert-foot">Issued by Reloadly Learning & Development · v1 · Annual refresh required</div>`;w.appendChild(c);
+const r=el('div',{class:'btn-row'});const pb=el('button',{class:'btn'},'🖨 Print / Save as PDF');pb.onclick=()=>window.print();r.appendChild(pb);const cp=el('button',{class:'btn ghost'},'Copy certificate ID');cp.onclick=()=>{navigator.clipboard.writeText(id).then(()=>{cp.textContent='✓ Copied';setTimeout(()=>cp.textContent='Copy certificate ID',1500)})};r.appendChild(cp);const cl=el('button',{class:'btn ghost'},'Back to Pulse');cl.onclick=()=>{window.close();window.history.back()};r.appendChild(cl);w.appendChild(r);return w}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function init(){const s=getState();const n=document.getElementById('learner-name');const e=document.getElementById('learner-email');if(s.learner){if(s.learner.name&&n)n.value=s.learner.name;if(s.learner.email&&e)e.value=s.learner.email}const p=()=>{const st=getState();st.learner={name:n.value,email:e.value};saveState(st)};if(n)n.addEventListener('change',p);if(e)e.addEventListener('change',p);document.querySelectorAll('.nav-item').forEach(el=>el.addEventListener('click',()=>go(el.dataset.step)));recalcProgress();go('s1')}
+document.addEventListener('DOMContentLoaded',init);
+</script></body></html>
