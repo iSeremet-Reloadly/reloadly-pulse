@@ -213,16 +213,37 @@ function isStepComplete(step){
   if(step==='cert'){ return !!s.completedSteps.cert; }
   return false;
 }
+// Track the currently-displayed step so recalcProgress can re-evaluate the
+// page-level Next button's enabled state after a quiz, exercise, or checklist
+// update — without forcing a re-render that would clear feedback or scroll.
+var currentStep = null;
+
 function recalcProgress(){
   const done = STEPS.filter(isStepComplete).length;
   const pct = Math.round((done/STEPS.length)*100);
-  document.getElementById('progress-fill').style.width = pct+'%';
-  document.getElementById('progress-pct').textContent = pct+'%';
-  // Update sidebar
+  const fill = document.getElementById('progress-fill');
+  const pctEl = document.getElementById('progress-pct');
+  if(fill) fill.style.width = pct+'%';
+  if(pctEl) pctEl.textContent = pct+'%';
+  // Sidebar nav: ✓ on completed
   document.querySelectorAll('.nav-item').forEach(el=>{
     const step = el.dataset.step;
     el.classList.toggle('done', isStepComplete(step));
   });
+  // Page-level action buttons: enable Continue / "Get my certificate" once
+  // the current step is complete. Disable otherwise so users can't skip ahead.
+  if(currentStep){
+    const main = document.getElementById('main');
+    if(main){
+      const complete = isStepComplete(currentStep);
+      main.querySelectorAll('button').forEach(b=>{
+        const text = (b.textContent||'').trim();
+        if(text.indexOf('Continue') === 0 || text.indexOf('certificate') >= 0){
+          b.disabled = !complete;
+        }
+      });
+    }
+  }
 }
 function setActiveNav(step){
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active', el.dataset.step===step));
@@ -233,6 +254,7 @@ function go(step){
     alert('Complete every other section before claiming your certificate.');
     return;
   }
+  currentStep = step;
   setActiveNav(step);
   const main = document.getElementById('main');
   main.innerHTML = '';
@@ -1014,6 +1036,16 @@ function renderQuiz(sessionId, questions){
   wrap.appendChild(resultBox);
 
   submit.onclick = ()=>{
+    // Require all questions answered
+    let answeredCount = 0;
+    questions.forEach((q, qi)=>{
+      const inputs = wrap.querySelectorAll('input[name="'+sessionId+'-q'+qi+'"]');
+      inputs.forEach(inp=>{if(inp.checked) answeredCount++;});
+    });
+    if(answeredCount < questions.length){
+      alert('Please answer all '+questions.length+' questions before submitting.');
+      return;
+    }
     let correct = 0;
     questions.forEach((q, qi)=>{
       const inputs = wrap.querySelectorAll('input[name="'+sessionId+'-q'+qi+'"]');
@@ -1024,22 +1056,27 @@ function renderQuiz(sessionId, questions){
       qcards[qi]._showFeedback(picked === q.a);
       if(picked === q.a) correct++;
     });
+    // Defensive: getState() returns fresh storage which may not have this
+    // session's quiz record yet (first attempt). Initialise before mutating.
     const s = getState();
+    s.quiz[sessionId] = s.quiz[sessionId] || {answers:{}, attempts:0, passed:false};
     s.quiz[sessionId].attempts = (s.quiz[sessionId].attempts||0) + 1;
     const passed = correct === questions.length;
     s.quiz[sessionId].passed = passed || s.quiz[sessionId].passed;
     saveState(s);
     const result = el('div', {class:'quiz-result ' + (passed?'pass':'fail')});
     result.innerHTML = passed
-      ? '<strong>✓ Passed</strong> — '+correct+'/'+questions.length+' on attempt '+s.quiz[sessionId].attempts+'. Continue to the next section.'
+      ? '<strong>✓ Passed</strong> — '+correct+'/'+questions.length+' on attempt '+s.quiz[sessionId].attempts+'. Continue to the next section below.'
       : '<strong>Almost there</strong> — '+correct+'/'+questions.length+'. Review the feedback under each question and retake to pass.';
     resultBox.innerHTML = '';
     resultBox.appendChild(result);
     retake.style.display = passed ? 'none' : 'inline-flex';
     submit.style.display = passed ? 'none' : 'inline-flex';
     recalcProgress();
-    // Auto-advance "Continue" if passed (the parent's next button is gated by isStepComplete)
-    const nextBtn = wrap.parentElement && wrap.parentElement.querySelector ? null : null;
+    // On pass, scroll the result + now-enabled Continue button into view.
+    if(passed){
+      setTimeout(()=>{result.scrollIntoView({behavior:'smooth', block:'center'});}, 100);
+    }
   };
 
   retake.onclick = ()=>{
