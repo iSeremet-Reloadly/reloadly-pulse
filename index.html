@@ -2325,7 +2325,7 @@ function renderPerf(){
   var hdr=document.createElement('div');hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px';
   var ttl=document.createElement('div');ttl.innerHTML='<div class="ptitle">Performance</div><div class="psub">Evidence-based reviews · '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</div>';
   var tabs=document.createElement('div');tabs.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-  [{k:'overview',lbl:'Overview'},{k:'team',lbl:'Team Health',a:true},{k:'calibration',lbl:'Calibration',a:true},{k:'talent',lbl:'Talent Matrix',a:true},{k:'reviews',lbl:'Reviews'},{k:'feedback',lbl:'Feedback'},{k:'my',lbl:'My Profile'},{k:'mgrdash',lbl:'Manager View'},{k:'history',lbl:'My History'},{k:'orgtree',lbl:'Org Tree',a:true}].forEach(function(td){
+  [{k:'overview',lbl:'Overview'},{k:'team',lbl:'Team Health',a:true},{k:'calibration',lbl:'Calibration',a:true},{k:'talent',lbl:'Talent Matrix',a:true},{k:'reviews',lbl:'Reviews'},{k:'feedback',lbl:'Feedback'},{k:'my',lbl:'My Profile'},{k:'mgrdash',lbl:'Manager View'},{k:'history',lbl:'My History'},{k:'courses',lbl:'Courses & Certs'},{k:'orgtree',lbl:'Org Tree',a:true}].forEach(function(td){
     if(td.a&&!isAd)return;
     var btn=document.createElement('button');btn.className='hbtn';
     btn.style.cssText='font-size:10px;padding:5px 14px'+(view===td.k?';border-color:var(--acc);color:var(--acc);font-weight:700':'');
@@ -2341,8 +2341,229 @@ function renderPerf(){
   else if(view==='talent')renderPerfTalent(wrap);
   else if(view==='history')renderPerfHistory(wrap,pd);
   else if(view==='mgrdash')renderManagerDashboard(wrap);
+  else if(view==='courses')renderPerfCourses(wrap,pd);
   else if(view==='orgtree')renderOrgTree(wrap);
   main.innerHTML='';main.appendChild(wrap);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Courses & Certifications — internal training catalog. Enrollment state is
+// per-user, stored in pd.courses[email][courseId] = {status, startedAt,
+// completedAt}. Status: 'not_started' | 'in_progress' | 'completed'.
+// ─────────────────────────────────────────────────────────────────────────────
+var PULSE_COURSES = [{
+  id: 'reloadly-ai-training-2026',
+  title: 'Reloadly AI Training & Productivity Module',
+  tag: 'AI · Productivity',
+  est: '~90 minutes',
+  level: 'All employees',
+  // Launches the training module. Drop reloadly-ai-training.html into the same
+  // repo as index.html and this will resolve correctly. Override per-user if
+  // you host it elsewhere.
+  launchUrl: './reloadly-ai-training.html',
+  summary: 'Reloadly’s internal AI onboarding program. Covers approved AI tools and use cases, data security boundaries, prompting fundamentals, and role-specific workflows. Five hands-on exercises with live Claude API integration. Certificate on completion.',
+  sessions: [
+    {n: 1, t: 'Introduction to AI at Reloadly', d: 'Approved tools, data security policy, what AI can and cannot do for your role.'},
+    {n: 2, t: 'AI for Productivity', d: 'Meeting summaries, documentation, research, internal communications.'},
+    {n: 3, t: 'Prompting Fundamentals', d: 'The Role + Context + Objective + Constraints + Format framework.'},
+    {n: 4, t: 'Role-Specific Workflows', d: 'Tailored playbooks for Support, Sales, Operations, Product & Engineering.'},
+    {n: 5, t: 'AI Challenges (5 live exercises)', d: 'Practical drills with Claude API; output evaluated against rubric.'},
+    {n: 6, t: 'Validation Checklist & Certification', d: 'Confirm human accountability, no PII, data security. Certificate unlocks.'}
+  ],
+  outcomes: [
+    'Use approved AI tools without violating Reloadly data policies',
+    'Write prompts that consistently produce useful output',
+    'Apply role-specific AI workflows in daily tasks',
+    'Recognise when AI output requires human verification'
+  ]
+}];
+
+function _loadCourseState(){
+  try{return JSON.parse(localStorage.getItem('rl_perf_courses')||'{}');}catch(e){return {};}
+}
+function _saveCourseState(s){localStorage.setItem('rl_perf_courses', JSON.stringify(s));}
+function _courseStatus(email, courseId){
+  var s = _loadCourseState();
+  return (s[email]||{})[courseId] || {status:'not_started'};
+}
+function _setCourseStatus(email, courseId, patch){
+  var s = _loadCourseState();
+  s[email] = s[email] || {};
+  s[email][courseId] = Object.assign({}, s[email][courseId]||{}, patch);
+  _saveCourseState(s);
+}
+
+function renderPerfCourses(wrap, pd){
+  var me = currentUser.email;
+  // Section header
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'margin-bottom:18px';
+  hdr.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:4px">Courses & Certifications</div>'
+    + '<div style="font-size:12px;color:var(--mut);line-height:1.55">Curated internal training. Complete a course to earn a certificate, which appears on your profile and counts toward the annual learning OKR. Status syncs to your Performance history.</div>';
+  wrap.appendChild(hdr);
+
+  // Summary strip — total / in progress / completed for this user
+  var totals = {total: PULSE_COURSES.length, inProgress: 0, completed: 0};
+  PULSE_COURSES.forEach(function(c){
+    var st = _courseStatus(me, c.id).status;
+    if(st === 'in_progress') totals.inProgress++;
+    else if(st === 'completed') totals.completed++;
+  });
+  var strip = document.createElement('div');
+  strip.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px';
+  function _mkSt(val, lbl, col){
+    var c = document.createElement('div');
+    c.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:12px 14px';
+    c.innerHTML = '<div style="font-size:22px;font-weight:800;color:'+col+'">'+val+'</div>'
+      +'<div style="font-size:10px;font-weight:700;color:var(--mut);letter-spacing:.4px">'+lbl+'</div>';
+    return c;
+  }
+  strip.appendChild(_mkSt(totals.total, 'AVAILABLE', 'var(--acc)'));
+  strip.appendChild(_mkSt(totals.inProgress, 'IN PROGRESS', 'var(--yel)'));
+  strip.appendChild(_mkSt(totals.completed, 'COMPLETED', 'var(--grn)'));
+  wrap.appendChild(strip);
+
+  // Course cards
+  PULSE_COURSES.forEach(function(c){
+    var state = _courseStatus(me, c.id);
+    var statusBadge, statusColor, statusLabel;
+    if(state.status === 'completed'){
+      statusBadge = '✓ COMPLETED'; statusColor = 'var(--grn)';
+      statusLabel = 'Certificate issued ' + (state.completedAt ? new Date(state.completedAt).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '');
+    } else if(state.status === 'in_progress'){
+      statusBadge = '◐ IN PROGRESS'; statusColor = 'var(--yel)';
+      statusLabel = 'Started ' + (state.startedAt ? new Date(state.startedAt).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '');
+    } else {
+      statusBadge = 'NOT STARTED'; statusColor = 'var(--mut)';
+      statusLabel = 'Ready to launch';
+    }
+    var card = document.createElement('div');
+    card.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:22px 24px;margin-bottom:14px';
+    card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:12px">'
+      + '<div style="flex:1;min-width:240px">'
+        + '<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;letter-spacing:.5px;margin-bottom:4px">'+esc(c.tag)+' &middot; '+esc(c.est)+' &middot; '+esc(c.level)+'</div>'
+        + '<div style="font-size:17px;font-weight:700;color:var(--txt);line-height:1.3">'+esc(c.title)+'</div>'
+      + '</div>'
+      + '<div style="text-align:right;flex-shrink:0">'
+        + '<div style="display:inline-block;background:'+statusColor+';color:#fff;font-size:9px;font-weight:800;letter-spacing:.5px;padding:4px 10px;border-radius:4px;font-family:Roboto Mono,monospace">'+statusBadge+'</div>'
+        + '<div style="font-size:10px;color:var(--mut);margin-top:6px">'+esc(statusLabel)+'</div>'
+      + '</div>'
+    + '</div>'
+    + '<div style="font-size:13px;color:var(--txt);line-height:1.55;margin-bottom:14px">'+esc(c.summary)+'</div>';
+
+    // Two-column: sessions + outcomes
+    var cols = document.createElement('div');
+    cols.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px';
+    var sessHtml = '<div style="font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-bottom:8px;font-family:Roboto Mono,monospace">WHAT YOU’LL COVER</div>';
+    c.sessions.forEach(function(s){
+      sessHtml += '<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">'
+        + '<div style="background:var(--surf2);color:var(--acc);font-size:9px;font-weight:800;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:Roboto Mono,monospace">'+s.n+'</div>'
+        + '<div><div style="font-size:12px;font-weight:700;color:var(--txt);line-height:1.3">'+esc(s.t)+'</div><div style="font-size:11px;color:var(--mut);line-height:1.45;margin-top:2px">'+esc(s.d)+'</div></div>'
+      + '</div>';
+    });
+    var outHtml = '<div style="font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-bottom:8px;font-family:Roboto Mono,monospace">AFTER COMPLETING THIS, YOU CAN</div>';
+    c.outcomes.forEach(function(o){
+      outHtml += '<div style="display:flex;gap:8px;margin-bottom:6px;align-items:flex-start">'
+        + '<div style="color:var(--grn);font-weight:700;flex-shrink:0">✓</div>'
+        + '<div style="font-size:12px;color:var(--txt);line-height:1.45">'+esc(o)+'</div>'
+      + '</div>';
+    });
+    cols.innerHTML = '<div>'+sessHtml+'</div><div>'+outHtml+'</div>';
+    card.appendChild(cols);
+
+    // Action bar
+    var actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--brd)';
+
+    var launchBtn = document.createElement('button');
+    launchBtn.className = 'hbtn';
+    launchBtn.style.cssText = 'background:var(--acc);color:#fff;border-color:var(--acc);font-weight:700;font-size:12px;padding:8px 16px';
+    launchBtn.innerHTML = state.status === 'completed' ? '↻ Relaunch course' : (state.status === 'in_progress' ? '▶ Continue course' : '▶ Launch course');
+    launchBtn.onclick = function(){
+      // Mark in_progress on first launch
+      if(state.status === 'not_started'){
+        _setCourseStatus(me, c.id, {status:'in_progress', startedAt: new Date().toISOString()});
+        logEntry('Started course: '+c.title, 'edit');
+        autoSave();
+      }
+      window.open(c.launchUrl, '_blank', 'noopener');
+      // Re-render to reflect status change
+      setTimeout(renderPerf, 100);
+    };
+    actions.appendChild(launchBtn);
+
+    if(state.status !== 'completed'){
+      var doneBtn = document.createElement('button');
+      doneBtn.className = 'hbtn';
+      doneBtn.style.cssText = 'font-size:12px;padding:8px 16px;border-color:var(--grn);color:var(--grn)';
+      doneBtn.innerHTML = '✓ Mark complete';
+      doneBtn.title = 'Mark this course complete once you finish the training module and earn the certificate.';
+      doneBtn.onclick = function(){
+        if(!confirm('Mark "'+c.title+'" as complete?\n\nThis records the completion date and unlocks the certificate on your Performance profile.')) return;
+        _setCourseStatus(me, c.id, {status:'completed', completedAt: new Date().toISOString(), startedAt: state.startedAt || new Date().toISOString()});
+        logEntry('Completed course: '+c.title, 'edit');
+        autoSave();
+        toast('Course completed — certificate issued ✓','ok');
+        renderPerf();
+      };
+      actions.appendChild(doneBtn);
+    } else {
+      var certBtn = document.createElement('button');
+      certBtn.className = 'hbtn';
+      certBtn.style.cssText = 'font-size:12px;padding:8px 16px;border-color:var(--grn);color:var(--grn)';
+      certBtn.innerHTML = '🏆 View certificate';
+      certBtn.onclick = function(){_showCertificate(c, state);};
+      actions.appendChild(certBtn);
+      var resetBtn = document.createElement('button');
+      resetBtn.className = 'hbtn';
+      resetBtn.style.cssText = 'font-size:11px;padding:6px 12px;color:var(--mut)';
+      resetBtn.textContent = 'Reset progress';
+      resetBtn.title = 'Clear this course’s completion record. The certificate disappears until you mark it complete again.';
+      resetBtn.onclick = function(){
+        if(!confirm('Reset progress on "'+c.title+'"? This removes the certificate from your profile.')) return;
+        _setCourseStatus(me, c.id, {status:'not_started', startedAt: null, completedAt: null});
+        logEntry('Reset course progress: '+c.title, 'edit');
+        autoSave();
+        renderPerf();
+      };
+      actions.appendChild(resetBtn);
+    }
+    card.appendChild(actions);
+    wrap.appendChild(card);
+  });
+
+  // Empty-state hint for future expansion
+  var hint = document.createElement('div');
+  hint.style.cssText = 'margin-top:16px;font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;line-height:1.55';
+  hint.innerHTML = 'More courses will appear here as the L&D team adds them. Suggest a course via Feedback &rarr; "Course idea".';
+  wrap.appendChild(hint);
+}
+
+function _showCertificate(course, state){
+  var u = USER_REGISTRY[currentUser.email] || {};
+  var name = u.name || currentUser.name || currentUser.email;
+  var dateStr = state.completedAt ? new Date(state.completedAt).toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'}) : '';
+  var timeStr = state.completedAt ? new Date(state.completedAt).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '';
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,41,.85);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;backdrop-filter:blur(6px)';
+  ov.onclick = function(e){if(e.target === ov) ov.remove();};
+  var cert = document.createElement('div');
+  cert.style.cssText = 'background:linear-gradient(135deg,#fafbff,#eef2ff);color:#1a2543;border:6px double #6c63ff;border-radius:14px;padding:48px 56px;max-width:680px;width:100%;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.4);font-family:Georgia,serif;position:relative';
+  cert.innerHTML = '<div style="font-size:11px;font-weight:700;letter-spacing:4px;color:#6c63ff;font-family:Roboto Mono,monospace;margin-bottom:14px">RELOADLY · CERTIFICATE OF COMPLETION</div>'
+    + '<div style="font-size:30px;font-weight:800;color:#1a2543;line-height:1.2;margin-bottom:8px">'+esc(course.title)+'</div>'
+    + '<div style="font-size:13px;color:#5c6580;margin-bottom:32px">Internal training & certification program</div>'
+    + '<div style="font-size:12px;color:#5c6580;letter-spacing:1px;margin-bottom:6px">PRESENTED TO</div>'
+    + '<div style="font-size:36px;font-weight:700;color:#1a2543;font-family:Georgia,serif;margin-bottom:24px;border-bottom:2px solid #1a2543;padding-bottom:8px;display:inline-block">'+esc(name)+'</div>'
+    + '<div style="font-size:13px;color:#1a2543;line-height:1.6;margin-bottom:36px">for successfully completing the course covering AI fundamentals at Reloadly, data security, prompting framework, and role-specific workflows.</div>'
+    + '<div style="display:flex;justify-content:space-around;gap:24px;flex-wrap:wrap">'
+      + '<div><div style="font-size:10px;color:#5c6580;letter-spacing:1px;margin-bottom:4px;font-family:Roboto Mono,monospace">COMPLETED ON</div><div style="font-size:14px;font-weight:700;color:#1a2543">'+esc(dateStr)+'</div><div style="font-size:11px;color:#5c6580;margin-top:2px">'+esc(timeStr)+' (local)</div></div>'
+      + '<div><div style="font-size:10px;color:#5c6580;letter-spacing:1px;margin-bottom:4px;font-family:Roboto Mono,monospace">CERTIFICATE ID</div><div style="font-size:14px;font-weight:700;color:#1a2543;font-family:Roboto Mono,monospace">'+esc(course.id.toUpperCase()+'-'+(state.completedAt||'').slice(0,10).replace(/-/g,''))+'</div></div>'
+    + '</div>'
+    + '<div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(108,99,255,.3);font-size:11px;color:#5c6580;font-family:Roboto Mono,monospace">Verify on Reloadly Pulse &middot; Performance &middot; Courses & Certs</div>'
+    + '<button id="cert-close" style="margin-top:24px;background:#6c63ff;color:#fff;border:none;padding:10px 28px;font-size:13px;font-weight:700;border-radius:6px;cursor:pointer;font-family:Inter,sans-serif">Close</button>';
+  ov.appendChild(cert);
+  document.body.appendChild(ov);
+  cert.querySelector('#cert-close').onclick = function(){ov.remove();};
 }
 function renderPerfOverview(wrap){
   var me=currentUser.email,m=computeMetrics(me),u=USER_REGISTRY[me]||{};
