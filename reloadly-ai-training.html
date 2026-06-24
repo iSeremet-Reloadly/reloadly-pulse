@@ -1,0 +1,1224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reloadly AI Training & Productivity Module</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0a2540; --navy2:#1a2543; --navy3:#2a3656;
+    --teal:#00d4aa; --teal2:#06b6d4; --teal-soft:rgba(0,212,170,.12);
+    --bg:#f5f7fa; --surf:#ffffff; --surf2:#f0f3f8;
+    --brd:#e2e8f0; --brd2:#cbd5e1;
+    --txt:#1a2543; --mut:#5c6580; --mut2:#94a3b8;
+    --red:#ef4444; --yel:#f59e0b; --grn:#10b981;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;color:var(--txt);background:var(--bg);-webkit-font-smoothing:antialiased}
+  a{color:var(--teal2);text-decoration:none}
+  button{font-family:inherit;cursor:pointer}
+  code{font-family:'JetBrains Mono','Roboto Mono',monospace;background:var(--surf2);padding:2px 6px;border-radius:4px;font-size:.92em;color:var(--navy)}
+  h1,h2,h3,h4{margin:0 0 12px;line-height:1.25;color:var(--navy)}
+  p{margin:0 0 14px;line-height:1.65;color:var(--txt)}
+  ul,ol{margin:0 0 16px;padding-left:24px;line-height:1.7}
+  li{margin-bottom:4px}
+  /* ─── Layout ──────────────────────────────────────────────── */
+  .app{display:flex;min-height:100vh}
+  .sidebar{width:280px;background:var(--navy);color:#fff;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto;padding:28px 22px;display:flex;flex-direction:column}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .brand-mark{width:32px;height:32px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--navy)}
+  .brand-name{font-weight:700;font-size:16px;letter-spacing:-.2px}
+  .brand-sub{font-size:10px;color:rgba(255,255,255,.55);font-weight:600;letter-spacing:1.5px;margin-left:42px;margin-top:-2px;margin-bottom:24px}
+  .progress-wrap{margin:20px 0 24px}
+  .progress-label{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.6);font-weight:600;margin-bottom:8px;letter-spacing:.4px}
+  .progress-bar{height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--teal2));transition:width .35s ease}
+  .nav-section-title{font-size:10px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:1.8px;margin:18px 0 8px;padding-left:4px}
+  .nav-item{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:8px;cursor:pointer;color:rgba(255,255,255,.78);font-size:13px;font-weight:500;transition:background .15s,color .15s;margin-bottom:3px}
+  .nav-item:hover{background:rgba(255,255,255,.05);color:#fff}
+  .nav-item.active{background:rgba(0,212,170,.16);color:var(--teal)}
+  .nav-num{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+  .nav-item.active .nav-num{background:var(--teal);color:var(--navy)}
+  .nav-item.done .nav-num{background:var(--grn);color:#fff}
+  .nav-item.done .check{margin-left:auto;color:var(--grn);font-size:13px}
+  .nav-foot{margin-top:auto;padding-top:20px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:rgba(255,255,255,.45);line-height:1.6}
+  .nav-foot a{color:rgba(255,255,255,.7);text-decoration:underline}
+  /* ─── Main content ────────────────────────────────────────── */
+  .main{flex:1;padding:48px 56px 80px;max-width:980px}
+  .crumb{font-size:11px;font-weight:600;color:var(--mut);letter-spacing:1.5px;margin-bottom:10px;text-transform:uppercase}
+  .section-title{font-size:34px;font-weight:800;letter-spacing:-.6px;color:var(--navy);margin-bottom:6px}
+  .section-sub{font-size:15px;color:var(--mut);margin-bottom:32px;line-height:1.55}
+  .card{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:28px 32px;margin-bottom:22px}
+  .card h2{font-size:22px;margin-bottom:14px}
+  .card h3{font-size:16px;font-weight:700;color:var(--navy);margin:24px 0 10px}
+  .callout{background:var(--teal-soft);border-left:4px solid var(--teal);padding:16px 20px;border-radius:6px;margin:18px 0;font-size:14px;line-height:1.6;color:var(--navy)}
+  .callout.warn{background:rgba(245,158,11,.1);border-left-color:var(--yel)}
+  .callout.danger{background:rgba(239,68,68,.08);border-left-color:var(--red)}
+  .callout strong{color:var(--navy);font-weight:700}
+  .pill{display:inline-block;background:var(--surf2);color:var(--mut);font-size:11px;font-weight:700;padding:4px 10px;border-radius:4px;letter-spacing:.4px;text-transform:uppercase}
+  .pill.teal{background:var(--teal-soft);color:#0a6e5b}
+  .pill.green{background:rgba(16,185,129,.12);color:var(--grn)}
+  .pill.red{background:rgba(239,68,68,.12);color:var(--red)}
+  .pill.yel{background:rgba(245,158,11,.14);color:#92660b}
+  /* Tables */
+  table.tbl{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+  table.tbl th{text-align:left;padding:10px 14px;background:var(--surf2);color:var(--navy);font-weight:700;border-bottom:2px solid var(--brd2);font-size:12px;letter-spacing:.3px;text-transform:uppercase}
+  table.tbl td{padding:12px 14px;border-bottom:1px solid var(--brd);vertical-align:top;line-height:1.55}
+  table.tbl tr:last-child td{border-bottom:none}
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--navy);color:#fff;border:none;padding:11px 22px;border-radius:7px;font-size:13px;font-weight:600;letter-spacing:.2px;transition:transform .1s,box-shadow .15s,opacity .15s}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(10,37,64,.2)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+  .btn.teal{background:var(--teal);color:var(--navy)}
+  .btn.ghost{background:transparent;color:var(--navy);border:1.5px solid var(--brd2)}
+  .btn.ghost:hover{border-color:var(--navy);background:var(--surf2)}
+  .btn-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:24px}
+  /* Quiz */
+  .quiz-q{background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:22px 26px;margin-bottom:14px}
+  .quiz-q .q-num{font-size:11px;font-weight:700;color:var(--teal2);letter-spacing:1.5px;margin-bottom:8px}
+  .quiz-q .q-txt{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:14px;line-height:1.5}
+  .quiz-opt{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1.5px solid var(--brd);border-radius:7px;margin-bottom:8px;cursor:pointer;transition:all .15s;font-size:14px;line-height:1.5;background:#fff}
+  .quiz-opt:hover{border-color:var(--teal);background:rgba(0,212,170,.04)}
+  .quiz-opt input{margin-top:3px;accent-color:var(--teal)}
+  .quiz-opt.correct{border-color:var(--grn);background:rgba(16,185,129,.06)}
+  .quiz-opt.wrong{border-color:var(--red);background:rgba(239,68,68,.05)}
+  .quiz-feedback{margin-top:12px;padding:14px 16px;border-radius:7px;font-size:13.5px;line-height:1.6}
+  .quiz-feedback.ok{background:rgba(16,185,129,.08);color:#06624b;border-left:3px solid var(--grn)}
+  .quiz-feedback.bad{background:rgba(239,68,68,.06);color:#7a1b1b;border-left:3px solid var(--red)}
+  .quiz-result{padding:24px 28px;border-radius:10px;margin:18px 0;font-size:15px}
+  .quiz-result.pass{background:rgba(16,185,129,.1);border:1.5px solid var(--grn);color:#06624b}
+  .quiz-result.fail{background:rgba(245,158,11,.1);border:1.5px solid var(--yel);color:#92660b}
+  /* Exercise */
+  .ex-card{background:var(--surf);border:1.5px solid var(--brd);border-radius:12px;padding:26px 30px;margin-bottom:18px}
+  .ex-tag{font-size:10px;font-weight:700;color:var(--teal2);letter-spacing:1.8px;margin-bottom:6px}
+  .ex-title{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:8px}
+  .ex-brief{font-size:14px;color:var(--mut);line-height:1.6;margin-bottom:16px}
+  .ex-input{width:100%;min-height:130px;padding:14px 16px;border:1.5px solid var(--brd);border-radius:8px;font-family:inherit;font-size:14px;line-height:1.55;color:var(--navy);background:var(--surf);resize:vertical}
+  .ex-input:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,212,170,.15)}
+  .ex-output{background:var(--surf2);border-left:3px solid var(--teal);padding:18px 22px;border-radius:6px;margin-top:16px;font-size:14px;line-height:1.65;color:var(--navy);white-space:pre-wrap}
+  .ex-output h4{margin:14px 0 6px;font-size:14px;color:var(--teal2);font-weight:700}
+  .ex-output h4:first-child{margin-top:0}
+  .ex-output strong{color:var(--navy)}
+  .ex-output ul{margin:8px 0 12px;padding-left:22px}
+  .ex-meta{font-size:11px;color:var(--mut);margin-top:8px;font-family:'JetBrains Mono',monospace}
+  /* Checklist */
+  .checkl{background:var(--surf);border:1.5px solid var(--brd);border-radius:10px;padding:24px 28px;margin-bottom:18px}
+  .checkl-item{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--brd)}
+  .checkl-item:last-child{border-bottom:none}
+  .checkl-item input{margin-top:3px;width:18px;height:18px;accent-color:var(--teal);cursor:pointer;flex-shrink:0}
+  .checkl-item label{font-size:14.5px;line-height:1.55;color:var(--navy);cursor:pointer;flex:1}
+  .checkl-item label b{font-weight:700}
+  /* Certificate */
+  .cert{background:linear-gradient(135deg,#fafbff,#eef2ff);border:6px double var(--teal);border-radius:14px;padding:54px 60px;text-align:center;font-family:Georgia,serif;color:var(--navy);position:relative;margin:30px 0}
+  .cert-eyebrow{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:4px;color:var(--teal2);margin-bottom:16px}
+  .cert-title{font-size:32px;font-weight:800;line-height:1.2;margin-bottom:6px}
+  .cert-sub{font-family:'Inter',sans-serif;font-size:13px;color:var(--mut);margin-bottom:36px}
+  .cert-pres{font-family:'Inter',sans-serif;font-size:12px;color:var(--mut);letter-spacing:1.5px;margin-bottom:8px}
+  .cert-name{font-size:40px;font-weight:700;border-bottom:2px solid var(--navy);padding-bottom:10px;display:inline-block;margin-bottom:30px}
+  .cert-body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.65;margin-bottom:38px;max-width:560px;margin-left:auto;margin-right:auto}
+  .cert-meta{display:flex;justify-content:space-around;gap:24px;flex-wrap:wrap;font-family:'Inter',sans-serif}
+  .cert-meta-block{text-align:center}
+  .cert-meta-lbl{font-size:10px;color:var(--mut);letter-spacing:1.5px;margin-bottom:5px;font-family:'JetBrains Mono',monospace}
+  .cert-meta-val{font-size:14px;font-weight:700;color:var(--navy)}
+  .cert-id{font-family:'JetBrains Mono',monospace;font-size:13px}
+  .cert-foot{margin-top:36px;padding-top:20px;border-top:1px solid rgba(0,212,170,.3);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--mut)}
+  /* Misc */
+  .lock{opacity:.5;pointer-events:none}
+  .gate{background:rgba(245,158,11,.08);border:1px dashed var(--yel);border-radius:10px;padding:18px 22px;margin:20px 0;font-size:14px;color:#92660b;line-height:1.55}
+  @media (max-width:880px){.sidebar{display:none}.main{padding:28px 24px}}
+  @media print{.sidebar{display:none}.main{padding:0;max-width:100%}.btn-row,.nav-foot{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ─── Sidebar ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">R</div>
+      <div class="brand-name">Reloadly AI</div>
+    </div>
+    <div class="brand-sub">TRAINING MODULE</div>
+
+    <input id="learner-name" placeholder="Your full name" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-family:inherit;font-size:13px;padding:9px 12px;border-radius:6px;width:100%;margin-bottom:10px">
+    <input id="learner-email" placeholder="you@reloadly.com" type="email" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-family:inherit;font-size:12px;padding:8px 12px;border-radius:6px;width:100%">
+
+    <div class="progress-wrap">
+      <div class="progress-label"><span>Progress</span><span id="progress-pct">0%</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="nav-section-title">CURRICULUM</div>
+    <div class="nav-item" data-step="s1"><div class="nav-num">1</div><span>Intro to AI at Reloadly</span><span class="check">✓</span></div>
+    <div class="nav-item" data-step="s2"><div class="nav-num">2</div><span>AI for Productivity</span><span class="check">✓</span></div>
+    <div class="nav-item" data-step="s3"><div class="nav-num">3</div><span>Prompting Fundamentals</span><span class="check">✓</span></div>
+    <div class="nav-item" data-step="s4"><div class="nav-num">4</div><span>Role-Specific Workflows</span><span class="check">✓</span></div>
+
+    <div class="nav-section-title">PRACTICE</div>
+    <div class="nav-item" data-step="ex"><div class="nav-num">5</div><span>AI Challenges (5 drills)</span><span class="check">✓</span></div>
+
+    <div class="nav-section-title">CERTIFICATION</div>
+    <div class="nav-item" data-step="checklist"><div class="nav-num">6</div><span>Validation Checklist</span><span class="check">✓</span></div>
+    <div class="nav-item" data-step="cert"><div class="nav-num">7</div><span>Get Certificate</span><span class="check">✓</span></div>
+
+    <div class="nav-foot">
+      Questions? Ask in <a href="#">#ai-help</a> on Slack or email <a href="mailto:learning@reloadly.com">learning@reloadly.com</a>.
+    </div>
+  </aside>
+
+  <!-- ─── Main content ────────────────────────────────────── -->
+  <main class="main" id="main"></main>
+</div>
+
+<script>
+/* ────────────────────────────────────────────────────────────────
+   STATE
+   ──────────────────────────────────────────────────────────────── */
+const STORAGE_KEY = 'rl_ai_training_v1';
+const STEPS = ['s1','s2','s3','s4','ex','checklist','cert'];
+const STEP_NAMES = {
+  s1: 'Session 1 of 4 · Intro to AI at Reloadly',
+  s2: 'Session 2 of 4 · AI for Productivity',
+  s3: 'Session 3 of 4 · Prompting Fundamentals',
+  s4: 'Session 4 of 4 · Role-Specific Workflows',
+  ex: 'Practice · AI Challenges',
+  checklist: 'Certification · Validation Checklist',
+  cert: 'Certification · Your Certificate'
+};
+
+function loadState(){
+  try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');}catch(e){return {};}
+}
+function saveState(s){localStorage.setItem(STORAGE_KEY, JSON.stringify(s));}
+function getState(){
+  const s = loadState();
+  s.quiz = s.quiz || {};       // {s1:{passed:bool, attempts:N}, ...}
+  s.exercises = s.exercises || {}; // {ex1: 'output text', ...}
+  s.checklist = s.checklist || {}; // {item1:true, item2:true, ...}
+  s.completedSteps = s.completedSteps || {};
+  s.learner = s.learner || {};
+  return s;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   PROGRESS / NAV
+   ──────────────────────────────────────────────────────────────── */
+function isStepComplete(step){
+  const s = getState();
+  if(step.startsWith('s')){ return !!(s.quiz[step] && s.quiz[step].passed); }
+  if(step==='ex'){ return Object.keys(s.exercises).length >= 5; }
+  if(step==='checklist'){ const items=['ck1','ck2','ck3','ck4','ck5']; return items.every(k=>s.checklist[k]); }
+  if(step==='cert'){ return !!s.completedSteps.cert; }
+  return false;
+}
+function recalcProgress(){
+  const done = STEPS.filter(isStepComplete).length;
+  const pct = Math.round((done/STEPS.length)*100);
+  document.getElementById('progress-fill').style.width = pct+'%';
+  document.getElementById('progress-pct').textContent = pct+'%';
+  // Update sidebar
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    const step = el.dataset.step;
+    el.classList.toggle('done', isStepComplete(step));
+  });
+}
+function setActiveNav(step){
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active', el.dataset.step===step));
+}
+function go(step){
+  // Cert is gated behind everything else
+  if(step==='cert' && !STEPS.slice(0,-1).every(isStepComplete)){
+    alert('Complete every other section before claiming your certificate.');
+    return;
+  }
+  setActiveNav(step);
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+  main.appendChild(renderStep(step));
+  window.scrollTo({top:0,behavior:'smooth'});
+  recalcProgress();
+}
+
+/* ────────────────────────────────────────────────────────────────
+   STEP RENDERERS
+   ──────────────────────────────────────────────────────────────── */
+function el(tag, attrs={}, html=''){
+  const e = document.createElement(tag);
+  Object.entries(attrs).forEach(([k,v])=>{
+    if(k==='class') e.className=v;
+    else if(k==='style') e.style.cssText=v;
+    else e.setAttribute(k,v);
+  });
+  if(html) e.innerHTML = html;
+  return e;
+}
+
+function shellHeader(step, title, sub){
+  const h = el('div');
+  h.innerHTML = '<div class="crumb">'+STEP_NAMES[step]+'</div>'
+    + '<h1 class="section-title">'+title+'</h1>'
+    + '<div class="section-sub">'+sub+'</div>';
+  return h;
+}
+
+function nextButton(currentStep){
+  const idx = STEPS.indexOf(currentStep);
+  if(idx === -1 || idx === STEPS.length-1) return null;
+  const nxt = STEPS[idx+1];
+  const btn = el('button', {class:'btn'});
+  btn.textContent = (nxt==='cert' ? '🏆 Get my certificate →' : 'Continue →');
+  btn.onclick = ()=>go(nxt);
+  if(!isStepComplete(currentStep)) btn.disabled = true;
+  return btn;
+}
+
+function prevButton(currentStep){
+  const idx = STEPS.indexOf(currentStep);
+  if(idx <= 0) return null;
+  const prv = STEPS[idx-1];
+  const btn = el('button', {class:'btn ghost'});
+  btn.textContent = '← Back';
+  btn.onclick = ()=>go(prv);
+  return btn;
+}
+
+function renderStep(step){
+  switch(step){
+    case 's1': return renderS1();
+    case 's2': return renderS2();
+    case 's3': return renderS3();
+    case 's4': return renderS4();
+    case 'ex': return renderExercises();
+    case 'checklist': return renderChecklist();
+    case 'cert': return renderCertificate();
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   SESSION 1 — Introduction to AI at Reloadly
+   ──────────────────────────────────────────────────────────────── */
+function renderS1(){
+  const wrap = el('div');
+  wrap.appendChild(shellHeader('s1', 'Introduction to AI at Reloadly', 'What AI is, what it is for, where it stops. Read the four sections then pass the knowledge check below.'));
+
+  const c1 = el('div', {class:'card'}, `
+    <h2>Why this module exists</h2>
+    <p>AI tools are now part of how we work. Used well, they save you hours per week. Used badly, they create real risk: hallucinated facts in customer replies, sensitive data leaked into third-party systems, decisions made without anyone being accountable. This module makes sure every Reloadly employee knows the rules and the techniques before plugging AI into their workflow.</p>
+    <p>By the end you will be able to: pick the right tool for the right task, write prompts that produce useful output, recognise when AI output is wrong, and apply role-specific workflows to your daily work.</p>
+  `);
+
+  const c2 = el('div', {class:'card'}, `
+    <h2>Approved tools and use cases</h2>
+    <p>These are the tools currently approved for use at Reloadly. Anything not on this list requires written sign-off from the security team before you use it for work.</p>
+    <table class="tbl">
+      <thead><tr><th>Tool</th><th>Approved for</th><th>Not approved for</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Claude</strong> (claude.ai, Claude Code)</td><td>Internal docs, code review, research, drafting comms, summarising public information</td><td>Customer PII, financial transactions data, security incidents containing live secrets</td></tr>
+        <tr><td><strong>ChatGPT Enterprise</strong></td><td>Same as Claude — both are interchangeable</td><td>Same restrictions</td></tr>
+        <tr><td><strong>Cursor / Copilot</strong></td><td>Code completion, refactoring, test generation in internal repos</td><td>Pasting production database queries with real data into prompts</td></tr>
+        <tr><td><strong>NotebookLM</strong></td><td>Summarising internal docs you have already shared with the workspace</td><td>Uploading customer agreements or vendor contracts you don't own</td></tr>
+      </tbody>
+    </table>
+  `);
+
+  const c3 = el('div', {class:'card'}, `
+    <h2>Data security: the three red lines</h2>
+    <div class="callout danger"><strong>Never paste these into any AI tool</strong>, no matter how convenient: customer personal data (names, emails, phone numbers, addresses, IDs), payment instrument details (full card numbers, bank account numbers, balances tied to a named customer), live credentials (API keys, OAuth tokens, passwords).</div>
+    <div class="callout warn"><strong>Sanitise first</strong>: if you must reason about real data, replace the identifying parts with placeholders. <code>customer_email</code>, <code>account_id_X</code>, <code>order_id_Y</code>. The AI doesn't need the real values to help you debug or write the response.</div>
+    <div class="callout"><strong>If in doubt, ask</strong>. The security team would rather answer a question than clean up a leak. Slack <code>#security-help</code>.</div>
+  `);
+
+  const c4 = el('div', {class:'card'}, `
+    <h2>What AI is good and bad at</h2>
+    <table class="tbl">
+      <thead><tr><th>Strong</th><th>Weak</th></tr></thead>
+      <tbody>
+        <tr><td>Rephrasing, summarising, translating between formats</td><td>Reasoning about events after its training cutoff</td></tr>
+        <tr><td>Drafting first versions of writing you'll edit</td><td>Doing exact arithmetic on real numbers (use a spreadsheet)</td></tr>
+        <tr><td>Explaining concepts and code</td><td>Knowing internal Reloadly facts unless you supply them in the prompt</td></tr>
+        <tr><td>Brainstorming options and counter-arguments</td><td>Citing real sources — it confidently invents URLs and quotes</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>The one rule that catches most mistakes:</strong> if the answer would be embarrassing or harmful when wrong, verify it before using it. AI confidence is not accuracy.</div>
+  `);
+
+  wrap.appendChild(c1); wrap.appendChild(c2); wrap.appendChild(c3); wrap.appendChild(c4);
+
+  // Quiz
+  const quiz = renderQuiz('s1', [
+    {
+      q: 'A customer sends you their full credit card number to dispute a charge. Which is the right approach?',
+      opts: [
+        'Paste the message into Claude to draft a reply — it is faster',
+        'Strip the card number from the message before asking the AI to help draft a reply',
+        'Forward the whole message to ChatGPT Enterprise since it is approved for customer data',
+        'Reply manually without any AI assistance because customer messages can never touch AI'
+      ],
+      a: 1,
+      feedback: {
+        ok: '✓ Right. Approved tools handle redacted versions of customer content, but raw payment instrument data is one of the three red lines. Strip it first; AI does not need the actual digits to draft a refund reply.',
+        bad: '✗ Approved tools (Claude, ChatGPT Enterprise) can help draft a reply, but the message must be redacted first. Live card numbers fall under the three red lines (payment instrument details) and never go into any AI tool. The correct path is to remove the card digits then draft the reply with the sanitised version.'
+      }
+    },
+    {
+      q: 'Which statement about AI output is most accurate at Reloadly?',
+      opts: [
+        'AI sources are always real and current',
+        'AI is reliable for exact arithmetic over real numbers',
+        'AI confidence is not the same as accuracy — verify when wrong would be embarrassing or harmful',
+        'AI knows internal Reloadly facts because we are a customer of Anthropic'
+      ],
+      a: 2,
+      feedback: {
+        ok: '✓ Exactly. The single rule that catches most mistakes — if the answer would be embarrassing or harmful when wrong, verify it. Confidence and accuracy are different things.',
+        bad: '✗ AI fabricates sources, miscalculates exact numbers, and only knows internal Reloadly facts you include in the prompt. The dependable rule: if being wrong matters, verify before using.'
+      }
+    },
+    {
+      q: 'You want to use a new AI tool that is not on the approved list. What do you do?',
+      opts: [
+        'Use it for personal tasks only and never touch work data',
+        'Get written sign-off from the security team before using it for work',
+        'Use it for low-risk work tasks then ask security later',
+        'Use it freely — the approved list is just a suggestion'
+      ],
+      a: 1,
+      feedback: {
+        ok: '✓ Correct. The approved list is binding. Anything outside it needs written security team sign-off before any work use. They would rather answer a question than clean up an incident.',
+        bad: '✗ The approved list is binding for any work use. Anything outside it needs explicit security team sign-off before — not after — you use it. Ping #security-help.'
+      }
+    }
+  ]);
+  wrap.appendChild(quiz);
+
+  const row = el('div', {class:'btn-row'});
+  const nxt = nextButton('s1'); if(nxt) row.appendChild(nxt);
+  wrap.appendChild(row);
+
+  return wrap;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   SESSION 2 — AI for Productivity
+   ──────────────────────────────────────────────────────────────── */
+function renderS2(){
+  const wrap = el('div');
+  wrap.appendChild(shellHeader('s2', 'AI for Productivity', 'Four workflows that save the average Reloadly employee 4-6 hours per week. Read each pattern, then pass the quiz.'));
+
+  wrap.appendChild(el('div', {class:'card'}, `
+    <h2>Pattern 1 — Meeting summaries</h2>
+    <p>Don't write notes from scratch. Record (with consent), paste the transcript into Claude with a structured prompt, get back: decisions, action items with owners, open questions. Edit for accuracy, post to the channel.</p>
+    <div class="callout"><strong>Prompt template:</strong><br>
+    <em>"Below is a transcript from a meeting between Reloadly's [team] discussing [topic]. Extract: (1) decisions made, (2) action items with owner and due date if mentioned, (3) open questions. Use bullet points. Be specific — quote names and dates from the transcript."</em></div>
+    <p>Common mistake: trusting the output without skimming for misattributed action items. Always verify before posting.</p>
+  `));
+
+  wrap.appendChild(el('div', {class:'card'}, `
+    <h2>Pattern 2 — Documentation</h2>
+    <p>You wrote 12 commit messages this week. Claude can turn them into a release note paragraph in 30 seconds. Same for: turning a Loom transcript into a runbook, turning a Slack thread into a wiki page, turning bullet points into a coherent email.</p>
+    <div class="callout"><strong>Prompt template:</strong><br>
+    <em>"You're a technical writer for Reloadly's internal wiki. Turn the notes below into a structured page with sections: Overview, Steps, Troubleshooting. Use plain language. Target audience: a new hire who joined this week."</em></div>
+    <p>Always edit the output before publishing. AI writing has tells — too many "moreover"s, too uniform a tone, sometimes a wrong fact slipped in. A 2-minute edit is worth it.</p>
+  `));
+
+  wrap.appendChild(el('div', {class:'card'}, `
+    <h2>Pattern 3 — Research</h2>
+    <p>Use AI to scope, not to source. Ask Claude "what are the main approaches to [problem]" → it gives you a map of the territory. Then pick 2-3 approaches and verify with real sources (vendor docs, peer-reviewed papers, blog posts you can cite).</p>
+    <div class="callout warn"><strong>Sources warning:</strong> AI will confidently invent URLs and quote nonexistent papers. Treat any AI-provided link or citation as a hypothesis to verify, never as a final source.</div>
+  `));
+
+  wrap.appendChild(el('div', {class:'card'}, `
+    <h2>Pattern 4 — Communications</h2>
+    <p>Drafting outreach, replies, internal announcements. AI is best as the first 80% — you write the briefing (audience, goal, tone), AI drafts, you polish.</p>
+    <div class="callout"><strong>Prompt template:</strong><br>
+    <em>"Draft a 4-paragraph email to [audience] announcing [change]. Tone: warm but professional. Include: what's changing, why now, what they need to do, where to get help. Keep paragraphs under 4 sentences."</em></div>
+    <p>Always re-read the final draft. AI sometimes invents details that sound right but aren't — a launch date, a feature name, a number.</p>
+  `));
+
+  wrap.appendChild(renderQuiz('s2', [
+    {
+      q: 'Which of these is the best use of AI for a release note?',
+      opts: [
+        'Have it write the entire release note from a one-line summary',
+        'Paste your week\'s commit messages and have it draft a paragraph, then edit before publishing',
+        'Skip the edit step since AI writing is now indistinguishable from human writing',
+        'Don\'t use AI for release notes — they should always be written from scratch'
+      ],
+      a: 1,
+      feedback: {
+        ok: '✓ Right. Pattern 2 in action: bring real source material (commits), let AI do the structuring, edit before shipping. The edit step is non-negotiable.',
+        bad: '✗ The pattern is: give AI real source material, let it do the structural work, edit before shipping. Writing from a one-line summary leaves too much to invention; skipping the edit lets the AI tells slip through.'
+      }
+    },
+    {
+      q: 'AI gave you a list of 3 sources for a research question, complete with URLs. What\'s next?',
+      opts: [
+        'Use them in your write-up since AI cited them confidently',
+        'Pick the most-cited one and trust it',
+        'Treat each URL as a hypothesis — open it and verify it exists and says what AI claimed',
+        'Replace them with sources from your own search and pretend AI didn\'t help'
+      ],
+      a: 2,
+      feedback: {
+        ok: '✓ Exactly. AI invents URLs and misquotes papers with high confidence. Every source is a hypothesis until you have personally opened the link and verified the content matches what AI summarised.',
+        bad: '✗ AI fabricates sources and citations with high confidence. The only safe move is to open every link and confirm the source exists and says what AI claimed. No "most-cited", no shortcuts.'
+      }
+    },
+    {
+      q: 'Which is the right framing for using AI in meeting summaries?',
+      opts: [
+        'AI replaces note-taking entirely — post its output verbatim',
+        'AI extracts a structured first draft from the transcript; you skim for misattributed action items before posting',
+        'AI should not be used for meeting summaries because transcripts contain confidential information',
+        'AI is fine if you remove all names from the transcript first'
+      ],
+      a: 1,
+      feedback: {
+        ok: '✓ Right. The pattern: transcript → structured prompt → output → quick verification pass (especially for who owns what) → post. Speed and accuracy both.',
+        bad: '✗ Transcripts of internal meetings can go to approved tools (Claude, ChatGPT Enterprise). The pattern is: AI extracts a structured first draft, you verify the action item ownership and dates before posting. Never post verbatim — misattributed actions cause real problems.'
+      }
+    }
+  ]));
+
+  const row = el('div', {class:'btn-row'});
+  const prv = prevButton('s2'); if(prv) row.appendChild(prv);
+  const nxt = nextButton('s2'); if(nxt) row.appendChild(nxt);
+  wrap.appendChild(row);
+  return wrap;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   SESSION 3 — Prompting Fundamentals
+   ──────────────────────────────────────────────────────────────── */
+function renderS3(){
+  const wrap = el('div');
+  wrap.appendChild(shellHeader('s3', 'Prompting Fundamentals — RCOCF', 'Five-part prompt framework used across Reloadly: Role, Context, Objective, Constraints, Format. Learn the parts, then practise.'));
+
+  wrap.appendChild(el('div', {class:'card'}, `
+    <h2>The RCOCF framework</h2>
+    <p>Every reliable prompt at Reloadly has five parts. Skip one and the output degrades — usually generically helpful but not actually useful.</p>
+    <table class="tbl">
+      <thead><tr><th>Part</th><th>What it answers</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><strong>R</strong>ole</td><td>Who is the AI being?</td><td><em>"You're a senior backend engineer who's reviewed thousands of pull requests."</em></td></tr>
+        <tr><td><strong>C</strong>ontext</td><td>What background does the AI need?</td><td><em>"This PR touches the topup queue worker. It changes how we deduplicate retries. The full file is below."</em></td></tr>
+        <tr><td><strong>O</strong>bjective</td><td>What do you want?</td><td><em>"Identify any concurrency bugs and any places the deduplication logic could miss a duplicate."</em></td></tr>
+        <tr><td><strong>C</strong>onstraints</td><td>What rules must it follow?</td><td><em>"Only flag real bugs, not style preferences. Cite the line number for each issue."</em></td></tr>
+        <tr><td><strong>F</strong>ormat</td><td>How should it answer?</td><td><em>"Output: a numbered list. For each issue: severity (high/med/low), line number, one-sentence description, suggested fix."</em></td></tr>
+      </tbody>
+    </table>
+  `));
+
+  wrap.appendChild(el('div', {class:'card'}, `
+    <h2>Bad prompt vs. RCOCF prompt</h2>
+    <h3>❌ Bad</h3>
+    <div class="callout danger">"Review my PR"</div>
+    <p>Result: a generic bulleted list of comments — half are nitpicks about variable naming, none catch the actual bug.</p>
+    <h3>✓ RCOCF</h3>
+    <div class="callout"><em>You're a senior backend engineer who's reviewed thousands of pull requests.<br><br>This PR touches the topup queue worker. It changes how we deduplicate retries. The diff is below.<br><br>Identify concurrency bugs and any places the deduplication logic could miss a duplicate.<br><br>Only flag real bugs, not style preferences. Cite the line number for each issue.<br><br>Output: a numbered list. For each issue: severity (high/med/low), line number, one-sentence description, suggested fix.</em></div>
+    <p>Result: 3 specific issues with severity, line numbers, and concrete fixes. Two of them are real bugs.</p>
+  `));
+
+  wrap.appendChild(el('div', {class:'card'}, `
+    <h2>When to iterate</h2>
+    <p>First output is wrong or weak? Don't rewrite the whole prompt — patch it. Common patches:</p>
+    <ul>
+      <li><strong>Output too generic?</strong> Add Constraints: "be specific, name the actual file/function/customer".</li>
+      <li><strong>Wrong angle?</strong> Adjust Role: "You're not a marketer, you're an SRE."</li>
+      <li><strong>Missed something important?</strong> Add to Context.</li>
+      <li><strong>Right content, wrong shape?</strong> Tighten Format.</li>
+    </ul>
+    <p>3-4 quick iterations beats one perfect prompt.</p>
+  `));
+
+  wrap.appendChild(renderQuiz('s3', [
+    {
+      q: 'You ask AI to "summarise this customer complaint" and get back something generic. Which part of RCOCF is most likely missing?',
+      opts: [
+        'Role — you didn\'t tell it to be a customer support agent',
+        'Format — you didn\'t specify bullets vs prose',
+        'Objective + Constraints — "summarise" without saying what to extract (issue / urgency / suggested action) leaves too much open',
+        'Context — you should always paste the full ticket history'
+      ],
+      a: 2,
+      feedback: {
+        ok: '✓ Right. "Summarise" alone is a weak Objective. Specifying what to extract (issue, urgency, suggested action) and constraining the focus tightens the output immediately.',
+        bad: '✗ Role and Format help, but the root cause of generic output is usually an under-specified Objective. "Summarise" doesn\'t tell the model what to keep vs throw away. Spell out what to extract.'
+      }
+    },
+    {
+      q: 'When you get a wrong answer from an iterated prompt, what\'s the right next step?',
+      opts: [
+        'Rewrite the entire prompt from scratch',
+        'Identify which RCOCF part is letting you down (Role / Context / Objective / Constraints / Format) and patch only that part',
+        'Try a different AI tool',
+        'Accept the output and edit heavily by hand'
+      ],
+      a: 1,
+      feedback: {
+        ok: '✓ Right. Diagnose first — which part is failing? — then patch only that part. Rewriting from scratch wastes the parts that were working.',
+        bad: '✗ Rewriting from scratch wastes the parts that worked. Diagnose which RCOCF element is failing (usually generic output = under-specified Objective; wrong angle = wrong Role; misses key facts = missing Context) and patch only that.'
+      }
+    },
+    {
+      q: 'Which Format constraint would help most when you need output you can paste into a spreadsheet?',
+      opts: [
+        '"Use plain prose"',
+        '"Be concise"',
+        '"Output as tab-separated values, one row per item, with these columns: name, status, owner, due date"',
+        '"Use bullet points"'
+      ],
+      a: 2,
+      feedback: {
+        ok: '✓ Right. Specifying exact format (TSV, columns, delimiter) makes the output paste-ready. Bullets and prose require manual restructuring.',
+        bad: '✗ For spreadsheet-ready output, specify the exact format: TSV (or CSV), one row per item, named columns. Anything looser means you reformat by hand.'
+      }
+    }
+  ]));
+
+  const row = el('div', {class:'btn-row'});
+  const prv = prevButton('s3'); if(prv) row.appendChild(prv);
+  const nxt = nextButton('s3'); if(nxt) row.appendChild(nxt);
+  wrap.appendChild(row);
+  return wrap;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   SESSION 4 — Role-Specific Workflows
+   ──────────────────────────────────────────────────────────────── */
+function renderS4(){
+  const wrap = el('div');
+  wrap.appendChild(shellHeader('s4', 'Role-Specific Workflows', 'Tailored playbooks for the four most common Reloadly roles. Pick yours, learn the others as you grow.'));
+
+  wrap.appendChild(el('div', {class:'card'}, `
+    <h2>Support</h2>
+    <ul>
+      <li><strong>Reply drafting</strong> — paste sanitised ticket → AI drafts → you tone-check, verify facts, send</li>
+      <li><strong>Common-question macros</strong> — generate templated responses for the 20 most common ticket types, store in your team wiki</li>
+      <li><strong>Escalation triage</strong> — feed AI the ticket + your judgement, ask: "which engineering team likely owns this? What information do they need to triage?"</li>
+      <li><strong>Pattern detection</strong> — paste 20 tickets from last week, ask "what topic cluster shows up most? Sample 3 quotes from each cluster"</li>
+    </ul>
+    <div class="callout warn"><strong>Red line:</strong> never paste raw ticket bodies with customer PII into AI tools. Sanitise first.</div>
+  `));
+
+  wrap.appendChild(el('div', {class:'card'}, `
+    <h2>Sales</h2>
+    <ul>
+      <li><strong>Prospect research briefs</strong> — give AI a company name + public LinkedIn snippets, ask for "1 page brief: what they do, recent product launches, likely buying signals, suggested opening question"</li>
+      <li><strong>Email rewriting</strong> — your draft + tone instruction → polished version in seconds</li>
+      <li><strong>Objection responses</strong> — common buyer objections → 3 framings each → A/B in your next call</li>
+      <li><strong>Call note structuring</strong> — paste your scratch notes → AI extracts BANT, decision-makers, next steps</li>
+    </ul>
+    <div class="callout warn"><strong>Red line:</strong> never invent product capabilities. If AI suggests we have a feature we don't, edit it out. Promising vapourware breaks trust.</div>
+  `));
+
+  wrap.appendChild(el('div', {class:'card'}, `
+    <h2>Operations</h2>
+    <ul>
+      <li><strong>Runbook drafting</strong> — describe a process you do regularly → AI writes a runbook → you correct the steps you do differently</li>
+      <li><strong>Postmortem skeletons</strong> — incident timeline → AI structures into a postmortem template (what happened, impact, root cause hypothesis, action items)</li>
+      <li><strong>Vendor email analysis</strong> — paste a vendor email → AI extracts what's actually being asked, what we're being committed to, what to push back on</li>
+      <li><strong>Spreadsheet formulas</strong> — describe what you want → AI gives you the formula and explains it</li>
+    </ul>
+    <div class="callout warn"><strong>Red line:</strong> AI is bad at exact arithmetic on real numbers. Use it to design formulas, then verify the math in the spreadsheet itself.</div>
+  `));
+
+  wrap.appendChild(el('div', {class:'card'}, `
+    <h2>Product & Engineering</h2>
+    <ul>
+      <li><strong>PR review</strong> — paste diff + context (what the PR is for) → AI flags concurrency, security, and edge cases → you weigh in</li>
+      <li><strong>Test generation</strong> — paste function → AI generates table-driven tests covering common, edge, and adversarial inputs</li>
+      <li><strong>RFC drafting</strong> — bullet your thinking → AI structures into Reloadly's RFC template → you fill in the trade-offs</li>
+      <li><strong>Code explanation</strong> — paste unfamiliar code → "explain what this does, identify any non-obvious behaviour, list the assumptions it makes"</li>
+    </ul>
+    <div class="callout warn"><strong>Red line:</strong> never paste production secrets, database queries with real data, or unredacted error logs. Sanitise first.</div>
+  `));
+
+  wrap.appendChild(renderQuiz('s4', [
+    {
+      q: 'Which Support workflow gives the highest leverage for someone handling 50+ tickets per week?',
+      opts: [
+        'Asking AI to send the replies directly to customers without your review',
+        'Building templated responses for the 20 most common ticket types and refining as you go',
+        'Using AI to summarise each individual ticket before reading it',
+        'None — Support work should be done manually to maintain quality'
+      ],
+      a: 1,
+      feedback: {
+        ok: '✓ Right. Templated responses for the most common cases is the highest-leverage pattern — 80% of tickets fall into ~20 patterns. You polish the template once, reuse forever.',
+        bad: '✗ Templated macros for common patterns is the highest-leverage move — you invest once and save dozens of drafts per week. Always with your review before sending; AI-to-customer direct is a red line.'
+      }
+    },
+    {
+      q: 'Sales red line that\'s easy to break: which is it?',
+      opts: [
+        'Using AI to draft outreach emails',
+        'Using AI for prospect research from public sources',
+        'Letting AI invent product capabilities we don\'t actually have, then sending the email',
+        'Using AI to summarise call notes'
+      ],
+      a: 2,
+      feedback: {
+        ok: '✓ Right. AI doesn\'t know our product roadmap. It will confidently invent features that sound plausible. Catching this in your editing pass is non-negotiable — promising vapourware breaks customer trust.',
+        bad: '✗ Drafting emails, doing public research, and summarising notes are all fine workflows. The red line is letting AI invent product capabilities that don\'t exist. AI doesn\'t know our roadmap; it will fabricate features that sound right. You must catch these in your edit.'
+      }
+    },
+    {
+      q: 'Engineering: which is a misuse of AI for code review?',
+      opts: [
+        'Pasting a diff and the PR description, asking for concurrency and security issues',
+        'Pasting raw production database query results (with customer data) to ask why a query is slow',
+        'Asking AI to generate table-driven tests for a function you wrote',
+        'Pasting unfamiliar code and asking what it does'
+      ],
+      a: 1,
+      feedback: {
+        ok: '✓ Right. Production data with real customer values violates the data security red line, even if the goal is debugging. Recreate the issue with synthetic data first, then ask AI.',
+        bad: '✗ The first, third, and fourth are good workflows. The misuse is pasting production data with real customer values — that violates the data security red line. To get help debugging a query, anonymise the values or recreate the issue with synthetic data first.'
+      }
+    }
+  ]));
+
+  const row = el('div', {class:'btn-row'});
+  const prv = prevButton('s4'); if(prv) row.appendChild(prv);
+  const nxt = nextButton('s4'); if(nxt) row.appendChild(nxt);
+  wrap.appendChild(row);
+  return wrap;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   EXERCISES (5 AI Challenges)
+   ──────────────────────────────────────────────────────────────── */
+const EXERCISES = [
+  {
+    id: 'ex1',
+    tag: 'CHALLENGE 1 OF 5 · PROMPT WRITING',
+    title: 'Convert a vague request into an RCOCF prompt',
+    brief: 'Take this vague request and rewrite it as a full RCOCF prompt: "Help me write something about our new dashboard." Include all five parts (Role, Context, Objective, Constraints, Format).',
+    placeholder: 'Paste your rewritten RCOCF prompt here…',
+    evaluate: (text) => {
+      const t = text.toLowerCase();
+      const has = {
+        role: /you[\'’]re|act as|you are a/i.test(text),
+        context: /context|background|dashboard|product|reloadly|launch/i.test(t),
+        objective: /draft|write|produce|generate|create|brainstorm/i.test(t),
+        constraints: /must|don[\'’]t|avoid|no more than|under|keep|tone|technical level/i.test(t),
+        format: /format|bullet|paragraph|sections|markdown|output/i.test(t)
+      };
+      const score = Object.values(has).filter(Boolean).length;
+      const missing = Object.keys(has).filter(k=>!has[k]);
+      let verdict;
+      if(score >= 5) verdict = 'Excellent — all five RCOCF parts present.';
+      else if(score >= 4) verdict = 'Strong. Missing or weak: '+missing.join(', ')+'.';
+      else verdict = 'Needs work. Missing or weak: '+missing.join(', ')+'.';
+      return {
+        score,
+        feedback:
+`<h4>Rubric breakdown</h4>
+<ul>
+<li><strong>Role</strong> ${has.role?'✓':'—'} (looks for: "You're a [X]" or "Act as…")</li>
+<li><strong>Context</strong> ${has.context?'✓':'—'} (mentions the dashboard or launch background)</li>
+<li><strong>Objective</strong> ${has.objective?'✓':'—'} (specific action verb: draft, generate, write…)</li>
+<li><strong>Constraints</strong> ${has.constraints?'✓':'—'} (limits: tone, length, what to avoid)</li>
+<li><strong>Format</strong> ${has.format?'✓':'—'} (output shape: bullets, sections, character limit)</li>
+</ul>
+<h4>Score: ${score}/5 — ${verdict}</h4>
+<h4>Reference example</h4>
+You're a senior product marketer at Reloadly with 5 years of fintech experience. Context: we're launching a new analytics dashboard that lets ops teams see all supplier wallet balances in one screen. Beta customers are 12 fintechs using our airtime API. Write a 3-paragraph internal Slack announcement for the engineering team explaining what we just shipped and why it matters to them specifically. Tone: warm, concrete, no marketing fluff. Format: 3 paragraphs, each under 4 sentences, with a one-line summary at top.`
+      };
+    }
+  },
+  {
+    id: 'ex2',
+    tag: 'CHALLENGE 2 OF 5 · SECURITY JUDGEMENT',
+    title: 'Sanitise a real-world customer message',
+    brief: 'A customer wrote: "Hi, I am John Smith (john.smith@gmail.com, account #4499-2718-2345-9821, balance $1,247.32). My topup to MTN Nigeria 080123 4567 89 failed. Can you help?" Rewrite this message to remove every red-line item while keeping enough detail for AI to draft a helpful reply.',
+    placeholder: 'Paste your sanitised version here…',
+    evaluate: (text) => {
+      const checks = {
+        noName: !/john\s+smith/i.test(text),
+        noEmail: !/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(text),
+        noCard: !/\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}/.test(text),
+        noPhone: !/\b080\s?123\s?4567\s?89\b/.test(text) && !/\b\d{10,12}\b/.test(text.replace(/[\s-]/g,'')),
+        keptIssue: /topup|failed|mtn|nigeria/i.test(text),
+        usedPlaceholders: /\[|customer_|account_|order_|name_redacted|email_redacted/i.test(text)
+      };
+      const score = Object.values(checks).filter(Boolean).length;
+      let verdict;
+      if(score >= 5) verdict = 'Excellent — sanitised cleanly while preserving the actual issue.';
+      else if(score >= 4) verdict = 'Good — minor leakage. See breakdown below.';
+      else verdict = 'Significant leakage — review the rubric.';
+      return {
+        score,
+        feedback:
+`<h4>Rubric breakdown</h4>
+<ul>
+<li><strong>Removed full name</strong> ${checks.noName?'✓':'✗ name still present'}</li>
+<li><strong>Removed email</strong> ${checks.noEmail?'✓':'✗ email still present'}</li>
+<li><strong>Removed card number</strong> ${checks.noCard?'✓':'✗ card pattern detected'}</li>
+<li><strong>Removed phone number</strong> ${checks.noPhone?'✓':'✗ phone-like pattern detected'}</li>
+<li><strong>Kept the actual issue (topup/MTN)</strong> ${checks.keptIssue?'✓':'✗ over-sanitised — lost the actual problem'}</li>
+<li><strong>Used placeholder convention</strong> ${checks.usedPlaceholders?'✓':'— consider using [customer], [email], etc.'}</li>
+</ul>
+<h4>Score: ${score}/6 — ${verdict}</h4>
+<h4>Reference example</h4>
+Hi, I'm [customer_name] ([customer_email], account [account_id]). My topup to MTN Nigeria for [phone_redacted] failed. Can you help?`
+      };
+    }
+  },
+  {
+    id: 'ex3',
+    tag: 'CHALLENGE 3 OF 5 · ROLE WORKFLOW',
+    title: 'Build a templated reply macro for Support',
+    brief: 'You handle ~5 tickets a week asking the same question: "Why was my topup declined?" Write a templated reply that handles the three most common causes (insufficient balance, wrong recipient number format, supplier-side outage). The template should be polite, scannable, and end with a clear next step for the customer.',
+    placeholder: 'Paste your templated reply here…',
+    evaluate: (text) => {
+      const checks = {
+        coverInsufficient: /insufficient|balance|funds/i.test(text),
+        coverNumberFormat: /format|number|country code|digit/i.test(text),
+        coverSupplierOutage: /supplier|outage|temporarily|maintenance|provider/i.test(text),
+        polite: /(hi|hello|thanks|sorry|appreciate|understand|happy to help)/i.test(text),
+        clearAction: /(reply|let us know|share|provide|confirm|check)/i.test(text),
+        scannable: text.includes('-') || text.includes('•') || text.includes('1.') || text.includes('\n\n') || /(\*\*|##|::)/i.test(text)
+      };
+      const score = Object.values(checks).filter(Boolean).length;
+      let verdict;
+      if(score >= 5) verdict = 'Excellent — production-ready template.';
+      else if(score >= 4) verdict = 'Solid — refine the parts marked below.';
+      else verdict = 'More work needed — see rubric.';
+      return {
+        score,
+        feedback:
+`<h4>Rubric breakdown</h4>
+<ul>
+<li><strong>Covers insufficient balance</strong> ${checks.coverInsufficient?'✓':'—'}</li>
+<li><strong>Covers number format errors</strong> ${checks.coverNumberFormat?'✓':'—'}</li>
+<li><strong>Covers supplier outages</strong> ${checks.coverSupplierOutage?'✓':'—'}</li>
+<li><strong>Tone is polite / warm</strong> ${checks.polite?'✓':'—'}</li>
+<li><strong>Ends with a clear action</strong> ${checks.clearAction?'✓':'—'}</li>
+<li><strong>Scannable structure (bullets, list, sections)</strong> ${checks.scannable?'✓':'—'}</li>
+</ul>
+<h4>Score: ${score}/6 — ${verdict}</h4>
+<h4>Reference example</h4>
+Hi there — sorry to hear your topup didn't go through. We see three common reasons; one of these is likely the cause:
+
+1. <b>Account balance</b> — your Reloadly balance must cover the topup plus fees. Top up your account and retry.
+2. <b>Recipient number format</b> — the recipient phone number must include the country code (e.g. +234 for Nigeria, +254 for Kenya) and no extra characters.
+3. <b>Supplier-side outage</b> — occasionally a mobile operator's system is down. We retry automatically; you'll see the topup succeed or refund within 1 hour.
+
+Could you share the topup ID (or the recipient number, country, and time of the attempt) so we can confirm which case applies? We'll get back to you within the next business hour.`
+      };
+    }
+  },
+  {
+    id: 'ex4',
+    tag: 'CHALLENGE 4 OF 5 · OUTPUT VERIFICATION',
+    title: 'Spot the AI hallucinations',
+    brief: 'AI gave you the following research note about Reloadly competitors. Identify everything that should be verified before you trust it, and explain why. Note: "DT One was founded in 2008 by Mark Sherwood and is headquartered in Singapore. They process $4B in transactions annually and were named ‘Fintech of the Year 2024’ by Bloomberg. Their CTO, Reema Kapoor, gave a keynote at Money 20/20 Europe last month."',
+    placeholder: 'List each claim and what verification it needs…',
+    evaluate: (text) => {
+      const checks = {
+        flaggedFounder: /(mark sherwood|founder)/i.test(text),
+        flaggedFoundingYear: /(2008|founding year|founded)/i.test(text),
+        flaggedHQ: /(singapore|headquart)/i.test(text),
+        flaggedRevenue: /(4b|\$4|revenue|transactions|process)/i.test(text),
+        flaggedAward: /(bloomberg|fintech of the year|award)/i.test(text),
+        flaggedKeynote: /(cto|reema|kapoor|keynote|money 20)/i.test(text),
+        explainsWhy: /(verify|check|source|hallucin|fabricat|confirm|publicly|press release|company website|reuters|crunchbase|linkedin)/i.test(text)
+      };
+      const score = Object.values(checks).filter(Boolean).length;
+      let verdict;
+      if(score >= 6) verdict = 'Excellent — caught the key fabrication risks.';
+      else if(score >= 4) verdict = 'Good start, but more claims need challenging.';
+      else verdict = 'Most of these need verification — see rubric.';
+      return {
+        score,
+        feedback:
+`<h4>Rubric — every claim is a hypothesis until verified</h4>
+<ul>
+<li><strong>Founder name</strong> ${checks.flaggedFounder?'✓':'—'} (AI often invents specific people for fictional companies)</li>
+<li><strong>Founding year</strong> ${checks.flaggedFoundingYear?'✓':'—'}</li>
+<li><strong>Headquarters</strong> ${checks.flaggedHQ?'✓':'—'}</li>
+<li><strong>Specific revenue / transaction volume</strong> ${checks.flaggedRevenue?'✓':'—'} (precise numbers are a classic hallucination)</li>
+<li><strong>Specific award + outlet + year</strong> ${checks.flaggedAward?'✓':'—'} (AI invents prestigious-sounding awards with confidence)</li>
+<li><strong>Named executive + recent event</strong> ${checks.flaggedKeynote?'✓':'—'} (CTO names and recent keynote claims need direct verification)</li>
+<li><strong>You explained verification path (sources, press releases, LinkedIn)</strong> ${checks.explainsWhy?'✓':'—'}</li>
+</ul>
+<h4>Score: ${score}/7 — ${verdict}</h4>
+<h4>The principle</h4>
+For a competitor brief that will inform strategy, treat every named person, exact number, and specific event as a hypothesis. Verify via the company's actual website, Crunchbase, LinkedIn, or a primary press release before citing.`
+      };
+    }
+  },
+  {
+    id: 'ex5',
+    tag: 'CHALLENGE 5 OF 5 · INTEGRATION',
+    title: 'Plan an AI workflow for your role',
+    brief: 'Write a 2-paragraph plan: pick one repetitive task in your current role, describe how you\'ll use AI to do it 50% faster, and name the verification step you\'ll add to catch errors. End with the metric you\'ll use to measure if it actually worked after a month.',
+    placeholder: 'Your AI workflow plan…',
+    evaluate: (text) => {
+      const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+      const checks = {
+        identifiesTask: wordCount > 20,
+        describesAIStep: /(claude|chatgpt|ai|llm|prompt|model)/i.test(text),
+        verificationStep: /(verify|check|review|edit|sanity|confirm|spot-check|qa)/i.test(text),
+        hasMetric: /(metric|measure|hours|tickets|drafts|count|track|time saved|baseline|before|after)/i.test(text),
+        appropriateLength: wordCount >= 60 && wordCount <= 250
+      };
+      const score = Object.values(checks).filter(Boolean).length;
+      let verdict;
+      if(score >= 4) verdict = 'Solid plan — a manager could approve this.';
+      else if(score >= 3) verdict = 'Good shape; tighten the parts called out below.';
+      else verdict = 'Plan needs more substance — see rubric.';
+      return {
+        score,
+        feedback:
+`<h4>Rubric breakdown</h4>
+<ul>
+<li><strong>Identifies a specific repetitive task</strong> ${checks.identifiesTask?'✓':'— more detail on what the task actually is'}</li>
+<li><strong>Describes the AI workflow step</strong> ${checks.describesAIStep?'✓':'— name the tool and the prompt pattern'}</li>
+<li><strong>Includes a verification step</strong> ${checks.verificationStep?'✓':'— this is the non-negotiable part of every AI workflow'}</li>
+<li><strong>Includes a measurable metric</strong> ${checks.hasMetric?'✓':'— how will you know if it worked?'}</li>
+<li><strong>Appropriate length (60-250 words)</strong> ${checks.appropriateLength?'✓':'— current: '+wordCount+' words'}</li>
+</ul>
+<h4>Score: ${score}/5 — ${verdict}</h4>
+<h4>Reference example (Support analyst)</h4>
+Every Friday I close out the week with a summary of the 25-40 tickets I handled. It takes me 90 minutes — I open each ticket, summarise the issue, mark category and resolution, and roll up into a Slack post for my manager. I'll use Claude to do the per-ticket summary step. My workflow: export the week's tickets to a sanitised CSV (remove customer PII), paste in batches of 10, ask Claude to extract (issue category, resolution, time-to-close) in TSV format, paste back into a spreadsheet, then write the Slack roll-up myself from the totals.
+<br><br>
+Verification: I'll spot-check 3 random rows against the original tickets before each Friday post — if any are misclassified, I correct the prompt for next week. Metric: I'll track minutes-to-complete on the Friday roll-up for the next four weeks and compare against my 90-minute baseline. Target: under 45 minutes by week 4. If I'm not under 60 minutes by week 2, the workflow isn't working and I'll go back to manual.`
+      };
+    }
+  }
+];
+
+function renderExercises(){
+  const wrap = el('div');
+  wrap.appendChild(shellHeader('ex', 'AI Challenges — 5 hands-on drills', 'Each challenge has a clear task and an instant rubric. Complete all five to unlock the validation checklist.'));
+
+  const state = getState();
+
+  EXERCISES.forEach(ex=>{
+    const card = el('div', {class:'ex-card'});
+    card.innerHTML = '<div class="ex-tag">'+ex.tag+'</div>'
+      + '<div class="ex-title">'+ex.title+'</div>'
+      + '<div class="ex-brief">'+ex.brief+'</div>';
+    const ta = el('textarea', {class:'ex-input', placeholder: ex.placeholder});
+    ta.value = state.exercises[ex.id] || '';
+    card.appendChild(ta);
+
+    const btnRow = el('div', {class:'btn-row'});
+    const submit = el('button', {class:'btn teal'}, 'Evaluate my answer');
+    btnRow.appendChild(submit);
+    const reset = el('button', {class:'btn ghost'}, 'Clear');
+    btnRow.appendChild(reset);
+    card.appendChild(btnRow);
+
+    const outputBox = el('div');
+    if(state.exercises[ex.id]){
+      const r = ex.evaluate(state.exercises[ex.id]);
+      outputBox.appendChild(buildExOutput(r));
+    }
+    card.appendChild(outputBox);
+
+    submit.onclick = ()=>{
+      const txt = ta.value.trim();
+      if(txt.length < 20){alert('Please write a longer answer (at least 20 characters).');return;}
+      const s = getState();
+      s.exercises[ex.id] = txt;
+      saveState(s);
+      const r = ex.evaluate(txt);
+      outputBox.innerHTML = '';
+      outputBox.appendChild(buildExOutput(r));
+      recalcProgress();
+    };
+    reset.onclick = ()=>{
+      ta.value = '';
+      const s = getState();
+      delete s.exercises[ex.id];
+      saveState(s);
+      outputBox.innerHTML = '';
+      recalcProgress();
+    };
+
+    wrap.appendChild(card);
+  });
+
+  const row = el('div', {class:'btn-row'});
+  const prv = prevButton('ex'); if(prv) row.appendChild(prv);
+  const nxt = nextButton('ex'); if(nxt) row.appendChild(nxt);
+  wrap.appendChild(row);
+  return wrap;
+}
+
+function buildExOutput(r){
+  const out = el('div', {class:'ex-output'});
+  out.innerHTML = r.feedback;
+  return out;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   QUIZ ENGINE
+   ──────────────────────────────────────────────────────────────── */
+function renderQuiz(sessionId, questions){
+  const wrap = el('div');
+  wrap.appendChild(el('h2', {style:'margin-top:32px;font-size:22px;color:var(--navy)'}, 'Knowledge check'));
+  wrap.appendChild(el('p', {style:'color:var(--mut);font-size:14px;margin-bottom:18px'}, 'Pass with 3/3 to mark this session complete. You can retake any question.'));
+
+  const state = getState();
+  state.quiz[sessionId] = state.quiz[sessionId] || {answers:{}, attempts:0, passed:false};
+  const qState = state.quiz[sessionId];
+
+  questions.forEach((q, qi)=>{
+    const qcard = el('div', {class:'quiz-q'});
+    qcard.innerHTML = '<div class="q-num">QUESTION '+(qi+1)+' OF '+questions.length+'</div>'
+      + '<div class="q-txt">'+q.q+'</div>';
+    const opts = el('div');
+    q.opts.forEach((opt, oi)=>{
+      const lab = el('label', {class:'quiz-opt'});
+      const inp = el('input', {type:'radio', name:sessionId+'-q'+qi});
+      if(qState.answers[qi] === oi) inp.checked = true;
+      lab.appendChild(inp);
+      lab.appendChild(el('span', {}, opt));
+      lab.onclick = ()=>{
+        // Defer state save to submit
+      };
+      opts.appendChild(lab);
+    });
+    qcard.appendChild(opts);
+    const fb = el('div', {style:'display:none'});
+    qcard.appendChild(fb);
+    wrap.appendChild(qcard);
+
+    qcard._showFeedback = (ok)=>{
+      fb.className = 'quiz-feedback ' + (ok?'ok':'bad');
+      fb.style.display = 'block';
+      fb.innerHTML = (ok ? q.feedback.ok : q.feedback.bad);
+      // Mark options
+      opts.querySelectorAll('.quiz-opt').forEach((lab, oi)=>{
+        lab.classList.remove('correct','wrong');
+        if(oi === q.a) lab.classList.add('correct');
+        else if(opts.querySelectorAll('input')[oi].checked) lab.classList.add('wrong');
+      });
+    };
+  });
+
+  const resultBox = el('div');
+  const submit = el('button', {class:'btn'}, 'Submit answers');
+  const retake = el('button', {class:'btn ghost', style:'display:none'}, '↻ Retake quiz');
+  const submitRow = el('div', {class:'btn-row'});
+  submitRow.appendChild(submit);
+  submitRow.appendChild(retake);
+  wrap.appendChild(submitRow);
+  wrap.appendChild(resultBox);
+
+  submit.onclick = ()=>{
+    let correct = 0;
+    questions.forEach((q, qi)=>{
+      const inputs = wrap.querySelectorAll('input[name="'+sessionId+'-q'+qi+'"]');
+      let picked = null;
+      inputs.forEach((inp, oi)=>{if(inp.checked) picked = oi;});
+      if(picked === null) return;
+      const qcards = wrap.querySelectorAll('.quiz-q');
+      qcards[qi]._showFeedback(picked === q.a);
+      if(picked === q.a) correct++;
+    });
+    const s = getState();
+    s.quiz[sessionId].attempts = (s.quiz[sessionId].attempts||0) + 1;
+    const passed = correct === questions.length;
+    s.quiz[sessionId].passed = passed || s.quiz[sessionId].passed;
+    saveState(s);
+    const result = el('div', {class:'quiz-result ' + (passed?'pass':'fail')});
+    result.innerHTML = passed
+      ? '<strong>✓ Passed</strong> — '+correct+'/'+questions.length+' on attempt '+s.quiz[sessionId].attempts+'. Continue to the next section.'
+      : '<strong>Almost there</strong> — '+correct+'/'+questions.length+'. Review the feedback under each question and retake to pass.';
+    resultBox.innerHTML = '';
+    resultBox.appendChild(result);
+    retake.style.display = passed ? 'none' : 'inline-flex';
+    submit.style.display = passed ? 'none' : 'inline-flex';
+    recalcProgress();
+    // Auto-advance "Continue" if passed (the parent's next button is gated by isStepComplete)
+    const nextBtn = wrap.parentElement && wrap.parentElement.querySelector ? null : null;
+  };
+
+  retake.onclick = ()=>{
+    // Reset visual state, keep attempt counter
+    wrap.querySelectorAll('.quiz-q').forEach(qcard=>{
+      qcard.querySelectorAll('.quiz-opt').forEach(l=>l.classList.remove('correct','wrong'));
+      qcard.querySelectorAll('input').forEach(i=>i.checked=false);
+      const fb = qcard.querySelector('.quiz-feedback');
+      if(fb) fb.style.display = 'none';
+    });
+    resultBox.innerHTML = '';
+    submit.style.display = 'inline-flex';
+    retake.style.display = 'none';
+  };
+
+  // If user already passed previously, render in passed state
+  if(qState.passed){
+    questions.forEach((q,qi)=>{
+      const inputs = wrap.querySelectorAll('input[name="'+sessionId+'-q'+qi+'"]');
+      inputs[q.a] && (inputs[q.a].checked = true);
+      const qcards = wrap.querySelectorAll('.quiz-q');
+      qcards[qi]._showFeedback(true);
+    });
+    const result = el('div', {class:'quiz-result pass'}, '<strong>✓ Previously passed</strong> — you can retake if you want a refresher.');
+    resultBox.appendChild(result);
+    retake.style.display = 'inline-flex';
+    submit.style.display = 'none';
+  }
+
+  return wrap;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   VALIDATION CHECKLIST
+   ──────────────────────────────────────────────────────────────── */
+function renderChecklist(){
+  const wrap = el('div');
+  wrap.appendChild(shellHeader('checklist', 'Validation Checklist', 'Before your certificate unlocks, confirm you understand the five non-negotiable principles. Tick each to acknowledge.'));
+
+  const items = [
+    {id:'ck1', html:'<b>Human accountability.</b> I understand that I — not the AI — am accountable for any work product I share, send, or commit, even when AI helped me produce it.'},
+    {id:'ck2', html:'<b>Data security.</b> I will never paste customer PII (names, emails, phone numbers, addresses, IDs), payment instrument details (card numbers, account numbers, balances tied to a named customer), or live credentials (API keys, OAuth tokens, passwords) into any AI tool — approved or otherwise. I will sanitise first.'},
+    {id:'ck3', html:'<b>Approved tools only.</b> I will only use AI tools from the approved list (Claude, ChatGPT Enterprise, Cursor/Copilot, NotebookLM) for work tasks. Any other tool requires written security team sign-off before I use it for work.'},
+    {id:'ck4', html:'<b>Verify what matters.</b> If an AI answer being wrong would be embarrassing or harmful, I will verify before using it. I treat AI-provided sources, citations, URLs, names, and exact numbers as hypotheses until verified.'},
+    {id:'ck5', html:'<b>Sales: no vapourware.</b> If I work in a customer-facing role, I will not let AI invent Reloadly product capabilities. I will edit out any features that don\'t actually exist before sending.'}
+  ];
+
+  const card = el('div', {class:'checkl'});
+  const state = getState();
+  items.forEach(it=>{
+    const row = el('div', {class:'checkl-item'});
+    const cb = el('input', {type:'checkbox', id:it.id});
+    if(state.checklist[it.id]) cb.checked = true;
+    const lab = el('label', {for:it.id}, it.html);
+    cb.onchange = ()=>{
+      const s = getState();
+      s.checklist[it.id] = cb.checked;
+      saveState(s);
+      recalcProgress();
+    };
+    row.appendChild(cb);
+    row.appendChild(lab);
+    card.appendChild(row);
+  });
+  wrap.appendChild(card);
+
+  wrap.appendChild(el('div', {class:'callout'}, 'Once every item is checked, the certificate step in the sidebar unlocks. Take a moment to actually read each principle before ticking — these are the rules you\'re agreeing to.'));
+
+  const row = el('div', {class:'btn-row'});
+  const prv = prevButton('checklist'); if(prv) row.appendChild(prv);
+  const nxt = nextButton('checklist'); if(nxt) row.appendChild(nxt);
+  wrap.appendChild(row);
+  return wrap;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   CERTIFICATE
+   ──────────────────────────────────────────────────────────────── */
+function renderCertificate(){
+  const wrap = el('div');
+  const state = getState();
+
+  // Gate
+  const allDone = STEPS.slice(0,-1).every(isStepComplete);
+  if(!allDone){
+    wrap.appendChild(shellHeader('cert', 'Certificate locked', 'Complete every section before claiming.'));
+    const missing = STEPS.slice(0,-1).filter(s=>!isStepComplete(s)).map(s=>STEP_NAMES[s]);
+    wrap.appendChild(el('div', {class:'gate'}, 'Still to complete:<ul>'+missing.map(m=>'<li>'+m+'</li>').join('')+'</ul>'));
+    return wrap;
+  }
+
+  const name = (document.getElementById('learner-name')||{}).value || state.learner.name || 'Reloadly Team Member';
+  const email = (document.getElementById('learner-email')||{}).value || state.learner.email || '';
+
+  if(!name.trim() || !email.trim()){
+    wrap.appendChild(shellHeader('cert', 'Almost there', 'Add your name and Reloadly email in the sidebar so we can issue your certificate.'));
+    return wrap;
+  }
+
+  // Mark cert step complete if not already
+  if(!state.completedSteps.cert){
+    state.completedSteps.cert = new Date().toISOString();
+    state.learner = {name, email};
+    saveState(state);
+    recalcProgress();
+  }
+  const completedAt = state.completedSteps.cert;
+  const dt = new Date(completedAt);
+  const dateStr = dt.toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'});
+  const timeStr = dt.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  const certId = 'RL-AI-' + dt.toISOString().slice(0,10).replace(/-/g,'') + '-' + (email.split('@')[0]||'rl').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+
+  wrap.appendChild(shellHeader('cert', 'Certificate Issued', 'Congratulations. The certificate below is yours. Take a screenshot, save the printed version, or paste the certificate ID into Pulse.'));
+
+  const cert = el('div', {class:'cert'});
+  cert.innerHTML = `
+    <div class="cert-eyebrow">RELOADLY · CERTIFICATE OF COMPLETION</div>
+    <div class="cert-title">AI Training & Productivity Module</div>
+    <div class="cert-sub">Internal training & certification program · 2026</div>
+    <div class="cert-pres">PRESENTED TO</div>
+    <div class="cert-name">${escapeHtml(name)}</div>
+    <div class="cert-body">For successfully completing every session, passing all knowledge checks, completing five hands-on AI exercises, and acknowledging the five core principles of safe and effective AI use at Reloadly.</div>
+    <div class="cert-meta">
+      <div class="cert-meta-block"><div class="cert-meta-lbl">COMPLETED ON</div><div class="cert-meta-val">${dateStr}</div><div style="font-size:11px;color:var(--mut);margin-top:3px">${timeStr} (local)</div></div>
+      <div class="cert-meta-block"><div class="cert-meta-lbl">CERTIFICATE ID</div><div class="cert-meta-val cert-id">${certId}</div></div>
+      <div class="cert-meta-block"><div class="cert-meta-lbl">VERIFY</div><div class="cert-meta-val" style="font-size:12px">Pulse → Performance → Courses</div></div>
+    </div>
+    <div class="cert-foot">Issued by Reloadly Learning & Development · This certificate confirms self-paced completion of the AI Training & Productivity Module v1</div>
+  `;
+  wrap.appendChild(cert);
+
+  const row = el('div', {class:'btn-row'});
+  const printBtn = el('button', {class:'btn'}, '🖨 Print / Save as PDF');
+  printBtn.onclick = ()=>window.print();
+  row.appendChild(printBtn);
+  const copyBtn = el('button', {class:'btn ghost'}, 'Copy certificate ID');
+  copyBtn.onclick = ()=>{
+    navigator.clipboard.writeText(certId).then(()=>{copyBtn.textContent='✓ Copied';setTimeout(()=>copyBtn.textContent='Copy certificate ID',1500);});
+  };
+  row.appendChild(copyBtn);
+  const closeBtn = el('button', {class:'btn ghost'}, 'Back to Pulse');
+  closeBtn.onclick = ()=>{window.close(); window.history.back();};
+  row.appendChild(closeBtn);
+  wrap.appendChild(row);
+  return wrap;
+}
+
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ────────────────────────────────────────────────────────────────
+   INIT
+   ──────────────────────────────────────────────────────────────── */
+function init(){
+  // Hydrate learner inputs
+  const s = getState();
+  const nameInp = document.getElementById('learner-name');
+  const emailInp = document.getElementById('learner-email');
+  if(s.learner){
+    if(s.learner.name && nameInp) nameInp.value = s.learner.name;
+    if(s.learner.email && emailInp) emailInp.value = s.learner.email;
+  }
+  const persistLearner = ()=>{
+    const st = getState();
+    st.learner = {name: nameInp.value, email: emailInp.value};
+    saveState(st);
+  };
+  if(nameInp) nameInp.addEventListener('change', persistLearner);
+  if(emailInp) emailInp.addEventListener('change', persistLearner);
+
+  // Wire nav
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.addEventListener('click', ()=>go(el.dataset.step));
+  });
+
+  recalcProgress();
+  go('s1');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
