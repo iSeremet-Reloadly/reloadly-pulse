@@ -2351,32 +2351,240 @@ function renderPerf(){
 // per-user, stored in pd.courses[email][courseId] = {status, startedAt,
 // completedAt}. Status: 'not_started' | 'in_progress' | 'completed'.
 // ─────────────────────────────────────────────────────────────────────────────
-var PULSE_COURSES = [{
-  id: 'reloadly-ai-training-2026',
-  title: 'Reloadly AI Training & Productivity Module',
-  tag: 'AI · Productivity',
-  est: '~90 minutes',
-  level: 'All employees',
-  // Launches the training module. Drop reloadly-ai-training.html into the same
-  // repo as index.html and this will resolve correctly. Override per-user if
-  // you host it elsewhere.
-  launchUrl: './reloadly-ai-training.html',
-  summary: 'Reloadly’s internal AI onboarding program. Covers approved AI tools and use cases, data security boundaries, prompting fundamentals, and role-specific workflows. Five hands-on exercises with live Claude API integration. Certificate on completion.',
-  sessions: [
-    {n: 1, t: 'Introduction to AI at Reloadly', d: 'Approved tools, data security policy, what AI can and cannot do for your role.'},
-    {n: 2, t: 'AI for Productivity', d: 'Meeting summaries, documentation, research, internal communications.'},
-    {n: 3, t: 'Prompting Fundamentals', d: 'The Role + Context + Objective + Constraints + Format framework.'},
-    {n: 4, t: 'Role-Specific Workflows', d: 'Tailored playbooks for Support, Sales, Operations, Product & Engineering.'},
-    {n: 5, t: 'AI Challenges (5 live exercises)', d: 'Practical drills with Claude API; output evaluated against rubric.'},
-    {n: 6, t: 'Validation Checklist & Certification', d: 'Confirm human accountability, no PII, data security. Certificate unlocks.'}
-  ],
-  outcomes: [
-    'Use approved AI tools without violating Reloadly data policies',
-    'Write prompts that consistently produce useful output',
-    'Apply role-specific AI workflows in daily tasks',
-    'Recognise when AI output requires human verification'
-  ]
-}];
+var PULSE_COURSES = [
+  // ─── TIER 1 — Mandatory for everyone ─────────────────────────────────
+  {
+    id: 'reloadly-pulse-onboarding-2026',
+    title: 'Reloadly Pulse Onboarding',
+    tag: 'Foundational · Onboarding',
+    est: '~45 minutes',
+    level: 'All employees',
+    status: 'available',
+    launchUrl: './reloadly-pulse-onboarding.html',
+    summary: 'Get productive in Pulse on day one. Covers the four core modules (Strategy, Tasks, My Tasks, Roadmaps), how to write your first OKR, the task lifecycle, and the weekly rhythm that keeps everyone aligned.',
+    sessions: [
+      {n: 1, t: 'Welcome to Pulse', d: 'What Pulse is, which modules apply to your role, how it fits with Slack and email.'},
+      {n: 2, t: 'Set Your First OKR', d: 'How the cascade works, objective vs key result, the four KR archetypes, writing yours in the Strategy module.'},
+      {n: 3, t: 'Manage Your Work', d: 'Tasks vs My Tasks, the five-status lifecycle, linking tasks to KRs, the weekly rhythm.'},
+      {n: 4, t: 'Roadmaps & Cross-Team Visibility', d: 'Now/Next/Later thinking, dependencies, At Risk status discipline.'},
+      {n: 5, t: 'Practical drills (4)', d: 'Write a KR, pick the right module, write an honest status update, build your weekly Pulse rhythm.'},
+      {n: 6, t: 'Validation Checklist & Certification', d: 'Five habits to commit to. Certificate unlocks.'}
+    ],
+    outcomes: [
+      'Navigate every Pulse module that matters for your role',
+      'Write KRs that are measurable and binary at quarter end',
+      'Run a productive weekly Pulse rhythm without overhead',
+      'Read and update Roadmaps honestly, including At Risk status'
+    ]
+  },
+  {
+    id: 'reloadly-data-security-2026',
+    title: 'Data Security & Privacy at Reloadly',
+    tag: 'Foundational · Security',
+    est: '~60 minutes',
+    level: 'All employees (annual refresh)',
+    status: 'available',
+    launchUrl: './reloadly-data-security.html',
+    summary: 'The four data tiers, customer PII handling, credentials and secrets management, incident response. The security baseline every Reloadly employee needs — and refreshes annually.',
+    sessions: [
+      {n: 1, t: 'Data Classification', d: 'Public / Internal / Confidential / Restricted — what each means and how to handle it.'},
+      {n: 2, t: 'Customer PII Handling', d: 'What counts as PII, the front-page test, sanitising in practice.'},
+      {n: 3, t: 'Credentials, Secrets & Production Data', d: 'Where secrets live and don\'t, MFA hygiene, push-bombing.'},
+      {n: 4, t: 'Incident Response', d: 'When to report, the first 15 minutes, the 5-bullet report format.'},
+      {n: 5, t: 'Practical drills (4)', d: 'Classify data, sanitise a message, place secrets correctly, write an incident report.'},
+      {n: 6, t: 'Validation Checklist & Certification', d: 'Six non-negotiable principles. Cert + annual refresh tracking.'}
+    ],
+    outcomes: [
+      'Classify any piece of data into the correct tier',
+      'Sanitise customer content before any AI or external use',
+      'Recognise and react to common attacks (phishing, push-bombing, social engineering)',
+      'Report incidents within the first 15 minutes using the standard format'
+    ]
+  },
+  {
+    id: 'reloadly-ai-training-2026',
+    title: 'Reloadly AI Training & Productivity Module',
+    tag: 'Foundational · AI',
+    est: '~90 minutes',
+    level: 'All employees',
+    status: 'available',
+    launchUrl: './reloadly-ai-training.html',
+    summary: 'Internal AI onboarding. Approved tools and use cases, data security boundaries, prompting fundamentals (RCOCF framework), and role-specific workflows. Five hands-on exercises with rubric evaluation. Certificate on completion.',
+    sessions: [
+      {n: 1, t: 'Introduction to AI at Reloadly', d: 'Approved tools, three red lines, what AI is good and bad at.'},
+      {n: 2, t: 'AI for Productivity', d: 'Meeting summaries, documentation, research, internal communications.'},
+      {n: 3, t: 'Prompting Fundamentals', d: 'The Role + Context + Objective + Constraints + Format framework.'},
+      {n: 4, t: 'Role-Specific Workflows', d: 'Tailored playbooks for Support, Sales, Operations, Product & Engineering.'},
+      {n: 5, t: 'AI Challenges (5 exercises)', d: 'Practical drills with instant rubric feedback.'},
+      {n: 6, t: 'Validation Checklist & Certification', d: 'Confirm human accountability, no PII, data security.'}
+    ],
+    outcomes: [
+      'Use approved AI tools without violating Reloadly data policies',
+      'Write prompts that consistently produce useful output',
+      'Apply role-specific AI workflows in daily tasks',
+      'Recognise when AI output requires human verification'
+    ]
+  },
+  {
+    id: 'anti-fraud-fintech-2026',
+    title: 'Anti-Fraud Awareness for Fintech',
+    tag: 'Foundational · Compliance',
+    est: '~50 minutes',
+    level: 'All employees (annual refresh)',
+    status: 'coming_soon',
+    eta: 'Q3 2026',
+    summary: 'Fintech-specific threat awareness. Phishing, vendor email compromise (the "change our wire details" scam that targets supplier funding teams), social engineering, deepfake voice attacks. Includes real anonymised cases from peer companies.',
+    sessions: [
+      {n: 1, t: 'The Fraud Landscape at Fintech Scale', d: 'Who attacks fintechs, what they want, recent industry incidents.'},
+      {n: 2, t: 'Phishing & Spear-Phishing', d: 'Patterns to spot, what to do when you click, push-bombing.'},
+      {n: 3, t: 'Vendor & Supplier Email Compromise', d: 'The wire-redirect attack, voice verification, change-control patterns.'},
+      {n: 4, t: 'Social Engineering & Deepfakes', d: 'Voice calls, video calls, urgency manipulation, authority spoofing.'},
+      {n: 5, t: 'Practical drills', d: 'Identify phishing emails, write a verification protocol, respond to a "CEO needs urgent wire" request.'}
+    ],
+    outcomes: [
+      'Spot phishing patterns in your inbox before clicking',
+      'Apply the vendor change-control verification protocol',
+      'Recognise urgency manipulation in real time',
+      'Run incident response when an attack succeeds'
+    ]
+  },
+  // ─── TIER 2 — Role-specific tracks ───────────────────────────────────
+  {
+    id: 'supplier-wallet-ops-2026',
+    title: 'Supplier Wallet Operations',
+    tag: 'Role · Finance & Operations',
+    est: '~60 minutes',
+    level: 'Finance, Operations, Provisioning',
+    status: 'coming_soon',
+    eta: 'Q3 2026',
+    summary: 'How Reloadly funds 100+ supplier wallets across multiple currencies. Pulse forecasting, burn-rate logic, when to wire vs wait, escalation paths. Built with input from David and Damian.',
+    sessions: [
+      {n: 1, t: 'The Funding Cycle Explained', d: 'From hourly Slack feed to wire-sent to balance applied — the full loop.'},
+      {n: 2, t: 'Forecasting & Cover Days', d: 'Burn-rate windows, per-supplier cycle days, applyDays lead time.'},
+      {n: 3, t: 'Funding Decisions', d: 'When the alert says critical: reading Fund Now, picking method, managing wires.'},
+      {n: 4, t: 'Escalation & Edge Cases', d: 'Supplier outages, currency volatility, weekend coverage.'}
+    ],
+    outcomes: [
+      'Use Pulse Wallet Ops to make funding decisions independently',
+      'Spot and respond to URGENT (≤4h) alerts in time',
+      'Set cycleDays and applyDays accurately per supplier',
+      'Escalate at the right point — not too early, not too late'
+    ]
+  },
+  {
+    id: 'customer-comms-excellence-2026',
+    title: 'Customer Communications Excellence',
+    tag: 'Role · Support & Sales',
+    est: '~70 minutes',
+    level: 'Support, Sales, Account Management',
+    status: 'coming_soon',
+    eta: 'Q3 2026',
+    summary: 'Writing tone, de-escalation, handling angry customers, when to escalate, async vs sync. Practical drills with sanitised real Reloadly tickets.',
+    sessions: [
+      {n: 1, t: 'Writing for Customer Trust', d: 'Tone, structure, scanning vs reading, what to put first.'},
+      {n: 2, t: 'De-escalation', d: 'Reading anger, acknowledging without conceding, the LATTE framework.'},
+      {n: 3, t: 'Escalation Decisions', d: 'When to escalate, what to include, how to hand off cleanly.'},
+      {n: 4, t: 'Channels: When to Switch', d: 'Email vs ticket vs Slack vs phone — picking the right one.'},
+      {n: 5, t: 'Practical drills', d: 'Rewrite a poor reply, de-escalate an angry message, build a macro for the top 20 ticket types.'}
+    ],
+    outcomes: [
+      'Write replies that resolve in one round instead of three',
+      'De-escalate an angry customer without conceding fault',
+      'Decide when to escalate and what context to include',
+      'Build and maintain reusable templates for common patterns'
+    ]
+  },
+  {
+    id: 'code-review-reloadly-2026',
+    title: 'Code Review at Reloadly',
+    tag: 'Role · Engineering',
+    est: '~60 minutes',
+    level: 'Engineering',
+    status: 'coming_soon',
+    eta: 'Q4 2026',
+    summary: 'What good PR review looks like at Reloadly. Security-focused review checklist, the unwritten norms, how to give feedback that lands, how to receive it graciously. Reduces engineer onboarding time by weeks.',
+    sessions: [
+      {n: 1, t: 'What We Look For', d: 'Correctness, concurrency, security, observability, tests — in that priority order.'},
+      {n: 2, t: 'Security-Focused Review', d: 'Auth, input validation, secrets handling, PII flow, the threats specific to fintech.'},
+      {n: 3, t: 'Giving Feedback That Lands', d: 'Tone, nit vs blocking, when to pair instead of comment.'},
+      {n: 4, t: 'Receiving Review Well', d: 'Disagreement, learning, when to push back.'}
+    ],
+    outcomes: [
+      'Review a PR against the Reloadly priority order',
+      'Catch the security issues specific to fintech systems',
+      'Give comments that move the PR forward instead of stalling it',
+      'Run a productive PR conversation without drama'
+    ]
+  },
+  {
+    id: 'pricing-negotiation-2026',
+    title: 'Pricing Strategy & Negotiation',
+    tag: 'Role · Sales & Pricing Ops',
+    est: '~75 minutes',
+    level: 'Sales, Pricing Ops, Account Management',
+    status: 'coming_soon',
+    eta: 'Q4 2026',
+    summary: 'How to read margin, when to discount, framing value over price, common buyer objections. Direct tie-in to the Pricing and Proposals modules in Pulse.',
+    sessions: [
+      {n: 1, t: 'Reading the Margin', d: 'Gross vs net, what counts as cost, how to find your floor.'},
+      {n: 2, t: 'When to Discount (and When Not)', d: 'Volume vs commit, multi-year, fee waiver vs rate discount.'},
+      {n: 3, t: 'Framing Value', d: 'Anchoring, comparison points, why customers buy.'},
+      {n: 4, t: 'Common Objections', d: '"Too expensive", "competitor offered less", "we need to think about it" — playbook for each.'},
+      {n: 5, t: 'Practical drills', d: 'Calculate floor from a real margin table, respond to three real objections.'}
+    ],
+    outcomes: [
+      'Read a pricing structure and find your discount floor',
+      'Decide between fee waivers, rate cuts, and commitment-based discounts',
+      'Frame Reloadly\'s value beyond the per-unit price',
+      'Handle the four most common buyer objections without panicking'
+    ]
+  },
+  // ─── TIER 3 — Manager-only ────────────────────────────────────────────
+  {
+    id: 'feedback-skills-2026',
+    title: 'Giving & Receiving Feedback',
+    tag: 'Manager · People',
+    est: '~55 minutes',
+    level: 'Managers (and ICs who want to grow into management)',
+    status: 'coming_soon',
+    eta: 'Q3 2026',
+    summary: 'SBI framework, the difference between feedback and coaching, how to run productive 1:1s, calibration prep. Directly connects to the Performance module\'s review and feedback features.',
+    sessions: [
+      {n: 1, t: 'The Feedback Stance', d: 'Why feedback fails, what makes it land, the "asking permission" pattern.'},
+      {n: 2, t: 'The SBI Framework', d: 'Situation / Behaviour / Impact — and why each is needed.'},
+      {n: 3, t: 'Productive 1:1s', d: 'Structure, who drives, how to handle a tough message.'},
+      {n: 4, t: 'Calibration Prep', d: 'What evidence to bring, how to avoid recency bias, calibration mechanics.'}
+    ],
+    outcomes: [
+      'Deliver feedback using the SBI framework consistently',
+      'Run a 1:1 that surfaces what actually matters',
+      'Prepare for calibration with evidence, not opinions',
+      'Receive feedback gracefully — including pushback'
+    ]
+  },
+  {
+    id: 'calibration-talent-2026',
+    title: 'Calibration & Talent Decisions',
+    tag: 'Manager · Calibration',
+    est: '~45 minutes',
+    level: 'Admins / Senior Managers',
+    status: 'coming_soon',
+    eta: 'Q4 2026',
+    summary: 'Admin-tier course for the admins. Bias awareness, how to avoid recency effects, what evidence to surface, calibration session mechanics. Hardens the Talent Matrix process.',
+    sessions: [
+      {n: 1, t: 'Why Calibration Matters', d: 'Without it, the same performance gets rated differently across managers. Why that\'s a problem and a fix.'},
+      {n: 2, t: 'Common Biases', d: 'Recency, halo, horn, similar-to-me — how each shows up in real reviews.'},
+      {n: 3, t: 'Evidence vs Opinion', d: 'What counts as evidence; how to handle "I just feel they\'re strong".'},
+      {n: 4, t: 'Running the Session', d: 'Facilitation, time-boxing, calling out bias without making it personal.'}
+    ],
+    outcomes: [
+      'Spot common biases in your own and others\' ratings',
+      'Bring evidence-grounded assessments to calibration',
+      'Facilitate a calibration session that ends with shared confidence',
+      'Use Pulse\'s Talent Matrix to capture and revisit decisions'
+    ]
+  }
+];
 
 function _loadCourseState(){
   try{return JSON.parse(localStorage.getItem('rl_perf_courses')||'{}');}catch(e){return {};}
@@ -2402,9 +2610,10 @@ function renderPerfCourses(wrap, pd){
     + '<div style="font-size:12px;color:var(--mut);line-height:1.55">Curated internal training. Complete a course to earn a certificate, which appears on your profile and counts toward the annual learning OKR. Status syncs to your Performance history.</div>';
   wrap.appendChild(hdr);
 
-  // Summary strip — total / in progress / completed for this user
-  var totals = {total: PULSE_COURSES.length, inProgress: 0, completed: 0};
-  PULSE_COURSES.forEach(function(c){
+  // Summary strip — available / in progress / completed / coming soon
+  var availableCourses = PULSE_COURSES.filter(function(c){return c.status !== 'coming_soon';});
+  var totals = {total: availableCourses.length, inProgress: 0, completed: 0, comingSoon: PULSE_COURSES.length - availableCourses.length};
+  availableCourses.forEach(function(c){
     var st = _courseStatus(me, c.id).status;
     if(st === 'in_progress') totals.inProgress++;
     else if(st === 'completed') totals.completed++;
@@ -2421,13 +2630,18 @@ function renderPerfCourses(wrap, pd){
   strip.appendChild(_mkSt(totals.total, 'AVAILABLE', 'var(--acc)'));
   strip.appendChild(_mkSt(totals.inProgress, 'IN PROGRESS', 'var(--yel)'));
   strip.appendChild(_mkSt(totals.completed, 'COMPLETED', 'var(--grn)'));
+  if(totals.comingSoon) strip.appendChild(_mkSt(totals.comingSoon, 'COMING SOON', 'var(--acc2)'));
   wrap.appendChild(strip);
 
   // Course cards
   PULSE_COURSES.forEach(function(c){
-    var state = _courseStatus(me, c.id);
+    var isComingSoon = (c.status === 'coming_soon');
+    var state = isComingSoon ? {status:'coming_soon'} : _courseStatus(me, c.id);
     var statusBadge, statusColor, statusLabel;
-    if(state.status === 'completed'){
+    if(isComingSoon){
+      statusBadge = 'COMING SOON'; statusColor = 'var(--acc2)';
+      statusLabel = 'Targeting ' + (c.eta || 'later this year');
+    } else if(state.status === 'completed'){
       statusBadge = '✓ COMPLETED'; statusColor = 'var(--grn)';
       statusLabel = 'Certificate issued ' + (state.completedAt ? new Date(state.completedAt).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '');
     } else if(state.status === 'in_progress'){
@@ -2438,7 +2652,9 @@ function renderPerfCourses(wrap, pd){
       statusLabel = 'Ready to launch';
     }
     var card = document.createElement('div');
-    card.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:22px 24px;margin-bottom:14px';
+    var cardBorder = isComingSoon ? '1px dashed var(--brd2)' : '1px solid var(--brd)';
+    var cardOpacity = isComingSoon ? '.75' : '1';
+    card.style.cssText = 'background:var(--surf);border:'+cardBorder+';border-radius:12px;padding:22px 24px;margin-bottom:14px;opacity:'+cardOpacity;
     card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:12px">'
       + '<div style="flex:1;min-width:240px">'
         + '<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;letter-spacing:.5px;margin-bottom:4px">'+esc(c.tag)+' &middot; '+esc(c.est)+' &middot; '+esc(c.level)+'</div>'
@@ -2474,6 +2690,26 @@ function renderPerfCourses(wrap, pd){
     // Action bar
     var actions = document.createElement('div');
     actions.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--brd)';
+
+    if(isComingSoon){
+      var notifyBtn = document.createElement('button');
+      notifyBtn.className = 'hbtn';
+      notifyBtn.style.cssText = 'font-size:12px;padding:8px 16px;color:var(--acc2);border-color:var(--acc2);background:transparent';
+      notifyBtn.innerHTML = '🔔 Notify me when available';
+      notifyBtn.onclick = function(){
+        var s = _loadCourseState();
+        s[me] = s[me] || {};
+        s[me][c.id] = Object.assign({}, s[me][c.id]||{}, {notifyAt: new Date().toISOString()});
+        _saveCourseState(s);
+        logEntry('Subscribed to course notification: '+c.title, 'edit');
+        autoSave();
+        if(typeof toast==='function')toast('We\'ll let you know when "'+c.title+'" goes live','ok');
+      };
+      actions.appendChild(notifyBtn);
+      card.appendChild(actions);
+      wrap.appendChild(card);
+      return;
+    }
 
     var launchBtn = document.createElement('button');
     launchBtn.className = 'hbtn';

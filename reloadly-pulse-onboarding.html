@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reloadly Pulse Onboarding</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0a2540;--navy2:#1a2543;--teal:#00d4aa;--teal2:#06b6d4;--teal-soft:rgba(0,212,170,.12);--bg:#f5f7fa;--surf:#fff;--surf2:#f0f3f8;--brd:#e2e8f0;--brd2:#cbd5e1;--txt:#1a2543;--mut:#5c6580;--red:#ef4444;--yel:#f59e0b;--grn:#10b981}
+*{box-sizing:border-box}html,body{margin:0;padding:0;height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;color:var(--txt);background:var(--bg);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}code{font-family:'JetBrains Mono','Roboto Mono',monospace;background:var(--surf2);padding:2px 6px;border-radius:4px;font-size:.92em;color:var(--navy)}
+h1,h2,h3,h4{margin:0 0 12px;line-height:1.25;color:var(--navy)}p{margin:0 0 14px;line-height:1.65}ul,ol{margin:0 0 16px;padding-left:24px;line-height:1.7}
+.app{display:flex;min-height:100vh}.sidebar{width:280px;background:var(--navy);color:#fff;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto;padding:28px 22px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:10px}.brand-mark{width:32px;height:32px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--navy)}
+.brand-name{font-weight:700;font-size:16px;letter-spacing:-.2px}.brand-sub{font-size:10px;color:rgba(255,255,255,.55);font-weight:600;letter-spacing:1.5px;margin-left:42px;margin-top:-2px;margin-bottom:24px}
+.progress-wrap{margin:20px 0 24px}.progress-label{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.6);font-weight:600;margin-bottom:8px;letter-spacing:.4px}
+.progress-bar{height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}.progress-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--teal2));transition:width .35s}
+.nav-section-title{font-size:10px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:1.8px;margin:18px 0 8px;padding-left:4px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:8px;cursor:pointer;color:rgba(255,255,255,.78);font-size:13px;font-weight:500;transition:background .15s,color .15s;margin-bottom:3px}
+.nav-item:hover{background:rgba(255,255,255,.05);color:#fff}.nav-item.active{background:rgba(0,212,170,.16);color:var(--teal)}
+.nav-num{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.nav-item.active .nav-num{background:var(--teal);color:var(--navy)}.nav-item.done .nav-num{background:var(--grn);color:#fff}.nav-item.done .check{margin-left:auto;color:var(--grn);font-size:13px}
+.nav-foot{margin-top:auto;padding-top:20px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:rgba(255,255,255,.45);line-height:1.6}.nav-foot a{color:rgba(255,255,255,.7)}
+.main{flex:1;padding:48px 56px 80px;max-width:980px}.crumb{font-size:11px;font-weight:600;color:var(--mut);letter-spacing:1.5px;margin-bottom:10px;text-transform:uppercase}
+.section-title{font-size:34px;font-weight:800;letter-spacing:-.6px;color:var(--navy);margin-bottom:6px}.section-sub{font-size:15px;color:var(--mut);margin-bottom:32px;line-height:1.55}
+.card{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:28px 32px;margin-bottom:22px}.card h2{font-size:22px;margin-bottom:14px}.card h3{font-size:16px;font-weight:700;color:var(--navy);margin:24px 0 10px}
+.callout{background:var(--teal-soft);border-left:4px solid var(--teal);padding:16px 20px;border-radius:6px;margin:18px 0;font-size:14px;line-height:1.6;color:var(--navy)}
+.callout.warn{background:rgba(245,158,11,.1);border-left-color:var(--yel)}.callout.danger{background:rgba(239,68,68,.08);border-left-color:var(--red)}
+.callout strong{color:var(--navy);font-weight:700}
+.pill{display:inline-block;background:var(--surf2);color:var(--mut);font-size:11px;font-weight:700;padding:4px 10px;border-radius:4px;letter-spacing:.4px;text-transform:uppercase}
+table.tbl{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}table.tbl th{text-align:left;padding:10px 14px;background:var(--surf2);color:var(--navy);font-weight:700;border-bottom:2px solid var(--brd2);font-size:12px;letter-spacing:.3px;text-transform:uppercase}
+table.tbl td{padding:12px 14px;border-bottom:1px solid var(--brd);vertical-align:top;line-height:1.55}table.tbl tr:last-child td{border-bottom:none}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--navy);color:#fff;border:none;padding:11px 22px;border-radius:7px;font-size:13px;font-weight:600;transition:transform .1s,box-shadow .15s,opacity .15s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(10,37,64,.2)}.btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.btn.teal{background:var(--teal);color:var(--navy)}.btn.ghost{background:transparent;color:var(--navy);border:1.5px solid var(--brd2)}.btn.ghost:hover{border-color:var(--navy);background:var(--surf2)}
+.btn-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:24px}
+.quiz-q{background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:22px 26px;margin-bottom:14px}
+.quiz-q .q-num{font-size:11px;font-weight:700;color:var(--teal2);letter-spacing:1.5px;margin-bottom:8px}.quiz-q .q-txt{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:14px;line-height:1.5}
+.quiz-opt{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1.5px solid var(--brd);border-radius:7px;margin-bottom:8px;cursor:pointer;transition:all .15s;font-size:14px;line-height:1.5;background:#fff}
+.quiz-opt:hover{border-color:var(--teal);background:rgba(0,212,170,.04)}.quiz-opt input{margin-top:3px;accent-color:var(--teal)}.quiz-opt.correct{border-color:var(--grn);background:rgba(16,185,129,.06)}
+.quiz-opt.wrong{border-color:var(--red);background:rgba(239,68,68,.05)}.quiz-feedback{margin-top:12px;padding:14px 16px;border-radius:7px;font-size:13.5px;line-height:1.6}
+.quiz-feedback.ok{background:rgba(16,185,129,.08);color:#06624b;border-left:3px solid var(--grn)}.quiz-feedback.bad{background:rgba(239,68,68,.06);color:#7a1b1b;border-left:3px solid var(--red)}
+.quiz-result{padding:24px 28px;border-radius:10px;margin:18px 0;font-size:15px}.quiz-result.pass{background:rgba(16,185,129,.1);border:1.5px solid var(--grn);color:#06624b}.quiz-result.fail{background:rgba(245,158,11,.1);border:1.5px solid var(--yel);color:#92660b}
+.ex-card{background:var(--surf);border:1.5px solid var(--brd);border-radius:12px;padding:26px 30px;margin-bottom:18px}
+.ex-tag{font-size:10px;font-weight:700;color:var(--teal2);letter-spacing:1.8px;margin-bottom:6px}.ex-title{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.ex-brief{font-size:14px;color:var(--mut);line-height:1.6;margin-bottom:16px}.ex-input{width:100%;min-height:120px;padding:14px 16px;border:1.5px solid var(--brd);border-radius:8px;font-family:inherit;font-size:14px;line-height:1.55;color:var(--navy);background:var(--surf);resize:vertical}
+.ex-input:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,212,170,.15)}
+.ex-output{background:var(--surf2);border-left:3px solid var(--teal);padding:18px 22px;border-radius:6px;margin-top:16px;font-size:14px;line-height:1.65;color:var(--navy)}
+.ex-output h4{margin:14px 0 6px;font-size:14px;color:var(--teal2);font-weight:700}.ex-output h4:first-child{margin-top:0}
+.checkl{background:var(--surf);border:1.5px solid var(--brd);border-radius:10px;padding:24px 28px;margin-bottom:18px}.checkl-item{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--brd)}
+.checkl-item:last-child{border-bottom:none}.checkl-item input{margin-top:3px;width:18px;height:18px;accent-color:var(--teal);cursor:pointer;flex-shrink:0}
+.checkl-item label{font-size:14.5px;line-height:1.55;color:var(--navy);cursor:pointer;flex:1}
+.cert{background:linear-gradient(135deg,#fafbff,#eef2ff);border:6px double var(--teal);border-radius:14px;padding:54px 60px;text-align:center;font-family:Georgia,serif;color:var(--navy);margin:30px 0}
+.cert-eyebrow{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:4px;color:var(--teal2);margin-bottom:16px}.cert-title{font-size:32px;font-weight:800;line-height:1.2;margin-bottom:6px}
+.cert-sub{font-family:'Inter',sans-serif;font-size:13px;color:var(--mut);margin-bottom:36px}.cert-pres{font-family:'Inter',sans-serif;font-size:12px;color:var(--mut);letter-spacing:1.5px;margin-bottom:8px}
+.cert-name{font-size:40px;font-weight:700;border-bottom:2px solid var(--navy);padding-bottom:10px;display:inline-block;margin-bottom:30px}
+.cert-body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.65;margin-bottom:38px;max-width:560px;margin-left:auto;margin-right:auto}
+.cert-meta{display:flex;justify-content:space-around;gap:24px;flex-wrap:wrap;font-family:'Inter',sans-serif}.cert-meta-block{text-align:center}
+.cert-meta-lbl{font-size:10px;color:var(--mut);letter-spacing:1.5px;margin-bottom:5px;font-family:'JetBrains Mono',monospace}.cert-meta-val{font-size:14px;font-weight:700;color:var(--navy)}
+.cert-foot{margin-top:36px;padding-top:20px;border-top:1px solid rgba(0,212,170,.3);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--mut)}
+.gate{background:rgba(245,158,11,.08);border:1px dashed var(--yel);border-radius:10px;padding:18px 22px;margin:20px 0;font-size:14px;color:#92660b;line-height:1.55}
+@media(max-width:880px){.sidebar{display:none}.main{padding:28px 24px}}@media print{.sidebar{display:none}.main{padding:0}.btn-row,.nav-foot{display:none}}
+</style></head><body>
+<div class="app">
+<aside class="sidebar">
+<div class="brand"><div class="brand-mark">R</div><div class="brand-name">Reloadly Pulse</div></div>
+<div class="brand-sub">ONBOARDING</div>
+<input id="learner-name" placeholder="Your full name" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-family:inherit;font-size:13px;padding:9px 12px;border-radius:6px;width:100%;margin-bottom:10px">
+<input id="learner-email" placeholder="you@reloadly.com" type="email" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-family:inherit;font-size:12px;padding:8px 12px;border-radius:6px;width:100%">
+<div class="progress-wrap"><div class="progress-label"><span>Progress</span><span id="progress-pct">0%</span></div><div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div></div>
+<div class="nav-section-title">CURRICULUM</div>
+<div class="nav-item" data-step="s1"><div class="nav-num">1</div><span>Welcome to Pulse</span><span class="check">✓</span></div>
+<div class="nav-item" data-step="s2"><div class="nav-num">2</div><span>Set Your First OKR</span><span class="check">✓</span></div>
+<div class="nav-item" data-step="s3"><div class="nav-num">3</div><span>Manage Your Work</span><span class="check">✓</span></div>
+<div class="nav-item" data-step="s4"><div class="nav-num">4</div><span>Roadmaps & Visibility</span><span class="check">✓</span></div>
+<div class="nav-section-title">PRACTICE</div>
+<div class="nav-item" data-step="ex"><div class="nav-num">5</div><span>Practical Drills</span><span class="check">✓</span></div>
+<div class="nav-section-title">CERTIFICATION</div>
+<div class="nav-item" data-step="checklist"><div class="nav-num">6</div><span>Validation Checklist</span><span class="check">✓</span></div>
+<div class="nav-item" data-step="cert"><div class="nav-num">7</div><span>Get Certificate</span><span class="check">✓</span></div>
+<div class="nav-foot">Stuck? Ask in <a href="#">#pulse-help</a> on Slack.</div>
+</aside>
+<main class="main" id="main"></main></div>
+<script>
+const STORAGE_KEY='rl_pulse_onboarding_v1';
+const STEPS=['s1','s2','s3','s4','ex','checklist','cert'];
+const STEP_NAMES={s1:'Session 1 of 4 · Welcome to Pulse',s2:'Session 2 of 4 · Set Your First OKR',s3:'Session 3 of 4 · Manage Your Work',s4:'Session 4 of 4 · Roadmaps & Visibility',ex:'Practice · Drills',checklist:'Certification · Checklist',cert:'Certification · Your Certificate'};
+function loadState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){return{}}}
+function saveState(s){localStorage.setItem(STORAGE_KEY,JSON.stringify(s))}
+function getState(){const s=loadState();s.quiz=s.quiz||{};s.exercises=s.exercises||{};s.checklist=s.checklist||{};s.completedSteps=s.completedSteps||{};s.learner=s.learner||{};return s}
+function isStepComplete(step){const s=getState();if(step.startsWith('s'))return!!(s.quiz[step]&&s.quiz[step].passed);if(step==='ex')return Object.keys(s.exercises).length>=4;if(step==='checklist'){return['ck1','ck2','ck3','ck4','ck5'].every(k=>s.checklist[k])}if(step==='cert')return!!s.completedSteps.cert;return false}
+var currentStep=null;
+function recalcProgress(){const done=STEPS.filter(isStepComplete).length;const pct=Math.round((done/STEPS.length)*100);const fill=document.getElementById('progress-fill');const pe=document.getElementById('progress-pct');if(fill)fill.style.width=pct+'%';if(pe)pe.textContent=pct+'%';document.querySelectorAll('.nav-item').forEach(el=>{el.classList.toggle('done',isStepComplete(el.dataset.step))});if(currentStep){const m=document.getElementById('main');if(m){const c=isStepComplete(currentStep);m.querySelectorAll('button').forEach(b=>{const t=(b.textContent||'').trim();if(t.indexOf('Continue')===0||t.indexOf('certificate')>=0)b.disabled=!c})}}}
+function setActiveNav(s){document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.step===s))}
+function go(step){if(step==='cert'&&!STEPS.slice(0,-1).every(isStepComplete)){alert('Complete every section before claiming your certificate.');return}currentStep=step;setActiveNav(step);const m=document.getElementById('main');m.innerHTML='';m.appendChild(renderStep(step));window.scrollTo({top:0,behavior:'smooth'});recalcProgress()}
+function el(tag,attrs,html){const e=document.createElement(tag);if(attrs)Object.entries(attrs).forEach(([k,v])=>{if(k==='class')e.className=v;else if(k==='style')e.style.cssText=v;else e.setAttribute(k,v)});if(html)e.innerHTML=html;return e}
+function shellHeader(step,title,sub){const h=el('div');h.innerHTML='<div class="crumb">'+STEP_NAMES[step]+'</div><h1 class="section-title">'+title+'</h1><div class="section-sub">'+sub+'</div>';return h}
+function nextButton(s){const i=STEPS.indexOf(s);if(i===-1||i===STEPS.length-1)return null;const n=STEPS[i+1];const b=el('button',{class:'btn'});b.textContent=n==='cert'?'🏆 Get my certificate →':'Continue →';b.onclick=()=>go(n);if(!isStepComplete(s))b.disabled=true;return b}
+function prevButton(s){const i=STEPS.indexOf(s);if(i<=0)return null;const p=STEPS[i-1];const b=el('button',{class:'btn ghost'});b.textContent='← Back';b.onclick=()=>go(p);return b}
+function renderStep(step){switch(step){case 's1':return renderS1();case 's2':return renderS2();case 's3':return renderS3();case 's4':return renderS4();case 'ex':return renderExercises();case 'checklist':return renderChecklist();case 'cert':return renderCertificate()}}
+
+function renderS1(){const w=el('div');w.appendChild(shellHeader('s1','Welcome to Pulse','What Pulse is, how it fits into your workday, and which modules matter for your role.'));
+w.appendChild(el('div',{class:'card'},`<h2>What is Pulse?</h2>
+<p>Reloadly Pulse is the single internal app where your work, goals, and team plans live. It replaces a scattered set of spreadsheets, Slack threads, and tools we used to keep in our heads. The aim: one place to know what you're working on, why it matters, and what's expected.</p>
+<p>You signed in at the same URL the company uses — <code>reloadly-tasks.github.io/task-manager</code>. Your role determines which modules show in the sidebar.</p>
+<div class="callout"><strong>Time investment:</strong> Most people check Pulse 1-2 times per day. A weekly 15-minute "Pulse housekeeping" — updating task status, checking your OKRs, scanning your team's roadmap — is enough to stay current.</div>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>The four modules every employee uses</h2>
+<table class="tbl"><thead><tr><th>Module</th><th>What it's for</th><th>When you'll use it</th></tr></thead><tbody>
+<tr><td><strong>Strategy</strong></td><td>Company, department, and individual OKRs in one cascade</td><td>Quarterly setting; weekly when reviewing alignment</td></tr>
+<tr><td><strong>Tasks</strong></td><td>Your team's task board — priorities, statuses, owners</td><td>Daily for status updates; whenever you start or finish something</td></tr>
+<tr><td><strong>My Tasks</strong></td><td>Just the tasks assigned to you, across teams</td><td>Daily — your personal queue</td></tr>
+<tr><td><strong>Roadmaps</strong></td><td>What other teams are shipping, when</td><td>Weekly to spot dependencies; when planning your work</td></tr>
+</tbody></table>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Role-specific modules</h2>
+<p>Some modules only appear for certain roles. If you don't see one, you don't need it — or your access can be requested from your manager.</p>
+<ul>
+<li><strong>Pricing (Ops)</strong> — Pricing analysts and operations team. Build and review supplier pricing.</li>
+<li><strong>Proposals</strong> — Sales and onboarding. Generate customer pricing proposals.</li>
+<li><strong>Supplier Wallet Ops</strong> — Finance and the provisioning team. Track supplier balances, forecast funding needs, post Slack alerts when wallets run low.</li>
+<li><strong>Performance</strong> — Everyone has this for the My Profile, History, and Courses sections. Managers see Team Health, Calibration, and Talent Matrix.</li>
+<li><strong>User Management</strong> — Admins only.</li>
+</ul>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>How Pulse fits with Slack and email</h2>
+<table class="tbl"><thead><tr><th>If you need to…</th><th>Use</th></tr></thead><tbody>
+<tr><td>Discuss something in real time</td><td>Slack</td></tr>
+<tr><td>Send a formal external message</td><td>Email</td></tr>
+<tr><td>Track work, goals, status, or plans</td><td>Pulse</td></tr>
+<tr><td>Ask "what is everyone working on?"</td><td>Pulse (Tasks / Roadmaps)</td></tr>
+<tr><td>Ask "why are we doing this?"</td><td>Pulse (Strategy / OKRs)</td></tr>
+</tbody></table>
+<div class="callout warn"><strong>Common mistake:</strong> using Slack to coordinate work that should be in Pulse. If a Slack thread reaches 10 messages about who's doing what, move it to a Pulse task — the thread will be lost; the task will not.</div>`));
+
+w.appendChild(renderQuiz('s1',[
+{q:'Which is the right tool for "I want to know what the Marketing team plans to ship next month"?',opts:['Slack #marketing','Pulse → Roadmaps','Email the marketing lead','Wait for the next all-hands'],a:1,feedback:{ok:'✓ Right. Roadmaps is the answer to "what is other teams shipping when". Saves you a Slack DM and the marketing lead a reply.',bad:'✗ Roadmaps is the answer. Slack and email work but require interrupting someone for information that\'s already in Pulse.'}},
+{q:'You complete a task. What\'s the right rhythm?',opts:['Update the Pulse task status immediately','Wait for your weekly 1:1 and verbally update your manager','Send a Slack message announcing it','Move on — your manager will check the system'],a:0,feedback:{ok:'✓ Right. Update Pulse the moment status changes. That single habit means your manager never needs to ask, and the team\'s velocity numbers stay accurate.',bad:'✗ The rhythm is: status changes → update Pulse immediately. Anything else creates a gap between reality and the data, which wastes your manager\'s time chasing updates.'}},
+{q:'You\'re a new hire and you don\'t see the Pricing (Ops) module in your sidebar. What\'s the right next step?',opts:['Email admin@reloadly.com asking for access','Assume you don\'t need it for your role; check with your manager if your work involves pricing','Try to access it via the URL anyway','Mark it down as missing in your onboarding feedback'],a:1,feedback:{ok:'✓ Right. Module visibility is permission-driven. If it\'s not there, you almost certainly don\'t need it. Confirm with your manager rather than assuming.',bad:'✗ Module visibility is intentional — if you don\'t see one, you don\'t need it for your role. Check with your manager before requesting access; over-permissioning is a security concern.'}}
+]));
+const r=el('div',{class:'btn-row'});const n=nextButton('s1');if(n)r.appendChild(n);w.appendChild(r);return w}
+
+function renderS2(){const w=el('div');w.appendChild(shellHeader('s2','Set Your First OKR','How Pulse cascades goals from company to your individual KRs, and how to write one that actually measures something.'));
+w.appendChild(el('div',{class:'card'},`<h2>The cascade in 30 seconds</h2>
+<ol>
+<li><strong>Company OKRs</strong> — 3-5 objectives the CEO sets for the year. Everyone aligns to one of these.</li>
+<li><strong>Department OKRs</strong> — your department head writes 2-4 objectives that contribute to a company OKR.</li>
+<li><strong>Individual OKRs</strong> — you write 1-3 of your own that contribute to a department or company OKR.</li>
+</ol>
+<p>In Pulse, the Strategy module shows this cascade visually. You can see exactly which company-level outcome your work ladders up to. That's not just a feel-good — it's how we explain in town halls why your team's work matters.</p>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Objective vs Key Result</h2>
+<table class="tbl"><thead><tr><th>Objective</th><th>Key Result</th></tr></thead><tbody>
+<tr><td>What you want to achieve</td><td>How you'll measure it</td></tr>
+<tr><td>Aspirational, directional</td><td>Numeric, time-bound, binary at quarter end</td></tr>
+<tr><td><em>"Make Pulse the central tool for OKR conversations"</em></td><td><em>"≥80% of weekly 1:1s reference a Pulse OKR by end of Q3"</em></td></tr>
+</tbody></table>
+<div class="callout"><strong>The test:</strong> after the quarter ends, can someone unambiguously say "yes that KR hit" or "no it didn't" from data alone, without a debate? If yes, it's a KR. If it needs interpretation, it's an objective.</div>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>The four KR archetypes</h2>
+<table class="tbl"><thead><tr><th>Type</th><th>Looks like</th><th>Watch out for</th></tr></thead><tbody>
+<tr><td><strong>Outcome metric</strong></td><td>"Reduce gross fraud losses to under $50k/month by Sep 30"</td><td>Often the best kind. Make sure the metric is already being tracked.</td></tr>
+<tr><td><strong>Adoption metric</strong></td><td>"80% of supplier wallets reviewed weekly via Pulse"</td><td>Vanity if it doesn't lead to a business outcome — pair with #1.</td></tr>
+<tr><td><strong>Delivery milestone</strong></td><td>"Launch Pulse Onboarding course by Aug 15"</td><td>This is a task, not a KR. Only use if it's genuinely strategic and binary.</td></tr>
+<tr><td><strong>Quality metric</strong></td><td>"Maintain CSAT above 4.5 across the quarter"</td><td>Good but easy to game. Pair with a volume metric so quality isn't bought via fewer interactions.</td></tr>
+</tbody></table>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Pulse-specific: how to write yours in the Strategy module</h2>
+<ol>
+<li>Open Strategy → click your department in the cascade tree</li>
+<li>Find a department-level OKR you can contribute to. Note its ID.</li>
+<li>Switch viewpoint to "Individual"</li>
+<li>Click "+ Add my OKR", link to the parent KR you're contributing to</li>
+<li>Write your objective + 1-3 KRs. Use the writing guidance in the (i) tooltip on each field.</li>
+<li>Save. Your KRs appear in your manager's view automatically.</li>
+</ol>
+<div class="callout warn"><strong>Don't have a parent KR to contribute to?</strong> That's the conversation to have in your next 1:1. Either you should be working on something else, or your manager needs to raise a gap in department OKRs.</div>`));
+
+w.appendChild(renderQuiz('s2',[
+{q:'Which is a key result, not an objective?',opts:['Be the best supplier ops team in the industry','Reduce average supplier topup turnaround from 6h to under 2h by Sep 30','Build a culture where data-driven decisions are the default','Become more proactive about funding risk'],a:1,feedback:{ok:'✓ Right. It has a number, a deadline, and is binary at quarter end. Everything else is directional — those are objectives.',bad:'✗ The KR has the number ("6h to under 2h"), a deadline ("Sep 30"), and is binary at end of quarter. The others are directional aspirations — they\'re objectives, and they need KRs underneath to be actionable.'}},
+{q:'You can\'t find a department or company KR your work contributes to. What\'s the right move?',opts:['Write your own OKR anyway — your work matters','Raise it with your manager in 1:1 — either you should be working on something else, or the department has a gap','Skip OKRs this quarter','Pick the closest company OKR and stretch the link'],a:1,feedback:{ok:'✓ Right. If your work has no line to a company outcome, that\'s a real signal — either the work isn\'t strategic, or the company OKRs are missing something. Either way, surface it.',bad:'✗ Writing OKRs that don\'t ladder up makes the cascade meaningless. The honest answer is to surface the disconnect. Often the conversation reveals one of: this work should be deprioritised, OR the department needs an additional OKR.'}},
+{q:'A teammate writes: "Make customer support better." What\'s your suggestion?',opts:['Looks good — start working on it','Add a KR like "Improve CSAT" so it\'s measurable','Ask: what does "better" mean in numbers? Faster response time? Higher CSAT? Lower escalation rate? Pick one and put a target on it.','Replace it with a delivery milestone instead'],a:2,feedback:{ok:'✓ Right. The objective is fine as a direction. What\'s missing is the operational definition of "better" expressed as a measurable target. That\'s the whole point of KRs.',bad:'✗ "Improve CSAT" alone isn\'t a KR — it has no target or timeframe. The right move is to ask what "better" means concretely (a specific metric and a target), then write KRs around that. The objective stays directional; the KRs make it measurable.'}}
+]));
+const r=el('div',{class:'btn-row'});const p=prevButton('s2');if(p)r.appendChild(p);const n=nextButton('s2');if(n)r.appendChild(n);w.appendChild(r);return w}
+
+function renderS3(){const w=el('div');w.appendChild(shellHeader('s3','Manage Your Work','Tasks, My Tasks, statuses, the link between tasks and OKRs. Your daily Pulse rhythm.'));
+w.appendChild(el('div',{class:'card'},`<h2>Tasks vs My Tasks</h2>
+<table class="tbl"><thead><tr><th>Tasks</th><th>My Tasks</th></tr></thead><tbody>
+<tr><td>Your team's whole board</td><td>Everything assigned to you, across all teams</td></tr>
+<tr><td>Used by managers + ICs for planning and standups</td><td>Used by you to know what's on your plate today</td></tr>
+<tr><td>Group by status, priority, owner, or KR</td><td>Filter to "due this week" / "in progress" / "blocked"</td></tr>
+</tbody></table>
+<p>Most days you'll spend 80% of your Pulse time in <strong>My Tasks</strong>. You go to <strong>Tasks</strong> when you need to plan the week, run a standup, or check what a teammate is working on.</p>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Task lifecycle</h2>
+<p>Five statuses, in order:</p>
+<ol>
+<li><strong>Not started</strong> — the default for new tasks. Means "this is on the list".</li>
+<li><strong>In Progress</strong> — flip when you start actively working on it. This is the most important status to keep current — it's how your team knows what you're focused on.</li>
+<li><strong>Blocked</strong> — flip when you need something from someone else to keep going. Add a comment naming who you're blocked on. Blocked tasks should appear in your manager's weekly review.</li>
+<li><strong>In Review</strong> — work done, waiting for sign-off (PR review, QA, customer confirmation).</li>
+<li><strong>Done</strong> — finished, sign-off received, nothing left to do.</li>
+</ol>
+<div class="callout"><strong>Why the discipline matters:</strong> a task stuck at "In Progress" for 3 weeks is a signal worth surfacing. The system catches what humans forget to mention.</div>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Link tasks to OKRs</h2>
+<p>When you create a task, you can link it to a Key Result. This isn't decoration — it's how Pulse rolls up "what work led to the KR moving" and how managers tell the difference between work that matters and work that just keeps you busy.</p>
+<p><strong>Practical rule:</strong> if a task takes you more than a day, it should link to a KR. If it doesn't link to a KR, ask yourself whether you should be doing it.</p>
+<p>Pulse will warn you in your manager view if &gt;30% of your task hours don't link to a KR. That's an indicator either of unmeasured work that should be on a KR, or of work that shouldn't be your priority right now.</p>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>The weekly rhythm</h2>
+<table class="tbl"><thead><tr><th>When</th><th>What</th></tr></thead><tbody>
+<tr><td>Monday morning, 10 minutes</td><td>Open My Tasks, set this week's priorities. Move things to "In Progress" you'll start today.</td></tr>
+<tr><td>As status changes</td><td>Update Pulse the moment status changes. Real-time, not at end of day.</td></tr>
+<tr><td>Friday afternoon, 15 minutes</td><td>Open My Tasks. Move completed work to Done. Flag blocked work. Skim your OKRs and update KR progress where measurable.</td></tr>
+<tr><td>End of quarter</td><td>Open Strategy → your OKRs. Self-assess: hit / partial / miss for each KR. Your manager uses this in the quarterly review.</td></tr>
+</tbody></table>`));
+
+w.appendChild(renderQuiz('s3',[
+{q:'A task you own has been in "In Progress" for 3 weeks. What should you do?',opts:['Leave it — eventually you\'ll finish','Flip it to "Blocked" if you actually are; if not, ask yourself why it\'s stalled and either restart or defer it','Mark it Done — it\'s embarrassing','Delete it'],a:1,feedback:{ok:'✓ Right. A task stuck for 3 weeks is a signal. Either it\'s genuinely blocked (use the status to flag), or it\'s deprioritised in your head but not on paper (defer it explicitly). Either path is honest; leaving it lying breaks the system.',bad:'✗ A stuck task signals something — usually blocked, deprioritised, or under-scoped. Surface it: flip to Blocked with a comment naming who you need from, or defer it explicitly. Leaving it as "In Progress" makes the team\'s velocity numbers wrong.'}},
+{q:'You started a task. When should you update Pulse?',opts:['At end of day so you can batch updates','As soon as the status changes — flip to "In Progress" when you start','At your weekly 1:1','When the task is done'],a:1,feedback:{ok:'✓ Right. Real-time updates beat batched. Status that lags reality is worse than no status — your team thinks you\'re working on X when you\'re actually on Y.',bad:'✗ Pulse status should match reality at any moment. The single most useful habit is flipping status the moment it changes. Delayed updates are how teams end up misaligned about who\'s working on what.'}},
+{q:'You\'re creating a task to "investigate why our refund rate spiked last month". Should you link it to a KR?',opts:['Yes — if your team has a KR on refund rate or customer experience, this links to it','No — investigations are exploratory and don\'t need to ladder up','Maybe — only if the investigation finds something actionable','Link it to a company-level OKR to be safe'],a:0,feedback:{ok:'✓ Right. Investigations contribute to KRs when they unblock learning that drives the KR. A refund-rate investigation likely supports a CX or revenue KR. Link it; it counts.',bad:'✗ Investigations that drive understanding of a metric you\'re trying to move should link to that KR. They count as work toward the goal. If the investigation doesn\'t connect to any KR, that\'s a useful question — should you be doing it this quarter?'}}
+]));
+const r=el('div',{class:'btn-row'});const p=prevButton('s3');if(p)r.appendChild(p);const n=nextButton('s3');if(n)r.appendChild(n);w.appendChild(r);return w}
+
+function renderS4(){const w=el('div');w.appendChild(shellHeader('s4','Roadmaps & Visibility','How to use the Roadmaps module to spot cross-team dependencies and avoid surprises.'));
+w.appendChild(el('div',{class:'card'},`<h2>What Roadmaps shows</h2>
+<p>Three time horizons:</p>
+<ul>
+<li><strong>Now</strong> — what each team is actively working on this quarter</li>
+<li><strong>Next</strong> — what's queued for the following quarter</li>
+<li><strong>Later</strong> — directional commitments for the rest of the year</li>
+</ul>
+<p>Plus a Timeline view that shows delivery dates per initiative, and an Initiative Bridge that connects initiatives to the KRs they drive.</p>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Why you should check it weekly</h2>
+<p>Three concrete uses:</p>
+<ol>
+<li><strong>Spot dependencies early.</strong> Engineering is shipping the new pricing API in 4 weeks. If your team's quarterly OKR depends on that API, you need to know now — not when you miss the KR.</li>
+<li><strong>Avoid duplicate work.</strong> If two teams are independently building dashboards for the same use case, Roadmaps surfaces it before either team finishes. Combine, don't compete.</li>
+<li><strong>Plan your asks.</strong> Need engineering help for something next quarter? Check what they have on their Next list. A request that fits gets in faster than one that competes with what's already committed.</li>
+</ol>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>How to add your team's roadmap</h2>
+<ol>
+<li>Open Roadmaps → click "+ Add initiative"</li>
+<li>Title, team, time horizon (Now / Next / Later)</li>
+<li>Link to the parent KR — this is what makes it appear in the Initiative Bridge</li>
+<li>Add 1-2 sentences of context: what's the outcome, who benefits</li>
+<li>Save. Other teams now see your initiative in their cross-team view.</li>
+</ol>
+<div class="callout"><strong>Rule of thumb:</strong> if it takes &gt;2 weeks of team effort, it deserves a roadmap entry. Smaller work lives in Tasks.</div>`));
+
+w.appendChild(el('div',{class:'card'},`<h2>Initiative status — keep it honest</h2>
+<table class="tbl"><thead><tr><th>Status</th><th>What it means</th></tr></thead><tbody>
+<tr><td>On Track</td><td>Currently on plan; ship date holds</td></tr>
+<tr><td>At Risk</td><td>Slipping by &lt;2 weeks; recoverable with focused effort</td></tr>
+<tr><td>Off Track</td><td>Slipping &gt;2 weeks; needs intervention or scope cut</td></tr>
+<tr><td>Paused</td><td>Intentionally stopped; will resume</td></tr>
+<tr><td>Cancelled</td><td>Won't ship — communicate why in the notes</td></tr>
+</tbody></table>
+<div class="callout warn"><strong>Most common Roadmap failure:</strong> initiatives marked "On Track" for 8 weeks straight, then suddenly Off Track in week 9. Honest weekly status — including flipping to At Risk early — protects trust. Hiding risk until you can't anymore is how programs get cancelled.</div>`));
+
+w.appendChild(renderQuiz('s4',[
+{q:'Your team\'s quarterly OKR depends on a new API engineering is shipping. Where should you confirm timing?',opts:['Slack DM the eng manager','Roadmaps — find the initiative, check the delivery date and status','Wait for the engineering lead to mention it in standup','Assume it\'s on track unless told otherwise'],a:1,feedback:{ok:'✓ Right. Roadmaps is the source of truth for cross-team delivery dates. Slack is for the follow-up conversation if the date doesn\'t work for you.',bad:'✗ Cross-team delivery dates live in Roadmaps. That\'s the whole point. Use Slack to follow up if the date doesn\'t work, but always check Roadmaps first — it saves the eng manager 5 separate "when is X shipping?" DMs.'}},
+{q:'Your initiative was On Track for 6 weeks. You hit a real blocker that\'ll cost 2 weeks. What\'s the right call?',opts:['Leave it On Track and try to recover quietly','Flip to At Risk this week, add a note explaining the blocker','Wait one more week to see if you can recover','Flip to Off Track to be cautious'],a:1,feedback:{ok:'✓ Right. Honest status protects trust. At Risk this week, recover if you can — the team gets early signal and might be able to help. Hiding it until it\'s 2 weeks late is the worst outcome.',bad:'✗ The rule: flip to At Risk the moment you genuinely think you might slip 1-2 weeks. Hiding the signal removes the chance for others to help and breaks trust when reality catches up. Off Track is for slips &gt;2 weeks; this isn\'t there yet.'}},
+{q:'You\'re considering an initiative that will take ~3 days. Should it be in Roadmaps?',opts:['Yes — every committed piece of work goes in Roadmaps','No — Roadmaps is for &gt;2-week efforts; 3-day work lives in Tasks','Only if it\'s strategic','It depends on the team'],a:1,feedback:{ok:'✓ Right. Roadmaps is for cross-team visibility on multi-week initiatives. 3-day work belongs in Tasks. If everything lands in Roadmaps, nothing stands out.',bad:'✗ Roadmaps is for cross-team visibility on initiatives that take &gt;2 weeks. Filling it with small tasks dilutes the signal — the whole point is that other teams can see what major things are coming.'}}
+]));
+const r=el('div',{class:'btn-row'});const p=prevButton('s4');if(p)r.appendChild(p);const n=nextButton('s4');if(n)r.appendChild(n);w.appendChild(r);return w}
+
+const EXERCISES=[
+{id:'ex1',tag:'DRILL 1 OF 4 · OKR WRITING',title:'Convert a vague goal into a measurable KR',brief:'Take this objective: "Become more proactive about supplier funding risk." Write 2 key results that are numeric, time-bound, and binary at quarter end. State each as a one-line KR.',placeholder:'KR 1: …\nKR 2: …',
+evaluate:t=>{const c={numeric:/\d/.test(t),timebound:/(q[1-4]|quarter|by\s+\w+\s+\d|end of|sep|oct|nov|dec|jan|feb|mar|jun|jul|aug|apr|may)/i.test(t),twoKrs:(t.match(/kr\s*\d|key result|^\s*\d[\.\)]/gim)||[]).length>=2||(t.match(/\n/g)||[]).length>=1,actionable:/(by|reduce|increase|under|over|maintain|achieve|reach|cut|raise|improve|hit)/i.test(t),domain:/(fund|supplier|wallet|topup|alert|critical|forecast|cover|days)/i.test(t)};const s=Object.values(c).filter(Boolean).length;return{score:s,feedback:`<h4>Rubric</h4><ul><li><strong>Includes specific numbers</strong> ${c.numeric?'✓':'— add concrete targets'}</li><li><strong>Time-bound (deadline / quarter)</strong> ${c.timebound?'✓':'— add a deadline'}</li><li><strong>Two KRs present</strong> ${c.twoKrs?'✓':'— include two'}</li><li><strong>Uses outcome verbs (reduce / increase / maintain)</strong> ${c.actionable?'✓':'— use measurable verbs'}</li><li><strong>Targets the supplier funding domain</strong> ${c.domain?'✓':'— anchor to the actual area'}</li></ul><h4>Score: ${s}/5</h4><h4>Reference example</h4>KR 1: Reduce the number of critical-status supplier wallets at end of week from average 8 to ≤2 by Sep 30.<br>KR 2: Cut the average time from "wallet alert fires" to "wire confirmed sent" from 14 hours to under 4 hours by end of Q3.`}}},
+{id:'ex2',tag:'DRILL 2 OF 4 · TASK LINKING',title:'Pick the right Pulse module per scenario',brief:`For each scenario, name the Pulse module you'd open first. Format: "1. [module]. 2. [module]. …"
+
+A. You finish a task and want to log it.
+B. You need to know what Engineering is shipping this quarter.
+C. You want to see all your in-progress work across teams.
+D. You're writing your Q4 individual OKRs.
+E. You want to know why your team's OKR matters company-wide.`,placeholder:'1. Tasks. 2. Roadmaps. …',
+evaluate:t=>{const ans=t.toLowerCase();const c={a:/1[\.\)]\s*(my\s*)?tasks/i.test(t)||(ans.indexOf('tasks')>-1&&ans.indexOf('1')<ans.indexOf('tasks')),b:/2[\.\)].*roadmap/i.test(t)||(ans.indexOf('roadmap')>-1),c:/3[\.\)].*my\s*tasks/i.test(t)||(ans.match(/my\s*tasks/gi)||[]).length>=1,d:/4[\.\)].*(strategy|okr)/i.test(t)||(ans.indexOf('strategy')>-1||ans.indexOf('okr')>-1),e:/5[\.\)].*(strategy|cascade|mindmap)/i.test(t)};const s=Object.values(c).filter(Boolean).length;return{score:s,feedback:`<h4>Rubric — expected answers</h4><ul><li><strong>A · log finished task</strong> ${c.a?'✓':'—'} <em>Tasks (or My Tasks)</em></li><li><strong>B · what Engineering ships</strong> ${c.b?'✓':'—'} <em>Roadmaps</em></li><li><strong>C · your in-progress work</strong> ${c.c?'✓':'—'} <em>My Tasks</em></li><li><strong>D · write your OKRs</strong> ${c.d?'✓':'—'} <em>Strategy</em></li><li><strong>E · understand why your OKR matters</strong> ${c.e?'✓':'—'} <em>Strategy (cascade view)</em></li></ul><h4>Score: ${s}/5</h4>`}}},
+{id:'ex3',tag:'DRILL 3 OF 4 · ROADMAP HONESTY',title:'Write an At Risk status update',brief:`Your initiative was On Track for 5 weeks. You just discovered a dependency you didn't account for — it'll cost roughly 2 weeks. Write a short (2-3 sentence) Roadmap status note that: (a) clearly says At Risk, (b) names the cause, (c) names what you'll do.`,placeholder:'Status note…',
+evaluate:t=>{const c={mentionsAtRisk:/at\s*risk/i.test(t),namesCause:/(depend|blocker|discovered|found|api|integration|review|approval|capacity|resource)/i.test(t),namesMitigation:/(will|plan|going to|next|cut scope|prioritise|prioritize|reroute|add|reduce|focus|defer)/i.test(t),concise:t.trim().split(/[.!?]/).filter(s=>s.trim()).length<=4,clear:t.trim().length>40};const s=Object.values(c).filter(Boolean).length;return{score:s,feedback:`<h4>Rubric</h4><ul><li><strong>Clearly says "At Risk"</strong> ${c.mentionsAtRisk?'✓':'—'}</li><li><strong>Names the cause</strong> ${c.namesCause?'✓':'—'}</li><li><strong>Names what you'll do about it</strong> ${c.namesMitigation?'✓':'—'}</li><li><strong>Concise (≤4 sentences)</strong> ${c.concise?'✓':'—'}</li><li><strong>Substantive enough to be useful</strong> ${c.clear?'✓':'— add a sentence of detail'}</li></ul><h4>Score: ${s}/5</h4><h4>Reference example</h4>Flipping to At Risk this week. We discovered the API redesign work depends on the auth refactor landing first — a dependency we hadn't accounted for. Working with the auth team to land their PR by next Friday; if that holds we recover within 1 week. Will update on next Monday's roadmap review.`}}},
+{id:'ex4',tag:'DRILL 4 OF 4 · YOUR WEEKLY RHYTHM',title:'Write your personal Pulse weekly plan',brief:`In 3-5 sentences, describe how you'll use Pulse in your normal work week. Include: when you'll check My Tasks, when you'll update statuses, when you'll review your OKRs, when you'll glance at Roadmaps. Make it realistic for your actual schedule — not aspirational.`,placeholder:'My weekly Pulse rhythm…',
+evaluate:t=>{const c={mentionsMonday:/monday|start of week|beginning of week|morning|am/i.test(t),mentionsFriday:/friday|end of week|close out|wrap|pm/i.test(t),mentionsRealTime:/(immediately|as soon as|real.?time|when.*chang|the moment|right away)/i.test(t),mentionsOKR:/(okr|kr|key result|strategy)/i.test(t),mentionsRoadmap:/roadmap/i.test(t),substantive:t.trim().split(/\s+/).length>=40};const s=Object.values(c).filter(Boolean).length;return{score:s,feedback:`<h4>Rubric</h4><ul><li><strong>Names a Monday / start-of-week ritual</strong> ${c.mentionsMonday?'✓':'—'}</li><li><strong>Names a Friday / end-of-week ritual</strong> ${c.mentionsFriday?'✓':'—'}</li><li><strong>Updates statuses in near-real-time</strong> ${c.mentionsRealTime?'✓':'—'}</li><li><strong>Includes OKR check-in cadence</strong> ${c.mentionsOKR?'✓':'—'}</li><li><strong>Glances at Roadmaps periodically</strong> ${c.mentionsRoadmap?'✓':'—'}</li><li><strong>Substantive (≥40 words)</strong> ${c.substantive?'✓':'—'}</li></ul><h4>Score: ${s}/6</h4><h4>Reference example</h4>Monday morning I open My Tasks during coffee — 10 minutes to set this week's priorities, move things to In Progress that I'll start today. I update task status the moment something changes; never batch. Friday afternoon I close out: move completed work to Done, flag anything blocked, skim my OKRs and update KR progress where measurable. I glance at Roadmaps once a week (Wednesday) to spot any cross-team dependencies that affect my next two weeks. End of quarter I self-assess my KRs in Strategy before my review.`}}}
+];
+function renderExercises(){const w=el('div');w.appendChild(shellHeader('ex','Practical Drills','Four quick drills with instant feedback. Complete all four to unlock the validation checklist.'));const state=getState();EXERCISES.forEach(ex=>{const c=el('div',{class:'ex-card'});c.innerHTML='<div class="ex-tag">'+ex.tag+'</div><div class="ex-title">'+ex.title+'</div><div class="ex-brief">'+ex.brief.replace(/\n/g,'<br>')+'</div>';const ta=el('textarea',{class:'ex-input',placeholder:ex.placeholder});ta.value=state.exercises[ex.id]||'';c.appendChild(ta);const br=el('div',{class:'btn-row'});const sub=el('button',{class:'btn teal'},'Evaluate my answer');br.appendChild(sub);const rst=el('button',{class:'btn ghost'},'Clear');br.appendChild(rst);c.appendChild(br);const out=el('div');if(state.exercises[ex.id]){const r=ex.evaluate(state.exercises[ex.id]);out.appendChild(buildOut(r))}c.appendChild(out);sub.onclick=()=>{const v=ta.value.trim();if(v.length<20){alert('Please write a longer answer (at least 20 characters).');return}const s=getState();s.exercises[ex.id]=v;saveState(s);const r=ex.evaluate(v);out.innerHTML='';out.appendChild(buildOut(r));recalcProgress()};rst.onclick=()=>{ta.value='';const s=getState();delete s.exercises[ex.id];saveState(s);out.innerHTML='';recalcProgress()};w.appendChild(c)});const r=el('div',{class:'btn-row'});const p=prevButton('ex');if(p)r.appendChild(p);const n=nextButton('ex');if(n)r.appendChild(n);w.appendChild(r);return w}
+function buildOut(r){const o=el('div',{class:'ex-output'});o.innerHTML=r.feedback;return o}
+
+function renderQuiz(sid,qs){const w=el('div');w.appendChild(el('h2',{style:'margin-top:32px;font-size:22px;color:var(--navy)'},'Knowledge check'));w.appendChild(el('p',{style:'color:var(--mut);font-size:14px;margin-bottom:18px'},'Pass with '+qs.length+'/'+qs.length+' to mark this session complete. Retake any time.'));const state=getState();state.quiz[sid]=state.quiz[sid]||{answers:{},attempts:0,passed:false};const qs2=state.quiz[sid];
+qs.forEach((q,qi)=>{const qc=el('div',{class:'quiz-q'});qc.innerHTML='<div class="q-num">QUESTION '+(qi+1)+' OF '+qs.length+'</div><div class="q-txt">'+q.q+'</div>';const opts=el('div');q.opts.forEach((o,oi)=>{const l=el('label',{class:'quiz-opt'});const i=el('input',{type:'radio',name:sid+'-q'+qi});if(qs2.answers[qi]===oi)i.checked=true;l.appendChild(i);l.appendChild(el('span',{},o));opts.appendChild(l)});qc.appendChild(opts);const fb=el('div',{style:'display:none'});qc.appendChild(fb);w.appendChild(qc);qc._show=ok=>{fb.className='quiz-feedback '+(ok?'ok':'bad');fb.style.display='block';fb.innerHTML=ok?q.feedback.ok:q.feedback.bad;opts.querySelectorAll('.quiz-opt').forEach((l,oi)=>{l.classList.remove('correct','wrong');if(oi===q.a)l.classList.add('correct');else if(opts.querySelectorAll('input')[oi].checked)l.classList.add('wrong')})}});
+const rb=el('div');const sub=el('button',{class:'btn'},'Submit answers');const rt=el('button',{class:'btn ghost',style:'display:none'},'↻ Retake quiz');const sr=el('div',{class:'btn-row'});sr.appendChild(sub);sr.appendChild(rt);w.appendChild(sr);w.appendChild(rb);
+sub.onclick=()=>{let ans=0;qs.forEach((q,qi)=>{w.querySelectorAll('input[name="'+sid+'-q'+qi+'"]').forEach(i=>{if(i.checked)ans++})});if(ans<qs.length){alert('Please answer all '+qs.length+' questions before submitting.');return}let cor=0;qs.forEach((q,qi)=>{const ins=w.querySelectorAll('input[name="'+sid+'-q'+qi+'"]');let pk=null;ins.forEach((i,oi)=>{if(i.checked)pk=oi});if(pk===null)return;w.querySelectorAll('.quiz-q')[qi]._show(pk===q.a);if(pk===q.a)cor++});const s=getState();s.quiz[sid]=s.quiz[sid]||{answers:{},attempts:0,passed:false};s.quiz[sid].attempts=(s.quiz[sid].attempts||0)+1;const p=cor===qs.length;s.quiz[sid].passed=p||s.quiz[sid].passed;saveState(s);const rs=el('div',{class:'quiz-result '+(p?'pass':'fail')});rs.innerHTML=p?'<strong>✓ Passed</strong> — '+cor+'/'+qs.length+' on attempt '+s.quiz[sid].attempts+'. Continue below.':'<strong>Almost there</strong> — '+cor+'/'+qs.length+'. Review the feedback and retake.';rb.innerHTML='';rb.appendChild(rs);rt.style.display=p?'none':'inline-flex';sub.style.display=p?'none':'inline-flex';recalcProgress();if(p)setTimeout(()=>rs.scrollIntoView({behavior:'smooth',block:'center'}),100)};
+rt.onclick=()=>{w.querySelectorAll('.quiz-q').forEach(qc=>{qc.querySelectorAll('.quiz-opt').forEach(l=>l.classList.remove('correct','wrong'));qc.querySelectorAll('input').forEach(i=>i.checked=false);const fb=qc.querySelector('.quiz-feedback');if(fb)fb.style.display='none'});rb.innerHTML='';sub.style.display='inline-flex';rt.style.display='none'};
+if(qs2.passed){qs.forEach((q,qi)=>{const ins=w.querySelectorAll('input[name="'+sid+'-q'+qi+'"]');if(ins[q.a])ins[q.a].checked=true;w.querySelectorAll('.quiz-q')[qi]._show(true)});const rs=el('div',{class:'quiz-result pass'},'<strong>✓ Previously passed</strong> — retake any time for a refresher.');rb.appendChild(rs);rt.style.display='inline-flex';sub.style.display='none'}return w}
+
+function renderChecklist(){const w=el('div');w.appendChild(shellHeader('checklist','Validation Checklist','Tick each statement to confirm — these are the habits that make Pulse work.'));const items=[{id:'ck1',html:'<b>Update statuses in real time.</b> I will flip task status the moment it changes (Not started → In Progress → Done), not at end of day or end of week.'},{id:'ck2',html:'<b>Link tasks to KRs.</b> For tasks &gt;1 day, I will link them to a KR. If I can\'t, I\'ll ask my manager in 1:1 whether the task should be deprioritised or a KR is missing.'},{id:'ck3',html:'<b>Flip to At Risk early.</b> If a roadmap initiative is slipping by 1-2 weeks, I will flip status to At Risk that week with a note — not hide it until it\'s too late.'},{id:'ck4',html:'<b>Weekly rhythm.</b> I will do a 10-minute Monday morning Pulse open and a 15-minute Friday afternoon close-out as a regular ritual.'},{id:'ck5',html:'<b>Ask for help.</b> If I get stuck in Pulse, I\'ll ask in #pulse-help on Slack instead of guessing or giving up.'}];const c=el('div',{class:'checkl'});const state=getState();items.forEach(it=>{const r=el('div',{class:'checkl-item'});const cb=el('input',{type:'checkbox',id:it.id});if(state.checklist[it.id])cb.checked=true;const l=el('label',{for:it.id},it.html);cb.onchange=()=>{const s=getState();s.checklist[it.id]=cb.checked;saveState(s);recalcProgress()};r.appendChild(cb);r.appendChild(l);c.appendChild(r)});w.appendChild(c);w.appendChild(el('div',{class:'callout'},'Once every item is checked, the certificate step in the sidebar unlocks.'));const r=el('div',{class:'btn-row'});const p=prevButton('checklist');if(p)r.appendChild(p);const n=nextButton('checklist');if(n)r.appendChild(n);w.appendChild(r);return w}
+
+function renderCertificate(){const w=el('div');const state=getState();const allDone=STEPS.slice(0,-1).every(isStepComplete);if(!allDone){w.appendChild(shellHeader('cert','Certificate locked','Complete every section before claiming.'));const miss=STEPS.slice(0,-1).filter(s=>!isStepComplete(s)).map(s=>STEP_NAMES[s]);w.appendChild(el('div',{class:'gate'},'Still to complete:<ul>'+miss.map(m=>'<li>'+m+'</li>').join('')+'</ul>'));return w}
+const name=(document.getElementById('learner-name')||{}).value||state.learner.name||'Reloadly Team Member';const email=(document.getElementById('learner-email')||{}).value||state.learner.email||'';if(!name.trim()||!email.trim()){w.appendChild(shellHeader('cert','Almost there','Add your name and Reloadly email in the sidebar so we can issue your certificate.'));return w}
+if(!state.completedSteps.cert){state.completedSteps.cert=new Date().toISOString();state.learner={name,email};saveState(state);recalcProgress()}
+const dt=new Date(state.completedSteps.cert);const ds=dt.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});const ts=dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});const id='RL-PULSE-'+dt.toISOString().slice(0,10).replace(/-/g,'')+'-'+(email.split('@')[0]||'rl').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+w.appendChild(shellHeader('cert','Certificate Issued','Congratulations. The certificate below is yours.'));const c=el('div',{class:'cert'});c.innerHTML=`<div class="cert-eyebrow">RELOADLY · CERTIFICATE OF COMPLETION</div><div class="cert-title">Pulse Onboarding</div><div class="cert-sub">Internal training & certification program · 2026</div><div class="cert-pres">PRESENTED TO</div><div class="cert-name">${esc(name)}</div><div class="cert-body">For successfully completing every session, passing all knowledge checks, completing four practical drills, and committing to the five core habits that make Pulse work.</div><div class="cert-meta"><div class="cert-meta-block"><div class="cert-meta-lbl">COMPLETED ON</div><div class="cert-meta-val">${ds}</div><div style="font-size:11px;color:var(--mut);margin-top:3px">${ts} (local)</div></div><div class="cert-meta-block"><div class="cert-meta-lbl">CERTIFICATE ID</div><div class="cert-meta-val" style="font-family:'JetBrains Mono',monospace;font-size:13px">${id}</div></div><div class="cert-meta-block"><div class="cert-meta-lbl">VERIFY</div><div class="cert-meta-val" style="font-size:12px">Pulse → Performance → Courses</div></div></div><div class="cert-foot">Issued by Reloadly Learning & Development · v1</div>`;w.appendChild(c);
+const r=el('div',{class:'btn-row'});const pb=el('button',{class:'btn'},'🖨 Print / Save as PDF');pb.onclick=()=>window.print();r.appendChild(pb);const cp=el('button',{class:'btn ghost'},'Copy certificate ID');cp.onclick=()=>{navigator.clipboard.writeText(id).then(()=>{cp.textContent='✓ Copied';setTimeout(()=>cp.textContent='Copy certificate ID',1500)})};r.appendChild(cp);const cl=el('button',{class:'btn ghost'},'Back to Pulse');cl.onclick=()=>{window.close();window.history.back()};r.appendChild(cl);w.appendChild(r);return w}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function init(){const s=getState();const n=document.getElementById('learner-name');const e=document.getElementById('learner-email');if(s.learner){if(s.learner.name&&n)n.value=s.learner.name;if(s.learner.email&&e)e.value=s.learner.email}const p=()=>{const st=getState();st.learner={name:n.value,email:e.value};saveState(st)};if(n)n.addEventListener('change',p);if(e)e.addEventListener('change',p);document.querySelectorAll('.nav-item').forEach(el=>el.addEventListener('click',()=>go(el.dataset.step)));recalcProgress();go('s1')}
+document.addEventListener('DOMContentLoaded',init);
+</script></body></html>
