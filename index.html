@@ -19277,6 +19277,85 @@ var FUND=(function(){
 
 
   function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // SHARED SYNC for Wallet Ops — Daily Pull snapshots + topup history.
+  // Wraps NS.saveSnapshots/NS.saveTopupHistory so every save pushes to KV,
+  // and adds a one-shot bootstrap pull. Pattern mirrors _createDocSync used
+  // by the rest of Pulse.
+  // ═════════════════════════════════════════════════════════════════════════
+  var _origSaveSnaps = NS.saveSnapshots;
+  var _origSaveTopups = NS.saveTopupHistory;
+  var DAILY_PULL_SYNC = null;
+  var TOPUPS_SYNC = null;
+
+  // Snapshots: keyed by date (one entry per day). Merge strategy on pull:
+  // remote entries replace local ONLY when they have at least as many
+  // balance records (proxy for fresher data). Never deletes local entries.
+  function _mergeSnapshots(remote){
+    if(!Array.isArray(remote)) return;
+    try {
+      var local = NS.loadSnapshots();
+      var byDate = {};
+      local.forEach(function(s){ if(s && s.date) byDate[s.date] = s; });
+      remote.forEach(function(s){
+        if(!s || !s.date) return;
+        var have = byDate[s.date];
+        if(!have){ byDate[s.date] = s; return; }
+        var localCount = Object.keys(have.balances||{}).length;
+        var remoteCount = Object.keys(s.balances||{}).length;
+        if(remoteCount >= localCount) byDate[s.date] = s;
+      });
+      var merged = Object.keys(byDate).sort().map(function(d){return byDate[d];});
+      _origSaveSnaps(merged); // bypass our wrapper to avoid an infinite push loop
+    } catch(e){}
+  }
+
+  // Topup history: append-only — dedupe by (key + fundedAt + amount).
+  function _mergeTopups(remote){
+    if(!Array.isArray(remote)) return;
+    try {
+      var local = NS.loadTopupHistory();
+      var seen = {};
+      var combined = [];
+      function add(arr){
+        arr.forEach(function(t){
+          if(!t) return;
+          var sig = (t.key||'')+'|'+(t.fundedAt||'')+'|'+(t.amount||0);
+          if(seen[sig]) return;
+          seen[sig] = true;
+          combined.push(t);
+        });
+      }
+      add(local); add(remote);
+      combined.sort(function(a,b){return (a.fundedAt||'') < (b.fundedAt||'') ? -1 : 1;});
+      _origSaveTopups(combined);
+    } catch(e){}
+  }
+
+  function _initWalletOpsSync(){
+    if(typeof _createDocSync !== 'function' || typeof RL_SRV === 'undefined') return;
+    if(DAILY_PULL_SYNC) return;
+    DAILY_PULL_SYNC = _createDocSync({
+      key: 'shared_daily_pull',
+      getLocal: function(){ return NS.loadSnapshots(); },
+      setLocal: function(remote){ _mergeSnapshots(remote); }
+    });
+    TOPUPS_SYNC = _createDocSync({
+      key: 'shared_topups',
+      getLocal: function(){ return NS.loadTopupHistory(); },
+      setLocal: function(remote){ _mergeTopups(remote); }
+    });
+    // Wrap saves so every Daily Pull / Mark Funded triggers a debounced push.
+    NS.saveSnapshots = function(s){ _origSaveSnaps(s); if(DAILY_PULL_SYNC) DAILY_PULL_SYNC.push(); };
+    NS.saveTopupHistory = function(h){ _origSaveTopups(h); if(TOPUPS_SYNC) TOPUPS_SYNC.push(); };
+    // One-shot bootstrap pull + start polling.
+    DAILY_PULL_SYNC.pull(true).then(function(){ DAILY_PULL_SYNC.startPoll(); });
+    TOPUPS_SYNC.pull(true).then(function(){ TOPUPS_SYNC.startPoll(); });
+  }
+  // Defer until after RL_SRV + _createDocSync are defined globally.
+  setTimeout(_initWalletOpsSync, 1800);
+
   return NS;
 })();
 </script>
