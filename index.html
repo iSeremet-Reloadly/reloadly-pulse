@@ -2066,8 +2066,17 @@ function _renderAdminUsers(){
   // archived bench (rendered separately under a collapsed section). Keeps the
   // active table focused on the people who currently have access and avoids
   // visual clutter from former teammates.
-  var activeEntries = entries.filter(function(kv){return ARCHIVED_USERS.indexOf(kv[0]) < 0;});
-  var archivedEntries = entries.filter(function(kv){return ARCHIVED_USERS.indexOf(kv[0]) >= 0;});
+  // Archive is now cross-user: honoured if USER_REGISTRY[email].archived is
+  // true OR the email is in the local ARCHIVED_USERS list. The registry flag
+  // syncs via KV (Sync Phase 3) so every admin sees the same archived list
+  // within ~30 seconds.
+  function _isArchived(email, u){
+    if(u && u.archived === true) return true;
+    if(ARCHIVED_USERS && ARCHIVED_USERS.indexOf(email) >= 0) return true;
+    return false;
+  }
+  var activeEntries = entries.filter(function(kv){return !_isArchived(kv[0], kv[1]);});
+  var archivedEntries = entries.filter(function(kv){return _isArchived(kv[0], kv[1]);});
   var html='<div class="ptitle">User Management</div><div class="psub">'+activeEntries.length+' active &middot; '+archivedEntries.length+' archived &middot; only admins can see this</div>';
   html+=_adminTabBar('users');
   // Persistence banner — registry is now KV-backed, edits sync across users.
@@ -2272,11 +2281,15 @@ function _renderAdminUsers(){
     var archBtn=ev.target.closest('[data-archive]');
     if(archBtn&&!archBtn.disabled){
       var em=archBtn.getAttribute('data-archive');
-      if(!confirm('Archive '+USER_REGISTRY[em].name+'?\nThey will no longer be able to sign in.'))return;
+      if(!confirm('Archive '+USER_REGISTRY[em].name+'?\nThey will no longer be able to sign in. Other admins will see the change within ~30 seconds.'))return;
       if(ARCHIVED_USERS.indexOf(em)<0)ARCHIVED_USERS.push(em);
       localStorage.setItem('rl_archived',JSON.stringify(ARCHIVED_USERS));
+      // Cross-user flag — propagates via shared_user_registry sync.
+      if(USER_REGISTRY[em]) USER_REGISTRY[em].archived = true;
       logEntry('Admin archived user: '+em,'edit');
-      autoSave();toast(USER_REGISTRY[em].name+' archived','ok');renderAdmin();
+      autoSave();
+      if(typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC) USER_REG_SYNC.push();
+      toast(USER_REGISTRY[em].name+' archived — syncing to team','ok');renderAdmin();
       return;
     }
     // ── Restore ───────────────────────────────────────────────────────────────
@@ -2285,8 +2298,11 @@ function _renderAdminUsers(){
       var em=restBtn.getAttribute('data-restore');
       ARCHIVED_USERS=ARCHIVED_USERS.filter(function(x){return x!==em;});
       localStorage.setItem('rl_archived',JSON.stringify(ARCHIVED_USERS));
+      if(USER_REGISTRY[em]) USER_REGISTRY[em].archived = false;
       logEntry('Admin restored user: '+em,'edit');
-      autoSave();toast(USER_REGISTRY[em].name+' restored','ok');renderAdmin();
+      autoSave();
+      if(typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC) USER_REG_SYNC.push();
+      toast(USER_REGISTRY[em].name+' restored — syncing to team','ok');renderAdmin();
     }
   });
   } // close adminPwdWired guard
