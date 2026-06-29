@@ -2748,7 +2748,7 @@ function renderPerf(){
   var hdr=document.createElement('div');hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px';
   var ttl=document.createElement('div');ttl.innerHTML='<div class="ptitle">Performance</div><div class="psub">Evidence-based reviews · '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</div>';
   var tabs=document.createElement('div');tabs.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-  [{k:'overview',lbl:'Overview'},{k:'hpm',lbl:'Weekly HPM'},{k:'team',lbl:'Team Health',a:true},{k:'calibration',lbl:'Calibration',a:true},{k:'talent',lbl:'Talent Matrix',a:true},{k:'reviews',lbl:'Reviews'},{k:'feedback',lbl:'Feedback'},{k:'my',lbl:'My Profile'},{k:'mgrdash',lbl:'Manager View'},{k:'history',lbl:'My History'},{k:'courses',lbl:'Courses & Certs'},{k:'orgtree',lbl:'Org Tree',a:true}].forEach(function(td){
+  [{k:'overview',lbl:'Overview'},{k:'hpm',lbl:'Weekly HPM'},{k:'hpmfeed',lbl:'Company Feed'},{k:'team',lbl:'Team Health',a:true},{k:'calibration',lbl:'Calibration',a:true},{k:'talent',lbl:'Talent Matrix',a:true},{k:'reviews',lbl:'Reviews'},{k:'feedback',lbl:'Feedback'},{k:'my',lbl:'My Profile'},{k:'mgrdash',lbl:'Manager View'},{k:'history',lbl:'My History'},{k:'courses',lbl:'Courses & Certs'},{k:'orgtree',lbl:'Org Tree',a:true}].forEach(function(td){
     if(td.a&&!isAd)return;
     var btn=document.createElement('button');btn.className='hbtn';
     btn.style.cssText='font-size:10px;padding:5px 14px'+(view===td.k?';border-color:var(--acc);color:var(--acc);font-weight:700':'');
@@ -2766,6 +2766,7 @@ function renderPerf(){
   else if(view==='mgrdash')renderManagerDashboard(wrap);
   else if(view==='courses')renderPerfCourses(wrap,pd);
   else if(view==='hpm')renderPerfHPM(wrap,pd);
+  else if(view==='hpmfeed')renderPerfHPMFeed(wrap,pd);
   else if(view==='orgtree')renderOrgTree(wrap);
   main.innerHTML='';main.appendChild(wrap);
 }
@@ -3431,6 +3432,339 @@ function _allKRsForPicker(){
   return out;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// HPM Phase 2: Company Feed — cross-team rollup of weekly HPM submissions.
+// Reads all submissions from KV. Highlights + Progress are always visible.
+// "Me" content is shown only when its visibility is "company" OR the viewer
+// is admin OR the viewer is the same dept manager.
+// ═══════════════════════════════════════════════════════════════════════════
+function renderPerfHPMFeed(wrap, pd){
+  var me = currentUser.email;
+  var isAd = isAdmin();
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'margin-bottom:18px';
+  hdr.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:4px">Company HPM Feed</div>'
+    + '<div style="font-size:12px;color:var(--mut);line-height:1.55">Everyone\'s weekly Highlights and Progress, grouped by week. "Me" entries respect each person\'s visibility choice. Updates within ~30 seconds of any submission.</div>';
+  wrap.appendChild(hdr);
+
+  // Filter bar
+  var filterBar = document.createElement('div');
+  filterBar.style.cssText = 'display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap';
+  var deptSel = document.createElement('select');
+  deptSel.style.cssText = 'padding:8px 12px;border:1px solid var(--brd);border-radius:6px;background:var(--surf);color:var(--txt);font-size:12px';
+  deptSel.innerHTML = '<option value="">All departments</option>' + DEPTS.map(function(d){return '<option>'+d+'</option>';}).join('');
+  filterBar.appendChild(deptSel);
+  var weekSel = document.createElement('select');
+  weekSel.style.cssText = 'padding:8px 12px;border:1px solid var(--brd);border-radius:6px;background:var(--surf);color:var(--txt);font-size:12px';
+  weekSel.innerHTML = '<option value="">All weeks</option>';
+  filterBar.appendChild(weekSel);
+  var refreshBtn = document.createElement('button');
+  refreshBtn.className = 'hbtn';
+  refreshBtn.style.cssText = 'padding:8px 14px;font-size:12px';
+  refreshBtn.innerHTML = '↻ Refresh';
+  filterBar.appendChild(refreshBtn);
+  wrap.appendChild(filterBar);
+
+  var listEl = document.createElement('div');
+  wrap.appendChild(listEl);
+
+  function fetchAndRender(){
+    listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--mut);font-size:12px">Loading…</div>';
+    if(typeof RL_SRV === 'undefined'){
+      listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--red);font-size:12px">Worker URL not configured — server unavailable.</div>';
+      return;
+    }
+    RL_SRV.call('get_hpm_all').then(function(r){
+      if(!r || !r.ok){
+        listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--red);font-size:12px">Failed to load feed.</div>';
+        return;
+      }
+      // submissions shape: { [email]: { [weekKey]: { highlights, progress, me, confidence, submittedAt, late } } }
+      var subs = r.submissions || {};
+      // Build flat list of entries with metadata
+      var flat = [];
+      Object.keys(subs).forEach(function(email){
+        var u = USER_REGISTRY[email] || {name:email, dept:''};
+        Object.keys(subs[email]||{}).forEach(function(wk){
+          flat.push({
+            email: email,
+            name: u.name || email,
+            dept: u.dept || '',
+            weekKey: wk,
+            entry: subs[email][wk]
+          });
+        });
+      });
+      // Build week-list options
+      var weeks = Array.from(new Set(flat.map(function(x){return x.weekKey;}))).sort().reverse();
+      if(weekSel.options.length <= 1){
+        weeks.forEach(function(w){ var op = document.createElement('option'); op.value = w; op.textContent = w; weekSel.appendChild(op); });
+      }
+      // Apply filters
+      var deptFilter = deptSel.value;
+      var weekFilter = weekSel.value;
+      var filtered = flat.filter(function(x){
+        if(deptFilter && x.dept !== deptFilter) return false;
+        if(weekFilter && x.weekKey !== weekFilter) return false;
+        return x.entry && x.entry.submittedAt;
+      });
+      // Group by week
+      var grouped = {};
+      filtered.forEach(function(x){
+        grouped[x.weekKey] = grouped[x.weekKey] || [];
+        grouped[x.weekKey].push(x);
+      });
+      var weekKeys = Object.keys(grouped).sort().reverse();
+      if(!weekKeys.length){
+        listEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--mut);font-size:12px">No submissions match the current filters.</div>';
+        return;
+      }
+      listEl.innerHTML = '';
+      weekKeys.forEach(function(wk){
+        var wkHdr = document.createElement('div');
+        wkHdr.style.cssText = 'font-size:11px;color:var(--mut);font-weight:700;letter-spacing:.3px;font-family:Roboto Mono,monospace;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--brd)';
+        wkHdr.textContent = wk + ' · ' + grouped[wk].length + ' submission' + (grouped[wk].length===1?'':'s');
+        listEl.appendChild(wkHdr);
+        grouped[wk].forEach(function(x){
+          var ent = x.entry;
+          var card = document.createElement('div');
+          card.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:14px 18px;margin-bottom:10px';
+          var headRow = document.createElement('div');
+          headRow.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px';
+          var who = '<div><div style="font-weight:700;font-size:13px">'+esc(x.name)+(x.email===me?' <span class="badge Medium">you</span>':'')+(ent.late?' <span class="badge Critical">LATE</span>':'')+'</div><div style="font-size:11px;color:var(--mut);margin-top:2px">'+esc(x.dept)+' · '+new Date(ent.submittedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'})+'</div></div>';
+          var conf = ent.confidence ? '<div style="text-align:right;font-size:14px;color:'+(ent.confidence<=2?'var(--red)':ent.confidence===3?'var(--yel)':'var(--grn)')+';font-weight:700">'+('★'.repeat(ent.confidence))+'<span style="color:var(--mut)">'+('☆'.repeat(5-ent.confidence))+'</span></div>' : '';
+          headRow.innerHTML = who + conf;
+          card.appendChild(headRow);
+          // Highlights
+          if(ent.highlights && ent.highlights.length){
+            var hh = document.createElement('div'); hh.style.cssText = 'margin-bottom:8px';
+            hh.innerHTML = '<div style="font-size:10px;color:var(--navy);font-weight:700;font-family:Roboto Mono,monospace;letter-spacing:.3px;margin-bottom:4px">HIGHLIGHTS</div>'
+              + '<ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6">'+ent.highlights.filter(function(h){return h.text;}).map(function(h){return '<li>'+esc(h.text)+(h.krId?' <span style="font-size:10px;color:var(--acc);font-family:Roboto Mono,monospace">→ '+h.krId+'</span>':'')+'</li>';}).join('')+'</ul>';
+            card.appendChild(hh);
+          }
+          // Progress
+          if(ent.progress && ent.progress.length){
+            var pp = document.createElement('div'); pp.style.cssText = 'margin-bottom:8px';
+            pp.innerHTML = '<div style="font-size:10px;color:var(--navy);font-weight:700;font-family:Roboto Mono,monospace;letter-spacing:.3px;margin-bottom:4px">PROGRESS</div>'
+              + '<ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6">'+ent.progress.filter(function(p){return p.text;}).map(function(p){return '<li>'+esc(p.text)+(p.krId?' <span style="font-size:10px;color:var(--acc);font-family:Roboto Mono,monospace">→ '+p.krId+'</span>':'')+'</li>';}).join('')+'</ul>';
+            card.appendChild(pp);
+          }
+          // Me (visibility-gated)
+          if(ent.me && ent.me.text){
+            var meVisible = ent.me.visibility === 'company' || isAd || x.email === me;
+            // Also visible if viewer is same-dept manager (heuristic)
+            if(!meVisible){
+              var viewerProfile = USER_REGISTRY[me] || {};
+              if(viewerProfile.dept === x.dept && (viewerProfile.role||'').toLowerCase().match(/manager|director|chief|head/)){
+                meVisible = true;
+              }
+            }
+            if(meVisible){
+              var mm = document.createElement('div');
+              mm.style.cssText = 'margin-top:8px;padding:8px 10px;background:rgba(108,99,255,.05);border-radius:6px;border-left:3px solid var(--acc)';
+              mm.innerHTML = '<div style="font-size:10px;color:var(--acc);font-weight:700;font-family:Roboto Mono,monospace;letter-spacing:.3px;margin-bottom:4px">ME · '+(ent.me.visibility==='company'?'COMPANY':'MANAGER-ONLY')+'</div>'
+                + '<div style="font-size:12px;color:var(--txt);white-space:pre-wrap">'+esc(ent.me.text)+'</div>';
+              card.appendChild(mm);
+            }
+          }
+          listEl.appendChild(card);
+        });
+      });
+    }).catch(function(){
+      listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--red);font-size:12px">Network error loading feed.</div>';
+    });
+  }
+  deptSel.onchange = fetchAndRender;
+  weekSel.onchange = fetchAndRender;
+  refreshBtn.onclick = fetchAndRender;
+  fetchAndRender();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HPM Phase 3 helpers: highlight promotion + self-review pre-fill
+// ═══════════════════════════════════════════════════════════════════════════
+function promoteHighlightToReview(highlightText, krId){
+  // Find user's currently active review for the current cycle (or any
+  // most-recent In Progress one). Append the highlight to their `wins` text.
+  var pd = loadPerfData();
+  var me = currentUser.email;
+  var mineActive = Object.values(pd.reviews || {}).filter(function(r){
+    return r.reviewee === me && r.status === 'In Progress';
+  }).sort(function(a,b){return new Date(b.createdAt) - new Date(a.createdAt);})[0];
+  if(!mineActive){
+    toast('No active review to promote to. Ask your manager to start one.','err');
+    return;
+  }
+  var existing = mineActive.sections.wins || '';
+  var stamp = '\n• ' + highlightText + (krId ? ' [→ '+krId+']' : '');
+  mineActive.sections.wins = (existing + stamp).trim();
+  savePerfData(pd);
+  toast('Promoted to "'+mineActive.title+'" wins ✓','ok');
+}
+
+// Returns the user's HPM confidence trend for a given quarter cycle, for use
+// in the Review modal as a sparkline. cycle is like "Q2_2026".
+function _hpmConfidenceForQuarter(email, cycle){
+  var hpm = (typeof _loadHPM === 'function') ? (_loadHPM()[email] || {}) : {};
+  var match = cycle.match(/^Q(\d+)_(\d+)$/);
+  if(!match) return [];
+  var q = parseInt(match[1],10);
+  var year = parseInt(match[2],10);
+  var startMonth = (q-1)*3;
+  var endMonth = startMonth + 3;
+  return Object.keys(hpm).filter(function(wk){
+    var entry = hpm[wk];
+    if(!entry || !entry.submittedAt) return false;
+    var d = new Date(entry.submittedAt);
+    if(d.getFullYear() !== year) return false;
+    var m = d.getMonth();
+    return m >= startMonth && m < endMonth;
+  }).sort().map(function(wk){
+    return {weekKey: wk, confidence: hpm[wk].confidence || 0, highlights: hpm[wk].highlights || [], submittedAt: hpm[wk].submittedAt};
+  });
+}
+
+// HPM Phase 4: Google Sheet importer dialog. Accepts CSV paste OR a CSV file
+// upload of the historical Form responses. Expected columns (flexible —
+// matches by header name): Timestamp, Email, Highlights, Progress, Me,
+// Confidence, Department. Each non-empty row becomes an HPM entry keyed by
+// the user's email + ISO week derived from the Timestamp.
+function _showHPMImportDialog(wrap, pd){
+  var ex = document.getElementById('hpm-import-modal'); if(ex) ex.remove();
+  var ov = document.createElement('div');
+  ov.id = 'hpm-import-modal';
+  ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.onclick = function(ev){ if(ev.target===ov) ov.remove(); };
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--surf);border-radius:12px;padding:24px;width:680px;max-width:95vw;max-height:90vh;overflow-y:auto';
+  box.innerHTML = '<div style="font-size:16px;font-weight:800;margin-bottom:8px">Import HPM History from Google Sheet</div>'
+    + '<div style="font-size:11px;color:var(--mut);margin-bottom:14px;line-height:1.55">Paste CSV from the Form responses sheet, or upload a CSV file. Expected columns: <code>Timestamp</code>, <code>Email Address</code>, <code>Highlights</code>, <code>Progress</code>, <code>Me</code>, <code>Confidence</code> (case-insensitive). Each row creates an HPM entry keyed by ISO week. Existing entries are not overwritten.</div>';
+  var ta = document.createElement('textarea');
+  ta.style.cssText = 'width:100%;min-height:160px;padding:10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:8px;font-size:11px;font-family:Roboto Mono,monospace;box-sizing:border-box;resize:vertical';
+  ta.placeholder = 'Paste CSV here…';
+  box.appendChild(ta);
+  var fileRow = document.createElement('div');
+  fileRow.style.cssText = 'margin-top:10px;display:flex;gap:10px;align-items:center';
+  var fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.csv,text/csv,text/plain';
+  fileInput.style.cssText = 'font-size:11px';
+  fileInput.onchange = function(){
+    var f = fileInput.files && fileInput.files[0]; if(!f) return;
+    var rdr = new FileReader();
+    rdr.onload = function(e){ ta.value = e.target.result; };
+    rdr.readAsText(f);
+  };
+  fileRow.appendChild(fileInput);
+  box.appendChild(fileRow);
+  var statusEl = document.createElement('div');
+  statusEl.style.cssText = 'margin-top:12px;font-size:11px;color:var(--mut)';
+  box.appendChild(statusEl);
+  var btnRow = document.createElement('div');
+  btnRow.style.cssText = 'margin-top:18px;display:flex;gap:10px;justify-content:flex-end';
+  var cancelB = document.createElement('button'); cancelB.className='hbtn'; cancelB.textContent='Cancel'; cancelB.onclick=function(){ov.remove();};
+  var importB = document.createElement('button'); importB.className='hbtn'; importB.style.cssText='border-color:var(--grn);color:var(--grn)'; importB.textContent='Import';
+  importB.onclick = function(){
+    var raw = (ta.value||'').trim();
+    if(!raw){ statusEl.textContent = 'Paste or upload a CSV first.'; statusEl.style.color='var(--red)'; return; }
+    try {
+      var result = _parseAndImportHPMCSV(raw);
+      statusEl.style.color = 'var(--grn)';
+      statusEl.innerHTML = 'Imported <b>'+result.imported+'</b> entries across <b>'+result.users+'</b> people. Skipped <b>'+result.skipped+'</b> (existing or bad rows). Refresh the page to see them in My History.';
+      logEntry('Imported '+result.imported+' HPM history entries from CSV','add');
+      autoSave();
+    } catch(e){
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = 'Parse error: ' + e.message;
+    }
+  };
+  btnRow.appendChild(cancelB); btnRow.appendChild(importB);
+  box.appendChild(btnRow);
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+}
+
+// Minimal CSV parser tolerant of quoted multi-line cells.
+function _parseCSV(text){
+  var rows = [], row = [], cell = '', inQ = false, i = 0;
+  while(i < text.length){
+    var c = text[i];
+    if(inQ){
+      if(c === '"' && text[i+1] === '"'){ cell += '"'; i += 2; continue; }
+      if(c === '"'){ inQ = false; i++; continue; }
+      cell += c; i++; continue;
+    }
+    if(c === '"'){ inQ = true; i++; continue; }
+    if(c === ','){ row.push(cell); cell = ''; i++; continue; }
+    if(c === '\n'){ row.push(cell); rows.push(row); row = []; cell = ''; i++; continue; }
+    if(c === '\r'){ i++; continue; }
+    cell += c; i++;
+  }
+  if(cell !== '' || row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+
+function _parseAndImportHPMCSV(raw){
+  var rows = _parseCSV(raw);
+  if(rows.length < 2) throw new Error('Need at least a header row + one data row');
+  var header = rows[0].map(function(h){return (h||'').trim().toLowerCase();});
+  function colIdx(){
+    for(var i=0;i<arguments.length;i++){
+      var idx = header.findIndex(function(h){return h === arguments[i] || h.indexOf(arguments[i]) >= 0;}.bind(null));
+      // Workaround: closures inside this loop need direct compare
+    }
+  }
+  function findCol(names){
+    for(var n=0;n<names.length;n++){
+      for(var h=0;h<header.length;h++){ if(header[h] === names[n] || header[h].indexOf(names[n]) >= 0) return h; }
+    }
+    return -1;
+  }
+  var tsIdx = findCol(['timestamp','date']);
+  var emIdx = findCol(['email','email address']);
+  var hlIdx = findCol(['highlight']);
+  var prIdx = findCol(['progress']);
+  var meIdx = findCol(['me']);
+  var cfIdx = findCol(['confidence','confidence rating']);
+  var dpIdx = findCol(['dept','department']);
+  if(emIdx < 0) throw new Error('No Email column found');
+  if(tsIdx < 0) throw new Error('No Timestamp column found');
+
+  var hpm = _loadHPM();
+  var imported = 0, skipped = 0;
+  var usersSeen = {};
+  for(var i=1;i<rows.length;i++){
+    var r = rows[i]; if(!r || !r.length) continue;
+    var em = ((r[emIdx]||'').trim().toLowerCase());
+    var tsRaw = (r[tsIdx]||'').trim();
+    if(!em || !tsRaw){ skipped++; continue; }
+    var d = new Date(tsRaw);
+    if(isNaN(d.getTime())){ skipped++; continue; }
+    var wk = _isoWeek(d);
+    hpm[em] = hpm[em] || {};
+    if(hpm[em][wk] && hpm[em][wk].submittedAt){ skipped++; continue; }
+    var highlights = ((r[hlIdx]||'')+'').split(/\n+/).filter(Boolean).map(function(t){return {text:t.trim(),krId:null};});
+    var progress = ((r[prIdx]||'')+'').split(/\n+/).filter(Boolean).map(function(t){return {text:t.trim(),krId:null};});
+    var meTxt = (r[meIdx]||'').trim();
+    var cf = parseInt((r[cfIdx]||'0'),10) || null;
+    hpm[em][wk] = {
+      department: (r[dpIdx]||'').trim() || (USER_REGISTRY[em]||{}).dept || '',
+      highlights: highlights.length ? highlights : [{text:'',krId:null}],
+      progress: progress.length ? progress : [{text:'',krId:null}],
+      me: {text: meTxt, visibility: 'manager'},
+      confidence: cf,
+      submittedAt: d.toISOString(),
+      lastEditedAt: d.toISOString(),
+      late: false,
+      importedFromCSV: true
+    };
+    imported++;
+    usersSeen[em] = true;
+  }
+  _saveHPM(hpm);
+  return {imported: imported, skipped: skipped, users: Object.keys(usersSeen).length};
+}
+
 function renderPerfHPM(wrap, pd){
   var me = currentUser.email;
   var u = USER_REGISTRY[me] || {};
@@ -3447,6 +3781,21 @@ function renderPerfHPM(wrap, pd){
   hdr.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:4px">Weekly HPM <span style="font-size:11px;color:var(--mut);font-weight:500;font-family:Roboto Mono,monospace;margin-left:8px">'+weekKey+' &middot; '+fmt(range.monday)+' &mdash; '+fmt(range.sunday)+'</span></div>'
     + '<div style="font-size:12px;color:var(--mut);line-height:1.55">Capture <b>Highlights</b> (outcomes that moved your OKRs), <b>Progress</b> (what\'s in flight), and <b>Me</b> (personal context). Confidence rating drives a weekly heartbeat that shows up in your Performance history and manager view.</div>';
   wrap.appendChild(hdr);
+
+  // HPM Phase 4: Decommissioning banner for the Google Form + admin importer.
+  // Once the team has been on Pulse-HPM for a quarter, archive the form.
+  var decom = document.createElement('div');
+  decom.style.cssText = 'background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--txt);display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap';
+  decom.innerHTML = '<span style="color:var(--grn);font-size:14px;line-height:1;flex-shrink:0">✓</span><div style="flex:1"><b style="color:var(--grn)">Pulse-HPM is now the source of truth.</b> The Google Form continues to work for now, but new submissions should land here. Admins: once a few weeks of overlap pass, archive the form so the team has one place to go.</div>';
+  if(isAdmin()){
+    var impBtn = document.createElement('button');
+    impBtn.className = 'hbtn';
+    impBtn.style.cssText = 'font-size:11px;padding:6px 14px;color:var(--acc);border-color:var(--acc)';
+    impBtn.textContent = '↥ Import Google Sheet history';
+    impBtn.onclick = function(){ _showHPMImportDialog(wrap, pd); };
+    decom.appendChild(impBtn);
+  }
+  wrap.appendChild(decom);
 
   // Window status banner
   var banner = document.createElement('div');
@@ -3511,7 +3860,25 @@ function renderPerfHPM(wrap, pd){
         delBtn.className='hbtn';delBtn.style.cssText='font-size:11px;padding:6px 10px;color:var(--mut)';
         delBtn.textContent='×';delBtn.title='Remove this line';
         delBtn.onclick = function(){if(items.length<=1){items[0]={text:'',krId:null};}else{items.splice(idx,1);}renderLines();onChange();};
-        row.appendChild(ta); row.appendChild(krSel); row.appendChild(delBtn);
+        // Promote-to-Review only shown on the Highlights section. Looks for
+        // the user's currently active review and appends this line to its
+        // wins section. Inert if the line is empty or no active review.
+        var promBtn = null;
+        if(label.indexOf('Highlights') === 0){
+          promBtn = document.createElement('button');
+          promBtn.className = 'hbtn';
+          promBtn.style.cssText = 'font-size:10px;padding:6px 9px;color:var(--acc);border-color:var(--acc)';
+          promBtn.textContent = '★ Promote';
+          promBtn.title = 'Add this highlight to your active Performance Review\'s wins section';
+          promBtn.onclick = function(){
+            var txt = (items[idx].text || '').trim();
+            if(!txt){ toast('Type the highlight first','err'); return; }
+            promoteHighlightToReview(txt, items[idx].krId);
+          };
+        }
+        row.appendChild(ta); row.appendChild(krSel);
+        if(promBtn) row.appendChild(promBtn);
+        row.appendChild(delBtn);
         linesEl.appendChild(row);
       });
       var addBtn = document.createElement('button');
@@ -3813,7 +4180,76 @@ var _ws=r.workflowStatus||'Draft',_wstep=getWorkflowStep(_ws);var _wfB=document.
   // Sections
   function mTA(val,ph,onSave){var ta=document.createElement('textarea');ta.value=val;ta.placeholder=ph;ta.rows=4;ta.style.cssText='width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:8px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box';ta.onblur=function(){onSave(this.value.trim());};return ta;}
   function mSec(ttl2,el){var s=document.createElement('div');s.style.cssText='margin-bottom:20px';var l=document.createElement('div');l.style.cssText='font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:8px';l.textContent=ttl2;s.appendChild(l);s.appendChild(el);return s;}
-  if(iRee||isAd)box.appendChild(mSec('SELF REVIEW',mTA(r.sections.self.text,'Reflect on your achievements, challenges, and goals...',function(v){var pd2=loadPerfData();if(!pd2.reviews[id])return;pd2.reviews[id].sections.self.text=v;pd2.reviews[id].sections.self.submitted=!!v;savePerfData(pd2);})));
+  // HPM Phase 3: confidence sparkline + self-review pre-fill from HPMs.
+  // Sparkline visible to anyone; pre-fill button only when viewing your own
+  // active self-review.
+  if(typeof _hpmConfidenceForQuarter === 'function'){
+    var hpmTrend = _hpmConfidenceForQuarter(r.reviewee, r.cycle);
+    if(hpmTrend.length){
+      var hpmBox = document.createElement('div');
+      hpmBox.style.cssText = 'background:rgba(108,99,255,.06);border:1px solid rgba(108,99,255,.25);border-radius:10px;padding:12px 14px;margin-bottom:16px';
+      var hpmHdr = document.createElement('div');
+      hpmHdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px';
+      hpmHdr.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--acc);font-family:Roboto Mono,monospace;letter-spacing:.3px">HPM CONFIDENCE TREND · '+hpmTrend.length+' weeks this quarter</div>';
+      hpmBox.appendChild(hpmHdr);
+      // Sparkline bars
+      var spark = document.createElement('div');
+      spark.style.cssText = 'display:flex;align-items:flex-end;gap:3px;height:36px';
+      hpmTrend.forEach(function(t){
+        var col = t.confidence<=2?'var(--red)':t.confidence===3?'var(--yel)':'var(--grn)';
+        var h = Math.max(4, (t.confidence/5)*36);
+        spark.innerHTML += '<div title="'+t.weekKey+': '+t.confidence+'/5" style="flex:1;height:'+h+'px;background:'+col+';border-radius:2px 2px 0 0"></div>';
+      });
+      hpmBox.appendChild(spark);
+      // Avg confidence
+      var avg = hpmTrend.reduce(function(a,t){return a+(t.confidence||0);},0)/hpmTrend.length;
+      var avgLbl = document.createElement('div');
+      avgLbl.style.cssText = 'font-size:11px;color:var(--mut);margin-top:6px';
+      avgLbl.innerHTML = 'Average confidence: <b style="color:var(--txt)">'+avg.toFixed(1)+'/5</b>'+(avg<2.5?' <span style="color:var(--red)">— sustained low confidence, worth discussing</span>':'');
+      hpmBox.appendChild(avgLbl);
+      box.appendChild(hpmBox);
+    }
+  }
+  if(iRee||isAd){
+    var selfWrap = document.createElement('div');
+    var selfTA = mTA(r.sections.self.text,'Reflect on your achievements, challenges, and goals...',function(v){var pd2=loadPerfData();if(!pd2.reviews[id])return;pd2.reviews[id].sections.self.text=v;pd2.reviews[id].sections.self.submitted=!!v;savePerfData(pd2);});
+    selfWrap.appendChild(selfTA);
+    // Pre-fill from HPMs button
+    if(iRee && typeof _hpmConfidenceForQuarter === 'function'){
+      var preFillBar = document.createElement('div');
+      preFillBar.style.cssText = 'margin-top:8px;display:flex;gap:8px;align-items:center';
+      var preFillBtn = document.createElement('button');
+      preFillBtn.className = 'hbtn';
+      preFillBtn.style.cssText = 'font-size:11px;padding:6px 14px;color:var(--acc);border-color:var(--acc)';
+      preFillBtn.innerHTML = '✨ Pre-fill from my HPMs';
+      preFillBtn.title = 'Insert this quarter\'s HPM highlights into your self-review';
+      preFillBtn.onclick = function(){
+        var trend = _hpmConfidenceForQuarter(r.reviewee, r.cycle);
+        if(!trend.length){ toast('No HPM submissions found for this quarter','err'); return; }
+        var lines = [];
+        lines.push('Highlights from my weekly HPMs this quarter:\n');
+        trend.forEach(function(t){
+          (t.highlights||[]).forEach(function(h){
+            if(h.text && h.text.trim()) lines.push('• ['+t.weekKey+'] '+h.text+(h.krId?' [→ '+h.krId+']':''));
+          });
+        });
+        lines.push('\nAverage weekly confidence: '+(trend.reduce(function(a,t){return a+(t.confidence||0);},0)/trend.length).toFixed(1)+'/5');
+        var pre = lines.join('\n');
+        var cur = selfTA.value || '';
+        selfTA.value = (cur ? cur + '\n\n' : '') + pre;
+        selfTA.dispatchEvent(new Event('change'));
+        selfTA.onblur();
+        toast('Pre-filled with '+trend.length+' weeks of HPM data','ok');
+      };
+      preFillBar.appendChild(preFillBtn);
+      var hint = document.createElement('span');
+      hint.style.cssText = 'font-size:10px;color:var(--mut)';
+      hint.textContent = 'Appends weekly highlights + confidence avg from this quarter';
+      preFillBar.appendChild(hint);
+      selfWrap.appendChild(preFillBar);
+    }
+    box.appendChild(mSec('SELF REVIEW',selfWrap));
+  }
   if(iRer)box.appendChild(mSec('MANAGER FEEDBACK',mTA(r.sections.manager.text,'Structured feedback on performance and development...',function(v){var pd2=loadPerfData();if(!pd2.reviews[id])return;pd2.reviews[id].sections.manager.text=v;pd2.reviews[id].sections.manager.submitted=!!v;savePerfData(pd2);})));
   else if(r.sections.manager.text){var mf=document.createElement('div');mf.style.cssText='background:var(--surf2);border-radius:8px;padding:12px;font-size:12px;white-space:pre-wrap';mf.textContent=r.sections.manager.text;box.appendChild(mSec('MANAGER FEEDBACK',mf));}
   [{k:'wins',t:'WINS & HIGHLIGHTS',p:'Document key achievements and impact...'},{k:'growthAreas',t:'GROWTH AREAS',p:'Areas for development and improvement...'},{k:'coachingNotes',t:'COACHING NOTES',p:'Coaching points and support needed...'},{k:'developmentPlan',t:'DEVELOPMENT PLAN',p:'Concrete steps and learning goals...'}].forEach(function(sec){if(!iRer&&!iRee)return;box.appendChild(mSec(sec.t,mTA(r.sections[sec.k]||'',sec.p,function(k){return function(v){var pd2=loadPerfData();if(!pd2.reviews[id])return;pd2.reviews[id].sections[k]=v;savePerfData(pd2);};}(sec.k))));});
