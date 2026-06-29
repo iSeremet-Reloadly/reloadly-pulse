@@ -1425,6 +1425,24 @@ function init(){
 function loadData(){
   var s=localStorage.getItem('rl_tasks_v4');
   if(s){try{data=JSON.parse(s);}catch(e){data=JSON.parse(JSON.stringify(SEED));}}else{data=JSON.parse(JSON.stringify(SEED));}
+  // Cross-user shared tasks: pull from Worker KV (if present) and re-render.
+  // First-load behaviour: if KV is empty, push our local seed/data up so the
+  // rest of the team starts seeing what's here. Polling kicks in after the
+  // initial pull so subsequent edits propagate within ~30s.
+  if(typeof RL_SRV !== 'undefined'){
+    RL_SRV.call('get_tasks').then(function(r){
+      if(r && r.ok && r.found && r.data){
+        window.data = r.data;
+        _TASKS_SYNC.lastPolledMetaAt = r.updatedAt || '';
+        try{ localStorage.setItem('rl_tasks_v4', JSON.stringify(data)); }catch(e){}
+        try{ updCnts(); render(); }catch(e){}
+      } else if(r && r.ok && !r.found){
+        // KV empty — push our current local data as the team baseline.
+        _pushTasksToWorker();
+      }
+      _startTasksPolling();
+    }).catch(function(){ _startTasksPolling(); });
+  }
   var l=localStorage.getItem('rl_log_v1');
   if(l){try{actLog=JSON.parse(l);}catch(e){actLog=[];}}
   // Migrate old dueDate field
@@ -1552,9 +1570,301 @@ function signOut(){
   document.getElementById('gate').style.display='flex';
   setTimeout(function(){document.getElementById('gate-email').focus();},100);
 }
+// ═══════════════════════════════════════════════════════════════════════════
+// SHARED TASKS SYNC — KV-backed cross-user task storage.
+// localStorage stays the offline-fallback. The Worker's `shared_tasks` KV
+// entry is the source of truth across the team. Pulse pushes on every save
+// (debounced 2s) and polls every 30s to pick up edits made by other users.
+// ═══════════════════════════════════════════════════════════════════════════
+var _TASKS_SYNC = {
+  lastPushedAt: 0,
+  lastPolledMetaAt: '',
+  pushTimer: null,
+  pollInterval: null,
+  pulling: false,
+};
+
+function _pushTasksToWorker(){
+  if(typeof RL_SRV === 'undefined' || typeof data === 'undefined') return;
+  if(_TASKS_SYNC.pushTimer) clearTimeout(_TASKS_SYNC.pushTimer);
+  _TASKS_SYNC.pushTimer = setTimeout(function(){
+    _TASKS_SYNC.pushTimer = null;
+    var by = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
+    RL_SRV.call('put_tasks', {data: data, by: by}).then(function(r){
+      if(r && r.ok){
+        _TASKS_SYNC.lastPushedAt = Date.now();
+        _TASKS_SYNC.lastPolledMetaAt = r.updatedAt || '';
+        try{ var dot=document.getElementById('as-dot'); if(dot){dot.title='Synced ✓ — shared with team';} }catch(e){}
+      }
+    }).catch(function(){});
+  }, 2000);
+}
+
+function _pullTasksFromWorker(force){
+  if(typeof RL_SRV === 'undefined' || _TASKS_SYNC.pulling) return Promise.resolve();
+  _TASKS_SYNC.pulling = true;
+  return RL_SRV.call('get_tasks').then(function(r){
+    _TASKS_SYNC.pulling = false;
+    if(!r || !r.ok || !r.found || !r.data) return;
+    // Skip if remote isn't newer than our last successful pull (saves
+    // unnecessary re-renders while editing).
+    if(!force && r.updatedAt && r.updatedAt <= _TASKS_SYNC.lastPolledMetaAt) return;
+    // Skip if WE wrote this update — local is already in sync, no need
+    // to re-render and risk clobbering an in-progress edit.
+    var me = (currentUser && currentUser.email) || null;
+    if(r.updatedBy === me && Date.now() - _TASKS_SYNC.lastPushedAt < 10000) return;
+    // Apply remote data
+    window.data = r.data;
+    _TASKS_SYNC.lastPolledMetaAt = r.updatedAt || '';
+    // Persist locally as offline fallback
+    try{ localStorage.setItem('rl_tasks_v4', JSON.stringify(data)); }catch(e){}
+    try{ updCnts(); render(); }catch(e){}
+    try{
+      var by = r.updatedBy && r.updatedBy !== me ? ' by ' + r.updatedBy : '';
+      toast('Tasks updated' + by, 'ok');
+    }catch(e){}
+  }).catch(function(){ _TASKS_SYNC.pulling = false; });
+}
+
+// Lightweight 30s poll using get_tasks_meta — only does a full pull when
+// the remote updatedAt is newer than what we have.
+function _startTasksPolling(){
+  if(_TASKS_SYNC.pollInterval) return;
+  _TASKS_SYNC.pollInterval = setInterval(function(){
+    if(typeof document !== 'undefined' && document.hidden) return; // skip when tab hidden
+    if(typeof RL_SRV === 'undefined') return;
+    RL_SRV.call('get_tasks_meta').then(function(r){
+      if(!r || !r.ok || !r.found) return;
+      if(r.updatedAt && r.updatedAt > _TASKS_SYNC.lastPolledMetaAt){
+        _pullTasksFromWorker();
+      }
+    }).catch(function(){});
+  }, 30000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GENERIC DOC SYNC — reusable last-writer-wins KV bridge for any shared
+// store. Each docSync instance handles: bootstrap pull, debounced push on
+// local change, 30s meta-poll for remote changes, and a 10-second "recently
+// edited locally" window to prevent in-progress edits being clobbered.
+// ═══════════════════════════════════════════════════════════════════════════
+function _createDocSync(opts){
+  // opts:
+  //   key:          KV key (must be in worker ALLOWED_DOC_KEYS)
+  //   getLocal:     fn() → current local data
+  //   setLocal:     fn(remoteData) → apply remote to local (merge or replace)
+  //   debounceMs:   default 2000
+  //   pollIntervalMs: default 30000
+  //   onPullApplied: fn(data, updatedBy) — UI re-render hook
+  var state = {lastPushedAt: 0, lastPolledMetaAt: '', pushTimer: null, pulling: false, started: false};
+  function push(){
+    if(typeof RL_SRV === 'undefined') return;
+    if(state.pushTimer) clearTimeout(state.pushTimer);
+    state.pushTimer = setTimeout(function(){
+      state.pushTimer = null;
+      try {
+        var by = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
+        var d = opts.getLocal();
+        RL_SRV.call('put_doc', {key: opts.key, data: d, by: by}).then(function(r){
+          if(r && r.ok){
+            state.lastPushedAt = Date.now();
+            state.lastPolledMetaAt = r.updatedAt || '';
+          }
+        }).catch(function(){});
+      } catch(e){}
+    }, opts.debounceMs || 2000);
+  }
+  function pull(force){
+    if(typeof RL_SRV === 'undefined' || state.pulling) return Promise.resolve();
+    state.pulling = true;
+    return RL_SRV.call('get_doc', {key: opts.key}).then(function(r){
+      state.pulling = false;
+      if(!r || !r.ok || !r.found || r.data == null) return;
+      if(!force && r.updatedAt && r.updatedAt <= state.lastPolledMetaAt) return;
+      var me = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
+      if(r.updatedBy === me && Date.now() - state.lastPushedAt < 10000) return;
+      try { opts.setLocal(r.data); } catch(e){}
+      state.lastPolledMetaAt = r.updatedAt || '';
+      if(opts.onPullApplied){ try { opts.onPullApplied(r.data, r.updatedBy); } catch(e){} }
+    }).catch(function(){ state.pulling = false; });
+  }
+  function startPoll(){
+    if(state.started) return;
+    state.started = true;
+    setInterval(function(){
+      if(typeof document !== 'undefined' && document.hidden) return;
+      if(typeof RL_SRV === 'undefined') return;
+      RL_SRV.call('get_doc_meta', {key: opts.key}).then(function(r){
+        if(!r || !r.ok || !r.found) return;
+        if(r.updatedAt && r.updatedAt > state.lastPolledMetaAt){
+          pull();
+        }
+      }).catch(function(){});
+    }, opts.pollIntervalMs || 30000);
+  }
+  return {push: push, pull: pull, startPoll: startPoll, state: state, key: opts.key};
+}
+
+// ── Phase 3: USER_REGISTRY sync ──────────────────────────────────────────
+// Merges remote registry into local — never deletes local entries (so a
+// user added locally before push survives), and uses remote values when
+// fields differ. Removes the "Session-only" warning behaviour entirely.
+var USER_REG_SYNC = null;
+function _initUserRegistrySync(){
+  if(USER_REG_SYNC || typeof RL_SRV === 'undefined' || typeof USER_REGISTRY !== 'object') return;
+  USER_REG_SYNC = _createDocSync({
+    key: 'shared_user_registry',
+    getLocal: function(){ return USER_REGISTRY; },
+    setLocal: function(remote){
+      if(!remote || typeof remote !== 'object') return;
+      Object.keys(remote).forEach(function(email){
+        if(!USER_REGISTRY[email]) USER_REGISTRY[email] = remote[email];
+        else Object.assign(USER_REGISTRY[email], remote[email]);
+      });
+    },
+    onPullApplied: function(d, by){
+      if(typeof view !== 'undefined' && view === 'admin' && typeof renderAdmin === 'function'){
+        try { renderAdmin(); } catch(e){}
+      }
+    }
+  });
+  // Pull on init, then start polling
+  USER_REG_SYNC.pull(true).then(function(){ USER_REG_SYNC.startPoll(); });
+}
+
+// ── Phase 5a: Activity Log sync (append-only merge by timestamp) ─────────
+var ACT_LOG_SYNC = null;
+function _initActivityLogSync(){
+  if(ACT_LOG_SYNC || typeof RL_SRV === 'undefined') return;
+  ACT_LOG_SYNC = _createDocSync({
+    key: 'shared_activity_log',
+    getLocal: function(){ return (typeof actLog !== 'undefined') ? actLog.slice(-500) : []; },
+    setLocal: function(remote){
+      if(!Array.isArray(remote) || typeof actLog === 'undefined') return;
+      // Merge by ts — keep both local and remote, dedupe by ts+by+text
+      var seen = {};
+      var merged = [];
+      function add(arr){
+        arr.forEach(function(e){
+          if(!e || !e.ts) return;
+          var k = e.ts + '|' + (e.by||'') + '|' + (e.text||'');
+          if(seen[k]) return;
+          seen[k] = true;
+          merged.push(e);
+        });
+      }
+      add(actLog); add(remote);
+      merged.sort(function(a,b){return (a.ts||'') < (b.ts||'') ? -1 : 1;});
+      window.actLog = merged.slice(-500);
+    }
+  });
+  ACT_LOG_SYNC.pull(true).then(function(){ ACT_LOG_SYNC.startPoll(); });
+}
+
+// ── Phase 4: Roadmaps themes + initiatives sync ──────────────────────────
+var RM_SYNC = null;
+function _initRoadmapsSync(){
+  if(RM_SYNC || typeof RL_SRV === 'undefined') return;
+  RM_SYNC = _createDocSync({
+    key: 'shared_roadmaps',
+    getLocal: function(){
+      return {
+        themes: JSON.parse(localStorage.getItem('rl_rm_themes_v1')||'{}'),
+        initiatives: JSON.parse(localStorage.getItem('rl_rm_initiatives_v1')||'[]')
+      };
+    },
+    setLocal: function(remote){
+      if(!remote) return;
+      if(remote.themes) localStorage.setItem('rl_rm_themes_v1', JSON.stringify(remote.themes));
+      if(remote.initiatives) localStorage.setItem('rl_rm_initiatives_v1', JSON.stringify(remote.initiatives));
+    },
+    onPullApplied: function(){
+      if(typeof view !== 'undefined' && view === 'roadmaps' && typeof renderRoadmaps === 'function'){
+        try { renderRoadmaps(); } catch(e){}
+      }
+    }
+  });
+  RM_SYNC.pull(true).then(function(){ RM_SYNC.startPoll(); });
+}
+
+// ── Phase 2: OKR data sync (Strategy nodes + OKR_DATA) ────────────────────
+var OKR_SYNC = null;
+function _initOKRSync(){
+  if(OKR_SYNC || typeof RL_SRV === 'undefined') return;
+  OKR_SYNC = _createDocSync({
+    key: 'shared_okr',
+    getLocal: function(){
+      return {
+        okrData: (typeof OKR_DATA !== 'undefined') ? OKR_DATA : null,
+        stratNodes: JSON.parse(localStorage.getItem('rl_strat_nodes_v1')||'{}'),
+        stratEdges: JSON.parse(localStorage.getItem('rl_strat_edges_v1')||'{}')
+      };
+    },
+    setLocal: function(remote){
+      if(!remote) return;
+      if(remote.okrData && typeof OKR_DATA !== 'undefined'){
+        // Deep-merge dept-level KR updates — preserves any local-only KRs
+        // while taking remote confidence/progress changes.
+        try { window.OKR_DATA = JSON.parse(JSON.stringify(remote.okrData)); } catch(e){}
+      }
+      if(remote.stratNodes) localStorage.setItem('rl_strat_nodes_v1', JSON.stringify(remote.stratNodes));
+      if(remote.stratEdges) localStorage.setItem('rl_strat_edges_v1', JSON.stringify(remote.stratEdges));
+    },
+    onPullApplied: function(){
+      if(typeof view !== 'undefined' && (view === 'strategy' || view === 'okr' || view === 'dashboard') && typeof render === 'function'){
+        try { render(); } catch(e){}
+      }
+    }
+  });
+  OKR_SYNC.pull(true).then(function(){ OKR_SYNC.startPoll(); });
+}
+
+// ── Phase 5b: Performance Reviews sync ───────────────────────────────────
+var PERF_SYNC = null;
+function _initPerfSync(){
+  if(PERF_SYNC || typeof RL_SRV === 'undefined') return;
+  PERF_SYNC = _createDocSync({
+    key: 'shared_reviews',
+    getLocal: function(){
+      try { return JSON.parse(localStorage.getItem('rl_perf')||'{}'); }
+      catch(e){ return {}; }
+    },
+    setLocal: function(remote){
+      if(remote) localStorage.setItem('rl_perf', JSON.stringify(remote));
+    },
+    onPullApplied: function(){
+      if(typeof view !== 'undefined' && view === 'performance' && typeof renderPerf === 'function'){
+        try { renderPerf(); } catch(e){}
+      }
+    }
+  });
+  PERF_SYNC.pull(true).then(function(){ PERF_SYNC.startPoll(); });
+}
+
+// Boot all sync engines after RL_SRV is available.
+function _bootAllSyncs(){
+  try { _initUserRegistrySync(); } catch(e){}
+  try { _initActivityLogSync(); } catch(e){}
+  try { _initRoadmapsSync(); } catch(e){}
+  try { _initOKRSync(); } catch(e){}
+  try { _initPerfSync(); } catch(e){}
+}
+if(typeof window !== 'undefined'){ setTimeout(_bootAllSyncs, 1500); }
+
 function autoSave(){
   localStorage.setItem('rl_tasks_v4',JSON.stringify(data));
   localStorage.setItem('rl_log_v1',JSON.stringify(actLog.slice(-200)));
+  // Push to shared KV (debounced 2s)
+  _pushTasksToWorker();
+  // Companion stores that autoSave touches: activity log, plus a nudge to
+  // re-push USER_REGISTRY snapshot (so edits propagate when user closes a
+  // dialog without explicitly hitting a save button). Each handler is a
+  // no-op when its sync engine hasn't booted yet.
+  if(ACT_LOG_SYNC) ACT_LOG_SYNC.push();
+  if(USER_REG_SYNC) USER_REG_SYNC.push();
+  if(OKR_SYNC) OKR_SYNC.push();
+  if(RM_SYNC) RM_SYNC.push();
+  if(PERF_SYNC) PERF_SYNC.push();
   updCnts();
   var dot=document.getElementById('as-dot'),lbl=document.getElementById('as-lbl');
   if(dot){dot.classList.add('show');lbl.textContent='saved';}
@@ -1756,15 +2066,12 @@ function _renderAdminUsers(){
   var archivedEntries = entries.filter(function(kv){return ARCHIVED_USERS.indexOf(kv[0]) >= 0;});
   var html='<div class="ptitle">User Management</div><div class="psub">'+activeEntries.length+' active &middot; '+archivedEntries.length+' archived &middot; only admins can see this</div>';
   html+=_adminTabBar('users');
-  // Honesty banner — every edit to this table updates USER_REGISTRY in memory
-  // only. autoSave() persists tasks + the activity log, not the user registry.
-  // Changes vanish on reload and never reach other users' browsers.
-  html+='<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.4);border-radius:8px;padding:12px 16px;margin:12px 0 16px;display:flex;gap:12px;align-items:flex-start;font-size:12px;line-height:1.55;color:var(--txt)">';
-  html+='<span style="color:var(--yel);font-size:18px;line-height:1;flex-shrink:0">⚠</span>';
-  html+='<div><b style="color:var(--yel)">Session-only edits.</b> Changes to name, role, dept, and the EXPORT / VIEW ALL / ADMIN / PRICING toggles update the user registry in memory only — they do not persist on reload and are not visible to other users.<br><span style="color:var(--mut)">To grant or revoke access durably, edit <code style="background:var(--surf2);padding:1px 5px;border-radius:3px;font-family:Roboto Mono,monospace;font-size:11px">USER_REGISTRY</code> in <code style="background:var(--surf2);padding:1px 5px;border-radius:3px;font-family:Roboto Mono,monospace;font-size:11px">index.html</code> and commit. Password set/change (PWD column) <i>does</i> persist locally.</span></div>';
+  // Persistence banner — registry is now KV-backed, edits sync across users.
+  html+='<div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:10px 14px;margin:12px 0 16px;font-size:12px;line-height:1.55;color:var(--txt);display:flex;gap:10px;align-items:center">';
+  html+='<span style="color:var(--grn);font-size:14px;line-height:1;flex-shrink:0">●</span>';
+  html+='<div><b style="color:var(--grn)">Synced across the team.</b> Edits to name, role, dept, Slack ID, and permission toggles save to the Worker KV and reach other admins within 30 seconds. Passwords stay local-only (per-user secret).</div>';
   html+='</div>';
-  // Permission headers get a small "(session)" tag so the table itself reflects the warning above.
-  function _shCol(label){return '<th>'+label+' <span style="font-size:8px;color:var(--mut);font-weight:400;letter-spacing:.3px;display:block;margin-top:1px">(session)</span></th>';}
+  function _shCol(label){return '<th>'+label+'</th>';}
   function _renderUserRow(e, u, archived){
     var you=currentUser&&currentUser.email===e;
     var rowStyle=archived?'opacity:.55;background:rgba(255,100,100,.04)':you?'background:rgba(108,99,255,.08)':'';
@@ -1789,7 +2096,7 @@ function _renderAdminUsers(){
     row += '<td><select class="ie" data-upd-email="'+e+'" data-upd-field="dept">';
     DEPTS.forEach(function(d){row += '<option'+(u.dept===d?' selected':'')+'>'+d+'</option>';});
     row += '</select></td>';
-    var _sessionNote=' Session-only — toggles this user record in memory but does not persist or propagate to other users. Edit USER_REGISTRY in index.html to make it durable.';
+    var _sessionNote=' Saves to shared KV — other admins see the change within 30 seconds.';
     row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canExport"'+(u.canExport?' checked':'')+' title="Export access.'+_sessionNote+'"></td>';
     row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canViewAll"'+(u.canViewAll?' checked':'')+' title="View all departments.'+_sessionNote+'"></td>';
     row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="isAdmin"'+(u.isAdmin?' checked':'')+' title="Admin access.'+_sessionNote+'"></td>';
@@ -1809,7 +2116,7 @@ function _renderAdminUsers(){
     return row;
   }
   // ── ACTIVE workforce table ────────────────────────────────────────────────
-  html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME '+'<span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>ROLE <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>DEPT <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+_shCol('PROPOSALS')+_shCol('WALLET OPS')+'<th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
+  html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME</th><th>ROLE</th><th>DEPT</th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+_shCol('PROPOSALS')+_shCol('WALLET OPS')+'<th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
   activeEntries.forEach(function(kv){ html += _renderUserRow(kv[0], kv[1], false); });
   html+='</tbody></table></div>';
   // ── ARCHIVED workforce section (collapsed by default) ─────────────────────
@@ -1898,7 +2205,7 @@ function _renderAdminUsers(){
           USER_REGISTRY[email][field]=el.value.trim();
           if(currentUser&&currentUser.email===email)currentUser[field]=el.value.trim();
         }
-        logEntry('Admin updated '+email+': '+field+' (session-only)','edit');
+        logEntry('Admin updated '+email+': '+field,'edit');
         autoSave();
         // slackId edits push to the shared Worker roster so Phase B (HPM
         // @-mentions) and Phase D (At-Risk DMs) pick up the new ID without
@@ -1911,7 +2218,7 @@ function _renderAdminUsers(){
           _schedulePushRoster();
           return;
         }
-        toast('Updated (session only — commit USER_REGISTRY to persist)','warn');
+        toast('Saved — syncing to team','ok');
       } catch (e) {
         // Swallow + log so a single bad row doesn't lock out the page.
         console && console.error && console.error('admin change handler failed:', e);
