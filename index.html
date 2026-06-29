@@ -1221,7 +1221,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-Management" onclick="go('Management')" style="display:none"></div>
     <div class="ni" id="nav-Operations" onclick="go('Operations')" style="display:none"></div>
     <div class="ni" id="nav-Finance" onclick="go('Finance')" style="display:none"></div>
-    <div class="ni" id="nav-Engineering" onclick="go('Engineering')" style="display:none"></div>
+    <div class="ni" id="nav-Product--Engineering" onclick="go('Product &amp; Engineering')" style="display:none"></div>
     <div class="ni" id="nav-Sales" onclick="go('Sales')" style="display:none"></div>
     <div class="ni" id="nav-mytasks" onclick="go('mytasks')" style="display:none"></div>
     <!-- Activity Log moved into User Management; route kept for back-compat -->
@@ -1258,10 +1258,10 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 <div id="toast" style="display:none" class="toast"></div>
 
 <script>
-var DEPTS=['Management','Operations','Finance','Engineering','Sales'];
+var DEPTS=['Management','Operations','Finance','Product & Engineering','Sales'];
 var ARCHIVED_USERS=JSON.parse(localStorage.getItem('rl_archived')||'[]');
 
-var OKR_DATA={cycle:"Q2",startDate:"2026-04-26",endDate:"2026-06-30",totalDays:65,depts:{"Company":{color:"var(--acc)",icon:"[CO]",objectives:[{id:"CO-1",title:"Scale Swype B2B revenue while protecting margins",progress:47,krs:[{id:"CO-1-1",title:"Onboard 12 new B2B customers to Swype",progress:33,owner:"Enrique Hirlemann",confidence:"On track"},{id:"CO-1-2",title:"Achieve $8M in total Swype sales volume",progress:19,owner:"Enrique Hirlemann",confidence:"On track"},{id:"CO-1-3",title:"Reach gross margin ≥6% across all Swype transactions",progress:90,owner:"Dren Lubovci",confidence:"On track"}]},{id:"CO-2",title:"Become a highly data driven company",progress:0,krs:[{id:"CO-2-1",title:"Roll 3 new data dashboards (Finance, Sales, Customers) by end of June",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"CO-2-2",title:"Enable Finance to close books by the 20th of every month",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"CO-3",title:"Establish Swype compliance",progress:17,krs:[{id:"CO-3-1",title:"Flag and resolve transactional risk issues within 1 hour",progress:0,owner:"",confidence:"Not started"},{id:"CO-3-2",title:"Complete Swype KYB/AML compliance framework reviewed by legal by June 15",progress:50,owner:"Michel Francis",confidence:"Not started"},{id:"CO-3-3",title:"Hire compliance and risk analyst by June 30",progress:0,owner:"Michel Francis",confidence:"Not started"}]}]},"Operations":{color:"var(--grn)",icon:"[OPS]",objectives:[{id:"OPS-1",title:"Deliver best-in-class support to drive Swype B2B customer retention",progress:74,krs:[{id:"OPS-1-1",title:"Achieve CSAT score ≥85% across all resolved Swype support tickets",progress:86,owner:"Irene Paez",confidence:"On track"},{id:"OPS-1-2",title:"Respond to 95% of B2B support tickets within 1 hour",progress:65,owner:"Irene Paez",confidence:"On track"},{id:"OPS-1-3",title:"Resolve 85% of B2B support tickets within 48 hours",progress:72,owner:"Irene Paez",confidence:"On track"}]},{id:"OPS-2",title:"Make Reloadly become more profitable",progress:3,krs:[{id:"OPS-2-1",title:"Lower buying cost with providers by 1%",progress:5,owner:"David Bassey",confidence:"Not started"},{id:"OPS-2-2",title:"Increase overall margins by 1%",progress:5,owner:"David Bassey",confidence:"Not started"},{id:"OPS-2-3",title:"Implement dynamic pricing engine targeting 0.5% blended margin improvement",progress:0,owner:"David Bassey",confidence:"Not started"}]},{id:"OPS-3",title:"Transform knowledge resources into scalable self-service assets",progress:13,krs:[{id:"OPS-3-1",title:"Revamp Help Centers into dual-purpose platforms",progress:15,owner:"Dren Lubovci",confidence:"Not started"},{id:"OPS-3-2",title:"Build comprehensive internal Swype knowledge base for support team",progress:15,owner:"Irene Paez",confidence:"At Risk"},{id:"OPS-3-3",title:"Establish quarterly knowledge audit process",progress:10,owner:"Dren Lubovci",confidence:"Not started"}]}]},"Finance":{color:"var(--yel)",icon:"[FIN]",objectives:[{id:"FIN-1",title:"Ensuring Operational Continuity and Cash Health",progress:33,krs:[{id:"FIN-1-1",title:"Reduce bank and platform accounts globally by 20%",progress:100,owner:"Michel Francis",confidence:"On track"},{id:"FIN-1-2",title:"Deliver weekly cash flow report every Monday, 90% on-time",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-1-3",title:"Ensure 95% of post-paid invoices collected on or before due date",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"FIN-2",title:"Achieve full ownership of Finance function",progress:0,krs:[{id:"FIN-2-1",title:"Complete 100% internal finance audit and workflows review",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-2-2",title:"Map all recurring finance obligations into a single finance calendar",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-2-3",title:"Hire Junior Accountant and transfer 1/3 of recurring tasks",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"FIN-3",title:"Recover and close outstanding accounting periods",progress:50,krs:[{id:"FIN-3-1",title:"Complete Q1 2026 accounting close independently",progress:100,owner:"Michel Francis",confidence:"On track"},{id:"FIN-3-2",title:"Close May and June 2026 books within 20 calendar days of month-end",progress:0,owner:"Michel Francis",confidence:"Not started"}]}]},"Engineering":{color:"var(--red)",icon:"[ENG]",objectives:[{id:"ENG-1",title:"Build data infrastructure to power a data-driven company",progress:17,krs:[{id:"ENG-1-1",title:"Deliver three production-ready dashboards (Finance, Sales, Customers) by end of June",progress:0,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-1-2",title:"Instrument all Swype card transaction events (100% traceable in data warehouse)",progress:50,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-1-3",title:"Achieve data pipeline uptime ≥99.5% and reduce Finance close data lag to zero",progress:0,owner:"Emmanuel Piard",confidence:"Not started"}]},{id:"ENG-2",title:"Swype B2B platform MVP is production-ready for paid launch",progress:62,krs:[{id:"ENG-2-1",title:"Ship Swype B2B Public REST API v1 with auth, versioning, rate limits + OpenAPI docs",progress:70,owner:"Emmanuel Piard",confidence:"On track"},{id:"ENG-2-2",title:"Ship Swype B2B dashboard MVP to production",progress:65,owner:"Emmanuel Piard",confidence:"On track"},{id:"ENG-2-3",title:"Enable go-live for ≥6 paying Swype white-label customers by June 30",progress:50,owner:"Emmanuel Piard",confidence:"On track"}]},{id:"ENG-3",title:"Improve platform stability and optimize infrastructure cost",progress:15,krs:[{id:"ENG-3-1",title:"Upgrade 4 services to approved Java/Spring Boot version with zero regressions",progress:23,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-3-2",title:"Automate security governance and modernize frontend applications",progress:22,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-3-3",title:"Complete Airtime Service database downgrade from Aurora to Community MySQL",progress:0,owner:"Emmanuel Piard",confidence:"Not started"}]}]},"Sales":{color:"#2778c4",icon:"[SAL]",objectives:[{id:"SAL-1",title:"Continue to massively grow sustainable revenue",progress:0,krs:[{id:"SAL-1-1",title:"Grow MRR from $112K to $275K by end of Q2",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-1-2",title:"Maintain minimum 6% month-over-month revenue growth",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-1-3",title:"12 new accounts (tier 1 & 2) LIVE",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]},{id:"SAL-2",title:"Align Marketing, Sales & Onboarding team engine and structure",progress:0,krs:[{id:"SAL-2-1",title:"Add REAL/weighted SQL pipeline value of $2M in Q2",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-2-2",title:"100 demos done for the quarter",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-2-3",title:"Achieve 40% of SQLs from events & content marketing",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]},{id:"SAL-3",title:"Nurture, motivate and train world-class commercial team",progress:0,krs:[{id:"SAL-3-1",title:"Maintain all commercial team above 80% of personal targets",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-3-2",title:"Establish weekly training regimens for product & sales",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-3-3",title:"Create automated reporting for weekly pipeline & revenue performance",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]}]}}};
+var OKR_DATA={cycle:"Q2",startDate:"2026-04-26",endDate:"2026-06-30",totalDays:65,depts:{"Company":{color:"var(--acc)",icon:"[CO]",objectives:[{id:"CO-1",title:"Scale Swype B2B revenue while protecting margins",progress:47,krs:[{id:"CO-1-1",title:"Onboard 12 new B2B customers to Swype",progress:33,owner:"Enrique Hirlemann",confidence:"On track"},{id:"CO-1-2",title:"Achieve $8M in total Swype sales volume",progress:19,owner:"Enrique Hirlemann",confidence:"On track"},{id:"CO-1-3",title:"Reach gross margin ≥6% across all Swype transactions",progress:90,owner:"Dren Lubovci",confidence:"On track"}]},{id:"CO-2",title:"Become a highly data driven company",progress:0,krs:[{id:"CO-2-1",title:"Roll 3 new data dashboards (Finance, Sales, Customers) by end of June",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"CO-2-2",title:"Enable Finance to close books by the 20th of every month",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"CO-3",title:"Establish Swype compliance",progress:17,krs:[{id:"CO-3-1",title:"Flag and resolve transactional risk issues within 1 hour",progress:0,owner:"",confidence:"Not started"},{id:"CO-3-2",title:"Complete Swype KYB/AML compliance framework reviewed by legal by June 15",progress:50,owner:"Michel Francis",confidence:"Not started"},{id:"CO-3-3",title:"Hire compliance and risk analyst by June 30",progress:0,owner:"Michel Francis",confidence:"Not started"}]}]},"Operations":{color:"var(--grn)",icon:"[OPS]",objectives:[{id:"OPS-1",title:"Deliver best-in-class support to drive Swype B2B customer retention",progress:74,krs:[{id:"OPS-1-1",title:"Achieve CSAT score ≥85% across all resolved Swype support tickets",progress:86,owner:"Irene Paez",confidence:"On track"},{id:"OPS-1-2",title:"Respond to 95% of B2B support tickets within 1 hour",progress:65,owner:"Irene Paez",confidence:"On track"},{id:"OPS-1-3",title:"Resolve 85% of B2B support tickets within 48 hours",progress:72,owner:"Irene Paez",confidence:"On track"}]},{id:"OPS-2",title:"Make Reloadly become more profitable",progress:3,krs:[{id:"OPS-2-1",title:"Lower buying cost with providers by 1%",progress:5,owner:"David Bassey",confidence:"Not started"},{id:"OPS-2-2",title:"Increase overall margins by 1%",progress:5,owner:"David Bassey",confidence:"Not started"},{id:"OPS-2-3",title:"Implement dynamic pricing engine targeting 0.5% blended margin improvement",progress:0,owner:"David Bassey",confidence:"Not started"}]},{id:"OPS-3",title:"Transform knowledge resources into scalable self-service assets",progress:13,krs:[{id:"OPS-3-1",title:"Revamp Help Centers into dual-purpose platforms",progress:15,owner:"Dren Lubovci",confidence:"Not started"},{id:"OPS-3-2",title:"Build comprehensive internal Swype knowledge base for support team",progress:15,owner:"Irene Paez",confidence:"At Risk"},{id:"OPS-3-3",title:"Establish quarterly knowledge audit process",progress:10,owner:"Dren Lubovci",confidence:"Not started"}]}]},"Finance":{color:"var(--yel)",icon:"[FIN]",objectives:[{id:"FIN-1",title:"Ensuring Operational Continuity and Cash Health",progress:33,krs:[{id:"FIN-1-1",title:"Reduce bank and platform accounts globally by 20%",progress:100,owner:"Michel Francis",confidence:"On track"},{id:"FIN-1-2",title:"Deliver weekly cash flow report every Monday, 90% on-time",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-1-3",title:"Ensure 95% of post-paid invoices collected on or before due date",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"FIN-2",title:"Achieve full ownership of Finance function",progress:0,krs:[{id:"FIN-2-1",title:"Complete 100% internal finance audit and workflows review",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-2-2",title:"Map all recurring finance obligations into a single finance calendar",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-2-3",title:"Hire Junior Accountant and transfer 1/3 of recurring tasks",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"FIN-3",title:"Recover and close outstanding accounting periods",progress:50,krs:[{id:"FIN-3-1",title:"Complete Q1 2026 accounting close independently",progress:100,owner:"Michel Francis",confidence:"On track"},{id:"FIN-3-2",title:"Close May and June 2026 books within 20 calendar days of month-end",progress:0,owner:"Michel Francis",confidence:"Not started"}]}]},"Product & Engineering":{color:"var(--red)",icon:"[ENG]",objectives:[{id:"ENG-1",title:"Build data infrastructure to power a data-driven company",progress:17,krs:[{id:"ENG-1-1",title:"Deliver three production-ready dashboards (Finance, Sales, Customers) by end of June",progress:0,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-1-2",title:"Instrument all Swype card transaction events (100% traceable in data warehouse)",progress:50,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-1-3",title:"Achieve data pipeline uptime ≥99.5% and reduce Finance close data lag to zero",progress:0,owner:"Emmanuel Piard",confidence:"Not started"}]},{id:"ENG-2",title:"Swype B2B platform MVP is production-ready for paid launch",progress:62,krs:[{id:"ENG-2-1",title:"Ship Swype B2B Public REST API v1 with auth, versioning, rate limits + OpenAPI docs",progress:70,owner:"Emmanuel Piard",confidence:"On track"},{id:"ENG-2-2",title:"Ship Swype B2B dashboard MVP to production",progress:65,owner:"Emmanuel Piard",confidence:"On track"},{id:"ENG-2-3",title:"Enable go-live for ≥6 paying Swype white-label customers by June 30",progress:50,owner:"Emmanuel Piard",confidence:"On track"}]},{id:"ENG-3",title:"Improve platform stability and optimize infrastructure cost",progress:15,krs:[{id:"ENG-3-1",title:"Upgrade 4 services to approved Java/Spring Boot version with zero regressions",progress:23,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-3-2",title:"Automate security governance and modernize frontend applications",progress:22,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-3-3",title:"Complete Airtime Service database downgrade from Aurora to Community MySQL",progress:0,owner:"Emmanuel Piard",confidence:"Not started"}]}]},"Sales":{color:"#2778c4",icon:"[SAL]",objectives:[{id:"SAL-1",title:"Continue to massively grow sustainable revenue",progress:0,krs:[{id:"SAL-1-1",title:"Grow MRR from $112K to $275K by end of Q2",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-1-2",title:"Maintain minimum 6% month-over-month revenue growth",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-1-3",title:"12 new accounts (tier 1 & 2) LIVE",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]},{id:"SAL-2",title:"Align Marketing, Sales & Onboarding team engine and structure",progress:0,krs:[{id:"SAL-2-1",title:"Add REAL/weighted SQL pipeline value of $2M in Q2",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-2-2",title:"100 demos done for the quarter",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-2-3",title:"Achieve 40% of SQLs from events & content marketing",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]},{id:"SAL-3",title:"Nurture, motivate and train world-class commercial team",progress:0,krs:[{id:"SAL-3-1",title:"Maintain all commercial team above 80% of personal targets",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-3-2",title:"Establish weekly training regimens for product & sales",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-3-3",title:"Create automated reporting for weekly pipeline & revenue performance",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]}]}}};
 var OKR_LINKS=JSON.parse(localStorage.getItem('rl_okr_links')||'{}');
 
 var SCORECARD_DEF=[
@@ -1281,7 +1281,7 @@ function getCurrentQuarter(){var now=new Date(),y=now.getFullYear(),m=now.getMon
 function quarterLabel(key){var p=key.split('_');return p[0]+' '+p[1];}
 function quarterDates(key){var p=key.split('_'),q=parseInt(p[0].slice(1)),y=parseInt(p[1]),starts=[[0,1],[3,1],[6,1],[9,1]],ends=[[2,31],[5,30],[8,30],[11,31]],ms=starts[q-1],me=ends[q-1],pad=function(n){return n<10?'0'+n:String(n);};var sd=y+'-'+pad(ms[0]+1)+'-'+pad(ms[1]),ed=y+'-'+pad(me[0]+1)+'-'+pad(me[1]),totalDays=Math.round((new Date(ed)-new Date(sd))/86400000)+1;return{startDate:sd,endDate:ed,totalDays:totalDays};}
 function generateQuarterList(){var list=[],qs=['Q1','Q2','Q3','Q4'];for(var y=2026;y<=2028;y++){for(var qi=0;qi<4;qi++){if(y===2026&&qi===0)continue;list.push(qs[qi]+'_'+y);}}return list;}
-function blankOKRData(key){var d=quarterDates(key),cy=key.split('_')[0];function mkDept(pre,col,icon){var objs=[];for(var i=1;i<=3;i++){var krs=[];for(var j=1;j<=3;j++){krs.push({id:pre+'-'+i+'-'+j,title:'Key Result '+j,progress:0,owner:'',confidence:'Not started'});}objs.push({id:pre+'-'+i,title:'Objective '+i,progress:0,krs:krs});}return{color:col,icon:icon,objectives:objs};}return{cycle:cy,startDate:d.startDate,endDate:d.endDate,totalDays:d.totalDays,depts:{"Company":mkDept('CO','var(--acc)','[CO]'),"Operations":mkDept('OPS','var(--grn)','[OPS]'),"Finance":mkDept('FIN','var(--yel)','[FIN]'),"Engineering":mkDept('ENG','var(--red)','[ENG]'),"Sales":mkDept('SAL','#2778c4','[SAL]')}};}
+function blankOKRData(key){var d=quarterDates(key),cy=key.split('_')[0];function mkDept(pre,col,icon){var objs=[];for(var i=1;i<=3;i++){var krs=[];for(var j=1;j<=3;j++){krs.push({id:pre+'-'+i+'-'+j,title:'Key Result '+j,progress:0,owner:'',confidence:'Not started'});}objs.push({id:pre+'-'+i,title:'Objective '+i,progress:0,krs:krs});}return{color:col,icon:icon,objectives:objs};}return{cycle:cy,startDate:d.startDate,endDate:d.endDate,totalDays:d.totalDays,depts:{"Company":mkDept('CO','var(--acc)','[CO]'),"Operations":mkDept('OPS','var(--grn)','[OPS]'),"Finance":mkDept('FIN','var(--yel)','[FIN]'),"Product & Engineering":mkDept('ENG','var(--red)','[ENG]'),"Sales":mkDept('SAL','#2778c4','[SAL]')}};}
 function loadOKRForQuarter(key){var stored=localStorage.getItem('rl_okr_'+key);if(stored){try{return JSON.parse(stored);}catch(e){}}if(key==='Q2_2026')return JSON.parse(JSON.stringify(OKR_DATA));return null;}
 function saveOKRForQuarter(key,data){localStorage.setItem('rl_okr_'+key,JSON.stringify(data));}
 function getActiveOKRKey(){return localStorage.getItem('rl_okr_active_quarter')||getCurrentQuarter();}
@@ -1290,7 +1290,7 @@ function getPreviousQuarterKey(key){var p=key.split('_'),q=parseInt(p[0].slice(1
 
 
 
-var OKR_DATA={cycle:"Q2",startDate:"2026-04-26",endDate:"2026-06-30",totalDays:65,depts:{"Company":{color:"var(--acc)",icon:"🏢",objectives:[{id:"CO-1",title:"Scale Swype B2B revenue while protecting margins",progress:47,krs:[{id:"CO-1-1",title:"Onboard 12 new B2B customers to Swype",progress:33,owner:"Enrique Hirlemann",confidence:"On track"},{id:"CO-1-2",title:"Achieve $8M in total Swype sales volume",progress:19,owner:"Enrique Hirlemann",confidence:"On track"},{id:"CO-1-3",title:"Reach gross margin ≥6% across all Swype transactions",progress:90,owner:"Dren Lubovci",confidence:"On track"}]},{id:"CO-2",title:"Become a highly data driven company",progress:0,krs:[{id:"CO-2-1",title:"Roll 3 new data dashboards – Finance, Sales, Customers by end of June",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"CO-2-2",title:"Enable Finance to close books by the 20th of every month",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"CO-3",title:"Establish Swype compliance",progress:17,krs:[{id:"CO-3-1",title:"Flag and resolve transactional risk issues within 1 hour",progress:0,owner:"",confidence:"Not started"},{id:"CO-3-2",title:"Complete Swype KYB/AML compliance framework reviewed by legal by June 15",progress:50,owner:"Michel Francis",confidence:"Not started"},{id:"CO-3-3",title:"Hire compliance and risk analyst by June 30",progress:0,owner:"Michel Francis",confidence:"Not started"}]}]},"Operations":{color:"var(--grn)",icon:"⚙️",objectives:[{id:"OPS-1",title:"Deliver best-in-class support to drive Swype B2B customer retention",progress:74,krs:[{id:"OPS-1-1",title:"Achieve CSAT score ≥85% across all resolved Swype support tickets",progress:86,owner:"Irene Paez",confidence:"On track"},{id:"OPS-1-2",title:"Respond to 95% of inbound B2B support tickets within 1 hour",progress:65,owner:"Irene Paez",confidence:"On track"},{id:"OPS-1-3",title:"Resolve 85% of B2B support tickets within 48 hours",progress:72,owner:"Irene Paez",confidence:"On track"}]},{id:"OPS-2",title:"Make Reloadly become more profitable",progress:3,krs:[{id:"OPS-2-1",title:"Lower buying cost with providers by 1%",progress:5,owner:"David Bassey",confidence:"Not started"},{id:"OPS-2-2",title:"Increase overall margins by 1%",progress:5,owner:"David Bassey",confidence:"Not started"},{id:"OPS-2-3",title:"Implement dynamic pricing engine targeting 0.5% blended margin improvement",progress:0,owner:"David Bassey",confidence:"Not started"}]},{id:"OPS-3",title:"Transform knowledge resources into scalable self-service assets",progress:13,krs:[{id:"OPS-3-1",title:"Revamp Help Centers into dual-purpose platforms",progress:15,owner:"Dren Lubovci",confidence:"Not started"},{id:"OPS-3-2",title:"Build comprehensive internal Swype knowledge base for support team",progress:15,owner:"Irene Paez",confidence:"At Risk"},{id:"OPS-3-3",title:"Establish quarterly knowledge audit process",progress:10,owner:"Dren Lubovci",confidence:"Not started"}]}]},"Finance":{color:"var(--yel)",icon:"💰",objectives:[{id:"FIN-1",title:"Ensuring Operational Continuity and Cash Health",progress:33,krs:[{id:"FIN-1-1",title:"Reduce bank and platform accounts globally by 20%",progress:100,owner:"Michel Francis",confidence:"On track"},{id:"FIN-1-2",title:"Deliver weekly cash flow report every Monday, 90% on-time",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-1-3",title:"Ensure 95% of post-paid invoices collected on or before due date",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"FIN-2",title:"Achieve full ownership of Finance function",progress:0,krs:[{id:"FIN-2-1",title:"Complete 100% internal finance audit and workflows review",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-2-2",title:"Map all recurring finance obligations into a single finance calendar",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-2-3",title:"Hire Junior Accountant and transfer 1/3 of recurring tasks",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"FIN-3",title:"Recover and close outstanding accounting periods",progress:50,krs:[{id:"FIN-3-1",title:"Complete Q1 2026 accounting close independently",progress:100,owner:"Michel Francis",confidence:"On track"},{id:"FIN-3-2",title:"Close May and June 2026 books within 20 calendar days of month-end",progress:0,owner:"Michel Francis",confidence:"Not started"}]}]},"Engineering":{color:"var(--red)",icon:"⚡",objectives:[{id:"ENG-1",title:"Build data infrastructure to power a data-driven company",progress:17,krs:[{id:"ENG-1-1",title:"Deliver three production-ready dashboards (Finance, Sales, Customers) by end of June",progress:0,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-1-2",title:"Instrument all Swype card transaction events (100% traceable in data warehouse)",progress:50,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-1-3",title:"Achieve data pipeline uptime ≥99.5% and reduce Finance close data lag to zero",progress:0,owner:"Emmanuel Piard",confidence:"Not started"}]},{id:"ENG-2",title:"Swype B2B platform MVP is production-ready for paid launch",progress:62,krs:[{id:"ENG-2-1",title:"Ship Swype B2B Public REST API v1 with auth, versioning, rate limits + OpenAPI docs",progress:70,owner:"Emmanuel Piard",confidence:"On track"},{id:"ENG-2-2",title:"Ship Swype B2B dashboard MVP to production",progress:65,owner:"Emmanuel Piard",confidence:"On track"},{id:"ENG-2-3",title:"Enable go-live for ≥6 paying Swype white-label customers by June 30",progress:50,owner:"Emmanuel Piard",confidence:"On track"}]},{id:"ENG-3",title:"Improve platform stability – Strengthen architecture – Optimize infrastructure cost",progress:15,krs:[{id:"ENG-3-1",title:"Upgrade 4 services to approved Java/Spring Boot version with zero regressions",progress:23,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-3-2",title:"Automate security governance and modernize frontend applications",progress:22,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-3-3",title:"Complete Airtime Service database downgrade from Aurora to Community MySQL",progress:0,owner:"Emmanuel Piard",confidence:"Not started"}]}]},"Sales":{color:"#2778c4",icon:"📈",objectives:[{id:"SAL-1",title:"Continue to massively grow sustainable revenue",progress:0,krs:[{id:"SAL-1-1",title:"Grow MRR from $112K to $275K by end of Q2",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-1-2",title:"Maintain minimum 6% month-over-month revenue growth",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-1-3",title:"12 new accounts (tier 1 & 2) LIVE",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]},{id:"SAL-2",title:"Align Marketing, Sales & Onboarding team engine and structure",progress:0,krs:[{id:"SAL-2-1",title:"Add REAL/weighted SQL pipeline value of $2M in Q2",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-2-2",title:"100 demos done for the quarter",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-2-3",title:"Achieve 40% of SQLs from events & content marketing",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]},{id:"SAL-3",title:"Nurture, motivate and train world-class commercial team",progress:0,krs:[{id:"SAL-3-1",title:"Maintain all commercial team above 80% of personal targets",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-3-2",title:"Establish weekly training regimens for product & sales",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-3-3",title:"Create automated reporting for weekly pipeline & revenue performance",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]}]}}};
+var OKR_DATA={cycle:"Q2",startDate:"2026-04-26",endDate:"2026-06-30",totalDays:65,depts:{"Company":{color:"var(--acc)",icon:"🏢",objectives:[{id:"CO-1",title:"Scale Swype B2B revenue while protecting margins",progress:47,krs:[{id:"CO-1-1",title:"Onboard 12 new B2B customers to Swype",progress:33,owner:"Enrique Hirlemann",confidence:"On track"},{id:"CO-1-2",title:"Achieve $8M in total Swype sales volume",progress:19,owner:"Enrique Hirlemann",confidence:"On track"},{id:"CO-1-3",title:"Reach gross margin ≥6% across all Swype transactions",progress:90,owner:"Dren Lubovci",confidence:"On track"}]},{id:"CO-2",title:"Become a highly data driven company",progress:0,krs:[{id:"CO-2-1",title:"Roll 3 new data dashboards – Finance, Sales, Customers by end of June",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"CO-2-2",title:"Enable Finance to close books by the 20th of every month",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"CO-3",title:"Establish Swype compliance",progress:17,krs:[{id:"CO-3-1",title:"Flag and resolve transactional risk issues within 1 hour",progress:0,owner:"",confidence:"Not started"},{id:"CO-3-2",title:"Complete Swype KYB/AML compliance framework reviewed by legal by June 15",progress:50,owner:"Michel Francis",confidence:"Not started"},{id:"CO-3-3",title:"Hire compliance and risk analyst by June 30",progress:0,owner:"Michel Francis",confidence:"Not started"}]}]},"Operations":{color:"var(--grn)",icon:"⚙️",objectives:[{id:"OPS-1",title:"Deliver best-in-class support to drive Swype B2B customer retention",progress:74,krs:[{id:"OPS-1-1",title:"Achieve CSAT score ≥85% across all resolved Swype support tickets",progress:86,owner:"Irene Paez",confidence:"On track"},{id:"OPS-1-2",title:"Respond to 95% of inbound B2B support tickets within 1 hour",progress:65,owner:"Irene Paez",confidence:"On track"},{id:"OPS-1-3",title:"Resolve 85% of B2B support tickets within 48 hours",progress:72,owner:"Irene Paez",confidence:"On track"}]},{id:"OPS-2",title:"Make Reloadly become more profitable",progress:3,krs:[{id:"OPS-2-1",title:"Lower buying cost with providers by 1%",progress:5,owner:"David Bassey",confidence:"Not started"},{id:"OPS-2-2",title:"Increase overall margins by 1%",progress:5,owner:"David Bassey",confidence:"Not started"},{id:"OPS-2-3",title:"Implement dynamic pricing engine targeting 0.5% blended margin improvement",progress:0,owner:"David Bassey",confidence:"Not started"}]},{id:"OPS-3",title:"Transform knowledge resources into scalable self-service assets",progress:13,krs:[{id:"OPS-3-1",title:"Revamp Help Centers into dual-purpose platforms",progress:15,owner:"Dren Lubovci",confidence:"Not started"},{id:"OPS-3-2",title:"Build comprehensive internal Swype knowledge base for support team",progress:15,owner:"Irene Paez",confidence:"At Risk"},{id:"OPS-3-3",title:"Establish quarterly knowledge audit process",progress:10,owner:"Dren Lubovci",confidence:"Not started"}]}]},"Finance":{color:"var(--yel)",icon:"💰",objectives:[{id:"FIN-1",title:"Ensuring Operational Continuity and Cash Health",progress:33,krs:[{id:"FIN-1-1",title:"Reduce bank and platform accounts globally by 20%",progress:100,owner:"Michel Francis",confidence:"On track"},{id:"FIN-1-2",title:"Deliver weekly cash flow report every Monday, 90% on-time",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-1-3",title:"Ensure 95% of post-paid invoices collected on or before due date",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"FIN-2",title:"Achieve full ownership of Finance function",progress:0,krs:[{id:"FIN-2-1",title:"Complete 100% internal finance audit and workflows review",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-2-2",title:"Map all recurring finance obligations into a single finance calendar",progress:0,owner:"Michel Francis",confidence:"Not started"},{id:"FIN-2-3",title:"Hire Junior Accountant and transfer 1/3 of recurring tasks",progress:0,owner:"Michel Francis",confidence:"Not started"}]},{id:"FIN-3",title:"Recover and close outstanding accounting periods",progress:50,krs:[{id:"FIN-3-1",title:"Complete Q1 2026 accounting close independently",progress:100,owner:"Michel Francis",confidence:"On track"},{id:"FIN-3-2",title:"Close May and June 2026 books within 20 calendar days of month-end",progress:0,owner:"Michel Francis",confidence:"Not started"}]}]},"Product & Engineering":{color:"var(--red)",icon:"⚡",objectives:[{id:"ENG-1",title:"Build data infrastructure to power a data-driven company",progress:17,krs:[{id:"ENG-1-1",title:"Deliver three production-ready dashboards (Finance, Sales, Customers) by end of June",progress:0,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-1-2",title:"Instrument all Swype card transaction events (100% traceable in data warehouse)",progress:50,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-1-3",title:"Achieve data pipeline uptime ≥99.5% and reduce Finance close data lag to zero",progress:0,owner:"Emmanuel Piard",confidence:"Not started"}]},{id:"ENG-2",title:"Swype B2B platform MVP is production-ready for paid launch",progress:62,krs:[{id:"ENG-2-1",title:"Ship Swype B2B Public REST API v1 with auth, versioning, rate limits + OpenAPI docs",progress:70,owner:"Emmanuel Piard",confidence:"On track"},{id:"ENG-2-2",title:"Ship Swype B2B dashboard MVP to production",progress:65,owner:"Emmanuel Piard",confidence:"On track"},{id:"ENG-2-3",title:"Enable go-live for ≥6 paying Swype white-label customers by June 30",progress:50,owner:"Emmanuel Piard",confidence:"On track"}]},{id:"ENG-3",title:"Improve platform stability – Strengthen architecture – Optimize infrastructure cost",progress:15,krs:[{id:"ENG-3-1",title:"Upgrade 4 services to approved Java/Spring Boot version with zero regressions",progress:23,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-3-2",title:"Automate security governance and modernize frontend applications",progress:22,owner:"Emmanuel Piard",confidence:"Not started"},{id:"ENG-3-3",title:"Complete Airtime Service database downgrade from Aurora to Community MySQL",progress:0,owner:"Emmanuel Piard",confidence:"Not started"}]}]},"Sales":{color:"#2778c4",icon:"📈",objectives:[{id:"SAL-1",title:"Continue to massively grow sustainable revenue",progress:0,krs:[{id:"SAL-1-1",title:"Grow MRR from $112K to $275K by end of Q2",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-1-2",title:"Maintain minimum 6% month-over-month revenue growth",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-1-3",title:"12 new accounts (tier 1 & 2) LIVE",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]},{id:"SAL-2",title:"Align Marketing, Sales & Onboarding team engine and structure",progress:0,krs:[{id:"SAL-2-1",title:"Add REAL/weighted SQL pipeline value of $2M in Q2",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-2-2",title:"100 demos done for the quarter",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-2-3",title:"Achieve 40% of SQLs from events & content marketing",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]},{id:"SAL-3",title:"Nurture, motivate and train world-class commercial team",progress:0,krs:[{id:"SAL-3-1",title:"Maintain all commercial team above 80% of personal targets",progress:0,owner:"Enrique Hirlemann",confidence:"Off Track"},{id:"SAL-3-2",title:"Establish weekly training regimens for product & sales",progress:0,owner:"Enrique Hirlemann",confidence:"At Risk"},{id:"SAL-3-3",title:"Create automated reporting for weekly pipeline & revenue performance",progress:0,owner:"Enrique Hirlemann",confidence:"On track"}]}]}}};
 var OKR_LINKS=JSON.parse(localStorage.getItem('rl_okr_links')||'{}');
 
 // ── Password Auth ────────────────────────────────────────────────────────
@@ -1318,13 +1318,13 @@ var USER_REGISTRY={
   'dlubovci@reloadly.com':  {name:'Dren Lubovci',        role:'COO',                        dept:'Management',  canExport:true,  canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
   'mfrancis@reloadly.com':  {name:'Michel Francis',       role:'CEO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
   'ehirlemann@reloadly.com':{name:'Enrique Hirlemann',    role:'CRO',                        dept:'Management',  canExport:false, canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
-  'epiard@reloadly.com':    {name:'Emmanuel Piard',       role:'CTO',                        dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
-  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',      role:'Product Manager',            dept:'Engineering', canExport:true,  canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
-  'sgonzalez@reloadly.com': {name:'Sergio Sanchez',       role:'Head of Engineering',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
-  'echibueze@reloadly.com': {name:'Chibueze Eziokwubundu',role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
-  'dcamacho@reloadly.com':  {name:'Daniel Camacho',       role:'Back-end Developer',         dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
-  'mzakari@reloadly.com':   {name:'Salim Zakari',         role:'Front-end Developer',        dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
-  'iseremet@reloadly.com':  {name:'Johnny Seremet',       role:'Front-end Manager',          dept:'Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'epiard@reloadly.com':    {name:'Emmanuel Piard',       role:'CTO',                        dept:'Product & Engineering', canExport:true,  canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
+  'snnabugwu@reloadly.com': {name:'Samuel Nnabugwu',      role:'Product Manager',            dept:'Product & Engineering', canExport:true,  canViewAll:true,  isAdmin:true, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
+  'sgonzalez@reloadly.com': {name:'Sergio Sanchez',       role:'Head of Engineering',        dept:'Product & Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'echibueze@reloadly.com': {name:'Chibueze Eziokwubundu',role:'Back-end Developer',         dept:'Product & Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'dcamacho@reloadly.com':  {name:'Daniel Camacho',       role:'Back-end Developer',         dept:'Product & Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'mzakari@reloadly.com':   {name:'Salim Zakari',         role:'Front-end Developer',        dept:'Product & Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
+  'iseremet@reloadly.com':  {name:'Johnny Seremet',       role:'Front-end Manager',          dept:'Product & Engineering', canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
   'aberisha@reloadly.com':  {name:'Alketa Berisha',       role:'AR/AP/Recons',               dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true, canAccessProposals:false, canAccessWalletOps:true},
   'dperrin@reloadly.com':   {name:'Damian Perrin',        role:'Head of Finance',            dept:'Finance',     canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:true, canAccessProposals:true, canAccessWalletOps:true},
   'ipaez@reloadly.com':     {name:'Irene Paez',           role:'Technical Support Manager',  dept:'Operations',  canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false, canAccessProposals:false, canAccessWalletOps:false},
@@ -2325,7 +2325,7 @@ function renderPerf(){
   var hdr=document.createElement('div');hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px';
   var ttl=document.createElement('div');ttl.innerHTML='<div class="ptitle">Performance</div><div class="psub">Evidence-based reviews · '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</div>';
   var tabs=document.createElement('div');tabs.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-  [{k:'overview',lbl:'Overview'},{k:'team',lbl:'Team Health',a:true},{k:'calibration',lbl:'Calibration',a:true},{k:'talent',lbl:'Talent Matrix',a:true},{k:'reviews',lbl:'Reviews'},{k:'feedback',lbl:'Feedback'},{k:'my',lbl:'My Profile'},{k:'mgrdash',lbl:'Manager View'},{k:'history',lbl:'My History'},{k:'courses',lbl:'Courses & Certs'},{k:'orgtree',lbl:'Org Tree',a:true}].forEach(function(td){
+  [{k:'overview',lbl:'Overview'},{k:'hpm',lbl:'Weekly HPM'},{k:'team',lbl:'Team Health',a:true},{k:'calibration',lbl:'Calibration',a:true},{k:'talent',lbl:'Talent Matrix',a:true},{k:'reviews',lbl:'Reviews'},{k:'feedback',lbl:'Feedback'},{k:'my',lbl:'My Profile'},{k:'mgrdash',lbl:'Manager View'},{k:'history',lbl:'My History'},{k:'courses',lbl:'Courses & Certs'},{k:'orgtree',lbl:'Org Tree',a:true}].forEach(function(td){
     if(td.a&&!isAd)return;
     var btn=document.createElement('button');btn.className='hbtn';
     btn.style.cssText='font-size:10px;padding:5px 14px'+(view===td.k?';border-color:var(--acc);color:var(--acc);font-weight:700':'');
@@ -2342,6 +2342,7 @@ function renderPerf(){
   else if(view==='history')renderPerfHistory(wrap,pd);
   else if(view==='mgrdash')renderManagerDashboard(wrap);
   else if(view==='courses')renderPerfCourses(wrap,pd);
+  else if(view==='hpm')renderPerfHPM(wrap,pd);
   else if(view==='orgtree')renderOrgTree(wrap);
   main.innerHTML='';main.appendChild(wrap);
 }
@@ -2497,9 +2498,9 @@ var PULSE_COURSES = [
   {
     id: 'code-review-reloadly-2026',
     title: 'Code Review at Reloadly',
-    tag: 'Role · Engineering',
+    tag: 'Role · Product & Engineering',
     est: '~60 minutes',
-    level: 'Engineering',
+    level: 'Product & Engineering',
     status: 'coming_soon',
     eta: 'Q4 2026',
     summary: 'What good PR review looks like at Reloadly. Security-focused review checklist, the unwritten norms, how to give feedback that lands, how to receive it graciously. Reduces engineer onboarding time by weeks.',
@@ -2801,6 +2802,406 @@ function _showCertificate(course, state){
   document.body.appendChild(ov);
   cert.querySelector('#cert-close').onclick = function(){ov.remove();};
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RL_SRV — server-side bridge. Tiny wrapper that POSTs to the Worker URL
+// configured under Supplier Wallet Ops admin. Used by HPM submit, roster
+// push, OKR state push, and Phase A/B/C/D triggers. All calls are fire-
+// and-forget unless a callsite explicitly awaits the promise.
+// ═══════════════════════════════════════════════════════════════════════════
+var RL_SRV = {
+  url: function(){
+    try {
+      // FUND is the IIFE export for the Supplier Wallet Ops module — it owns
+      // the admin config including workerUrl. Defined later in the file but
+      // available by the time anything actually calls into RL_SRV.
+      if(typeof FUND !== 'undefined' && FUND && FUND.loadAdmin){
+        var a = FUND.loadAdmin();
+        return (a && a.workerUrl) || null;
+      }
+      return null;
+    } catch(e){ return null; }
+  },
+  call: function(action, payload){
+    var u = RL_SRV.url();
+    if(!u) return Promise.resolve({error:'no_worker_url'});
+    return fetch(u, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({action:action}, payload||{}))
+    }).then(function(r){return r.json();}).catch(function(e){return {error:'network', detail:String(e)};});
+  },
+  pushHPM: function(email, weekKey, entry){ return RL_SRV.call('put_hpm', {email:email, weekKey:weekKey, entry:entry}); },
+  pushRoster: function(roster){
+    var by = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
+    return RL_SRV.call('put_roster', {roster:roster, by:by});
+  },
+  pushOKR: function(okr){
+    var by = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
+    return RL_SRV.call('put_okr_state', {okr:okr, by:by});
+  }
+};
+
+// Boot-time push: roster + OKR state to the Worker so the cron-driven
+// pipelines (HPM nudges, OKR At-Risk DMs, Quarterly digest) have the data
+// they need. Throttled to once per hour via a timestamped localStorage flag
+// — the Worker doesn't need a fresh copy on every page load.
+function _rl_srv_bootstrap(){
+  try {
+    var lastPush = parseInt(localStorage.getItem('rl_srv_last_bootstrap')||'0', 10);
+    if(Date.now() - lastPush < 3600000) return; // 1h throttle
+    // Roster — extract minimal user records from USER_REGISTRY for nudges + DMs
+    if(typeof USER_REGISTRY === 'object'){
+      var roster = Object.keys(USER_REGISTRY).map(function(email){
+        var u = USER_REGISTRY[email];
+        return {email: email, name: u.name||email, slackId: u.slackId||null, dept: u.dept||null};
+      });
+      RL_SRV.pushRoster(roster);
+    }
+    // OKR state — push current OKR_DATA
+    if(typeof OKR_DATA === 'object'){ RL_SRV.pushOKR(OKR_DATA); }
+    localStorage.setItem('rl_srv_last_bootstrap', String(Date.now()));
+  } catch(e){ /* silent — bootstrap is best-effort */ }
+}
+// Defer to next tick so it runs after all top-level definitions are in place.
+if(typeof window !== 'undefined'){ setTimeout(_rl_srv_bootstrap, 2000); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WEEKLY HPM (Highlights / Progress / Me)
+// Per-user weekly check-in keyed by ISO week. Submission window opens Friday
+// 09:00 of the week being reported and closes Monday 23:59 of the following
+// week. Late submissions accepted with a Late badge. Each Highlight and
+// Progress line can be linked to a specific KR. Me section has manager-only
+// vs company-wide visibility toggle.
+// ═══════════════════════════════════════════════════════════════════════════
+function _loadHPM(){try{return JSON.parse(localStorage.getItem('rl_perf_hpm_v1')||'{}');}catch(e){return {};}}
+function _saveHPM(s){localStorage.setItem('rl_perf_hpm_v1', JSON.stringify(s));}
+function _getMyHPM(email, weekKey){var s=_loadHPM();return (s[email]||{})[weekKey]||null;}
+function _setMyHPM(email, weekKey, data){var s=_loadHPM();s[email]=s[email]||{};s[email][weekKey]=data;_saveHPM(s);}
+
+// ISO 8601 week key — returns "YYYY-Www" (e.g. "2026-W26").
+function _isoWeek(date){
+  var d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  var dayNum = (d.getUTCDay() + 6) % 7; // Mon=0, Sun=6
+  d.setUTCDate(d.getUTCDate() - dayNum + 3); // Thursday of this week
+  var firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  var diff = (d - firstThursday) / 86400000;
+  var weekNum = 1 + Math.round(diff / 7);
+  return d.getUTCFullYear() + '-W' + String(weekNum).padStart(2, '0');
+}
+// Monday + Sunday dates of an ISO week (for display).
+function _weekRange(weekKey){
+  var parts = weekKey.split('-W');
+  var year = parseInt(parts[0],10), week = parseInt(parts[1],10);
+  // Jan 4 is always in week 1
+  var jan4 = new Date(Date.UTC(year, 0, 4));
+  var jan4Day = (jan4.getUTCDay() + 6) % 7;
+  var monday = new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate() - jan4Day + (week-1)*7);
+  var sunday = new Date(monday); sunday.setUTCDate(monday.getUTCDate() + 6);
+  return {monday: monday, sunday: sunday};
+}
+// Which week should the user be reporting on right now?
+// Mon-Thu: report on the previous week (which is now "closing" via the Monday window).
+// Fri-Sun: report on the current week.
+function _currentReportingWeek(today){
+  today = today || new Date();
+  var dow = today.getDay(); // Sun=0, Mon=1, ..., Fri=5
+  if(dow >= 5 || dow === 0){
+    // Fri / Sat / Sun → this week
+    return _isoWeek(today);
+  }
+  // Mon / Tue / Wed / Thu → previous week
+  var prev = new Date(today); prev.setDate(today.getDate() - 7);
+  return _isoWeek(prev);
+}
+// Submission window for a given report week:
+//   Opens: Friday 09:00 LOCAL of the report week
+//   Closes (on-time): Monday 23:59 LOCAL of the following week
+function _hpmWindow(weekKey){
+  var r = _weekRange(weekKey);
+  // r.monday is UTC; build local-time Friday 09:00 of report week
+  var friday = new Date(r.monday); friday.setDate(r.monday.getUTCDate() + 4);
+  friday.setHours(9, 0, 0, 0);
+  // Monday 23:59 of next week
+  var closeMon = new Date(r.monday); closeMon.setDate(r.monday.getUTCDate() + 7);
+  closeMon.setHours(23, 59, 59, 999);
+  var now = new Date();
+  var status;
+  if(now < friday) status = 'pre-open';
+  else if(now <= closeMon) status = 'open';
+  else status = 'closed-late-allowed';
+  return {opensAt: friday, closesAt: closeMon, status: status, now: now};
+}
+
+function _hpmBlankEntry(department){
+  return {department: department, highlights:[{text:'', krId:null}], progress:[{text:'', krId:null}], me:{text:'', visibility:'manager'}, confidence:null, submittedAt:null, lastEditedAt:null, late:false};
+}
+// Flatten OKR_DATA to a list of {label, krId, deptColor} for the picker.
+function _allKRsForPicker(){
+  var out = [];
+  Object.keys(OKR_DATA.depts).forEach(function(deptName){
+    var d = OKR_DATA.depts[deptName];
+    (d.objectives||[]).forEach(function(obj){
+      (obj.krs||[]).forEach(function(kr){
+        out.push({krId: kr.id, label: '['+deptName.substring(0,4).toUpperCase()+'] '+obj.title.substring(0,40)+' › '+kr.title, dept: deptName});
+      });
+    });
+  });
+  return out;
+}
+
+function renderPerfHPM(wrap, pd){
+  var me = currentUser.email;
+  var u = USER_REGISTRY[me] || {};
+  var deptName = u.dept || '';
+  var weekKey = _currentReportingWeek();
+  var win = _hpmWindow(weekKey);
+  var existing = _getMyHPM(me, weekKey) || _hpmBlankEntry(deptName);
+  var range = _weekRange(weekKey);
+  var fmt = function(d){return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});};
+
+  // Header
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'margin-bottom:18px';
+  hdr.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:4px">Weekly HPM <span style="font-size:11px;color:var(--mut);font-weight:500;font-family:Roboto Mono,monospace;margin-left:8px">'+weekKey+' &middot; '+fmt(range.monday)+' &mdash; '+fmt(range.sunday)+'</span></div>'
+    + '<div style="font-size:12px;color:var(--mut);line-height:1.55">Capture <b>Highlights</b> (outcomes that moved your OKRs), <b>Progress</b> (what\'s in flight), and <b>Me</b> (personal context). Confidence rating drives a weekly heartbeat that shows up in your Performance history and manager view.</div>';
+  wrap.appendChild(hdr);
+
+  // Window status banner
+  var banner = document.createElement('div');
+  var bannerStyle = 'padding:12px 18px;border-radius:8px;margin-bottom:18px;font-size:13px;line-height:1.55;display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+  var statusText, bgCol;
+  if(win.status === 'pre-open'){
+    bgCol = 'rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);color:var(--acc)';
+    statusText = '<b>Opens Friday '+win.opensAt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' at 09:00</b> &middot; you can preview the form below but submission isn\'t accepted yet.';
+  } else if(win.status === 'open'){
+    bgCol = 'rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.35);color:var(--grn)';
+    statusText = '<b>● Open</b> &middot; closes Monday '+win.closesAt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' at 23:59. After that, submissions are still accepted but marked <b>Late</b>.';
+  } else {
+    bgCol = 'rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.4);color:var(--yel)';
+    statusText = '<b>Window closed</b> for '+weekKey+' &middot; you can still submit but it will be flagged <b>Late</b> on the manager dashboard.';
+  }
+  banner.style.cssText = bannerStyle+';background:'+bgCol;
+  banner.innerHTML = statusText;
+  wrap.appendChild(banner);
+
+  // Form
+  var form = document.createElement('div');
+  form.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:24px 28px;margin-bottom:20px';
+
+  // Department display
+  var deptRow = document.createElement('div');
+  deptRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid var(--brd)';
+  deptRow.innerHTML = '<div><div style="font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;font-family:Roboto Mono,monospace">DEPARTMENT</div><div style="font-size:14px;font-weight:600;color:var(--txt);margin-top:3px">'+esc(deptName||'(not set)')+'</div></div>'
+    + (existing.submittedAt ? '<div style="text-align:right"><div style="font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;font-family:Roboto Mono,monospace">LAST SUBMITTED</div><div style="font-size:12px;color:var(--txt);margin-top:3px">'+new Date(existing.submittedAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+(existing.late?' <span class="badge Critical">LATE</span>':'')+'</div></div>' : '');
+  form.appendChild(deptRow);
+
+  // KR picker — built once, reused per line via clone
+  var krOptions = _allKRsForPicker();
+
+  // Highlights section
+  function _buildLineSection(label, hint, items, addBtnLabel, onChange){
+    var sec = document.createElement('div');
+    sec.style.cssText = 'margin-bottom:22px';
+    var sl = document.createElement('div');
+    sl.style.cssText = 'display:flex;align-items:baseline;gap:8px;margin-bottom:8px';
+    sl.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.3px;font-family:Roboto Mono,monospace">'+label+' <span style="color:var(--red)">*</span></div><div style="font-size:11px;color:var(--mut)">'+hint+'</div>';
+    sec.appendChild(sl);
+    var linesEl = document.createElement('div');
+    function renderLines(){
+      linesEl.innerHTML = '';
+      items.forEach(function(item, idx){
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
+        var ta = document.createElement('input');
+        ta.type = 'text';
+        ta.value = item.text || '';
+        ta.placeholder = idx === 0 ? 'e.g. Closed 6 of the 12 Q3 supplier reviews' : '';
+        ta.style.cssText = 'flex:1;padding:9px 12px;border:1px solid var(--brd);border-radius:6px;font-family:inherit;font-size:13px;color:var(--txt);background:var(--surf)';
+        ta.onchange = function(){items[idx].text = ta.value; onChange();};
+        var krSel = document.createElement('select');
+        krSel.style.cssText = 'padding:9px 10px;border:1px solid var(--brd);border-radius:6px;font-family:inherit;font-size:12px;color:var(--txt);background:var(--surf);max-width:240px';
+        krSel.title = 'Link this entry to a specific KR (optional)';
+        var blank = document.createElement('option'); blank.value=''; blank.textContent='— Link KR (optional) —';
+        krSel.appendChild(blank);
+        krOptions.forEach(function(opt){var o=document.createElement('option');o.value=opt.krId;o.textContent=opt.label;if(item.krId===opt.krId)o.selected=true;krSel.appendChild(o);});
+        krSel.onchange = function(){items[idx].krId = krSel.value || null; onChange();};
+        var delBtn = document.createElement('button');
+        delBtn.className='hbtn';delBtn.style.cssText='font-size:11px;padding:6px 10px;color:var(--mut)';
+        delBtn.textContent='×';delBtn.title='Remove this line';
+        delBtn.onclick = function(){if(items.length<=1){items[0]={text:'',krId:null};}else{items.splice(idx,1);}renderLines();onChange();};
+        row.appendChild(ta); row.appendChild(krSel); row.appendChild(delBtn);
+        linesEl.appendChild(row);
+      });
+      var addBtn = document.createElement('button');
+      addBtn.className = 'hbtn';
+      addBtn.style.cssText = 'font-size:12px;padding:6px 12px;margin-top:4px;color:var(--acc);border-color:var(--acc)';
+      addBtn.innerHTML = '+ '+addBtnLabel;
+      addBtn.onclick = function(){items.push({text:'',krId:null});renderLines();onChange();};
+      linesEl.appendChild(addBtn);
+    }
+    renderLines();
+    sec.appendChild(linesEl);
+    return sec;
+  }
+
+  function saveLocal(){existing.lastEditedAt = new Date().toISOString();_setMyHPM(me, weekKey, existing);}
+
+  form.appendChild(_buildLineSection('Highlights (Progress Toward OKRs)','What specific outcomes did you deliver last week that moved your OKRs forward?',existing.highlights,'Add highlight',saveLocal));
+  form.appendChild(_buildLineSection('Progress (Current Momentum)','What key initiatives, projects, or deliverables have advanced as we move into this week?',existing.progress,'Add progress item',saveLocal));
+
+  // Me section
+  var meSec = document.createElement('div');
+  meSec.style.cssText = 'margin-bottom:22px';
+  meSec.innerHTML = '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.3px;font-family:Roboto Mono,monospace">Me (Personal Check-In) <span style="color:var(--red)">*</span></div><div style="font-size:11px;color:var(--mut)">How are you doing this week? Use "N/A" if you prefer not to share.</div></div>';
+  var meTa = document.createElement('textarea');
+  meTa.value = existing.me.text || '';
+  meTa.placeholder = 'Personal context affecting your focus, energy, or ability to perform this week.';
+  meTa.style.cssText = 'width:100%;min-height:100px;padding:12px;border:1px solid var(--brd);border-radius:8px;font-family:inherit;font-size:13px;color:var(--txt);background:var(--surf);resize:vertical;box-sizing:border-box';
+  meTa.onchange = function(){existing.me.text = meTa.value; saveLocal();};
+  meSec.appendChild(meTa);
+  var visRow = document.createElement('div');
+  visRow.style.cssText = 'display:flex;gap:14px;align-items:center;margin-top:10px;font-size:12px';
+  function makeVisRadio(val, label, desc){
+    var lab = document.createElement('label');
+    lab.style.cssText = 'display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:8px 12px;border:1.5px solid '+(existing.me.visibility===val?'var(--acc)':'var(--brd)')+';border-radius:6px;background:'+(existing.me.visibility===val?'rgba(108,99,255,.06)':'transparent')+';flex:1';
+    var inp = document.createElement('input');
+    inp.type = 'radio'; inp.name = 'me-vis-'+weekKey; inp.value = val;
+    if(existing.me.visibility===val)inp.checked = true;
+    inp.style.cssText = 'margin-top:2px;accent-color:var(--acc)';
+    inp.onchange = function(){existing.me.visibility = val; saveLocal(); wrap.innerHTML=''; renderPerfHPM(wrap, pd);};
+    lab.appendChild(inp);
+    var txt = document.createElement('div');
+    txt.innerHTML = '<div style="font-weight:600;color:var(--txt)">'+label+'</div><div style="font-size:11px;color:var(--mut);margin-top:2px">'+desc+'</div>';
+    lab.appendChild(txt);
+    return lab;
+  }
+  visRow.appendChild(makeVisRadio('manager','Manager only','Default. Only your manager + admins see this section.'));
+  visRow.appendChild(makeVisRadio('company','Company-wide','Visible to everyone alongside Highlights / Progress.'));
+  meSec.appendChild(visRow);
+  form.appendChild(meSec);
+
+  // Confidence
+  var confSec = document.createElement('div');
+  confSec.style.cssText = 'margin-bottom:24px';
+  confSec.innerHTML = '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.3px;font-family:Roboto Mono,monospace">Confidence for the Week Ahead <span style="color:var(--red)">*</span></div><div style="font-size:11px;color:var(--mut)">How confident are you about delivering this week?</div></div>';
+  var starsBox = document.createElement('div');
+  starsBox.style.cssText = 'display:flex;gap:8px;align-items:center';
+  var CONF_LABELS = ['Struggling','Some concerns','Neutral','Confident','Very confident'];
+  for(var i=1; i<=5; i++){
+    (function(n){
+      var btn = document.createElement('button');
+      btn.className = 'hbtn';
+      var sel = existing.confidence === n;
+      btn.style.cssText = 'padding:10px 14px;font-size:13px;font-weight:600;background:'+(sel?'var(--acc)':'var(--surf2)')+';color:'+(sel?'#fff':'var(--mut)')+';border-color:'+(sel?'var(--acc)':'var(--brd)')+';min-width:48px';
+      btn.innerHTML = '★'.repeat(n) + ' <span style="font-size:11px;font-weight:400;margin-left:4px">'+n+'</span>';
+      btn.title = CONF_LABELS[n-1];
+      btn.onclick = function(){existing.confidence = n; saveLocal(); wrap.innerHTML=''; renderPerfHPM(wrap, pd);};
+      starsBox.appendChild(btn);
+    })(i);
+  }
+  if(existing.confidence){
+    var confLbl = document.createElement('span');
+    confLbl.style.cssText = 'font-size:12px;color:var(--mut);margin-left:10px';
+    confLbl.textContent = '— '+CONF_LABELS[existing.confidence-1];
+    starsBox.appendChild(confLbl);
+  }
+  confSec.appendChild(starsBox);
+  form.appendChild(confSec);
+
+  // Submit row
+  var submitRow = document.createElement('div');
+  submitRow.style.cssText = 'display:flex;gap:10px;align-items:center;padding-top:18px;border-top:1px solid var(--brd)';
+  var submitBtn = document.createElement('button');
+  submitBtn.className = 'hbtn';
+  submitBtn.style.cssText = 'background:var(--acc);color:#fff;border-color:var(--acc);font-weight:700;font-size:13px;padding:10px 22px';
+  submitBtn.innerHTML = existing.submittedAt ? '↻ Update submission' : (win.status === 'closed-late-allowed' ? '⚠ Submit late' : '✓ Submit HPM');
+  submitBtn.onclick = function(){
+    // Validation
+    var validHL = existing.highlights.some(function(h){return h.text && h.text.trim();});
+    var validPR = existing.progress.some(function(p){return p.text && p.text.trim();});
+    var validME = existing.me.text && existing.me.text.trim();
+    var validCF = existing.confidence != null;
+    if(!validHL || !validPR || !validME || !validCF){
+      var missing = [];
+      if(!validHL) missing.push('at least one Highlight');
+      if(!validPR) missing.push('at least one Progress item');
+      if(!validME) missing.push('Me section');
+      if(!validCF) missing.push('confidence rating');
+      alert('Please fill in: '+missing.join(', ')+'.');
+      return;
+    }
+    if(win.status === 'pre-open'){
+      alert('The submission window for '+weekKey+' opens on Friday at 09:00. You can preview the form before then but submissions aren\'t accepted yet.');
+      return;
+    }
+    // Strip empty lines
+    existing.highlights = existing.highlights.filter(function(h){return h.text && h.text.trim();});
+    existing.progress = existing.progress.filter(function(p){return p.text && p.text.trim();});
+    existing.submittedAt = new Date().toISOString();
+    existing.lastEditedAt = existing.submittedAt;
+    existing.late = (win.status === 'closed-late-allowed');
+    _setMyHPM(me, weekKey, existing);
+    // Phase B: push to server-side KV so the Worker's nudge crons can see
+    // who has + hasn't submitted this week. Fire-and-forget — the local copy
+    // is still authoritative for the UI.
+    if(typeof RL_SRV !== 'undefined'){ RL_SRV.pushHPM(me, weekKey, existing); }
+    logEntry('Submitted HPM for '+weekKey+(existing.late?' (late)':''), 'edit');
+    autoSave();
+    toast(existing.late ? 'HPM submitted (flagged late)' : 'HPM submitted ✓', 'ok');
+    wrap.innerHTML = ''; renderPerfHPM(wrap, pd);
+  };
+  submitRow.appendChild(submitBtn);
+  if(existing.submittedAt){
+    var statusPill = document.createElement('span');
+    statusPill.style.cssText = 'font-size:11px;color:var(--grn);font-weight:600;font-family:Roboto Mono,monospace';
+    statusPill.innerHTML = '✓ SUBMITTED'+(existing.late?' (LATE)':'')+' &middot; you can update until the next week opens';
+    submitRow.appendChild(statusPill);
+  }
+  form.appendChild(submitRow);
+  wrap.appendChild(form);
+
+  // My HPM history — last 12 weeks
+  var hist = _loadHPM()[me] || {};
+  var weekKeys = Object.keys(hist).sort().reverse();
+  if(weekKeys.length){
+    var histHdr = document.createElement('div');
+    histHdr.style.cssText = 'margin:24px 0 12px;font-size:13px;font-weight:700;color:var(--txt);letter-spacing:.4px;font-family:Roboto Mono,monospace';
+    histHdr.textContent = 'MY HPM HISTORY';
+    wrap.appendChild(histHdr);
+    // Confidence sparkline
+    var sub = weekKeys.slice(0, 12).reverse();
+    var confs = sub.map(function(k){return hist[k].confidence||0;});
+    if(confs.some(function(c){return c>0;})){
+      var trend = document.createElement('div');
+      trend.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:14px 18px;margin-bottom:12px';
+      var maxC = 5;
+      var bars = sub.map(function(k,i){
+        var c = hist[k].confidence||0;
+        var h = (c/maxC)*40;
+        var col = c<=2?'var(--red)':c===3?'var(--yel)':'var(--grn)';
+        return '<div title="'+k+': '+c+'/5" style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1"><div style="height:'+h+'px;width:80%;background:'+col+';border-radius:2px 2px 0 0"></div><div style="font-size:8px;color:var(--mut);font-family:Roboto Mono,monospace">'+k.split('-')[1]+'</div></div>';
+      }).join('');
+      trend.innerHTML = '<div style="font-size:11px;color:var(--mut);margin-bottom:6px">CONFIDENCE TREND (last '+sub.length+' weeks)</div><div style="display:flex;align-items:flex-end;gap:4px;height:60px;padding:0 4px">'+bars+'</div>';
+      wrap.appendChild(trend);
+    }
+    // Recent HPM rows
+    weekKeys.slice(0, 12).forEach(function(k){
+      var h = hist[k];
+      var card = document.createElement('div');
+      card.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:14px 18px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap';
+      var range = _weekRange(k);
+      var hlCount = (h.highlights||[]).filter(function(x){return x.text;}).length;
+      var prCount = (h.progress||[]).filter(function(x){return x.text;}).length;
+      card.innerHTML = '<div style="flex:1;min-width:200px"><div style="font-weight:700;color:var(--txt);font-size:13px">'+k+' <span style="color:var(--mut);font-weight:400;font-size:11px;margin-left:4px">'+fmt(range.monday)+' &mdash; '+fmt(range.sunday)+'</span>'+(h.late?' <span class="badge Critical" style="margin-left:6px">LATE</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--mut);margin-top:3px">'+hlCount+' highlight'+(hlCount===1?'':'s')+' &middot; '+prCount+' progress item'+(prCount===1?'':'s')+' &middot; submitted '+(h.submittedAt?new Date(h.submittedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—')+'</div></div>'
+        +'<div style="text-align:right"><div style="font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace">CONFIDENCE</div><div style="font-size:14px;font-weight:700;color:'+(h.confidence<=2?'var(--red)':h.confidence===3?'var(--yel)':'var(--grn)')+'">★'.repeat(h.confidence||0)+'<span style="color:var(--mut)">'+'☆'.repeat(5-(h.confidence||0))+'</span></div></div>';
+      wrap.appendChild(card);
+    });
+  }
+}
+
 function renderPerfOverview(wrap){
   var me=currentUser.email,m=computeMetrics(me),u=USER_REGISTRY[me]||{};
   var cards=document.createElement('div');cards.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px';
@@ -3085,7 +3486,7 @@ function renderScorecardContent(wrap,revId,pd2,isSelf,isManager,reviewee,mode){
   });
   wrap.appendChild(qSec);
 }
-var WEIGHT_TEMPLATES={default:{name:'Default',weights:{PD:12,PR:12,HS:10,CB:10,SI:10,TW:10,CM:8,LD:14,OS:8,IE:6}},engineering:{name:'Engineering',weights:{PD:8,PR:8,HS:25,CB:15,SI:6,TW:10,CM:8,LD:8,OS:6,IE:6}},leadership:{name:'Leadership',weights:{PD:10,PR:10,HS:8,CB:8,SI:10,TW:8,CM:10,LD:22,OS:8,IE:6}},sales:{name:'Sales',weights:{PD:8,PR:15,HS:10,CB:8,SI:14,TW:10,CM:14,LD:10,OS:5,IE:6}},operations:{name:'Operations',weights:{PD:10,PR:14,HS:10,CB:8,SI:8,TW:12,CM:10,LD:10,OS:12,IE:6}}};var PERF_TIERS=[{min:90,label:'Exceptional',color:'var(--acc)'},{min:75,label:'Strong Performer',color:'var(--grn)'},{min:60,label:'Meets Expectations',color:'var(--yel)'},{min:40,label:'Developing',color:'#f97316'},{min:0,label:'Needs Improvement',color:'var(--red)'}];function getPerfTier(pct){return PERF_TIERS.find(function(t){return pct>=t.min;})||PERF_TIERS[PERF_TIERS.length-1];}function getWeightTemplate(dept){var d=(dept||'').toLowerCase();if(d==='engineering')return WEIGHT_TEMPLATES.engineering;if(d==='sales')return WEIGHT_TEMPLATES.sales;if(d==='operations')return WEIGHT_TEMPLATES.operations;if(d==='management')return WEIGHT_TEMPLATES.leadership;return WEIGHT_TEMPLATES.default;}function calcWeightedScore(scores,dept){var tpl=getWeightTemplate(dept),total=0,maxTotal=0;SCORECARD_DEF.forEach(function(cat){var w=tpl.weights[cat.id]||10,catMax=cat.items.length*10,catScore=0;cat.items.forEach(function(item,i){catScore+=parseInt(scores[cat.id+'_'+i])||0;});total+=(catScore/catMax)*w;maxTotal+=w;});return maxTotal>0?Math.round(total/maxTotal*100):0;}var REVIEW_WORKFLOW=['Draft','Self Review Submitted','Manager Review Pending','Calibration Pending','HR Review','Finalized','Acknowledged','Locked'];var WORKFLOW_COLORS={Draft:'var(--mut)','Self Review Submitted':'var(--acc)','Manager Review Pending':'var(--yel)','Calibration Pending':'#f97316','HR Review':'var(--acc2)','Finalized':'var(--grn)','Acknowledged':'var(--grn)','Locked':'var(--mut)'};function getWorkflowStep(s){return REVIEW_WORKFLOW.indexOf(s);}function canAdvanceWorkflow(review,cu2){var step=getWorkflowStep(review.workflowStatus||'Draft'),isAd=isAdmin(),iRee=cu2.email===review.reviewee,iRer=cu2.email===review.reviewer||isAd;if(step===0&&iRee)return true;if(step===1&&iRer)return true;if(step===2&&iRer)return true;if(step===3&&isAd)return true;if(step===4&&isAd)return true;if(step===5&&iRee)return true;return false;}function advanceWorkflow(revId){var pd=loadPerfData(),r=pd.reviews[revId];if(!r||r.workflowStatus==='Locked')return;var step=getWorkflowStep(r.workflowStatus||'Draft');if(step<REVIEW_WORKFLOW.length-1){r.workflowStatus=REVIEW_WORKFLOW[step+1];if(!r.workflowHistory)r.workflowHistory=[];r.workflowHistory.push({from:REVIEW_WORKFLOW[step],to:r.workflowStatus,by:currentUser.email,at:new Date().toISOString()});savePerfData(pd);toast('Status → '+r.workflowStatus,'ok');renderPerf();}}
+var WEIGHT_TEMPLATES={default:{name:'Default',weights:{PD:12,PR:12,HS:10,CB:10,SI:10,TW:10,CM:8,LD:14,OS:8,IE:6}},engineering:{name:'Engineering',weights:{PD:8,PR:8,HS:25,CB:15,SI:6,TW:10,CM:8,LD:8,OS:6,IE:6}},leadership:{name:'Leadership',weights:{PD:10,PR:10,HS:8,CB:8,SI:10,TW:8,CM:10,LD:22,OS:8,IE:6}},sales:{name:'Sales',weights:{PD:8,PR:15,HS:10,CB:8,SI:14,TW:10,CM:14,LD:10,OS:5,IE:6}},operations:{name:'Operations',weights:{PD:10,PR:14,HS:10,CB:8,SI:8,TW:12,CM:10,LD:10,OS:12,IE:6}}};var PERF_TIERS=[{min:90,label:'Exceptional',color:'var(--acc)'},{min:75,label:'Strong Performer',color:'var(--grn)'},{min:60,label:'Meets Expectations',color:'var(--yel)'},{min:40,label:'Developing',color:'#f97316'},{min:0,label:'Needs Improvement',color:'var(--red)'}];function getPerfTier(pct){return PERF_TIERS.find(function(t){return pct>=t.min;})||PERF_TIERS[PERF_TIERS.length-1];}function getWeightTemplate(dept){var d=(dept||'').toLowerCase();if(d==='product & engineering'||d==='engineering')return WEIGHT_TEMPLATES.engineering;if(d==='sales')return WEIGHT_TEMPLATES.sales;if(d==='operations')return WEIGHT_TEMPLATES.operations;if(d==='management')return WEIGHT_TEMPLATES.leadership;return WEIGHT_TEMPLATES.default;}function calcWeightedScore(scores,dept){var tpl=getWeightTemplate(dept),total=0,maxTotal=0;SCORECARD_DEF.forEach(function(cat){var w=tpl.weights[cat.id]||10,catMax=cat.items.length*10,catScore=0;cat.items.forEach(function(item,i){catScore+=parseInt(scores[cat.id+'_'+i])||0;});total+=(catScore/catMax)*w;maxTotal+=w;});return maxTotal>0?Math.round(total/maxTotal*100):0;}var REVIEW_WORKFLOW=['Draft','Self Review Submitted','Manager Review Pending','Calibration Pending','HR Review','Finalized','Acknowledged','Locked'];var WORKFLOW_COLORS={Draft:'var(--mut)','Self Review Submitted':'var(--acc)','Manager Review Pending':'var(--yel)','Calibration Pending':'#f97316','HR Review':'var(--acc2)','Finalized':'var(--grn)','Acknowledged':'var(--grn)','Locked':'var(--mut)'};function getWorkflowStep(s){return REVIEW_WORKFLOW.indexOf(s);}function canAdvanceWorkflow(review,cu2){var step=getWorkflowStep(review.workflowStatus||'Draft'),isAd=isAdmin(),iRee=cu2.email===review.reviewee,iRer=cu2.email===review.reviewer||isAd;if(step===0&&iRee)return true;if(step===1&&iRer)return true;if(step===2&&iRer)return true;if(step===3&&isAd)return true;if(step===4&&isAd)return true;if(step===5&&iRee)return true;return false;}function advanceWorkflow(revId){var pd=loadPerfData(),r=pd.reviews[revId];if(!r||r.workflowStatus==='Locked')return;var step=getWorkflowStep(r.workflowStatus||'Draft');if(step<REVIEW_WORKFLOW.length-1){r.workflowStatus=REVIEW_WORKFLOW[step+1];if(!r.workflowHistory)r.workflowHistory=[];r.workflowHistory.push({from:REVIEW_WORKFLOW[step],to:r.workflowStatus,by:currentUser.email,at:new Date().toISOString()});savePerfData(pd);toast('Status → '+r.workflowStatus,'ok');renderPerf();}}
 function renderPerfCalibration(wrap){var isAd=isAdmin();if(!isAd){var ng=document.createElement('div');ng.style.cssText='text-align:center;padding:60px;color:var(--mut)';ng.innerHTML='<div style="font-size:32px;margin-bottom:12px">🔒</div><div>Calibration restricted to HR and admins.</div>';wrap.appendChild(ng);return;}var pd=loadPerfData(),reviews=Object.values(pd.reviews||{}),reviewerMap={};reviews.forEach(function(r){var mgrSc=r.sections&&r.sections.scorecard&&r.sections.scorecard.manager||{},dept=(USER_REGISTRY[r.reviewee]||{}).dept||'Unknown',ms=calcWeightedScore(mgrSc,dept);if(ms>0){if(!reviewerMap[r.reviewer])reviewerMap[r.reviewer]=[];reviewerMap[r.reviewer].push({mgrScore:ms,dept:dept});}});var allS=[];Object.values(reviewerMap).forEach(function(a){a.forEach(function(x){allS.push(x.mgrScore);});});var orgAvg=allS.length>0?Math.round(allS.reduce(function(a,b){return a+b;},0)/allS.length):0,inf=orgAvg>75;var hdr=document.createElement('div');hdr.style.cssText='margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--brd)';hdr.innerHTML='<div style="font-size:14px;font-weight:800;margin-bottom:4px">Calibration Dashboard</div><div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">Manager scoring patterns · Bias detection · Distribution</div>';wrap.appendChild(hdr);if(!reviews.length){var em=document.createElement('div');em.style.cssText='text-align:center;padding:40px;color:var(--mut)';em.innerHTML='<div style="font-size:28px;margin-bottom:8px">📊</div><div>No completed reviews yet.</div>';wrap.appendChild(em);return;}var sr=document.createElement('div');sr.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px';function mkCC(v,l,col,sub){var c=document.createElement('div');c.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:14px 16px';c.innerHTML='<div style="font-size:24px;font-weight:800;color:'+col+'">'+v+'</div><div style="font-size:11px;font-weight:600;margin-top:2px">'+l+'</div><div style="font-size:10px;color:var(--mut);margin-top:2px;font-family:Roboto Mono,monospace">'+sub+'</div>';return c;}sr.appendChild(mkCC(reviews.length,'Total Reviews','var(--acc)','all cycles'));sr.appendChild(mkCC(orgAvg+'%','Org Avg','var(--grn)','manager ratings'));sr.appendChild(mkCC(Object.keys(reviewerMap).length,'Reviewers','var(--acc2)','managers'));sr.appendChild(mkCC(inf?'⚠ Detected':'✓ Normal','Inflation',inf?'var(--yel)':'var(--grn)',inf?'avg>75%':'normal'));wrap.appendChild(sr);if(Object.keys(reviewerMap).length>0){var tbl=document.createElement('div');tbl.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden;margin-bottom:20px';var th=document.createElement('div');th.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:8px 16px;background:var(--surf2);font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;border-bottom:1px solid var(--brd)';th.innerHTML='<div>REVIEWER</div><div style="text-align:center">CNT</div><div style="text-align:center">AVG</div><div style="text-align:center">VS ORG</div><div style="text-align:center">BIAS</div>';tbl.appendChild(th);Object.keys(reviewerMap).forEach(function(rev,idx){var sc=reviewerMap[rev],avg=Math.round(sc.reduce(function(s,x){return s+x.mgrScore;},0)/sc.length),delta=avg-orgAvg,dc=delta>10?'var(--yel)':delta<-10?'var(--acc)':'var(--grn)',bl=delta>15?'⚠Hi+':delta>8?'↑Above':delta<-15?'⚠Lo-':delta<-8?'↓Below':'≈Ok',bc=Math.abs(delta)>15?'var(--yel)':Math.abs(delta)>8?'var(--acc)':'var(--grn)',uN=(USER_REGISTRY[rev]||{name:rev}).name;var row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:9px 16px;border-top:1px solid var(--brd);align-items:center'+(idx%2===0?'':';background:rgba(255,255,255,.02)');row.innerHTML='<div style="font-size:12px;font-weight:600">'+uN+'</div><div style="text-align:center;color:var(--mut)">'+sc.length+'</div><div style="text-align:center;font-size:13px;font-weight:700;color:var(--acc)">'+avg+'%</div><div style="text-align:center;font-size:12px;font-weight:700;color:'+dc+'">'+(delta>=0?'+':'')+delta+'%</div><div style="text-align:center;font-size:10px;font-weight:700;color:'+bc+'">'+bl+'</div>';tbl.appendChild(row);});wrap.appendChild(tbl);var bk=[0,0,0,0,0];allS.forEach(function(s){bk[Math.min(4,Math.floor(s/20))]++;});var mb=Math.max.apply(null,bk)||1;var dBox=document.createElement('div');dBox.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px;margin-bottom:20px';dBox.innerHTML='<div style="font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:12px">SCORE DISTRIBUTION</div>';var dg=document.createElement('div');dg.style.cssText='display:flex;gap:8px;align-items:flex-end;height:70px;margin-bottom:8px';bk.forEach(function(c,i){var col=['var(--red)','var(--yel)','var(--yel)','var(--grn)','var(--acc)'][i],bh=Math.max(4,Math.round(c/mb*70));var bar=document.createElement('div');bar.style.cssText='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px';var bi=document.createElement('div');bi.style.cssText='width:100%;background:'+col+';border-radius:4px 4px 0 0;height:'+bh+'px';var cnt=document.createElement('div');cnt.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace';cnt.textContent=c;bar.appendChild(cnt);bar.appendChild(bi);dg.appendChild(bar);});var dl=document.createElement('div');dl.style.cssText='display:flex;gap:8px';['0-20','20-40','40-60','60-80','80-100'].forEach(function(l){var d=document.createElement('div');d.style.cssText='flex:1;text-align:center;font-size:8px;color:var(--mut)';d.textContent=l;dl.appendChild(d);});dBox.appendChild(dg);dBox.appendChild(dl);wrap.appendChild(dBox);var alerts=[];Object.keys(reviewerMap).forEach(function(rev){var sc=reviewerMap[rev],avg=Math.round(sc.reduce(function(s,x){return s+x.mgrScore;},0)/sc.length),uN=(USER_REGISTRY[rev]||{name:rev}).name;if(avg-orgAvg>15)alerts.push('⚠ '+uN+' scores '+Math.round(avg-orgAvg)+'% above org average — potential rating inflation.');if(orgAvg-avg>15)alerts.push('ℹ '+uN+' scores '+Math.round(orgAvg-avg)+'% below org average.');});if(inf)alerts.push('⚠ Org average exceeds 75%. Calibration review recommended.');alerts.forEach(function(msg){var al=document.createElement('div');al.style.cssText='padding:10px 14px;background:'+(msg[0]==='⚠'?'rgba(251,191,36,.08)':'rgba(108,99,255,.08)')+';border:1px solid '+(msg[0]==='⚠'?'rgba(251,191,36,.3)':'rgba(108,99,255,.3)')+';border-radius:8px;font-size:11px;margin-bottom:8px;color:'+(msg[0]==='⚠'?'var(--yel)':'var(--acc)');al.textContent=msg;wrap.appendChild(al);});}}
 var NINE_BOX_LABELS=[['❓ Question Mark','⭐ Emerging Talent','🔥 High Potential'],['⚠ Risk','◎ Core Performer','✔ Strong Performer'],['↓ Low Performer','■ Solid Contributor','⬆ Promotion Ready']];var NINE_BOX_COLORS=[['var(--yel)','var(--acc)','#22d3ee'],['var(--red)','var(--mut)','var(--grn)'],['var(--red)','var(--mut)','var(--acc)']];function renderPerfTalent(wrap){var pd=loadPerfData(),reviews=Object.values(pd.reviews||{});var hdr=document.createElement('div');hdr.style.cssText='margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--brd)';hdr.innerHTML='<div style="font-size:14px;font-weight:800;margin-bottom:4px">Talent Matrix</div><div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">9-box · Succession · Performance vs Potential</div>';wrap.appendChild(hdr);var pD={};Object.keys(USER_REGISTRY).filter(function(e){return ARCHIVED_USERS.indexOf(e)<0;}).forEach(function(email){var u=USER_REGISTRY[email],m=computeMetrics(email),lr=reviews.filter(function(r){return r.reviewee===email&&r.sections&&r.sections.scorecard&&r.sections.scorecard.manager;}).sort(function(a,b){return new Date(b.createdAt)-new Date(a.createdAt);})[0],perf=m.doneRate;if(lr){var ws2=calcWeightedScore(lr.sections.scorecard.manager,u.dept);if(ws2>0)perf=ws2;}var pot=Math.round(Math.min(100,Math.max(0,m.okrContributions*20+Math.max(0,100-m.overdue*20))));pD[email]={name:u.name,role:u.role,dept:u.dept,perf:perf,pot:pot,metrics:m};});var boxes=[[],[],[]];Object.values(pD).forEach(function(p){var col=p.perf<34?0:p.perf<67?1:2,row=p.pot>=67?0:p.pot>=34?1:2;boxes[row][col]=boxes[row][col]||[];boxes[row][col].push(p);});var mo=document.createElement('div');mo.style.cssText='display:flex;gap:8px;margin-bottom:20px';var potL=document.createElement('div');potL.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;writing-mode:vertical-rl;transform:rotate(180deg);flex-shrink:0;text-align:center';potL.textContent='POTENTIAL ↑';var grid=document.createElement('div');grid.style.cssText='flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,minmax(80px,auto));gap:4px';boxes.forEach(function(row,ri){[0,1,2].forEach(function(ci){var people=boxes[ri][ci]||[],col=NINE_BOX_COLORS[ri][ci],lbl=NINE_BOX_LABELS[ri][ci],cell=document.createElement('div');cell.style.cssText='background:var(--surf2);border:1px solid var(--brd);border-radius:8px;padding:8px;border-top:3px solid '+col;var ch=document.createElement('div');ch.style.cssText='font-size:9px;font-weight:700;color:'+col+';margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';ch.textContent=lbl;cell.appendChild(ch);if(!people.length){var em=document.createElement('div');em.style.cssText='font-size:9px;color:var(--mut)';em.textContent='—';cell.appendChild(em);}people.forEach(function(p){var pip=document.createElement('div');pip.style.cssText='font-size:10px;padding:2px 5px;background:var(--surf);border-radius:4px;margin-bottom:2px;display:flex;justify-content:space-between;gap:4px';pip.innerHTML='<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.name.split(' ')[0]+'</span><span style="font-size:8px;color:var(--mut);font-family:Roboto Mono,monospace;flex-shrink:0">'+p.perf+'%</span>';pip.title=p.name+' · Perf:'+p.perf+'% Pot:'+p.pot+'%';cell.appendChild(pip);});grid.appendChild(cell);});});mo.appendChild(potL);mo.appendChild(grid);wrap.appendChild(mo);var xa=document.createElement('div');xa.style.cssText='display:flex;margin-left:28px;margin-bottom:20px';['Low Perf','Mid Perf','High Perf'].forEach(function(l){var d=document.createElement('div');d.style.cssText='flex:1;text-align:center;font-size:9px;color:var(--mut)';d.textContent=l;xa.appendChild(d);});wrap.appendChild(xa);var sh=document.createElement('div');sh.style.cssText='font-size:11px;font-weight:700;margin-bottom:10px;color:var(--mut);font-family:Roboto Mono,monospace';sh.textContent='TALENT SEGMENTS';wrap.appendChild(sh);var sg=document.createElement('div');sg.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px';[{label:'High Potential',col:'#22d3ee',f:function(p){return p.perf>=67&&p.pot>=67;}},{label:'Promotion Ready',col:'var(--acc)',f:function(p){return p.perf>=80&&p.pot>=50;}},{label:'Strong Performers',col:'var(--grn)',f:function(p){return p.perf>=60&&p.pot>=34;}},{label:'Flight Risk',col:'var(--yel)',f:function(p){return p.metrics.burnoutRisk==='High'||p.metrics.overdue>2;}},{label:'Development Focus',col:'var(--red)',f:function(p){return p.perf<40;}}].forEach(function(seg){var people=Object.values(pD).filter(seg.f),card=document.createElement('div');card.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:14px;border-left:3px solid '+seg.col;card.innerHTML='<div style="font-size:10px;font-weight:700;color:'+seg.col+';margin-bottom:8px;font-family:Roboto Mono,monospace">'+seg.label.toUpperCase()+' ('+people.length+')</div>';if(!people.length)card.innerHTML+='<div style="font-size:10px;color:var(--mut)">None identified</div>';people.slice(0,5).forEach(function(p){card.innerHTML+='<div style="font-size:11px;padding:2px 0;border-bottom:1px solid var(--brd)">'+p.name+'<span style="font-size:9px;color:var(--mut);margin-left:6px">'+p.role+'</span></div>';});if(people.length>5)card.innerHTML+='<div style="font-size:10px;color:var(--mut);margin-top:4px">+'+(people.length-5)+' more</div>';sg.appendChild(card);});wrap.appendChild(sg);}
 function renderPerfHistory(wrap,pd){var me=currentUser.email,reviews=Object.values(pd.reviews||{}).filter(function(r){return r.reviewee===me;}),u=USER_REGISTRY[me]||{};var hdr=document.createElement('div');hdr.style.cssText='margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--brd)';hdr.innerHTML='<div style="font-size:13px;font-weight:800;margin-bottom:3px">Performance History</div><div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">Quarter trends · Competency progression</div>';wrap.appendChild(hdr);if(!reviews.length){var em=document.createElement('div');em.style.cssText='text-align:center;padding:30px;color:var(--mut);font-size:12px';em.textContent='Complete at least one review to see trends.';wrap.appendChild(em);return;}reviews.sort(function(a,b){return a.cycle.localeCompare(b.cycle);});var ct=reviews.map(function(r){var ss=r.sections&&r.sections.scorecard&&r.sections.scorecard.self||{},ms=r.sections&&r.sections.scorecard&&r.sections.scorecard.manager||{};return{cycle:r.cycle,selfW:calcWeightedScore(ss,u.dept),mgrW:calcWeightedScore(ms,u.dept)};});var tCard=document.createElement('div');tCard.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px;margin-bottom:16px';tCard.innerHTML='<div style="font-size:11px;font-weight:700;margin-bottom:14px;font-family:Roboto Mono,monospace;color:var(--mut)">WEIGHTED SCORE TREND</div>';var ca=document.createElement('div');ca.style.cssText='display:flex;align-items:flex-end;gap:16px;height:80px;margin-bottom:8px';ct.forEach(function(c2){var col=document.createElement('div');col.style.cssText='flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;justify-content:flex-end';var bw=document.createElement('div');bw.style.cssText='width:100%;display:flex;gap:2px;align-items:flex-end;justify-content:center';if(c2.selfW>0){var sb=document.createElement('div');sb.style.cssText='width:40%;height:'+Math.max(4,Math.round(c2.selfW/100*80))+'px;background:rgba(108,99,255,.4);border-radius:3px 3px 0 0';sb.title='Self:'+c2.selfW+'%';bw.appendChild(sb);}if(c2.mgrW>0){var mb=document.createElement('div');mb.style.cssText='width:40%;height:'+Math.max(4,Math.round(c2.mgrW/100*80))+'px;background:var(--grn);border-radius:3px 3px 0 0';mb.title='Mgr:'+c2.mgrW+'%';bw.appendChild(mb);}col.appendChild(bw);var lbl=document.createElement('div');lbl.style.cssText='font-size:8px;color:var(--mut);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-family:Roboto Mono,monospace';lbl.textContent=quarterLabel(c2.cycle);col.appendChild(lbl);ca.appendChild(col);});tCard.appendChild(ca);var leg=document.createElement('div');leg.style.cssText='display:flex;gap:12px;font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace';leg.innerHTML='<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:rgba(108,99,255,.4);border-radius:2px;display:inline-block"></span>Self</span><span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--grn);border-radius:2px;display:inline-block"></span>Manager</span>';tCard.appendChild(leg);wrap.appendChild(tCard);if(reviews.length>=2){var latest=reviews[reviews.length-1],prev=reviews[reviews.length-2];var cCard=document.createElement('div');cCard.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px';cCard.innerHTML='<div style="font-size:11px;font-weight:700;margin-bottom:12px;font-family:Roboto Mono,monospace;color:var(--mut)">COMPETENCY PROGRESSION ('+quarterLabel(prev.cycle)+' → '+quarterLabel(latest.cycle)+')</div>';var cg=document.createElement('div');cg.style.cssText='display:grid;gap:6px';SCORECARD_DEF.forEach(function(cat){var pMs=prev.sections&&prev.sections.scorecard&&prev.sections.scorecard.manager||{},lMs=latest.sections&&latest.sections.scorecard&&latest.sections.scorecard.manager||{},max=cat.items.length*10,pS=max>0?Math.round(scorecardTotal(pMs,cat.id,cat.items.length)/max*100):0,lS=max>0?Math.round(scorecardTotal(lMs,cat.id,cat.items.length)/max*100):0;if(!pS&&!lS)return;var delta=lS-pS,dc=delta>0?'var(--grn)':delta<0?'var(--red)':'var(--mut)';var row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:120px 60px 60px 50px 1fr;align-items:center;gap:8px;font-size:11px';row.innerHTML='<div>'+cat.category+'</div><div style="text-align:center;font-family:Roboto Mono,monospace;color:var(--mut)">'+pS+'%</div><div style="text-align:center;font-family:Roboto Mono,monospace;font-weight:700">'+lS+'%</div><div style="text-align:center;font-size:10px;font-weight:700;color:'+dc+'">'+(delta>0?'+':'')+delta+'%</div><div style="height:6px;background:var(--surf2);border-radius:3px"><div style="width:'+lS+'%;height:100%;background:var(--acc);border-radius:3px"></div></div>';cg.appendChild(row);});cCard.appendChild(cg);wrap.appendChild(cCard);}}
@@ -4039,7 +4440,7 @@ NS._renderCompanyMode=function(){
     +'<div class="strat-vp-sec-d">Empty cells = strategic gap (department isn’t contributing to that objective)</div>';
   wrap.appendChild(hm);
   var hmTable=document.createElement('div');hmTable.className='strat-heatmap';
-  var depts=['Operations','Engineering','Finance','Sales','Management'];
+  var depts=['Operations','Product & Engineering','Finance','Sales','Management'];
   // Header row
   var hdrRow=document.createElement('div');hdrRow.className='strat-hm-row';
   hdrRow.appendChild(mkHmCell('','strat-hm-corner'));
@@ -4110,7 +4511,7 @@ NS._renderDeptMode=function(){
   _stratViewpointHeader(wrap,'department');
 
   // Dept picker — default to user's dept
-  var depts=['Operations','Engineering','Finance','Sales','Management'];
+  var depts=['Operations','Product & Engineering','Finance','Sales','Management'];
   var dept=st.dept&&st.dept!=='All'?st.dept:(currentUser&&currentUser.dept?currentUser.dept:depts[0]);
   if(depts.indexOf(dept)<0)dept=depts[0];
 
@@ -4807,7 +5208,7 @@ NS._renderV2 = function(){
   hdr.innerHTML='<div class="v2-title">Strategy</div><div class="v2-sub">'+quarterLabel(st.quarter)+'</div>';
 
   var deptSel=document.createElement('select');deptSel.className='v2-deptpicker';
-  var deptOpts=[{v:'All',l:'All departments'}].concat(['Operations','Engineering','Finance','Sales','Management'].map(function(d){return {v:d,l:d};}));
+  var deptOpts=[{v:'All',l:'All departments'}].concat(['Operations','Product & Engineering','Finance','Sales','Management'].map(function(d){return {v:d,l:d};}));
   deptOpts.forEach(function(o){var op=document.createElement('option');op.value=o.v;op.textContent=o.l;if(o.v===st.dept)op.selected=true;deptSel.appendChild(op);});
   deptSel.onchange=function(){_v2SetState({dept:this.value});NS.renderStrategy();};
   hdr.appendChild(deptSel);
@@ -5211,7 +5612,7 @@ function _v2BuildAncestorExpand(nodeId, H){
 function _v2BuildHeatmap(H, st){
   var c=document.createElement('div');c.className='v2-heatmap';
   var cos=Object.values(H.nodes).filter(function(n){return n.type==='CompanyObjective';});
-  var depts=['Operations','Engineering','Finance','Sales','Management'];
+  var depts=['Operations','Product & Engineering','Finance','Sales','Management'];
   var hRow=document.createElement('div');hRow.className='v2-hm-row';
   hRow.appendChild(_v2HmCell('','v2-hm-corner'));
   cos.forEach(function(co){hRow.appendChild(_v2HmCell('<div class="v2-hm-coh">'+esc(truncate(co.title,32))+'</div>','v2-hm-coh-cell'));});
@@ -5525,7 +5926,7 @@ NS._renderCascadeMode=function(){
   fbar.appendChild(wrapField('Quarter',qSel));
   // dept
   var dSel=document.createElement('select');
-  ['All','Company','Operations','Finance','Engineering','Sales','Management'].forEach(function(d){
+  ['All','Company','Operations','Finance','Product & Engineering','Sales','Management'].forEach(function(d){
     var o=document.createElement('option');o.value=d;o.textContent=d;if(d===st.dept)o.selected=true;dSel.appendChild(o);
   });
   dSel.onchange=function(){setState({dept:this.value});NS.renderStrategy();};
@@ -8553,7 +8954,7 @@ var HELP_CONTENT = {
 function showHelp(){
   var key = (typeof view !== 'undefined' && view) ? view : 'dashboard';
   // Department dept names route through renderDept, but help key is generic
-  if(['Management','Operations','Finance','Engineering','Sales'].indexOf(key) >= 0) key = 'tasks';
+  if(['Management','Operations','Finance','Product & Engineering','Sales'].indexOf(key) >= 0) key = 'tasks';
   var content = HELP_CONTENT[key] || HELP_CONTENT.dashboard;
 
   var ov = document.getElementById('help-drawer-ov');
@@ -14091,52 +14492,24 @@ var FUND=(function(){
 
   // trigger: 'snapshot_save' | 'manual'
   // Returns Promise<{checked, eligible, sent, providers, skipped, error}>
+  //
+  // Phase A migration (Jun 2026): alert computation + Slack posting now live
+  // entirely on the Worker. This client just RPCs into the Worker's
+  // recompute_alerts action so the team gets identical behaviour whether the
+  // trigger came from the hourly cron or a Pulse "Re-check now" click. The
+  // Worker handles cooldown logging, dedupe, and the snapshot history.
   NS.runAlertCheck = function(trigger){
     var admin = NS.loadAdmin();
     if(!admin.alertsEnabled){return Promise.resolve({checked:0, eligible:0, sent:0, skipped:'disabled'});}
-    var registry = NS.loadRegistry().filter(function(p){
-      return p.isActive!==false && p.billingType!=='postpaid' && p.entityType!=='product_float' && Array.isArray(p.services) && p.services.length>0;
-    });
-    var log = NS.loadAlertLog();
-    var defaultCooldownMs = (admin.alertCooldownHours||24) * 3600000;
-    var urgentCooldownMs = (admin.urgentCooldownHours||1) * 3600000;
-    var urgentHrs = admin.urgentHours || 4;
-    var now = Date.now();
-    var eligible = [];
-    var stillCritical = []; // status persisted but in cooldown — don't re-fire, but keep their log entry
-    registry.forEach(function(p){
-      var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
-      var f = NS.computeForecast(key, p);
-      if(f.status!=='critical' && f.status!=='watch') return;
-      // Derive tier for cooldown purposes (urgent = within urgentHours)
-      var hoursLeft = f.minDaysLeft * 24;
-      var tier = (f.status === 'critical' && hoursLeft <= urgentHrs) ? 'urgent' : f.status;
-      var cooldownMs = (tier === 'urgent') ? urgentCooldownMs : defaultCooldownMs;
-      var last = log[key];
-      // Tier transition counts as "status changed" so degraded providers
-      // (critical → urgent) trigger a fresh alert immediately.
-      var tierChanged = !last || (last.tier || last.status) !== tier;
-      var statusChanged = !last || last.status !== f.status;
-      var cooldownExpired = !last || (now - last.at) >= cooldownMs;
-      if(tierChanged || statusChanged || cooldownExpired){
-        eligible.push({provider:p, forecast:f, key:key, tier:tier});
-      } else {
-        stillCritical.push({key:key, status:f.status, tier:tier});
-      }
-    });
-    if(!eligible.length){
-      return Promise.resolve({checked:registry.length, eligible:0, sent:0, stillCritical:stillCritical.length, trigger:trigger||null});
-    }
-    var text = NS.formatAlertMessage(eligible);
-    return NS.postSlackAlert(text).then(function(res){
-      if(res && res.ok){
-        eligible.forEach(function(a){
-          log[a.key] = {at:now, status:a.forecast.status, tier:(a.tier||a.forecast.status), trigger:trigger||'snapshot_save'};
-        });
-        NS.saveAlertLog(log);
-        return {checked:registry.length, eligible:eligible.length, sent:eligible.length, providers:eligible.map(function(a){return a.provider.name;}), trigger:trigger||null, ts:res.ts};
-      }
-      return {checked:registry.length, eligible:eligible.length, sent:0, error:(res&&res.error)||'unknown', detail:res&&res.detail, trigger:trigger||null};
+    var adminCfg = NS.loadAdmin();
+    var url = (adminCfg && adminCfg.workerUrl) || null;
+    if(!url){return Promise.resolve({checked:0, eligible:0, sent:0, error:'no_worker_url'});}
+    return fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'recompute_alerts', trigger: trigger || 'manual'})
+    }).then(function(r){return r.json();}).catch(function(e){
+      return {checked:0, eligible:0, sent:0, error:'network', detail:String(e)};
     });
   };
 
