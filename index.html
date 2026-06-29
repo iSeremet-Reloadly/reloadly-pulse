@@ -1765,7 +1765,25 @@ function _renderAdminUsers(){
     var archived=ARCHIVED_USERS.indexOf(e)>-1;
     var rowStyle=archived?'opacity:.45;background:rgba(255,100,100,.06)':you?'background:rgba(108,99,255,.08)':'';
     html+='<tr style="'+rowStyle+'">';
-    html+='<td class="tid">'+e+(you?' <span class="badge Medium">you</span>':'')+(archived?' <span class="badge Critical">archived</span>':'')+'</td>';
+    // Email cell — clickable to reveal a Slack ID inline editor below it.
+    // Required for Phase B (HPM laggard @-mentions) and Phase D (At-Risk DM
+    // delivery). Saved Slack ID gets a small green check beside the email;
+    // missing IDs show a faint "+ slack" hint so admins know to set it.
+    var slackId = u.slackId || '';
+    var slackBadge = slackId
+      ? ' <span style="font-size:9px;color:var(--grn);font-family:Roboto Mono,monospace;margin-left:6px" title="Slack ID set: '+esc(slackId)+'">● slack</span>'
+      : ' <span style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-left:6px;opacity:.7" title="Click email to set Slack ID">+ slack</span>';
+    html+='<td class="tid">';
+    html+='<span data-toggle-slack="'+e+'" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--mut)" title="Click to set Slack ID for HPM mentions + At-Risk DMs">'+e+'</span>';
+    html+=(you?' <span class="badge Medium">you</span>':'');
+    html+=(archived?' <span class="badge Critical">archived</span>':'');
+    html+=slackBadge;
+    html+='<div data-slack-row="'+e+'" style="display:none;margin-top:6px;padding:8px 10px;background:var(--surf2);border-radius:6px;border:1px solid var(--brd)">';
+    html+='<div style="font-size:10px;color:var(--mut);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;font-family:Roboto Mono,monospace">Slack member ID</div>';
+    html+='<input class="ie" style="width:180px;font-family:Roboto Mono,monospace;font-size:12px" data-upd-email="'+e+'" data-upd-field="slackId" value="'+esc(slackId)+'" placeholder="U069HLBU3GT">';
+    html+='<div style="font-size:10px;color:var(--mut);margin-top:4px;line-height:1.5">In Slack: open this user\'s profile → ⋯ More → Copy member ID. Saves on blur, pushes to Worker for HPM + DM routing.</div>';
+    html+='</div>';
+    html+='</td>';
     // Editable name
     html+='<td><input class="ie" style="width:120px" data-upd-email="'+e+'" data-upd-field="name" value="'+esc(u.name||'')+'"></td>';
     // Editable role
@@ -1798,7 +1816,7 @@ function _renderAdminUsers(){
   html+='</tbody></table></div>';
   // Add User
   html+='<div class="sh"><div><div class="sh-t">Add User</div><div class="sh-s">New user can sign in immediately</div></div>';
-  html+='<div class="atb" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr auto">';
+  html+='<div class="atb" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr auto">';
   html+='<div class="fld"><label>EMAIL</label><input id="nu-email" placeholder="name@reloadly.com"></div>';
   html+='<div class="fld"><label>NAME</label><input id="nu-name" placeholder="Full name"></div>';
   html+='<div class="fld"><label>ROLE</label><input id="nu-role" placeholder="e.g. Account Manager"></div>';
@@ -1806,6 +1824,7 @@ function _renderAdminUsers(){
   DEPTS.forEach(function(d){html+='<option>'+d+'</option>';});
   html+='</select></div>';
   html+='<div class="fld"><label>ACCESS</label><select id="nu-perm"><option value="view">View only</option><option value="export">Export</option><option value="admin">Admin</option></select></div>';
+  html+='<div class="fld"><label title="Slack member ID — required for HPM @-mentions and At-Risk DMs">SLACK ID</label><input id="nu-slackid" placeholder="U069HLBU3GT" style="font-family:Roboto Mono,monospace;font-size:12px"></div>';
   html+='<button class="add-btn" id="au-btn">+ ADD</button>';
   html+='</div></div>';
   // Change own password
@@ -1817,7 +1836,7 @@ function _renderAdminUsers(){
   html+='</div></div>';
   document.getElementById('main').innerHTML=html;
 
-  // ── Wire up inline field edits (name, role, dept, checkboxes) ─────────────
+  // ── Wire up inline field edits (name, role, dept, checkboxes, slackId) ───
   document.getElementById('main').addEventListener('change',function(ev){
     var el=ev.target;
     var email=el.getAttribute('data-upd-email');
@@ -1834,8 +1853,46 @@ function _renderAdminUsers(){
     }
     logEntry('Admin updated '+email+': '+field+' (session-only)','edit');
     autoSave();
+    // slackId edits aren't just session-only — push immediately to the
+    // Worker's user_roster KV so Phase B (HPM laggard @-mentions) and Phase D
+    // (At-Risk DM delivery) pick up the new ID without waiting for the next
+    // bootstrap throttle window. The user roster on the Worker is shared,
+    // so the field starts working for everyone the moment it's pushed.
+    if(field === 'slackId' && typeof RL_SRV !== 'undefined'){
+      var roster = Object.keys(USER_REGISTRY).map(function(em){
+        var ux = USER_REGISTRY[em];
+        return {email: em, name: ux.name || em, slackId: ux.slackId || null, dept: ux.dept || null};
+      });
+      RL_SRV.pushRoster(roster).then(function(r){
+        if(r && r.ok){
+          toast('Slack ID saved + pushed to Worker ✓','ok');
+        } else {
+          toast('Saved locally, Worker push failed: '+(r && r.error)||'unknown','warn');
+        }
+      });
+      return;
+    }
     // Honest toast — autoSave only persists tasks + activity log, not USER_REGISTRY.
     toast('Updated (session only — commit USER_REGISTRY to persist)','warn');
+  });
+
+  // ── Wire up email-click → reveal Slack ID inline editor ───────────────────
+  document.getElementById('main').addEventListener('click',function(ev){
+    var slackToggle=ev.target.closest('[data-toggle-slack]');
+    if(slackToggle){
+      var em=slackToggle.getAttribute('data-toggle-slack');
+      var row=document.querySelector('[data-slack-row="'+em+'"]');
+      if(row){
+        var open = row.style.display !== 'none';
+        row.style.display = open ? 'none' : 'block';
+        if(!open){
+          // Auto-focus the input when opening so admin can paste immediately.
+          var inp = row.querySelector('input');
+          if(inp){ setTimeout(function(){inp.focus(); inp.select();}, 0); }
+        }
+      }
+      return;
+    }
   });
 
   // ── Wire up Set Password ───────────────────────────────────────────────────
@@ -1900,10 +1957,21 @@ function _renderAdminUsers(){
     var role=(document.getElementById('nu-role').value||'').trim();
     var dept=(document.getElementById('nu-dept').value||'Management');
     var perm=(document.getElementById('nu-perm').value||'view');
+    var slackId=((document.getElementById('nu-slackid')||{}).value||'').trim();
     if(!email||!name){toast('Email and name required','err');return;}
     if(USER_REGISTRY[email]){toast('Email already registered','err');return;}
-    USER_REGISTRY[email]={name:name,role:role,dept:dept,canExport:perm==='export'||perm==='admin',canViewAll:true,isAdmin:perm==='admin'};
-    logEntry('Admin added user: '+email+' ('+role+')','add');
+    USER_REGISTRY[email]={name:name,role:role,dept:dept,canExport:perm==='export'||perm==='admin',canViewAll:true,isAdmin:perm==='admin',slackId:slackId||null};
+    logEntry('Admin added user: '+email+' ('+role+')'+(slackId?' [slack:'+slackId+']':''),'add');
+    // Push fresh roster to the Worker so HPM nudges + OKR DMs see the new
+    // user immediately. Fire-and-forget — the local add is the authoritative
+    // success signal for the toast.
+    if(typeof RL_SRV !== 'undefined'){
+      var roster = Object.keys(USER_REGISTRY).map(function(em){
+        var ux = USER_REGISTRY[em];
+        return {email: em, name: ux.name || em, slackId: ux.slackId || null, dept: ux.dept || null};
+      });
+      RL_SRV.pushRoster(roster);
+    }
     autoSave();toast(name+' added','ok');renderAdmin();
   });
 }
