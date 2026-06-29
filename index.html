@@ -1837,65 +1837,98 @@ function _renderAdminUsers(){
   document.getElementById('main').innerHTML=html;
 
   // ── Wire up inline field edits (name, role, dept, checkboxes, slackId) ───
-  document.getElementById('main').addEventListener('change',function(ev){
-    var el=ev.target;
-    var email=el.getAttribute('data-upd-email');
-    var field=el.getAttribute('data-upd-field');
-    if(!email||!field)return;
-    if(!USER_REGISTRY[email])return;
-    if(el.type==='checkbox'){
-      USER_REGISTRY[email][field]=el.checked;
-      // Sync currentUser if editing self
-      if(currentUser&&currentUser.email===email)currentUser[field]=el.checked;
-    } else {
-      USER_REGISTRY[email][field]=el.value.trim();
-      if(currentUser&&currentUser.email===email)currentUser[field]=el.value.trim();
+  // Guard against listener stacking: every renderAdmin() call replaces the
+  // children of #main but NOT the #main element itself, so previous
+  // addEventListener calls would otherwise accumulate. After a handful of
+  // navigations each event would fire N times, flooding the Worker with
+  // duplicate pushRoster requests and making the field feel frozen. The
+  // dataset flag below ensures the listener is attached exactly once per
+  // page lifetime.
+  var _adminRoot = document.getElementById('main');
+  if(!_adminRoot.dataset.adminWired){
+    _adminRoot.dataset.adminWired = '1';
+    // Debounce the Worker push so a fast typer doesn't trigger one fetch per
+    // keystroke. Native change fires on blur, but if we ever switch to input
+    // events for live save this still keeps the network quiet.
+    var _rosterPushTimer = null;
+    function _schedulePushRoster(){
+      if(_rosterPushTimer) clearTimeout(_rosterPushTimer);
+      _rosterPushTimer = setTimeout(function(){
+        _rosterPushTimer = null;
+        if(typeof RL_SRV === 'undefined') return;
+        var roster = Object.keys(USER_REGISTRY).map(function(em){
+          var ux = USER_REGISTRY[em];
+          return {email: em, name: ux.name || em, slackId: ux.slackId || null, dept: ux.dept || null};
+        });
+        RL_SRV.pushRoster(roster).then(function(r){
+          if(r && r.ok){
+            toast('Slack ID pushed to Worker ✓','ok');
+          } else {
+            toast('Saved locally, Worker push failed','warn');
+          }
+        }).catch(function(){ toast('Worker push errored — saved locally','warn'); });
+      }, 250);
     }
-    logEntry('Admin updated '+email+': '+field+' (session-only)','edit');
-    autoSave();
-    // slackId edits aren't just session-only — push immediately to the
-    // Worker's user_roster KV so Phase B (HPM laggard @-mentions) and Phase D
-    // (At-Risk DM delivery) pick up the new ID without waiting for the next
-    // bootstrap throttle window. The user roster on the Worker is shared,
-    // so the field starts working for everyone the moment it's pushed.
-    if(field === 'slackId' && typeof RL_SRV !== 'undefined'){
-      var roster = Object.keys(USER_REGISTRY).map(function(em){
-        var ux = USER_REGISTRY[em];
-        return {email: em, name: ux.name || em, slackId: ux.slackId || null, dept: ux.dept || null};
-      });
-      RL_SRV.pushRoster(roster).then(function(r){
-        if(r && r.ok){
-          toast('Slack ID saved + pushed to Worker ✓','ok');
+
+    _adminRoot.addEventListener('change',function(ev){
+      try {
+        var el=ev.target;
+        var email=el.getAttribute('data-upd-email');
+        var field=el.getAttribute('data-upd-field');
+        if(!email||!field)return;
+        if(!USER_REGISTRY[email])return;
+        if(el.type==='checkbox'){
+          USER_REGISTRY[email][field]=el.checked;
+          if(currentUser&&currentUser.email===email)currentUser[field]=el.checked;
         } else {
-          toast('Saved locally, Worker push failed: '+(r && r.error)||'unknown','warn');
+          USER_REGISTRY[email][field]=el.value.trim();
+          if(currentUser&&currentUser.email===email)currentUser[field]=el.value.trim();
         }
-      });
-      return;
-    }
-    // Honest toast — autoSave only persists tasks + activity log, not USER_REGISTRY.
-    toast('Updated (session only — commit USER_REGISTRY to persist)','warn');
-  });
+        logEntry('Admin updated '+email+': '+field+' (session-only)','edit');
+        autoSave();
+        // slackId edits push to the shared Worker roster so Phase B (HPM
+        // @-mentions) and Phase D (At-Risk DMs) pick up the new ID without
+        // waiting for the bootstrap throttle. Debounced + fire-and-forget
+        // so the UI never blocks on the network.
+        if(field === 'slackId'){
+          // Persist locally so a reload keeps the value (USER_REGISTRY is
+          // hardcoded in index.html, so we stash slackIds in a side-table).
+          if(typeof _setSlackId === 'function') _setSlackId(email, el.value.trim());
+          _schedulePushRoster();
+          return;
+        }
+        toast('Updated (session only — commit USER_REGISTRY to persist)','warn');
+      } catch (e) {
+        // Swallow + log so a single bad row doesn't lock out the page.
+        console && console.error && console.error('admin change handler failed:', e);
+      }
+    });
+  }
 
   // ── Wire up email-click → reveal Slack ID inline editor ───────────────────
-  document.getElementById('main').addEventListener('click',function(ev){
-    var slackToggle=ev.target.closest('[data-toggle-slack]');
-    if(slackToggle){
-      var em=slackToggle.getAttribute('data-toggle-slack');
-      var row=document.querySelector('[data-slack-row="'+em+'"]');
-      if(row){
-        var open = row.style.display !== 'none';
-        row.style.display = open ? 'none' : 'block';
-        if(!open){
-          // Auto-focus the input when opening so admin can paste immediately.
-          var inp = row.querySelector('input');
-          if(inp){ setTimeout(function(){inp.focus(); inp.select();}, 0); }
+  if(!_adminRoot.dataset.adminClickWired){
+    _adminRoot.dataset.adminClickWired = '1';
+    _adminRoot.addEventListener('click',function(ev){
+      var slackToggle=ev.target.closest('[data-toggle-slack]');
+      if(slackToggle){
+        var em=slackToggle.getAttribute('data-toggle-slack');
+        var row=document.querySelector('[data-slack-row="'+em+'"]');
+        if(row){
+          var open = row.style.display !== 'none';
+          row.style.display = open ? 'none' : 'block';
+          if(!open){
+            var inp = row.querySelector('input');
+            if(inp){ setTimeout(function(){inp.focus(); inp.select();}, 0); }
+          }
         }
+        return;
       }
-      return;
-    }
-  });
+    });
+  }
 
   // ── Wire up Set Password ───────────────────────────────────────────────────
+  if(!_adminRoot.dataset.adminPwdWired){
+    _adminRoot.dataset.adminPwdWired = '1';
   document.getElementById('main').addEventListener('click',function(ev){
     var setBtn=ev.target.closest('[data-set-pwd]');
     if(setBtn){
@@ -1931,6 +1964,7 @@ function _renderAdminUsers(){
       autoSave();toast(USER_REGISTRY[em].name+' restored','ok');renderAdmin();
     }
   });
+  } // close adminPwdWired guard
 
   // ── Change own password ───────────────────────────────────────────────────
   var mpBtn=document.getElementById('my-pwd-btn');
@@ -2914,11 +2948,69 @@ var RL_SRV = {
 // pipelines (HPM nudges, OKR At-Risk DMs, Quarterly digest) have the data
 // they need. Throttled to once per hour via a timestamped localStorage flag
 // — the Worker doesn't need a fresh copy on every page load.
+// Slack IDs persist in BOTH localStorage (so this user sees their entries
+// after a reload) AND the Worker KV (so other users see them). USER_REGISTRY
+// itself is hardcoded in index.html, so we keep slackId in a side-table.
+function _loadSlackIds(){
+  try { return JSON.parse(localStorage.getItem('rl_slack_ids')||'{}'); } catch(e){ return {}; }
+}
+function _saveSlackIds(map){
+  try { localStorage.setItem('rl_slack_ids', JSON.stringify(map||{})); } catch(e){}
+}
+function _setSlackId(email, slackId){
+  if(!email) return;
+  var map = _loadSlackIds();
+  if(slackId){ map[email] = slackId; } else { delete map[email]; }
+  _saveSlackIds(map);
+  if(typeof USER_REGISTRY === 'object' && USER_REGISTRY[email]){
+    USER_REGISTRY[email].slackId = slackId || null;
+  }
+}
+// Hydrate USER_REGISTRY.slackId from localStorage first, then from the
+// Worker. Local hits make the badges correct before any network call.
+function _hydrateSlackIdsFromLocal(){
+  if(typeof USER_REGISTRY !== 'object') return;
+  var map = _loadSlackIds();
+  Object.keys(map).forEach(function(email){
+    if(USER_REGISTRY[email] && map[email]) USER_REGISTRY[email].slackId = map[email];
+  });
+}
+function _hydrateSlackIdsFromWorker(){
+  if(typeof RL_SRV === 'undefined' || typeof USER_REGISTRY !== 'object') return;
+  return RL_SRV.call('get_roster').then(function(r){
+    if(!r || !r.ok) return;
+    var serverRoster = Array.isArray(r.roster) ? r.roster : (r.roster && r.roster.roster) || [];
+    var local = _loadSlackIds();
+    var updated = false;
+    serverRoster.forEach(function(u){
+      if(u && u.email && USER_REGISTRY[u.email] && u.slackId){
+        // Don't clobber a local edit that's newer than what's on the server.
+        if(!local[u.email] || local[u.email] === u.slackId){
+          USER_REGISTRY[u.email].slackId = u.slackId;
+          local[u.email] = u.slackId;
+          updated = true;
+        }
+      }
+    });
+    if(updated) _saveSlackIds(local);
+    // If we're currently viewing the admin page, re-render so badges + saved
+    // values show up without requiring a manual refresh.
+    try { if(typeof view !== 'undefined' && view === 'admin' && typeof renderAdmin === 'function'){ renderAdmin(); } } catch(e){}
+  });
+}
+
 function _rl_srv_bootstrap(){
+  if(typeof RL_SRV === 'undefined') return;
   try {
+    // 1. Hydrate local slackIds from localStorage immediately (sync, fast).
+    _hydrateSlackIdsFromLocal();
+    // 2. Hydrate from the Worker's shared roster (async). Newly-set slackIds
+    //    set by other users land here.
+    _hydrateSlackIdsFromWorker();
+    // 3. Push OKR + roster on a 1-hour throttle so we don't flood KV writes
+    //    on every tab open.
     var lastPush = parseInt(localStorage.getItem('rl_srv_last_bootstrap')||'0', 10);
-    if(Date.now() - lastPush < 3600000) return; // 1h throttle
-    // Roster — extract minimal user records from USER_REGISTRY for nudges + DMs
+    if(Date.now() - lastPush < 3600000) return;
     if(typeof USER_REGISTRY === 'object'){
       var roster = Object.keys(USER_REGISTRY).map(function(email){
         var u = USER_REGISTRY[email];
@@ -2926,13 +3018,12 @@ function _rl_srv_bootstrap(){
       });
       RL_SRV.pushRoster(roster);
     }
-    // OKR state — push current OKR_DATA
     if(typeof OKR_DATA === 'object'){ RL_SRV.pushOKR(OKR_DATA); }
     localStorage.setItem('rl_srv_last_bootstrap', String(Date.now()));
   } catch(e){ /* silent — bootstrap is best-effort */ }
 }
 // Defer to next tick so it runs after all top-level definitions are in place.
-if(typeof window !== 'undefined'){ setTimeout(_rl_srv_bootstrap, 2000); }
+if(typeof window !== 'undefined'){ setTimeout(_rl_srv_bootstrap, 800); }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // WEEKLY HPM (Highlights / Progress / Me)
