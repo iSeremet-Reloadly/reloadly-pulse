@@ -3469,6 +3469,91 @@ function _allKRsForPicker(){
 // "Me" content is shown only when its visibility is "company" OR the viewer
 // is admin OR the viewer is the same dept manager.
 // ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════
+// Departmental AI summary cache. Key: dept+windowWeeks. Stores generated
+// summary text + when it was made + how many entries were summarised.
+// ═════════════════════════════════════════════════════════════════════════
+function _loadDeptSummaryCache(){
+  try { return JSON.parse(localStorage.getItem('rl_dept_hpm_summary')||'{}'); }
+  catch(e){ return {}; }
+}
+function _saveDeptSummaryCache(c){
+  try { localStorage.setItem('rl_dept_hpm_summary', JSON.stringify(c||{})); } catch(e){}
+}
+
+// Pulls the team's HPM data for a department over the last N weeks. Returns
+// {entries:[{name,email,weekKey,highlights,progress,confidence,me}], weeks, people}
+function _gatherDeptHPMs(dept, windowWeeks, allSubmissions){
+  var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - windowWeeks*7);
+  var entries = [];
+  var peopleSeen = {};
+  var weeksSeen = {};
+  Object.keys(allSubmissions||{}).forEach(function(email){
+    var u = USER_REGISTRY[email] || {};
+    if((u.dept||'') !== dept) return;
+    var weeks = allSubmissions[email] || {};
+    Object.keys(weeks).forEach(function(wk){
+      var ent = weeks[wk];
+      if(!ent || !ent.submittedAt) return;
+      var d = new Date(ent.submittedAt);
+      if(d < cutoff) return;
+      entries.push({
+        name: u.name || email,
+        email: email,
+        weekKey: wk,
+        highlights: (ent.highlights||[]).filter(function(h){return h.text;}).map(function(h){return h.text;}),
+        progress: (ent.progress||[]).filter(function(p){return p.text;}).map(function(p){return p.text;}),
+        confidence: ent.confidence,
+        me: (ent.me && ent.me.text) || ''
+      });
+      peopleSeen[email] = true;
+      weeksSeen[wk] = true;
+    });
+  });
+  entries.sort(function(a,b){return (a.weekKey < b.weekKey) ? -1 : 1;});
+  return {entries: entries, people: Object.keys(peopleSeen).length, weeks: Object.keys(weeksSeen).length};
+}
+
+// Build the prompt + call Claude. Returns a Promise<string>.
+function _generateDeptHPMSummary(dept, gathered){
+  var lines = [];
+  lines.push('Summarize the ' + dept + ' team\'s weekly HPM (Highlights/Progress/Me) submissions over the last 12 weeks.');
+  lines.push('Each submission has Highlights (outcomes that moved OKRs), Progress (initiatives in flight), Me (personal context — may be sensitive), and a Confidence rating (1-5).');
+  lines.push('');
+  lines.push('Provide a 150-200 word executive summary covering:');
+  lines.push('1. Top 3-5 themes / wins from the team this period');
+  lines.push('2. Areas of momentum and what\'s in flight');
+  lines.push('3. Confidence trend — average level and any concerning patterns (sustained low or sharp drops)');
+  lines.push('4. Notable individual contributions worth surfacing');
+  lines.push('5. Personal/Me signals worth manager attention (only if concerning, otherwise omit this section)');
+  lines.push('');
+  lines.push('Be specific, concrete, and evidence-based. Quote individuals where it adds signal. Avoid generic platitudes.');
+  lines.push('');
+  lines.push('--- DATA ---');
+  gathered.entries.forEach(function(e){
+    lines.push('');
+    lines.push('[' + e.weekKey + '] ' + e.name + ' · confidence: ' + (e.confidence||'-') + '/5');
+    if(e.highlights.length) lines.push('  Highlights: ' + e.highlights.join(' | '));
+    if(e.progress.length) lines.push('  Progress: ' + e.progress.join(' | '));
+    if(e.me) lines.push('  Me: ' + e.me);
+  });
+  var prompt = lines.join('\n');
+
+  return fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 700,
+      messages: [{role:'user', content: prompt}]
+    })
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d && d.content && d.content[0] && d.content[0].text) return d.content[0].text;
+    if(d && d.error) throw new Error(d.error.message || 'Claude API error');
+    throw new Error('Unexpected Claude response');
+  });
+}
+
 function renderPerfHPMFeed(wrap, pd){
   var me = currentUser.email;
   var isAd = isAdmin();
@@ -3477,6 +3562,82 @@ function renderPerfHPMFeed(wrap, pd){
   hdr.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:4px">Company HPM Feed</div>'
     + '<div style="font-size:12px;color:var(--mut);line-height:1.55">Everyone\'s weekly Highlights and Progress, grouped by week. "Me" entries respect each person\'s visibility choice. Updates within ~30 seconds of any submission.</div>';
   wrap.appendChild(hdr);
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Departmental AI summary cards. One card per department. Generated on
+  // demand from the last 12 weeks of submissions. Cached locally per dept.
+  // ───────────────────────────────────────────────────────────────────────
+  var summarySec = document.createElement('div');
+  summarySec.style.cssText = 'margin-bottom:24px';
+  var summaryHdr = document.createElement('div');
+  summaryHdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px';
+  summaryHdr.innerHTML = '<div><div style="font-size:13px;font-weight:700;color:var(--acc);font-family:Roboto Mono,monospace;letter-spacing:.3px">✨ DEPARTMENTAL AI SUMMARIES</div><div style="font-size:11px;color:var(--mut);margin-top:3px">Last 12 weeks · click Generate to summarise themes, momentum, confidence trend, and signals worth manager attention.</div></div>';
+  summarySec.appendChild(summaryHdr);
+  var summaryGrid = document.createElement('div');
+  summaryGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px';
+  summarySec.appendChild(summaryGrid);
+  wrap.appendChild(summarySec);
+
+  function _renderDeptSummaryCards(allSubmissions){
+    summaryGrid.innerHTML = '';
+    var cache = _loadDeptSummaryCache();
+    DEPTS.forEach(function(dept){
+      var key = dept + '|12w';
+      var cached = cache[key];
+      var gathered = _gatherDeptHPMs(dept, 12, allSubmissions);
+      var card = document.createElement('div');
+      card.style.cssText = 'background:linear-gradient(135deg,rgba(108,99,255,.06),rgba(99,102,241,.02));border:1px solid rgba(108,99,255,.25);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px';
+      var cardHdr = document.createElement('div');
+      cardHdr.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:8px';
+      cardHdr.innerHTML = '<div><div style="font-size:13px;font-weight:700;color:var(--txt)">'+esc(dept)+'</div><div style="font-size:10px;color:var(--mut);margin-top:2px;font-family:Roboto Mono,monospace">'+gathered.entries.length+' entries · '+gathered.people+' people · '+gathered.weeks+' weeks</div></div>';
+      var genBtn = document.createElement('button');
+      genBtn.className = 'hbtn';
+      genBtn.style.cssText = 'font-size:10px;padding:5px 11px;border-color:var(--acc);color:var(--acc);flex-shrink:0';
+      genBtn.textContent = cached ? '↻ Refresh' : '✨ Generate';
+      card.appendChild(cardHdr);
+      cardHdr.appendChild(genBtn);
+      var body = document.createElement('div');
+      body.style.cssText = 'font-size:12px;color:var(--txt);white-space:pre-wrap;line-height:1.55;padding-top:6px;border-top:1px solid rgba(108,99,255,.18)';
+      if(cached){
+        body.textContent = cached.text;
+        var meta = document.createElement('div');
+        meta.style.cssText = 'font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:6px';
+        meta.textContent = 'Generated ' + new Date(cached.at).toLocaleString('en-GB', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) + ' · ' + cached.entryCount + ' entries summarised';
+        card.appendChild(body);
+        card.appendChild(meta);
+      } else if(!gathered.entries.length){
+        body.style.color = 'var(--mut)';
+        body.textContent = 'No HPM submissions from this department in the last 12 weeks.';
+        card.appendChild(body);
+        genBtn.disabled = true;
+        genBtn.style.opacity = .4;
+        genBtn.style.cursor = 'not-allowed';
+      } else {
+        body.style.color = 'var(--mut)';
+        body.textContent = 'Click Generate to produce an AI summary of this department\'s HPMs.';
+        card.appendChild(body);
+      }
+      genBtn.onclick = function(){
+        if(!gathered.entries.length) return;
+        genBtn.textContent = 'Generating…';
+        genBtn.disabled = true;
+        body.style.color = 'var(--mut)';
+        body.textContent = 'Analysing ' + gathered.entries.length + ' entries…';
+        _generateDeptHPMSummary(dept, gathered).then(function(text){
+          var c = _loadDeptSummaryCache();
+          c[key] = {text: text, at: new Date().toISOString(), entryCount: gathered.entries.length};
+          _saveDeptSummaryCache(c);
+          _renderDeptSummaryCards(allSubmissions);
+        }).catch(function(e){
+          body.style.color = 'var(--red)';
+          body.textContent = 'Failed: ' + (e.message || 'unknown error');
+          genBtn.textContent = '↻ Retry';
+          genBtn.disabled = false;
+        });
+      };
+      summaryGrid.appendChild(card);
+    });
+  }
 
   // Filter bar
   var filterBar = document.createElement('div');
@@ -3512,6 +3673,8 @@ function renderPerfHPMFeed(wrap, pd){
       }
       // submissions shape: { [email]: { [weekKey]: { highlights, progress, me, confidence, submittedAt, late } } }
       var subs = r.submissions || {};
+      // Populate the dept AI summary cards with the same data fetch.
+      try { _renderDeptSummaryCards(subs); } catch(e){}
       // Build flat list of entries with metadata
       var flat = [];
       Object.keys(subs).forEach(function(email){
