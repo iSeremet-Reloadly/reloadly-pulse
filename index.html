@@ -1748,7 +1748,13 @@ function _renderAdminUsers(){
   // Reload archived list from storage
   window.ARCHIVED_USERS=JSON.parse(localStorage.getItem('rl_archived')||'[]');
   var entries=Object.entries(USER_REGISTRY);
-  var html='<div class="ptitle">User Management</div><div class="psub">'+entries.length+' registered users &middot; only admins can see this</div>';
+  // Split into the active workforce (rendered in the main table) and the
+  // archived bench (rendered separately under a collapsed section). Keeps the
+  // active table focused on the people who currently have access and avoids
+  // visual clutter from former teammates.
+  var activeEntries = entries.filter(function(kv){return ARCHIVED_USERS.indexOf(kv[0]) < 0;});
+  var archivedEntries = entries.filter(function(kv){return ARCHIVED_USERS.indexOf(kv[0]) >= 0;});
+  var html='<div class="ptitle">User Management</div><div class="psub">'+activeEntries.length+' active &middot; '+archivedEntries.length+' archived &middot; only admins can see this</div>';
   html+=_adminTabBar('users');
   // Honesty banner — every edit to this table updates USER_REGISTRY in memory
   // only. autoSave() persists tasks + the activity log, not the user registry.
@@ -1759,61 +1765,69 @@ function _renderAdminUsers(){
   html+='</div>';
   // Permission headers get a small "(session)" tag so the table itself reflects the warning above.
   function _shCol(label){return '<th>'+label+' <span style="font-size:8px;color:var(--mut);font-weight:400;letter-spacing:.3px;display:block;margin-top:1px">(session)</span></th>';}
-  html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME '+'<span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>ROLE <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>DEPT <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+_shCol('PROPOSALS')+_shCol('WALLET OPS')+'<th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
-  entries.forEach(function(kv){
-    var e=kv[0],u=kv[1],you=currentUser&&currentUser.email===e;
-    var archived=ARCHIVED_USERS.indexOf(e)>-1;
-    var rowStyle=archived?'opacity:.45;background:rgba(255,100,100,.06)':you?'background:rgba(108,99,255,.08)':'';
-    html+='<tr style="'+rowStyle+'">';
-    // Email cell — clickable to reveal a Slack ID inline editor below it.
-    // Required for Phase B (HPM laggard @-mentions) and Phase D (At-Risk DM
-    // delivery). Saved Slack ID gets a small green check beside the email;
-    // missing IDs show a faint "+ slack" hint so admins know to set it.
+  function _renderUserRow(e, u, archived){
+    var you=currentUser&&currentUser.email===e;
+    var rowStyle=archived?'opacity:.55;background:rgba(255,100,100,.04)':you?'background:rgba(108,99,255,.08)':'';
+    var row = '<tr style="'+rowStyle+'">';
     var slackId = u.slackId || '';
     var slackBadge = slackId
       ? ' <span style="font-size:9px;color:var(--grn);font-family:Roboto Mono,monospace;margin-left:6px" title="Slack ID set: '+esc(slackId)+'">● slack</span>'
       : ' <span style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-left:6px;opacity:.7" title="Click email to set Slack ID">+ slack</span>';
-    html+='<td class="tid">';
-    html+='<span data-toggle-slack="'+e+'" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--mut)" title="Click to set Slack ID for HPM mentions + At-Risk DMs">'+e+'</span>';
-    html+=(you?' <span class="badge Medium">you</span>':'');
-    html+=(archived?' <span class="badge Critical">archived</span>':'');
-    html+=slackBadge;
-    html+='<div data-slack-row="'+e+'" style="display:none;margin-top:6px;padding:8px 10px;background:var(--surf2);border-radius:6px;border:1px solid var(--brd)">';
-    html+='<div style="font-size:10px;color:var(--mut);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;font-family:Roboto Mono,monospace">Slack member ID</div>';
-    html+='<input class="ie" style="width:180px;font-family:Roboto Mono,monospace;font-size:12px" data-upd-email="'+e+'" data-upd-field="slackId" value="'+esc(slackId)+'" placeholder="U069HLBU3GT">';
-    html+='<div style="font-size:10px;color:var(--mut);margin-top:4px;line-height:1.5">In Slack: open this user\'s profile → ⋯ More → Copy member ID. Saves on blur, pushes to Worker for HPM + DM routing.</div>';
-    html+='</div>';
-    html+='</td>';
-    // Editable name
-    html+='<td><input class="ie" style="width:120px" data-upd-email="'+e+'" data-upd-field="name" value="'+esc(u.name||'')+'"></td>';
-    // Editable role
-    html+='<td><input class="ie" style="width:120px" data-upd-email="'+e+'" data-upd-field="role" value="'+esc(u.role||'')+'"></td>';
-    // Editable dept
-    html+='<td><select class="ie" data-upd-email="'+e+'" data-upd-field="dept">';
-    DEPTS.forEach(function(d){html+='<option'+(u.dept===d?' selected':'')+'>'+d+'</option>';});
-    html+='</select></td>';
-    // Toggles: Export, ViewAll, Admin
+    row += '<td class="tid">';
+    row += '<span data-toggle-slack="'+e+'" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--mut)" title="Click to set Slack ID for HPM mentions + At-Risk DMs">'+e+'</span>';
+    row += (you?' <span class="badge Medium">you</span>':'');
+    row += (archived?' <span class="badge Critical">archived</span>':'');
+    row += slackBadge;
+    row += '<div data-slack-row="'+e+'" style="display:none;margin-top:6px;padding:8px 10px;background:var(--surf2);border-radius:6px;border:1px solid var(--brd)">';
+    row += '<div style="font-size:10px;color:var(--mut);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;font-family:Roboto Mono,monospace">Slack member ID</div>';
+    row += '<input class="ie" style="width:180px;font-family:Roboto Mono,monospace;font-size:12px" data-upd-email="'+e+'" data-upd-field="slackId" value="'+esc(slackId)+'" placeholder="U069HLBU3GT">';
+    row += '<div style="font-size:10px;color:var(--mut);margin-top:4px;line-height:1.5">In Slack: open this user\'s profile → ⋯ More → Copy member ID. Saves on blur, pushes to Worker for HPM + DM routing.</div>';
+    row += '</div>';
+    row += '</td>';
+    row += '<td><input class="ie" style="width:120px" data-upd-email="'+e+'" data-upd-field="name" value="'+esc(u.name||'')+'"></td>';
+    row += '<td><input class="ie" style="width:120px" data-upd-email="'+e+'" data-upd-field="role" value="'+esc(u.role||'')+'"></td>';
+    row += '<td><select class="ie" data-upd-email="'+e+'" data-upd-field="dept">';
+    DEPTS.forEach(function(d){row += '<option'+(u.dept===d?' selected':'')+'>'+d+'</option>';});
+    row += '</select></td>';
     var _sessionNote=' Session-only — toggles this user record in memory but does not persist or propagate to other users. Edit USER_REGISTRY in index.html to make it durable.';
-    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canExport"'+(u.canExport?' checked':'')+' title="Export access.'+_sessionNote+'"></td>';
-    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canViewAll"'+(u.canViewAll?' checked':'')+' title="View all departments.'+_sessionNote+'"></td>';
-    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="isAdmin"'+(u.isAdmin?' checked':'')+' title="Admin access.'+_sessionNote+'"></td>';
-    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessPricing"'+(u.canAccessPricing?' checked':'')+' title="Pricing (Ops) access.'+_sessionNote+'"></td>';
-    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessProposals"'+(u.canAccessProposals?' checked':'')+' title="Proposals access.'+_sessionNote+'"></td>';
-    html+='<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessWalletOps"'+(u.canAccessWalletOps?' checked':'')+' title="Supplier Wallet Ops access.'+_sessionNote+'"></td>';
-    // Password status
-    html+='<td style="text-align:center">'+(hasPassword(e)?'<span style="color:var(--grn)">✓</span>':'<span style="color:var(--red)">&ndash;</span>')+'</td>';
-    // Actions: Set Password + Archive/Restore
-    html+='<td style="white-space:nowrap;display:flex;gap:6px">';
-    html+='<button class="hbtn" style="font-size:10px;padding:4px 8px" data-set-pwd="'+e+'">Set Pwd</button>';
+    row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canExport"'+(u.canExport?' checked':'')+' title="Export access.'+_sessionNote+'"></td>';
+    row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canViewAll"'+(u.canViewAll?' checked':'')+' title="View all departments.'+_sessionNote+'"></td>';
+    row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="isAdmin"'+(u.isAdmin?' checked':'')+' title="Admin access.'+_sessionNote+'"></td>';
+    row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessPricing"'+(u.canAccessPricing?' checked':'')+' title="Pricing (Ops) access.'+_sessionNote+'"></td>';
+    row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessProposals"'+(u.canAccessProposals?' checked':'')+' title="Proposals access.'+_sessionNote+'"></td>';
+    row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessWalletOps"'+(u.canAccessWalletOps?' checked':'')+' title="Supplier Wallet Ops access.'+_sessionNote+'"></td>';
+    row += '<td style="text-align:center">'+(hasPassword(e)?'<span style="color:var(--grn)">✓</span>':'<span style="color:var(--red)">&ndash;</span>')+'</td>';
+    row += '<td style="white-space:nowrap;display:flex;gap:6px">';
+    row += '<button class="hbtn" style="font-size:10px;padding:4px 8px" data-set-pwd="'+e+'">Set Pwd</button>';
     if(!archived){
-      html+='<button class="hbtn" style="font-size:10px;padding:4px 8px;border-color:var(--red);color:var(--red)" data-archive="'+e+'"'+(you?' disabled title="Cannot archive yourself"':'')+'>Archive</button>';
+      row += '<button class="hbtn" style="font-size:10px;padding:4px 8px;border-color:var(--red);color:var(--red)" data-archive="'+e+'"'+(you?' disabled title="Cannot archive yourself"':'')+'>Archive</button>';
     } else {
-      html+='<button class="hbtn" style="font-size:10px;padding:4px 8px;border-color:var(--grn);color:var(--grn)" data-restore="'+e+'">Restore</button>';
+      row += '<button class="hbtn" style="font-size:10px;padding:4px 8px;border-color:var(--grn);color:var(--grn)" data-restore="'+e+'">Restore</button>';
     }
-    html+='</td>';
-    html+='</tr>';
-  });
+    row += '</td>';
+    row += '</tr>';
+    return row;
+  }
+  // ── ACTIVE workforce table ────────────────────────────────────────────────
+  html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME '+'<span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>ROLE <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th><th>DEPT <span style="font-size:8px;color:var(--mut);font-weight:400">(session)</span></th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+_shCol('PROPOSALS')+_shCol('WALLET OPS')+'<th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
+  activeEntries.forEach(function(kv){ html += _renderUserRow(kv[0], kv[1], false); });
   html+='</tbody></table></div>';
+  // ── ARCHIVED workforce section (collapsed by default) ─────────────────────
+  // Uses <details> for an accessible, native disclosure widget. Archived
+  // users stay one click away (so admins can restore them) but don't take
+  // up vertical space alongside the active workforce.
+  if(archivedEntries.length){
+    html+='<details style="margin-top:24px;border:1px solid var(--brd);border-radius:10px;background:var(--surf);overflow:hidden">';
+    html+='<summary style="cursor:pointer;padding:12px 18px;font-size:13px;font-weight:600;color:var(--mut);background:var(--surf2);user-select:none;display:flex;align-items:center;gap:10px;letter-spacing:.3px">';
+    html+='<span style="font-family:Roboto Mono,monospace;font-size:10px;color:var(--red);letter-spacing:.6px">ARCHIVED</span>';
+    html+='<span>'+archivedEntries.length+' user'+(archivedEntries.length===1?'':'s')+'</span>';
+    html+='<span style="font-size:11px;font-weight:400;color:var(--mut);opacity:.7;margin-left:auto">Click to expand · restore returns them to the active list</span>';
+    html+='</summary>';
+    html+='<div class="tw" style="padding:0"><table><thead><tr><th>EMAIL</th><th>NAME</th><th>ROLE</th><th>DEPT</th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+_shCol('PROPOSALS')+_shCol('WALLET OPS')+'<th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
+    archivedEntries.forEach(function(kv){ html += _renderUserRow(kv[0], kv[1], true); });
+    html+='</tbody></table></div>';
+    html+='</details>';
+  }
   // Add User
   html+='<div class="sh"><div><div class="sh-t">Add User</div><div class="sh-s">New user can sign in immediately</div></div>';
   html+='<div class="atb" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr auto">';
