@@ -3597,60 +3597,65 @@ function renderPerfHPMFeed(wrap, pd){
   // demand from the last 12 weeks of submissions. Cached locally per dept.
   // ───────────────────────────────────────────────────────────────────────
   var summarySec = document.createElement('div');
+  summarySec.id = 'dept-sum-section';
   summarySec.style.cssText = 'margin-bottom:24px';
-  var summaryHdr = document.createElement('div');
-  summaryHdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:14px;flex-wrap:wrap';
-  // Left: title + tagline. Right: scope selector.
-  var leftBlock = document.createElement('div');
-  leftBlock.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--acc);font-family:Roboto Mono,monospace;letter-spacing:.3px">✨ DEPARTMENTAL AI SUMMARIES</div><div id="dept-sum-tagline" style="font-size:11px;color:var(--mut);margin-top:3px">Last 12 weeks · click Generate to summarise themes, momentum, confidence trend, and signals worth manager attention.</div>';
-  summaryHdr.appendChild(leftBlock);
-  var weekScope = document.createElement('div');
-  weekScope.style.cssText = 'display:flex;align-items:center;gap:8px';
-  weekScope.innerHTML = '<label style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.3px">SCOPE</label>';
-  var weekSel = document.createElement('select');
-  weekSel.id = 'dept-sum-scope';
-  weekSel.style.cssText = 'padding:6px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--surf);color:var(--txt);font-size:12px;min-width:170px';
-  weekScope.appendChild(weekSel);
-  summaryHdr.appendChild(weekScope);
-  summarySec.appendChild(summaryHdr);
-  var summaryGrid = document.createElement('div');
-  summaryGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px';
-  summarySec.appendChild(summaryGrid);
+  // Build with vanilla HTML + IDs so the populator can reliably find elements
+  // across re-renders without relying on closure references.
+  summarySec.innerHTML = ''
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:14px;flex-wrap:wrap">'
+    +   '<div>'
+    +     '<div style="font-size:13px;font-weight:700;color:var(--acc);font-family:Roboto Mono,monospace;letter-spacing:.3px">✨ DEPARTMENTAL AI SUMMARIES</div>'
+    +     '<div id="dept-sum-tagline" style="font-size:11px;color:var(--mut);margin-top:3px">Last 12 weeks · click Generate to summarise themes, momentum, confidence trend, and signals worth manager attention.</div>'
+    +   '</div>'
+    +   '<div style="display:flex;align-items:center;gap:8px">'
+    +     '<label style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.3px">SCOPE</label>'
+    +     '<select id="dept-sum-scope" style="padding:6px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--surf);color:var(--txt);font-size:12px;min-width:170px"></select>'
+    +   '</div>'
+    + '</div>'
+    + '<div id="dept-sum-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px"></div>';
   wrap.appendChild(summarySec);
 
-  // Current scope state: 'rolling12' (default) or a specific 'W:weekKey'.
-  // Persist last selection in localStorage so it survives page reloads.
+  // Scope state lives on the selector element's dataset so it survives
+  // re-renders even if the closure is stale.
   var currentScope = localStorage.getItem('rl_dept_sum_scope') || 'rolling12';
 
+  // Find the selector + grid by ID each time. Closures are not used so a
+  // sync poll that triggers re-render can't leave stale references.
   function _populateWeekSelector(allSubmissions){
+    var sel = document.getElementById('dept-sum-scope');
+    if(!sel) return;
     var allWeeks = _allHPMWeekKeys(allSubmissions || {});
-    weekSel.innerHTML = '';
-    var opt = document.createElement('option'); opt.value = 'rolling12'; opt.textContent = 'Last 12 weeks (rolling)'; weekSel.appendChild(opt);
+    sel.innerHTML = '';
+    var opt = document.createElement('option');
+    opt.value = 'rolling12';
+    opt.textContent = 'Last 12 weeks (rolling)';
+    sel.appendChild(opt);
     allWeeks.forEach(function(wk){
       var o = document.createElement('option');
       o.value = 'W:' + wk;
       o.textContent = 'Week ' + wk;
-      weekSel.appendChild(o);
+      sel.appendChild(o);
     });
-    weekSel.value = currentScope;
-    if(weekSel.value !== currentScope){ weekSel.value = 'rolling12'; currentScope = 'rolling12'; }
+    sel.value = currentScope;
+    if(sel.value !== currentScope){ sel.value = 'rolling12'; currentScope = 'rolling12'; }
+    sel.onchange = function(){
+      currentScope = sel.value;
+      localStorage.setItem('rl_dept_sum_scope', currentScope);
+      var tagline = document.getElementById('dept-sum-tagline');
+      if(tagline){
+        tagline.textContent = currentScope === 'rolling12'
+          ? 'Last 12 weeks · click Generate to summarise themes, momentum, confidence trend, and signals worth manager attention.'
+          : 'Single week (' + currentScope.slice(2) + ') · click Generate for that week\'s wins, what\'s in flight, and confidence read.';
+      }
+      if(window._lastHPMSubs) _renderDeptSummaryCards(window._lastHPMSubs);
+    };
   }
-  weekSel.onchange = function(){
-    currentScope = weekSel.value;
-    localStorage.setItem('rl_dept_sum_scope', currentScope);
-    var tagline = document.getElementById('dept-sum-tagline');
-    if(tagline){
-      tagline.textContent = currentScope === 'rolling12'
-        ? 'Last 12 weeks · click Generate to summarise themes, momentum, confidence trend, and signals worth manager attention.'
-        : 'Single week (' + currentScope.slice(2) + ') · click Generate for that week\'s wins, what\'s in flight, and confidence read.';
-    }
-    // Re-render with cached lookup for current scope.
-    if(window._lastHPMSubs) _renderDeptSummaryCards(window._lastHPMSubs);
-  };
 
   function _renderDeptSummaryCards(allSubmissions){
     window._lastHPMSubs = allSubmissions;
-    _populateWeekSelector(allSubmissions);
+    var summaryGrid = document.getElementById('dept-sum-grid');
+    if(!summaryGrid) return; // grid no longer on page (user navigated away)
+    try { _populateWeekSelector(allSubmissions); } catch(e){ console.warn('dept-sum populate failed:', e); }
     summaryGrid.innerHTML = '';
     var cache = _loadDeptSummaryCache();
     DEPTS.forEach(function(dept){
