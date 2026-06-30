@@ -3538,19 +3538,12 @@ function _generateDeptHPMSummary(dept, gathered){
     if(e.me) lines.push('  Me: ' + e.me);
   });
   var prompt = lines.join('\n');
-
-  return fetch('https://api.anthropic.com/v1/messages', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 700,
-      messages: [{role:'user', content: prompt}]
-    })
-  }).then(function(r){return r.json();}).then(function(d){
-    if(d && d.content && d.content[0] && d.content[0].text) return d.content[0].text;
-    if(d && d.error) throw new Error(d.error.message || 'Claude API error');
-    throw new Error('Unexpected Claude response');
+  // Route through the Worker so the Anthropic API key stays server-side and
+  // CORS isn't an issue.
+  if(typeof RL_SRV === 'undefined') return Promise.reject(new Error('Worker URL not configured'));
+  return RL_SRV.call('ai_summarize', {prompt: prompt, max_tokens: 700}).then(function(r){
+    if(r && r.ok && r.text) return r.text;
+    throw new Error((r && (r.error + (r.detail ? ': '+r.detail : ''))) || 'AI proxy failed');
   });
 }
 
@@ -4579,7 +4572,7 @@ var _ws=r.workflowStatus||'Draft',_wstep=getWorkflowStep(_ws);var _wfB=document.
   var ash=document.createElement('div');ash.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px';ash.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--acc);font-family:Roboto Mono,monospace">✨ AI-ASSISTED REVIEW SUMMARY</div>';
   var agb=document.createElement('button');agb.className='hbtn';agb.style.cssText='font-size:10px;padding:4px 12px;border-color:var(--acc);color:var(--acc)';agb.textContent=r.sections.aiSummary?'Regenerate':'Generate';
   var asc=document.createElement('div');asc.style.cssText='font-size:12px;color:'+(r.sections.aiSummary?'var(--txt)':'var(--mut)')+';white-space:pre-wrap;line-height:1.6';asc.textContent=r.sections.aiSummary||'Click Generate to create an AI-assisted review summary based on task data and feedback.';
-  agb.onclick=function(){agb.textContent='Generating...';agb.disabled=true;asc.style.color='var(--mut)';asc.textContent='Analysing...';var u2=USER_REGISTRY[r.reviewee]||{};var ctx=['Performance review for '+u.name+' ('+(u2.role||'')+', '+(u2.dept||'')+')', 'Review period: '+quarterLabel(r.cycle)+' | Type: '+r.type, 'METRICS: Tasks '+m.taskDone+'/'+m.taskTotal+' ('+m.doneRate+'% done)', 'Overdue: '+m.overdue+' | OKR links: '+(m.okrLinks||0), 'Avg progress: '+(m.avgProgress||0)+'% | Burnout: '+(m.burnoutRisk||'Low'), r.sections.self.text?'SELF: '+r.sections.self.text:'', r.sections.manager.text?'MANAGER: '+r.sections.manager.text:'', r.sections.wins?'WINS: '+r.sections.wins:'', r.sections.growthAreas?'GROWTH: '+r.sections.growthAreas:''].filter(Boolean).join('\n');fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:'Write a concise evidence-based performance review summary based on:\n\n'+ctx+'\n\nBe specific and forward-looking.'}]})}).then(function(res){return res.json();}).then(function(d){var s2=d.content&&d.content[0]?d.content[0].text:'Error.';var pd2=loadPerfData();if(pd2.reviews[id]){pd2.reviews[id].sections.aiSummary=s2;savePerfData(pd2);}asc.style.color='var(--txt)';asc.textContent=s2;agb.textContent='Regenerate';agb.disabled=false;}).catch(function(){asc.style.color='var(--red)';asc.textContent='Error.';agb.textContent='Retry';agb.disabled=false;});};
+  agb.onclick=function(){agb.textContent='Generating...';agb.disabled=true;asc.style.color='var(--mut)';asc.textContent='Analysing...';var u2=USER_REGISTRY[r.reviewee]||{};var ctx=['Performance review for '+u.name+' ('+(u2.role||'')+', '+(u2.dept||'')+')', 'Review period: '+quarterLabel(r.cycle)+' | Type: '+r.type, 'METRICS: Tasks '+m.taskDone+'/'+m.taskTotal+' ('+m.doneRate+'% done)', 'Overdue: '+m.overdue+' | OKR links: '+(m.okrLinks||0), 'Avg progress: '+(m.avgProgress||0)+'% | Burnout: '+(m.burnoutRisk||'Low'), r.sections.self.text?'SELF: '+r.sections.self.text:'', r.sections.manager.text?'MANAGER: '+r.sections.manager.text:'', r.sections.wins?'WINS: '+r.sections.wins:'', r.sections.growthAreas?'GROWTH: '+r.sections.growthAreas:''].filter(Boolean).join('\n');RL_SRV.call('ai_summarize',{prompt:'Write a concise evidence-based performance review summary based on:\n\n'+ctx+'\n\nBe specific and forward-looking.', max_tokens:800}).then(function(d){var s2=(d&&d.ok&&d.text)?d.text:('Error: '+(d&&d.error||'unknown'));var pd2=loadPerfData();if(pd2.reviews[id]){pd2.reviews[id].sections.aiSummary=s2;savePerfData(pd2);}asc.style.color=d.ok?'var(--txt)':'var(--red)';asc.textContent=s2;agb.textContent='Regenerate';agb.disabled=false;}).catch(function(e){asc.style.color='var(--red)';asc.textContent='Error: '+(e.message||e);agb.textContent='Retry';agb.disabled=false;});};
   ash.appendChild(agb);ais.appendChild(ash);ais.appendChild(asc);box.appendChild(ais);
   // Bottom bar
   if(isAd||iRer||iRee){var bb=document.createElement('div');bb.style.cssText='display:flex;gap:10px;justify-content:flex-end;padding-top:16px;border-top:1px solid var(--brd);flex-wrap:wrap';var _ws2=r.workflowStatus||'Draft',_step2=getWorkflowStep(_ws2);if(canAdvanceWorkflow(r,currentUser)&&_ws2!=='Locked'){var _nst=REVIEW_WORKFLOW[_step2+1]||'Locked';var _adv=document.createElement('button');_adv.className='hbtn xl';_adv.style.cssText='border-color:var(--acc);color:var(--acc);font-size:11px';_adv.textContent='→ '+_nst;_adv.onclick=(function(rid){return function(){advanceWorkflow(rid);ov.remove();};})(id);bb.appendChild(_adv);}if(isAd||iRer){var _db=document.createElement('button');_db.className='hbtn';_db.style.cssText='border-color:var(--red);color:var(--red);font-size:11px';_db.textContent='Delete';_db.onclick=function(){if(!confirm('Delete this review?'))return;var pd2=loadPerfData();delete pd2.reviews[id];savePerfData(pd2);ov.remove();renderPerf();};bb.appendChild(_db);}box.appendChild(bb);}
