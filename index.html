@@ -2850,8 +2850,37 @@ function renderOKR(){
       var pb=document.createElement('div');pb.style.cssText='height:4px;background:var(--bg);border-radius:2px;margin-bottom:6px';pb.innerHTML='<div style="width:'+kr.progress+'%;height:100%;background:'+deptObj.color+';border-radius:2px"></div>';kd.appendChild(pb);
       // Footer
       var ft=document.createElement('div');ft.style.cssText='display:flex;justify-content:space-between;align-items:center';
-      var ow=document.createElement('div');ow.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace';
-      if(isAdmin()){ow.contentEditable='true';ow.style.outline='none';ow.textContent=kr.owner||'Owner: (set)';ow.onfocus=function(){if(this.textContent==='Owner: (set)')this.textContent='';};ow.onblur=(function(k2,key2,d2){return function(){k2.owner=this.textContent.trim();if(!k2.owner)this.textContent='Owner: (set)';saveOKRForQuarter(key2,d2);};})(kr,activeKey,okrData);}
+      var ow=document.createElement('div');ow.style.cssText='font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;display:flex;align-items:center;gap:6px';
+      if(isAdmin()){
+        // Use a proper dropdown of active users — contentEditable text was
+        // invisible as an interactive control and forced exact-name typing.
+        var olbl=document.createElement('span');olbl.textContent='Owner:';ow.appendChild(olbl);
+        var os=document.createElement('select');
+        os.style.cssText='font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:4px;padding:2px 6px;min-width:140px;cursor:pointer';
+        var noOpt=document.createElement('option');noOpt.value='';noOpt.textContent='— set —';os.appendChild(noOpt);
+        var seen={};
+        // Build a sorted list of active users from USER_REGISTRY, skipping
+        // archived ones. Fall back to currentUser if registry is empty.
+        var archived = (typeof ARCHIVED_USERS !== 'undefined' && Array.isArray(ARCHIVED_USERS)) ? ARCHIVED_USERS : [];
+        var entries = (typeof USER_REGISTRY !== 'undefined' && USER_REGISTRY)
+          ? Object.keys(USER_REGISTRY).filter(function(em){return archived.indexOf(em)<0;}).map(function(em){return {email:em, name:(USER_REGISTRY[em]||{}).name||em};})
+          : [];
+        entries.sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+        entries.forEach(function(u){
+          if(!u.name || seen[u.name]) return;
+          seen[u.name] = 1;
+          var o=document.createElement('option');o.value=u.name;o.textContent=u.name;
+          if(kr.owner && kr.owner===u.name) o.selected=true;
+          os.appendChild(o);
+        });
+        // If the saved owner isn't in the registry (e.g. typed manually before
+        // this change), keep it as an option so we don't silently drop it.
+        if(kr.owner && !seen[kr.owner]){
+          var ext=document.createElement('option');ext.value=kr.owner;ext.textContent=kr.owner+' (legacy)';ext.selected=true;os.appendChild(ext);
+        }
+        os.onchange=(function(k2,key2,d2){return function(){k2.owner=this.value;saveOKRForQuarter(key2,d2);toast('Owner saved','ok');};})(kr,activeKey,okrData);
+        ow.appendChild(os);
+      }
       else{ow.textContent=kr.owner?'Owner: '+kr.owner:'';}
       ft.appendChild(ow);
       var btns=document.createElement('div');btns.style.cssText='display:flex;align-items:center;gap:8px';
@@ -9106,8 +9135,13 @@ function tmBackfillLinks(){
 
 function tmState(){
   var s=tmLoadUI();
+  // Tasks defaults to the team-wide Board so it doesn't duplicate "My Tasks"
+  // in the sidebar (which renders the per-user list). Legacy 'my' values from
+  // older sessions get coerced to 'board' since the My Work tab is gone.
+  var tab = s.tab || 'board';
+  if(tab === 'my') tab = 'board';
   return {
-    tab:s.tab||'my',
+    tab: tab,
     dept:s.dept||(currentUser&&currentUser.dept?currentUser.dept:'All'),
     expanded:s.expanded||{},
     quickOpen:!!s.quickOpen,
@@ -9235,10 +9269,12 @@ function renderTasksV2(){
 
   // Tabs
   var isManager=currentUser&&(currentUser.isAdmin||(currentUser.systemRole==='manager'||currentUser.systemRole==='admin'));
+  // My Work tab removed — the "My Tasks" sidebar entry is the canonical
+  // per-user view, so Tasks focuses on cross-team views (Board / Team /
+  // Timeline / Calendar / Manager) to avoid duplication.
   var tabs=[
-    {id:'my',label:'My Work'},
-    {id:'team',label:'Team'},
     {id:'board',label:'Board'},
+    {id:'team',label:'Team'},
     {id:'timeline',label:'Timeline'},
     {id:'calendar',label:'Calendar'},
   ];
