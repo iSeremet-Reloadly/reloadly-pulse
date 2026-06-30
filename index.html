@@ -1401,8 +1401,11 @@ var USER_REGISTRY={
   'fguibert@reloadly.com':  {name:'Florencia Guibert',    role:'Marketing Analyst',          dept:'Sales',       canExport:false, canViewAll:true,  isAdmin:false, canAccessPricing:false}
 };
 var currentUser=null;
-var CFG={Management:{p:'MGT',col:'#7700ff',cls:'mgt', canAccessProposals:true, canAccessWalletOps:false},Operations:{p:'OPS',col:'#09faa3',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},Engineering:{p:'ENG',col:'#ff6b6b',cls:'eng'},
+var CFG={Management:{p:'MGT',col:'#7700ff',cls:'mgt', canAccessProposals:true, canAccessWalletOps:false},Operations:{p:'OPS',col:'#09faa3',cls:'ops'},Finance:{p:'FIN',col:'#fbbf24',cls:'fin'},'Product & Engineering':{p:'P&E',col:'#ff6b6b',cls:'eng'},
   Sales:{p:'SAL',col:'#2778c4',cls:'sal'}};
+// Back-compat: anything still keyed "Engineering" (old code paths, exports,
+// in-flight state) resolves to the new dept config so we don't crash.
+CFG.Engineering = CFG['Product & Engineering'];
 var STATUSES=['Not Started','In Progress','Blocked','Under Review','Done'];
 var PRIORITIES=['Critical','High','Medium','Low'];
 var SPC={'Not Started':'ns','In Progress':'ip','Blocked':'bl','Under Review':'ur','Done':'dn'};
@@ -1512,6 +1515,18 @@ function init(){
 function loadData(){
   var s=localStorage.getItem('rl_tasks_v4');
   if(s){try{data=JSON.parse(s);}catch(e){data=JSON.parse(JSON.stringify(SEED));}}else{data=JSON.parse(JSON.stringify(SEED));}
+  // Dept rename migration: old data blobs keyed "Engineering" need to become
+  // "Product & Engineering" to match DEPTS. Idempotent — runs only when the
+  // old key exists and the new one doesn't.
+  if(data && data.Engineering && !data['Product & Engineering']){
+    data['Product & Engineering'] = data.Engineering;
+    delete data.Engineering;
+  }
+  // Defensive: ensure every DEPTS entry has an array so iterators don't blow
+  // up on a dept that hasn't been seeded yet (e.g. a brand new department).
+  if(typeof DEPTS !== 'undefined' && Array.isArray(DEPTS)){
+    DEPTS.forEach(function(d){ if(!Array.isArray(data[d])) data[d] = []; });
+  }
   // Cross-user shared tasks: pull from Worker KV (if present) and re-render.
   // First-load behaviour: if KV is empty, push our local seed/data up so the
   // rest of the team starts seeing what's here. Polling kicks in after the
@@ -1519,6 +1534,14 @@ function loadData(){
   if(typeof RL_SRV !== 'undefined'){
     RL_SRV.call('get_tasks').then(function(r){
       if(r && r.ok && r.found && r.data){
+        // Apply same dept-rename migration to remote data.
+        if(r.data.Engineering && !r.data['Product & Engineering']){
+          r.data['Product & Engineering'] = r.data.Engineering;
+          delete r.data.Engineering;
+        }
+        if(typeof DEPTS !== 'undefined' && Array.isArray(DEPTS)){
+          DEPTS.forEach(function(d){ if(!Array.isArray(r.data[d])) r.data[d] = []; });
+        }
         window.data = r.data;
         _TASKS_SYNC.lastPolledMetaAt = r.updatedAt || '';
         try{ localStorage.setItem('rl_tasks_v4', JSON.stringify(data)); }catch(e){}
