@@ -9518,7 +9518,371 @@ function renderTasksV2(){
   else if(st.tab==='calendar')tmRenderCalendar(content, st);
   else if(st.tab==='manager')tmRenderManager(content, st);
 
+  // Meeting → Actions extractor — paste meeting notes / Slack thread / email
+  // at the bottom of Tasks and let the AI propose action items the user can
+  // edit and bulk-create. Lives at the bottom so it doesn't crowd the main
+  // task views but is one scroll away.
+  tmRenderMeetingExtractor(wrap);
+
   main.appendChild(wrap);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Meeting → Actions extractor. Reuses the existing ai_summarize Worker action
+// with a prompt that asks Llama to return JSON. We parse it, render editable
+// draft cards, and let the user create them as real tasks individually or in
+// bulk. State (input text, last extraction) is held in a small in-memory
+// object so accidental tab switches don't lose work.
+// ─────────────────────────────────────────────────────────────────────────────
+window._tmMeeting = window._tmMeeting || { input:'', source:'', drafts:[], expanded:false, busy:false };
+
+function tmRenderMeetingExtractor(wrap){
+  var state = window._tmMeeting;
+  var sec = document.createElement('div');
+  sec.id = 'tm-meeting-sec';
+  sec.style.cssText = 'margin-top:32px;border-top:1px solid var(--brd);padding-top:20px';
+
+  // Collapsible header
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;padding:8px 0';
+  hdr.innerHTML =
+    '<div>' +
+      '<div style="font-size:13px;font-weight:800">📋 Meeting → Actions</div>' +
+      '<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">Paste meeting notes — AI extracts action items you can create as tasks</div>' +
+    '</div>' +
+    '<div style="font-size:18px;color:var(--mut)">'+(state.expanded?'▾':'▸')+'</div>';
+  hdr.onclick = function(){
+    state.expanded = !state.expanded;
+    tmRefreshMeetingSection();
+  };
+  sec.appendChild(hdr);
+
+  if(state.expanded){
+    var body = document.createElement('div');
+    body.style.cssText = 'margin-top:14px';
+
+    // Source label (optional)
+    var srcWrap = document.createElement('div');
+    srcWrap.style.cssText = 'margin-bottom:8px';
+    var srcLbl = document.createElement('label');
+    srcLbl.style.cssText = 'font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px';
+    srcLbl.textContent = 'SOURCE (optional — e.g. "Mon eng standup")';
+    var srcInp = document.createElement('input');
+    srcInp.id = 'tm-meeting-src';
+    srcInp.value = state.source || '';
+    srcInp.placeholder = 'Meeting name or context';
+    srcInp.style.cssText = 'width:100%;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box';
+    srcInp.oninput = function(){ state.source = this.value; };
+    srcWrap.appendChild(srcLbl);
+    srcWrap.appendChild(srcInp);
+    body.appendChild(srcWrap);
+
+    // Paste textarea
+    var taWrap = document.createElement('div');
+    taWrap.style.cssText = 'margin-bottom:10px';
+    var taLbl = document.createElement('label');
+    taLbl.style.cssText = 'font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px';
+    taLbl.textContent = 'MEETING NOTES / SLACK THREAD / EMAIL';
+    var ta = document.createElement('textarea');
+    ta.id = 'tm-meeting-input';
+    ta.value = state.input || '';
+    ta.placeholder = 'Paste anything here — bullet notes, transcript, Slack thread, email reply. The AI will pull out the action items.';
+    ta.style.cssText = 'width:100%;min-height:180px;padding:10px 12px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box;font-family:inherit;resize:vertical';
+    ta.oninput = function(){ state.input = this.value; };
+    taWrap.appendChild(taLbl);
+    taWrap.appendChild(ta);
+    body.appendChild(taWrap);
+
+    // Action bar
+    var ab = document.createElement('div');
+    ab.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:14px';
+    var extractBtn = document.createElement('button');
+    extractBtn.className = 'tm-btn tm-btn-primary';
+    extractBtn.style.cssText = 'padding:8px 18px;font-weight:700';
+    extractBtn.textContent = state.busy ? 'Extracting…' : '⚡ Extract actions';
+    extractBtn.disabled = !!state.busy;
+    extractBtn.onclick = function(){ tmExtractMeetingActions(); };
+    ab.appendChild(extractBtn);
+
+    var clrBtn = document.createElement('button');
+    clrBtn.className = 'tm-btn';
+    clrBtn.style.cssText = 'padding:8px 14px';
+    clrBtn.textContent = 'Clear';
+    clrBtn.onclick = function(){
+      if(!state.input && !state.drafts.length){ return; }
+      if(!confirm('Clear pasted text and any extracted drafts?')) return;
+      state.input = ''; state.source = ''; state.drafts = [];
+      tmRefreshMeetingSection();
+    };
+    ab.appendChild(clrBtn);
+
+    var sp = document.createElement('div');sp.style.flex='1';ab.appendChild(sp);
+    var hint = document.createElement('div');
+    hint.style.cssText = 'font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace';
+    hint.textContent = (state.drafts.length ? state.drafts.length + ' draft' + (state.drafts.length===1?'':'s') + ' extracted' : 'No drafts yet');
+    ab.appendChild(hint);
+    body.appendChild(ab);
+
+    // Drafts list
+    if(state.drafts.length){
+      body.appendChild(tmRenderMeetingDrafts());
+    }
+
+    sec.appendChild(body);
+  }
+
+  // Mount: replace existing section if already present (refresh path)
+  var existing = wrap.querySelector('#tm-meeting-sec');
+  if(existing){ existing.replaceWith(sec); }
+  else { wrap.appendChild(sec); }
+}
+
+function tmRefreshMeetingSection(){
+  var existing = document.getElementById('tm-meeting-sec');
+  if(!existing) return;
+  var parent = existing.parentNode;
+  if(!parent) return;
+  tmRenderMeetingExtractor(parent);
+}
+
+function tmRenderMeetingDrafts(){
+  var state = window._tmMeeting;
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden;margin-top:10px';
+
+  // Top bar with bulk action
+  var top = document.createElement('div');
+  top.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surf2);border-bottom:1px solid var(--brd);font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace';
+  top.innerHTML = '<div>EXTRACTED ACTIONS — edit each one, then Create</div>';
+  var bulkBtn = document.createElement('button');
+  bulkBtn.className = 'tm-btn tm-btn-primary';
+  bulkBtn.style.cssText = 'padding:5px 12px;font-size:10px';
+  bulkBtn.textContent = 'Create all (' + state.drafts.length + ')';
+  bulkBtn.onclick = function(){
+    var n = tmCreateAllDrafts();
+    if(n>0) toast(n + ' task'+(n===1?'':'s')+' created','ok');
+  };
+  top.appendChild(bulkBtn);
+  box.appendChild(top);
+
+  // Render each draft card
+  state.drafts.forEach(function(d, idx){
+    box.appendChild(tmRenderDraftCard(d, idx));
+  });
+
+  return box;
+}
+
+function tmRenderDraftCard(d, idx){
+  var row = document.createElement('div');
+  row.style.cssText = 'padding:14px;border-top:'+(idx>0?'1px solid var(--brd)':'none')+';display:grid;grid-template-columns:1fr;gap:10px';
+
+  // Title input
+  var titleInp = document.createElement('input');
+  titleInp.value = d.title || '';
+  titleInp.placeholder = 'Action title';
+  titleInp.style.cssText = 'width:100%;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:13px;font-weight:600;box-sizing:border-box';
+  titleInp.oninput = function(){ d.title = this.value; };
+  row.appendChild(titleInp);
+
+  // Fields grid: owner / dept / priority / due
+  var grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px';
+
+  function mkField(label, control){
+    var w = document.createElement('div');
+    var l = document.createElement('label');l.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:3px';l.textContent=label;
+    w.appendChild(l);w.appendChild(control);return w;
+  }
+
+  // Owner select
+  var ownerSel = document.createElement('select');
+  ownerSel.style.cssText = 'width:100%;padding:6px 8px;border:1px solid var(--brd);border-radius:5px;background:var(--bg);color:var(--txt);font-size:11px;font-family:Roboto Mono,monospace';
+  var noOpt = document.createElement('option');noOpt.value='';noOpt.textContent='— unassigned —';ownerSel.appendChild(noOpt);
+  var archived = (typeof ARCHIVED_USERS!=='undefined'&&Array.isArray(ARCHIVED_USERS))?ARCHIVED_USERS:[];
+  var people = Object.keys(USER_REGISTRY||{}).filter(function(em){return archived.indexOf(em)<0;}).map(function(em){return (USER_REGISTRY[em]||{}).name||em;}).filter(Boolean);
+  people = people.filter(function(n,i){return people.indexOf(n)===i;}).sort();
+  people.forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=n;if(d.owner===n)o.selected=true;ownerSel.appendChild(o);});
+  // If AI returned an owner not in registry, keep it
+  if(d.owner && people.indexOf(d.owner)<0){
+    var ext=document.createElement('option');ext.value=d.owner;ext.textContent=d.owner+' (custom)';ext.selected=true;ownerSel.appendChild(ext);
+  }
+  ownerSel.onchange = function(){ d.owner = this.value; };
+  grid.appendChild(mkField('OWNER', ownerSel));
+
+  // Dept select
+  var deptSel = document.createElement('select');
+  deptSel.style.cssText = 'width:100%;padding:6px 8px;border:1px solid var(--brd);border-radius:5px;background:var(--bg);color:var(--txt);font-size:11px;font-family:Roboto Mono,monospace';
+  DEPTS.forEach(function(dp){var o=document.createElement('option');o.value=dp;o.textContent=dp;if(d.dept===dp)o.selected=true;deptSel.appendChild(o);});
+  deptSel.onchange = function(){ d.dept = this.value; };
+  grid.appendChild(mkField('DEPT', deptSel));
+
+  // Priority select
+  var priSel = document.createElement('select');
+  priSel.style.cssText = 'width:100%;padding:6px 8px;border:1px solid var(--brd);border-radius:5px;background:var(--bg);color:var(--txt);font-size:11px;font-family:Roboto Mono,monospace';
+  var prios = (typeof TM_PRIORITIES !== 'undefined' && Array.isArray(TM_PRIORITIES)) ? TM_PRIORITIES : ['Critical','High','Medium','Low','Planned'];
+  prios.forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;if(d.priority===p)o.selected=true;priSel.appendChild(o);});
+  priSel.onchange = function(){ d.priority = this.value; };
+  grid.appendChild(mkField('PRIORITY', priSel));
+
+  // Due date
+  var dueInp = document.createElement('input');
+  dueInp.type = 'date';
+  dueInp.value = d.due || '';
+  dueInp.style.cssText = 'width:100%;padding:6px 8px;border:1px solid var(--brd);border-radius:5px;background:var(--bg);color:var(--txt);font-size:11px;font-family:Roboto Mono,monospace;box-sizing:border-box';
+  dueInp.onchange = function(){ d.due = this.value; };
+  grid.appendChild(mkField('DUE', dueInp));
+
+  row.appendChild(grid);
+
+  // Notes / quote
+  if(d.notes){
+    var nWrap = document.createElement('div');
+    var nLbl = document.createElement('label');nLbl.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:3px';nLbl.textContent='QUOTE FROM SOURCE';
+    var nTa = document.createElement('textarea');
+    nTa.value = d.notes;
+    nTa.style.cssText = 'width:100%;min-height:50px;padding:6px 8px;border:1px solid var(--brd);border-radius:5px;background:var(--bg);color:var(--txt);font-size:11px;box-sizing:border-box;font-family:inherit;resize:vertical';
+    nTa.oninput = function(){ d.notes = this.value; };
+    nWrap.appendChild(nLbl);nWrap.appendChild(nTa);
+    row.appendChild(nWrap);
+  }
+
+  // Buttons
+  var btns = document.createElement('div');
+  btns.style.cssText = 'display:flex;gap:6px;justify-content:flex-end';
+  var skip = document.createElement('button');skip.className='tm-btn';skip.style.cssText='padding:6px 12px;font-size:11px';skip.textContent='× Skip';
+  skip.onclick = function(){ tmRemoveDraft(idx); };
+  var create = document.createElement('button');create.className='tm-btn tm-btn-primary';create.style.cssText='padding:6px 14px;font-size:11px;font-weight:700';create.textContent='✓ Create task';
+  create.onclick = function(){
+    var t = tmCreateDraftAsTask(d);
+    if(t){
+      toast(t.id+' created','ok');
+      tmRemoveDraft(idx);
+    }
+  };
+  btns.appendChild(skip);btns.appendChild(create);
+  row.appendChild(btns);
+  return row;
+}
+
+function tmRemoveDraft(idx){
+  window._tmMeeting.drafts.splice(idx, 1);
+  tmRefreshMeetingSection();
+}
+
+function tmCreateDraftAsTask(d){
+  if(!d || !(d.title||'').trim()){ toast('Title required','err'); return null; }
+  var dept = d.dept && DEPTS.indexOf(d.dept)>=0 ? d.dept : (currentUser&&currentUser.dept?currentUser.dept:DEPTS[0]);
+  if(!data[dept]) data[dept] = [];
+  var todayIso = new Date().toISOString();
+  var startStr = todayIso.split('T')[0];
+  var weekLater = new Date(Date.now()+7*86400000).toISOString().split('T')[0];
+  var t = {
+    id: nextId(dept),
+    name: d.title.trim(),
+    assignee: d.owner || '',
+    priority: d.priority || 'Medium',
+    status: 'Not Started',
+    createdAt: todayIso,
+    due: d.due || weekLater,
+    startDate: startStr,
+    progress: 0,
+    notes: d.notes ? ('From '+(window._tmMeeting.source||'meeting')+':\n\n'+d.notes) : '',
+    lastUpdated: todayIso
+  };
+  data[dept].push(t);
+  try { autoSave(); } catch(_){}
+  try { logEntry(t.id+' created from meeting extractor'+(window._tmMeeting.source?(' ('+window._tmMeeting.source+')'):''),'add'); } catch(_){}
+  return t;
+}
+
+function tmCreateAllDrafts(){
+  var n = 0;
+  var copy = window._tmMeeting.drafts.slice();
+  copy.forEach(function(d){
+    var t = tmCreateDraftAsTask(d);
+    if(t){ n++; }
+  });
+  if(n>0){
+    window._tmMeeting.drafts = [];
+    renderTasksV2();
+  }
+  return n;
+}
+
+function tmExtractMeetingActions(){
+  var state = window._tmMeeting;
+  var txt = (state.input||'').trim();
+  if(!txt){ toast('Paste meeting notes first','err'); return; }
+  if(typeof RL_SRV === 'undefined' || !RL_SRV.call){ toast('AI bridge unavailable','err'); return; }
+  state.busy = true; tmRefreshMeetingSection();
+
+  // Build a JSON-shaped prompt. We ask Llama to return ONLY a JSON array of
+  // objects. The deps list helps it pick realistic dept/owner values.
+  var people = Object.keys(USER_REGISTRY||{}).filter(function(em){
+    var arch = (typeof ARCHIVED_USERS!=='undefined'&&Array.isArray(ARCHIVED_USERS))?ARCHIVED_USERS:[];
+    return arch.indexOf(em)<0;
+  }).map(function(em){ var u=USER_REGISTRY[em]||{}; return (u.name||em)+' ('+(u.dept||'')+')'; }).slice(0,40);
+
+  var today = new Date().toISOString().split('T')[0];
+  var prompt =
+'You extract action items from meeting notes / chat / email and return STRICT JSON only.\n\n'+
+'TODAY: '+today+'\n'+
+'DEPARTMENTS: '+DEPTS.join(', ')+'\n'+
+'PEOPLE (name + dept): '+people.join('; ')+'\n\n'+
+'INSTRUCTIONS:\n'+
+'1. Identify concrete action items (decisions to act, owners, follow-ups). Skip status updates with no action.\n'+
+'2. For each, output: title (short imperative, max 90 chars), owner (use a PEOPLE name exactly if mentioned/implied, else ""), dept (one of DEPARTMENTS), priority (Critical/High/Medium/Low), due (YYYY-MM-DD or "" if not specified), notes (the source quote or short context, max 200 chars).\n'+
+'3. Return ONLY a JSON array, no prose, no markdown fences. Example:\n'+
+'[{"title":"Ship login fix","owner":"Sam Smith","dept":"Product & Engineering","priority":"High","due":"'+today+'","notes":"Sam: I will ship by Friday"}]\n\n'+
+'TEXT TO EXTRACT FROM:\n'+
+'"""\n'+txt+'\n"""\n\n'+
+'JSON:';
+
+  RL_SRV.call('ai_summarize', { prompt: prompt, max_tokens: 900 }).then(function(r){
+    state.busy = false;
+    if(!r || !r.ok){
+      toast('AI failed: '+(r&&r.error||'unknown'),'err');
+      tmRefreshMeetingSection();
+      return;
+    }
+    var raw = (r.text||'').trim();
+    // Strip markdown fences if Llama added them anyway.
+    raw = raw.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+    // Find the first '[' and matching last ']'
+    var s = raw.indexOf('['); var e = raw.lastIndexOf(']');
+    var parsed = null;
+    if(s>=0 && e>s){
+      try { parsed = JSON.parse(raw.slice(s, e+1)); } catch(err){}
+    }
+    if(!parsed || !Array.isArray(parsed)){
+      toast('Could not parse AI output — try again','err');
+      console.warn('Meeting extractor raw response:', raw);
+      tmRefreshMeetingSection();
+      return;
+    }
+    // Normalise + push as drafts
+    state.drafts = parsed.filter(function(x){return x && typeof x==='object' && (x.title||'').trim();}).map(function(x){
+      return {
+        title: String(x.title||'').slice(0,200),
+        owner: String(x.owner||'').trim(),
+        dept: DEPTS.indexOf(x.dept)>=0 ? x.dept : (currentUser&&currentUser.dept?currentUser.dept:DEPTS[0]),
+        priority: ['Critical','High','Medium','Low','Planned'].indexOf(x.priority)>=0 ? x.priority : 'Medium',
+        due: /^\d{4}-\d{2}-\d{2}$/.test(x.due||'') ? x.due : '',
+        notes: String(x.notes||'').slice(0,500)
+      };
+    });
+    if(!state.drafts.length){
+      toast('No actions detected','warn');
+    } else {
+      toast('Found '+state.drafts.length+' action'+(state.drafts.length===1?'':'s'),'ok');
+    }
+    tmRefreshMeetingSection();
+  }).catch(function(err){
+    state.busy = false;
+    toast('Network error','err');
+    tmRefreshMeetingSection();
+  });
 }
 
 // ── MY WORK TAB ────────────────────────────────────────────────────────
