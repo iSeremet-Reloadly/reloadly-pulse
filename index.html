@@ -1247,9 +1247,8 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     
     <div class="gate-logo"><svg class="pulse-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 900" aria-label="Reloadly Pulse"><g transform="translate(80,140)"><path fill="#12F0A0" d="M0 460V200C0 89.5 89.5 0 200 0h0c110.5 0 200 89.5 200 200v260h-117V200c0-45.8-37.2-83-83-83s-83 37.2-83 83v260H0z"/><path fill="#12F0A0" d="M177 196l223 262H247l-70-86z"/><path class="pulse-cutout" d="M177 117c45.8 0 83 37.2 83 83 0 18.5-6 35.6-16.2 49.4L177 168z"/></g><text x="555" y="465" font-family="Inter, Lexend, Arial, sans-serif" font-size="245" font-weight="800" letter-spacing="-14" fill="currentColor">reloadly</text><path d="M555 700 H760 L780 760 L815 580 L850 770 L880 600 L915 760 L935 700 H1190" fill="none" stroke="#12F0A0" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/><text x="1220" y="745" font-family="Inter, Lexend, Arial, sans-serif" font-size="170" font-weight="500" letter-spacing="-6" fill="currentColor">pulse</text></svg></div><div class="gate-sub-tag">Strategy · OKRs · Tasks · Roadmaps</div>
     <div class="gate-sub">Sign in with your Reloadly email</div>
-    <input class="gate-input" id="gate-email" type="email" placeholder="name@reloadly.com" autocomplete="username" oninput="gateEmailChanged()" onkeydown="if(event.key==='Enter'){event.preventDefault();var p=document.getElementById('gate-pwd');if(p&&p.offsetParent!==null){p.focus();}else{gateEmailChanged();}}">
-    <span id="gate-pwd-row" style="display:none"><input class="gate-input" id="gate-pwd" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')gateLogin()" style="margin-bottom:12px"></span>
-    <button class="gate-btn" id="gate-submit-btn" onclick="gateLogin()" style="display:none">Sign In</button>
+    <input class="gate-input" id="gate-email" type="email" placeholder="name@reloadly.com" autocomplete="username" oninput="gateEmailChanged()" onkeydown="if(event.key==='Enter'){event.preventDefault();gateLogin();}">
+    <button class="gate-btn" id="gate-submit-btn" onclick="gateLogin()" style="display:none">Send sign-in code</button>
     <!-- OTP step — appears after password verifies. 6-digit code sent via Gmail. -->
     <div id="gate-otp-row" style="display:none;margin-top:8px">
       <div style="font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:10px">We sent a 6-digit code to <strong id="gate-otp-email" style="color:var(--txt)"></strong>. Check your inbox.</div>
@@ -1262,7 +1261,6 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     </div>
     <div id="gate-hint" style="margin-top:10px;font-family:'Roboto Mono',monospace;font-size:9px;color:var(--mut)">Enter your Reloadly email to continue.</div>
     <div class="gate-err" id="gate-err"></div>
-    <div id="gate-setup" style="display:none;margin-top:8px"><div style="font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:12px">First time signing in as <strong id="gate-setup-email" style="color:var(--txt)"></strong>.<br>Set a password to continue.</div><input class="gate-input" id="gate-new-pwd" type="password" placeholder="Choose a password (min 8 chars)" style="margin-bottom:6px"><input class="gate-input" id="gate-new-pwd2" type="password" placeholder="Confirm password" onkeydown="if(event.key==='Enter')gateSetupPwd()" style="margin-bottom:12px"><button class="gate-btn" onclick="gateSetupPwd()">Set Password &amp; Sign In</button></div>
   </div>
 </div>
 <div id="toast" style="display:none" class="toast"></div>
@@ -1311,9 +1309,62 @@ async function sha256(str){
 async function hashPwd(email,pwd){return sha256(email.toLowerCase()+'::'+pwd);}
 function getPwdStore(){try{return JSON.parse(localStorage.getItem('rl_pwd_store')||'{}');}catch(e){return {};}}
 function setPwdStore(store){localStorage.setItem('rl_pwd_store',JSON.stringify(store));}
-async function verifyPassword(email,pwd){var store=getPwdStore(),hash=store[email.toLowerCase()];if(!hash)return false;var attempt=await hashPwd(email,pwd);return attempt===hash;}
-async function setPassword(email,pwd){var store=getPwdStore();store[email.toLowerCase()]=await hashPwd(email,pwd);setPwdStore(store);}
-function hasPassword(email){return !!getPwdStore()[email.toLowerCase()];}
+// Passwords now live in Worker KV so they work across browsers, incognito,
+// and new devices. localStorage hash is kept as a legacy/offline fallback —
+// on successful local verify, we silently migrate it to the Worker.
+async function verifyPassword(email, pwd){
+  email = email.toLowerCase();
+  // Try Worker first (canonical source of truth)
+  if(typeof RL_SRV !== 'undefined'){
+    try {
+      var r = await RL_SRV.call('auth_verify_password', {email: email, password: pwd});
+      if(r && r.ok) return true;
+      if(r && r.error === 'no_password_set'){
+        // Fall through to legacy local check — may migrate up afterwards
+      } else {
+        return false;
+      }
+    } catch(e){ /* network error — fall through to local */ }
+  }
+  // Legacy local fallback
+  var store = getPwdStore(), hash = store[email];
+  if(!hash) return false;
+  var attempt = await hashPwd(email, pwd);
+  if(attempt !== hash) return false;
+  // Migration: legacy hash verified locally → push to Worker so it works
+  // everywhere going forward. Fire-and-forget.
+  if(typeof RL_SRV !== 'undefined'){
+    RL_SRV.call('auth_set_password', {email: email, password: pwd}).catch(function(){});
+  }
+  return true;
+}
+async function setPassword(email, pwd){
+  email = email.toLowerCase();
+  // Worker is canonical
+  if(typeof RL_SRV !== 'undefined'){
+    var r = await RL_SRV.call('auth_set_password', {email: email, password: pwd});
+    if(!r || !r.ok) throw new Error((r && (r.error + (r.detail ? ': '+r.detail : ''))) || 'set_failed');
+  }
+  // Legacy local store kept in sync for offline use
+  var store = getPwdStore();
+  store[email] = await hashPwd(email, pwd);
+  setPwdStore(store);
+}
+// hasPassword is called sync in a few spots — keep a synchronous fast path
+// against the local cache, but also expose hasPasswordAsync for the gate
+// flow so we can check the Worker for cross-browser users.
+function hasPassword(email){ return !!getPwdStore()[email.toLowerCase()]; }
+async function hasPasswordAsync(email){
+  email = email.toLowerCase();
+  if(getPwdStore()[email]) return true;
+  if(typeof RL_SRV !== 'undefined'){
+    try {
+      var r = await RL_SRV.call('auth_has_password', {email: email});
+      return !!(r && r.ok && r.hasPassword);
+    } catch(e){}
+  }
+  return false;
+}
 
 function assigneeOptions(selected){
   if(!window.USER_REGISTRY)return'<option value="">-- Unassigned --</option>';
@@ -1526,19 +1577,13 @@ function gateSetupPwd(){
 function gateEmailChanged(){
   var emailRaw=(document.getElementById('gate-email')||{}).value||'';
   var email=emailRaw.trim().toLowerCase();
-  var pwdRow=document.getElementById('gate-pwd-row');
-  var setupRow=document.getElementById('gate-setup');
   var submitBtn=document.getElementById('gate-submit-btn');
   var errEl=document.getElementById('gate-err');
   var hint=document.getElementById('gate-hint');
-  // Reset
-  if(pwdRow)pwdRow.style.display='none';
-  if(setupRow)setupRow.style.display='none';
   if(submitBtn)submitBtn.style.display='none';
   if(errEl)errEl.textContent='';
   if(hint){hint.textContent='Enter your Reloadly email to continue.';hint.style.color='var(--mut)';}
   if(!email)return;
-  // Wait for a complete-looking Reloadly email before reacting
   if(!/^[^@\s]+@reloadly\.com$/.test(email)){
     if(email.indexOf('@')>0&&hint){hint.textContent='Use your Reloadly email (name@reloadly.com).';}
     return;
@@ -1547,59 +1592,39 @@ function gateEmailChanged(){
     if(hint){hint.textContent='Email not recognized. Ask your admin to add you.';hint.style.color='var(--red)';}
     return;
   }
-  if(hasPassword(email)){
-    if(pwdRow)pwdRow.style.display='block';
-    if(submitBtn)submitBtn.style.display='block';
-    if(hint){hint.textContent='Enter your password to sign in.';}
-    setTimeout(function(){var p=document.getElementById('gate-pwd');if(p)p.focus();},30);
-  }else{
-    if(setupRow)setupRow.style.display='block';
-    var emailEl=document.getElementById('gate-setup-email');
-    if(emailEl)emailEl.textContent=email;
-    window._setupEmail=email;
-    if(hint){hint.textContent='First time signing in. Set a password below.';}
-    setTimeout(function(){var p=document.getElementById('gate-new-pwd');if(p)p.focus();},30);
-  }
+  // Passwordless: show the "Send code" button as soon as we have a recognised email.
+  if(submitBtn)submitBtn.style.display='block';
+  if(hint){hint.textContent='We\'ll email you a 6-digit code to sign in.';}
 }
 function gateLogin(){
-  var email=document.getElementById('gate-email').value.trim().toLowerCase();
-  var pwd=document.getElementById('gate-pwd').value;
+  var email=(document.getElementById('gate-email')||{}).value.trim().toLowerCase();
   var errEl=document.getElementById('gate-err');
   var btn=document.getElementById('gate-submit-btn');
   var profile=USER_REGISTRY[email];
   if(!profile){errEl.textContent='Access denied. Contact your administrator.';return;}
-  if(!hasPassword(email)){var gs=document.getElementById('gate-setup');var gr=document.getElementById('gate-pwd-row');var gb=document.getElementById('gate-submit-btn');if(gs)gs.style.display='block';if(gr)gr.style.display='none';if(gb)gb.style.display='none';document.getElementById('gate-setup-email').textContent=email;window._setupEmail=email;return;}
-  if(!pwd){errEl.textContent='Please enter your password.';return;}
   errEl.textContent='';
-  btn.textContent='Signing in…';btn.disabled=true;
-  verifyPassword(email,pwd).then(function(ok){
-    if(!ok){btn.textContent='Sign In';btn.disabled=false;errEl.textContent='Incorrect password. Try again.';document.getElementById('gate-pwd').value='';return;}
-    // Password ok → request OTP via Worker. If a trust token is present for
-    // this device, the Worker will short-circuit and return a session token
-    // immediately, skipping the OTP step.
-    var trustToken = localStorage.getItem('rl_trust_token') || null;
-    btn.textContent='Sending code…';
-    RL_SRV.call('auth_send_otp', {email: email, trustToken: trustToken, isAdmin: !!profile.isAdmin}).then(function(r){
-      btn.textContent='Sign In';btn.disabled=false;
-      if(r && r.ok && r.sessionToken){
-        // Trust token shortcut → straight to signed in.
-        _finalizeSignIn(email, profile, r.sessionToken, r.expiresAt);
-      } else if(r && r.ok && r.sent){
-        // OTP sent → show OTP entry UI.
-        window._pendingAuthEmail = email;
-        document.getElementById('gate-pwd-row').style.display='none';
-        document.getElementById('gate-submit-btn').style.display='none';
-        document.getElementById('gate-otp-row').style.display='block';
-        document.getElementById('gate-otp-email').textContent = email;
-        document.getElementById('gate-hint').textContent = 'Enter the 6-digit code from your inbox.';
-        setTimeout(function(){var i=document.getElementById('gate-otp');if(i)i.focus();}, 30);
-      } else {
-        errEl.textContent = 'Auth: ' + ((r && (r.detail || r.error)) || 'failed to send code');
-      }
-    }).catch(function(e){
-      btn.textContent='Sign In';btn.disabled=false;
-      errEl.textContent = 'Network error: ' + (e.message || e);
-    });
+  btn.textContent='Sending code…';btn.disabled=true;
+  // Passwordless: trust token short-circuits to direct sign-in. Otherwise the
+  // Worker emails a 6-digit OTP and we show the entry UI.
+  var trustToken = localStorage.getItem('rl_trust_token') || null;
+  RL_SRV.call('auth_send_otp', {email: email, trustToken: trustToken, isAdmin: !!profile.isAdmin}).then(function(r){
+    btn.textContent='Send sign-in code';btn.disabled=false;
+    if(r && r.ok && r.sessionToken){
+      _finalizeSignIn(email, profile, r.sessionToken, r.expiresAt);
+    } else if(r && r.ok && r.sent){
+      window._pendingAuthEmail = email;
+      document.getElementById('gate-submit-btn').style.display='none';
+      document.getElementById('gate-email').disabled = true;
+      document.getElementById('gate-otp-row').style.display='block';
+      document.getElementById('gate-otp-email').textContent = email;
+      document.getElementById('gate-hint').textContent = 'Enter the 6-digit code from your inbox.';
+      setTimeout(function(){var i=document.getElementById('gate-otp');if(i)i.focus();}, 30);
+    } else {
+      errEl.textContent = ((r && (r.detail || r.error)) || 'Failed to send code');
+    }
+  }).catch(function(e){
+    btn.textContent='Send sign-in code';btn.disabled=false;
+    errEl.textContent = 'Network error: ' + (e.message || e);
   });
 }
 
