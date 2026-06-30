@@ -1250,6 +1250,16 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <input class="gate-input" id="gate-email" type="email" placeholder="name@reloadly.com" autocomplete="username" oninput="gateEmailChanged()" onkeydown="if(event.key==='Enter'){event.preventDefault();var p=document.getElementById('gate-pwd');if(p&&p.offsetParent!==null){p.focus();}else{gateEmailChanged();}}">
     <span id="gate-pwd-row" style="display:none"><input class="gate-input" id="gate-pwd" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')gateLogin()" style="margin-bottom:12px"></span>
     <button class="gate-btn" id="gate-submit-btn" onclick="gateLogin()" style="display:none">Sign In</button>
+    <!-- OTP step — appears after password verifies. 6-digit code sent via Gmail. -->
+    <div id="gate-otp-row" style="display:none;margin-top:8px">
+      <div style="font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:10px">We sent a 6-digit code to <strong id="gate-otp-email" style="color:var(--txt)"></strong>. Check your inbox.</div>
+      <input class="gate-input" id="gate-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" style="margin-bottom:10px;letter-spacing:.4em;font-family:Roboto Mono,monospace;text-align:center;font-size:18px" onkeydown="if(event.key==='Enter')gateVerifyOTP()">
+      <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mut);margin-bottom:10px;cursor:pointer">
+        <input id="gate-remember" type="checkbox" style="accent-color:var(--acc)"> Remember this device for 30 days
+      </label>
+      <button class="gate-btn" onclick="gateVerifyOTP()">Verify &amp; Sign In</button>
+      <button onclick="gateResendOTP()" style="background:none;border:none;color:var(--mut);font-size:10px;cursor:pointer;margin-top:6px;text-decoration:underline">Resend code</button>
+    </div>
     <div id="gate-hint" style="margin-top:10px;font-family:'Roboto Mono',monospace;font-size:9px;color:var(--mut)">Enter your Reloadly email to continue.</div>
     <div class="gate-err" id="gate-err"></div>
     <div id="gate-setup" style="display:none;margin-top:8px"><div style="font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:12px">First time signing in as <strong id="gate-setup-email" style="color:var(--txt)"></strong>.<br>Set a password to continue.</div><input class="gate-input" id="gate-new-pwd" type="password" placeholder="Choose a password (min 8 chars)" style="margin-bottom:6px"><input class="gate-input" id="gate-new-pwd2" type="password" placeholder="Confirm password" onkeydown="if(event.key==='Enter')gateSetupPwd()" style="margin-bottom:12px"><button class="gate-btn" onclick="gateSetupPwd()">Set Password &amp; Sign In</button></div>
@@ -1409,18 +1419,44 @@ function renderMyTasks(){
   el.innerHTML=h2;
 }
 
+function _showGate(){
+  var g=document.getElementById('gate');if(g)g.style.display='flex';
+  setTimeout(function(){var el=document.getElementById('gate-email');if(el)el.focus();},100);
+}
 function init(){
   applyStoredTheme();
   var saved=localStorage.getItem('rl_user_email');
+  var sessionToken=localStorage.getItem('rl_session_token');
+  var sessionExpiresAt=parseInt(localStorage.getItem('rl_session_expires_at')||'0',10);
   var profile=saved?USER_REGISTRY[saved]:null;
-  if(profile&&hasPassword(saved)){
+  // Fast-path: cached user + non-expired session timestamp. We trust the
+  // timestamp client-side for the initial render to avoid a flash of the
+  // sign-in gate; the Worker verify call below re-validates async and signs
+  // out cleanly if the session is actually invalid (e.g. revoked admin-side).
+  if(profile && hasPassword(saved) && sessionToken && Date.now() < sessionExpiresAt){
     currentUser={email:saved,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin,canAccessProposals:!!profile.canAccessProposals||!!profile.isAdmin,canAccessWalletOps:!!profile.canAccessWalletOps||!!profile.isAdmin};
     loadData();
-  }else{
-    localStorage.removeItem('rl_user_email');
-    var g=document.getElementById('gate');if(g)g.style.display='flex';
-    setTimeout(function(){var el=document.getElementById('gate-email');if(el)el.focus();},100);
+    // Async revalidation — Worker may invalidate idle sessions (>2h) or
+    // explicitly revoked ones. If invalid, sign out + show gate.
+    if(typeof RL_SRV !== 'undefined'){
+      setTimeout(function(){
+        RL_SRV.call('auth_verify_session', {sessionToken: sessionToken}).then(function(r){
+          if(!r || !r.ok){
+            try { toast('Session expired — please sign in again', 'warn'); } catch(e){}
+            signOut();
+          } else if(r.expiresAt){
+            localStorage.setItem('rl_session_expires_at', String(r.expiresAt));
+          }
+        }).catch(function(){});
+      }, 2000);
+    }
+    return;
   }
+  // Otherwise: show gate.
+  localStorage.removeItem('rl_user_email');
+  localStorage.removeItem('rl_session_token');
+  localStorage.removeItem('rl_session_expires_at');
+  _showGate();
 }
 function loadData(){
   var s=localStorage.getItem('rl_tasks_v4');
@@ -1537,13 +1573,73 @@ function gateLogin(){
   errEl.textContent='';
   btn.textContent='Signing in…';btn.disabled=true;
   verifyPassword(email,pwd).then(function(ok){
-    btn.textContent='Sign In';btn.disabled=false;
-    if(!ok){errEl.textContent='Incorrect password. Try again.';document.getElementById('gate-pwd').value='';return;}
-    currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin,canAccessProposals:!!profile.canAccessProposals||!!profile.isAdmin,canAccessWalletOps:!!profile.canAccessWalletOps||!!profile.isAdmin};
-    localStorage.setItem('rl_user_email',email);
-    document.getElementById('gate').style.display='none';
-    loadData();logEntry('Signed in as '+profile.role,'edit');autoSave();
+    if(!ok){btn.textContent='Sign In';btn.disabled=false;errEl.textContent='Incorrect password. Try again.';document.getElementById('gate-pwd').value='';return;}
+    // Password ok → request OTP via Worker. If a trust token is present for
+    // this device, the Worker will short-circuit and return a session token
+    // immediately, skipping the OTP step.
+    var trustToken = localStorage.getItem('rl_trust_token') || null;
+    btn.textContent='Sending code…';
+    RL_SRV.call('auth_send_otp', {email: email, trustToken: trustToken, isAdmin: !!profile.isAdmin}).then(function(r){
+      btn.textContent='Sign In';btn.disabled=false;
+      if(r && r.ok && r.sessionToken){
+        // Trust token shortcut → straight to signed in.
+        _finalizeSignIn(email, profile, r.sessionToken, r.expiresAt);
+      } else if(r && r.ok && r.sent){
+        // OTP sent → show OTP entry UI.
+        window._pendingAuthEmail = email;
+        document.getElementById('gate-pwd-row').style.display='none';
+        document.getElementById('gate-submit-btn').style.display='none';
+        document.getElementById('gate-otp-row').style.display='block';
+        document.getElementById('gate-otp-email').textContent = email;
+        document.getElementById('gate-hint').textContent = 'Enter the 6-digit code from your inbox.';
+        setTimeout(function(){var i=document.getElementById('gate-otp');if(i)i.focus();}, 30);
+      } else {
+        errEl.textContent = 'Auth: ' + ((r && (r.detail || r.error)) || 'failed to send code');
+      }
+    }).catch(function(e){
+      btn.textContent='Sign In';btn.disabled=false;
+      errEl.textContent = 'Network error: ' + (e.message || e);
+    });
   });
+}
+
+function gateVerifyOTP(){
+  var email = window._pendingAuthEmail;
+  var code = (document.getElementById('gate-otp').value || '').trim();
+  var remember = !!document.getElementById('gate-remember').checked;
+  var errEl=document.getElementById('gate-err');
+  if(!email || !code){errEl.textContent='Enter the 6-digit code.';return;}
+  errEl.textContent='';
+  var profile = USER_REGISTRY[email];
+  if(!profile){errEl.textContent='Session lost. Refresh and try again.';return;}
+  RL_SRV.call('auth_verify_otp', {email: email, code: code, isAdmin: !!profile.isAdmin, rememberDevice: remember}).then(function(r){
+    if(r && r.ok && r.sessionToken){
+      if(r.trustToken){ localStorage.setItem('rl_trust_token', r.trustToken); }
+      _finalizeSignIn(email, profile, r.sessionToken, r.expiresAt);
+    } else {
+      errEl.textContent = 'Code: ' + ((r && (r.detail || r.error)) || 'invalid');
+    }
+  }).catch(function(e){ errEl.textContent = 'Network error: ' + (e.message || e); });
+}
+
+function gateResendOTP(){
+  var email = window._pendingAuthEmail; if(!email) return;
+  var errEl=document.getElementById('gate-err');
+  errEl.textContent='';
+  RL_SRV.call('auth_send_otp', {email: email, isAdmin: !!(USER_REGISTRY[email]||{}).isAdmin}).then(function(r){
+    if(r && r.ok && r.sent){ toast('New code sent','ok'); }
+    else { errEl.textContent = 'Resend: ' + ((r && (r.detail || r.error)) || 'failed'); }
+  });
+}
+
+function _finalizeSignIn(email, profile, sessionToken, expiresAt){
+  currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin,canAccessProposals:!!profile.canAccessProposals||!!profile.isAdmin,canAccessWalletOps:!!profile.canAccessWalletOps||!!profile.isAdmin};
+  localStorage.setItem('rl_user_email', email);
+  localStorage.setItem('rl_session_token', sessionToken);
+  if(expiresAt) localStorage.setItem('rl_session_expires_at', String(expiresAt));
+  document.getElementById('gate').style.display='none';
+  loadData();
+  try { logEntry('Signed in as '+profile.role,'edit'); autoSave(); } catch(e){}
 }
 function renderUserPill(){
   var ex=document.getElementById('user-pill-el');if(ex)ex.remove();
@@ -1567,9 +1663,18 @@ function renderUserPill(){
   var _npp=document.getElementById('nav-proposals');if(_npp)_npp.style.display=_canProposals?'':'none';
   var _nf=document.getElementById('nav-funding');if(_nf)_nf.style.display=_canWallet?'':'none';
 }
-function signOut(){
-  if(!confirm('Sign out?'))return;
-  localStorage.removeItem('rl_user_email');currentUser=null;
+function signOut(forced){
+  if(!forced && !confirm('Sign out?'))return;
+  var sessionToken = localStorage.getItem('rl_session_token');
+  if(sessionToken && typeof RL_SRV !== 'undefined'){
+    RL_SRV.call('auth_sign_out', {sessionToken: sessionToken});
+  }
+  localStorage.removeItem('rl_user_email');
+  localStorage.removeItem('rl_session_token');
+  localStorage.removeItem('rl_session_expires_at');
+  // Keep rl_trust_token — that's per-device trust, intentionally separate
+  // from the sign-in session so "remember this device" works across logouts.
+  currentUser=null;
   var expBtn=document.getElementById('export-btn');if(expBtn)expBtn.style.display='none';
   document.getElementById('gate').style.display='flex';
   setTimeout(function(){document.getElementById('gate-email').focus();},100);
@@ -15780,7 +15885,7 @@ var FUND=(function(){
       watch.forEach(emitRow);
     }
     lines.push('');
-    lines.push('View in Pulse → https://reloadly-tasks.github.io/task-manager/');
+    lines.push('View in Pulse → https://pulse.reloadly.com/');
     return lines.join('\n');
   };
 
