@@ -2961,7 +2961,7 @@ function renderPerf(){
   var hdr=document.createElement('div');hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px';
   var ttl=document.createElement('div');ttl.innerHTML='<div class="ptitle">Performance</div><div class="psub">Evidence-based reviews · '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</div>';
   var tabs=document.createElement('div');tabs.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-  [{k:'overview',lbl:'Overview'},{k:'hpm',lbl:'Weekly HPM'},{k:'hpmfeed',lbl:'Company Feed'},{k:'team',lbl:'Team Health',a:true},{k:'calibration',lbl:'Calibration',a:true},{k:'talent',lbl:'Talent Matrix',a:true},{k:'reviews',lbl:'Reviews'},{k:'feedback',lbl:'Feedback'},{k:'my',lbl:'My Profile'},{k:'mgrdash',lbl:'Manager View'},{k:'history',lbl:'My History'},{k:'courses',lbl:'Courses & Certs'},{k:'orgtree',lbl:'Org Tree',a:true}].forEach(function(td){
+  [{k:'overview',lbl:'Overview'},{k:'hpm',lbl:'Weekly HPM'},{k:'hpmfeed',lbl:'Company Feed'},{k:'reviewcal',lbl:'Review Calendar',a:true},{k:'team',lbl:'Team Health',a:true},{k:'calibration',lbl:'Calibration',a:true},{k:'talent',lbl:'Talent Matrix',a:true},{k:'reviews',lbl:'Reviews'},{k:'feedback',lbl:'Feedback'},{k:'my',lbl:'My Profile'},{k:'mgrdash',lbl:'Manager View'},{k:'history',lbl:'My History'},{k:'courses',lbl:'Courses & Certs'},{k:'orgtree',lbl:'Org Tree',a:true}].forEach(function(td){
     if(td.a&&!isAd)return;
     var btn=document.createElement('button');btn.className='hbtn';
     btn.style.cssText='font-size:10px;padding:5px 14px'+(view===td.k?';border-color:var(--acc);color:var(--acc);font-weight:700':'');
@@ -2981,7 +2981,227 @@ function renderPerf(){
   else if(view==='hpm')renderPerfHPM(wrap,pd);
   else if(view==='hpmfeed')renderPerfHPMFeed(wrap,pd);
   else if(view==='orgtree')renderOrgTree(wrap);
+  else if(view==='reviewcal'&&isAd)renderPerfReviewCalendar(wrap,pd);
   main.innerHTML='';main.appendChild(wrap);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Performance Review Calendar — admin-only company-wide view of who is due a
+// review, when their next review will land, and who is overdue. Assumes a
+// quarterly cadence: a person is "due" once the current quarter has started
+// and they do not yet have a Finalized/Acknowledged/Locked review for it.
+// "Overdue" = they also missed the previous quarter.
+// ─────────────────────────────────────────────────────────────────────────────
+function _revCalQuarterOf(d){
+  var y=d.getFullYear(), m=d.getMonth();
+  return 'Q'+(Math.floor(m/3)+1)+'_'+y;
+}
+function _revCalQuarterRange(key){
+  // key looks like "Q3_2026"
+  var m=/^Q([1-4])_(\d{4})$/.exec(key||'');if(!m)return null;
+  var q=parseInt(m[1],10), y=parseInt(m[2],10);
+  var start=new Date(y,(q-1)*3,1);
+  var end=new Date(y,q*3,0); // last day of quarter
+  return {start:start,end:end,key:key,label:'Q'+q+' '+y};
+}
+function _revCalPrevQuarter(key){
+  var m=/^Q([1-4])_(\d{4})$/.exec(key||'');if(!m)return null;
+  var q=parseInt(m[1],10), y=parseInt(m[2],10);
+  if(q===1) return 'Q4_'+(y-1);
+  return 'Q'+(q-1)+'_'+y;
+}
+function _revCalNextQuarter(key){
+  var m=/^Q([1-4])_(\d{4})$/.exec(key||'');if(!m)return null;
+  var q=parseInt(m[1],10), y=parseInt(m[2],10);
+  if(q===4) return 'Q1_'+(y+1);
+  return 'Q'+(q+1)+'_'+y;
+}
+function renderPerfReviewCalendar(wrap, pd){
+  var reviews=Object.values((pd&&pd.reviews)||{});
+  var today=new Date();
+  var curKey=_revCalQuarterOf(today);
+  var curRange=_revCalQuarterRange(curKey);
+  var prevKey=_revCalPrevQuarter(curKey);
+  // Active users only — archived people don't need reviews scheduled.
+  var archived=(typeof ARCHIVED_USERS!=='undefined'&&Array.isArray(ARCHIVED_USERS))?ARCHIVED_USERS:[];
+  var users=Object.keys(USER_REGISTRY||{}).filter(function(em){return archived.indexOf(em)<0;}).map(function(em){
+    var u=USER_REGISTRY[em]||{};
+    return {email:em, name:u.name||em, role:u.role||'', dept:u.dept||'—'};
+  });
+  // Per-user computation: last completed cycle + status for current quarter.
+  // A review is "complete" once it reaches Finalized/Acknowledged/Locked.
+  var DONE_STATES=['Finalized','Acknowledged','Locked'];
+  function isDone(r){return DONE_STATES.indexOf(r.workflowStatus||'')>=0;}
+  users.forEach(function(u){
+    var mine=reviews.filter(function(r){return r.reviewee===u.email;});
+    var doneCycles={};
+    mine.forEach(function(r){ if(isDone(r) && r.cycle) doneCycles[r.cycle]=r; });
+    var inFlightCur=mine.find(function(r){return r.cycle===curKey && !isDone(r);});
+    u.doneCycles=doneCycles;
+    u.lastDone = Object.keys(doneCycles).sort().pop()||null;
+    u.curDone = !!doneCycles[curKey];
+    u.curInFlight = !!inFlightCur;
+    u.prevDone = !!doneCycles[prevKey];
+    // Status priority: overdue > due > in-flight > done > upcoming
+    if(u.curDone) u.status='done';
+    else if(!u.prevDone && prevKey) u.status='overdue';
+    else if(u.curInFlight) u.status='inflight';
+    else u.status='due';
+    // Next review window = current quarter end
+    u.nextDue = curRange ? curRange.end : null;
+  });
+  // Sort: overdue first, then due, then in-flight, then done; name alpha tiebreak
+  var STATUS_ORDER={overdue:0,due:1,inflight:2,done:3};
+  users.sort(function(a,b){
+    var s=STATUS_ORDER[a.status]-STATUS_ORDER[b.status];
+    if(s!==0)return s;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+  var counts={overdue:0,due:0,inflight:0,done:0};
+  users.forEach(function(u){counts[u.status]++;});
+
+  // ── HEADER ─────────────────────────────────────────────────────────────
+  var hdr=document.createElement('div');
+  hdr.style.cssText='margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--brd)';
+  hdr.innerHTML='<div style="font-size:14px;font-weight:800;margin-bottom:3px">Review Calendar — '+(curRange?curRange.label:curKey)+'</div>'
+    +'<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">Company-wide view of who is due a review · admin only</div>';
+  wrap.appendChild(hdr);
+
+  // ── COUNT STRIP ────────────────────────────────────────────────────────
+  function pill(v,l,col,sub){
+    var c=document.createElement('div');
+    c.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:14px 16px';
+    c.innerHTML='<div style="font-size:24px;font-weight:800;color:'+col+'">'+v+'</div>'
+      +'<div style="font-size:11px;font-weight:600;margin-top:2px">'+l+'</div>'
+      +'<div style="font-size:9px;color:var(--mut);margin-top:2px;font-family:Roboto Mono,monospace">'+sub+'</div>';
+    return c;
+  }
+  var strip=document.createElement('div');
+  strip.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px';
+  strip.appendChild(pill(counts.overdue,'Overdue','var(--red)','missed last quarter'));
+  strip.appendChild(pill(counts.due,'Due this quarter','var(--yel)','not started yet'));
+  strip.appendChild(pill(counts.inflight,'In progress','var(--acc)','review in workflow'));
+  strip.appendChild(pill(counts.done,'Completed','var(--grn)','reviewed this quarter'));
+  strip.appendChild(pill(users.length,'Active people','var(--mut)','headcount'));
+  wrap.appendChild(strip);
+
+  // ── PER-PERSON TABLE ───────────────────────────────────────────────────
+  var sh=document.createElement('div');
+  sh.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px';
+  sh.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace">WHO\'S DUE A REVIEW</div>';
+  // Dept filter (admin convenience)
+  var depts=['All'].concat((typeof DEPTS!=='undefined'?DEPTS:[]).slice());
+  var df=document.createElement('select');
+  df.style.cssText='font-size:10px;font-family:Roboto Mono,monospace;background:var(--surf);border:1px solid var(--brd);color:var(--txt);border-radius:6px;padding:4px 8px';
+  depts.forEach(function(d){var o=document.createElement('option');o.value=d;o.textContent=d;df.appendChild(o);});
+  var savedDept=localStorage.getItem('rl_revcal_dept')||'All';df.value=savedDept;
+  df.onchange=function(){localStorage.setItem('rl_revcal_dept',this.value);renderPerf();};
+  sh.appendChild(df);
+  wrap.appendChild(sh);
+
+  var tbl=document.createElement('div');
+  tbl.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden;margin-bottom:24px';
+  var th=document.createElement('div');
+  th.style.cssText='display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 1fr 0.8fr;padding:9px 16px;background:var(--surf2);font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;border-bottom:1px solid var(--brd)';
+  th.innerHTML='<div>PERSON</div><div>ROLE / DEPT</div><div>LAST REVIEW</div><div>NEXT DUE</div><div>STATUS</div><div style="text-align:right">ACTION</div>';
+  tbl.appendChild(th);
+  var filtered=savedDept==='All'?users:users.filter(function(u){return u.dept===savedDept;});
+  if(!filtered.length){
+    var em=document.createElement('div');em.style.cssText='padding:24px;text-align:center;color:var(--mut);font-size:11px';em.textContent='No people in this department.';tbl.appendChild(em);
+  }
+  filtered.forEach(function(u, idx){
+    var statusInfo={
+      overdue:{lbl:'OVERDUE',col:'var(--red)',bg:'rgba(255,107,107,.12)'},
+      due:{lbl:'DUE',col:'var(--yel)',bg:'rgba(251,191,36,.12)'},
+      inflight:{lbl:'IN PROGRESS',col:'var(--acc)',bg:'rgba(108,99,255,.12)'},
+      done:{lbl:'DONE',col:'var(--grn)',bg:'rgba(74,222,128,.12)'}
+    }[u.status]||{lbl:u.status.toUpperCase(),col:'var(--mut)',bg:'transparent'};
+    var lastLbl=u.lastDone?(_revCalQuarterRange(u.lastDone)||{label:u.lastDone}).label:'—';
+    var nextLbl=u.nextDue?u.nextDue.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
+    var row=document.createElement('div');
+    row.style.cssText='display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 1fr 0.8fr;padding:10px 16px;border-top:1px solid var(--brd);align-items:center;font-size:11px'+(idx%2===0?'':';background:rgba(255,255,255,.02)');
+    row.innerHTML=
+      '<div><div style="font-weight:600">'+esc(u.name)+'</div><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+esc(u.email)+'</div></div>'+
+      '<div><div>'+esc(u.role||'—')+'</div><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+esc(u.dept||'')+'</div></div>'+
+      '<div style="font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut)">'+lastLbl+'</div>'+
+      '<div style="font-family:Roboto Mono,monospace;font-size:10px">'+nextLbl+'</div>'+
+      '<div><span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;background:'+statusInfo.bg+';color:'+statusInfo.col+'">'+statusInfo.lbl+'</span></div>'+
+      '<div style="text-align:right"></div>';
+    // Action button: jump to start a review (only when due / overdue / inflight)
+    var actCell=row.lastElementChild;
+    if(u.status!=='done'){
+      var b=document.createElement('button');b.className='hbtn';b.style.cssText='font-size:9px;padding:3px 10px';
+      b.textContent=u.status==='inflight'?'Open':'Start';
+      b.onclick=(function(em){return function(e){
+        e.stopPropagation();
+        localStorage.setItem('rl_perf_view','reviews');
+        try{ localStorage.setItem('rl_perf_focus_email', em); }catch(_){}
+        renderPerf();
+      };})(u.email);
+      actCell.appendChild(b);
+    }
+    tbl.appendChild(row);
+  });
+  wrap.appendChild(tbl);
+
+  // ── 6-QUARTER GRID ─────────────────────────────────────────────────────
+  var gh=document.createElement('div');
+  gh.style.cssText='font-size:11px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:10px';
+  gh.textContent='QUARTERLY HEATMAP — last 4 quarters + current + next';
+  wrap.appendChild(gh);
+  // Build 6 quarter keys around current
+  var qKeys=[];
+  var walk=_revCalPrevQuarter(_revCalPrevQuarter(_revCalPrevQuarter(_revCalPrevQuarter(curKey))));
+  for(var i=0;i<6;i++){ qKeys.push(walk); walk=_revCalNextQuarter(walk); }
+  var grid=document.createElement('div');
+  grid.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden';
+  var ghdr=document.createElement('div');
+  ghdr.style.cssText='display:grid;grid-template-columns:2fr repeat(6,1fr);padding:9px 16px;background:var(--surf2);font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;border-bottom:1px solid var(--brd)';
+  var hdrInner='<div>PERSON</div>';
+  qKeys.forEach(function(k){
+    var rng=_revCalQuarterRange(k);
+    var isCur=k===curKey;
+    hdrInner+='<div style="text-align:center'+(isCur?';color:var(--acc)':'')+'">'+(rng?rng.label.replace(' ','<br>'):k)+(isCur?'<br>◆':'')+'</div>';
+  });
+  ghdr.innerHTML=hdrInner;grid.appendChild(ghdr);
+  filtered.forEach(function(u, idx){
+    var row=document.createElement('div');
+    row.style.cssText='display:grid;grid-template-columns:2fr repeat(6,1fr);padding:8px 16px;border-top:1px solid var(--brd);align-items:center;font-size:11px'+(idx%2===0?'':';background:rgba(255,255,255,.02)');
+    var inner='<div><div style="font-weight:600;font-size:11px">'+esc(u.name)+'</div><div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+esc(u.dept||'')+'</div></div>';
+    qKeys.forEach(function(k){
+      var isCur=k===curKey;
+      var doneR=u.doneCycles[k];
+      var inFlight=Object.values((pd&&pd.reviews)||{}).find(function(r){return r.reviewee===u.email && r.cycle===k && DONE_STATES.indexOf(r.workflowStatus||'')<0;});
+      var cell='';
+      if(doneR){
+        cell='<span title="Completed" style="display:inline-block;width:18px;height:18px;border-radius:50%;background:var(--grn);color:#000;font-size:10px;font-weight:800;line-height:18px;text-align:center">✓</span>';
+      } else if(inFlight){
+        cell='<span title="'+(inFlight.workflowStatus||'In progress')+'" style="display:inline-block;width:18px;height:18px;border-radius:50%;background:var(--acc);color:#fff;font-size:9px;font-weight:800;line-height:18px;text-align:center">◷</span>';
+      } else if(isCur){
+        cell='<span title="Due this quarter" style="display:inline-block;width:18px;height:18px;border-radius:50%;background:var(--yel);color:#000;font-size:10px;font-weight:800;line-height:18px;text-align:center">!</span>';
+      } else {
+        // Past quarters with no review = missed; future = empty
+        var rng=_revCalQuarterRange(k);
+        if(rng && rng.end<today){
+          cell='<span title="Missed" style="display:inline-block;width:18px;height:18px;border-radius:50%;background:rgba(255,107,107,.18);color:var(--red);font-size:10px;font-weight:800;line-height:18px;text-align:center">×</span>';
+        } else {
+          cell='<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:var(--surf2);color:var(--mut);font-size:10px;line-height:18px;text-align:center">·</span>';
+        }
+      }
+      inner+='<div style="text-align:center">'+cell+'</div>';
+    });
+    row.innerHTML=inner;grid.appendChild(row);
+  });
+  // Legend
+  var lg=document.createElement('div');
+  lg.style.cssText='padding:10px 16px;background:var(--surf2);border-top:1px solid var(--brd);display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace';
+  lg.innerHTML='<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--grn);vertical-align:middle;margin-right:4px"></span>Completed</span>'
+    +'<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--acc);vertical-align:middle;margin-right:4px"></span>In progress</span>'
+    +'<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--yel);vertical-align:middle;margin-right:4px"></span>Due this quarter</span>'
+    +'<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(255,107,107,.4);vertical-align:middle;margin-right:4px"></span>Missed</span>'
+    +'<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--surf);vertical-align:middle;margin-right:4px"></span>Future</span>';
+  grid.appendChild(lg);
+  wrap.appendChild(grid);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
