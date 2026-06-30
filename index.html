@@ -9825,21 +9825,31 @@ function tmExtractMeetingActions(){
   }).map(function(em){ var u=USER_REGISTRY[em]||{}; return (u.name||em)+' ('+(u.dept||'')+')'; }).slice(0,40);
 
   var today = new Date().toISOString().split('T')[0];
+  // Llama 3.1 70B follows JSON instructions far more reliably than the 3.2
+  // 3B default — the 3B model returns "{}" or prose when given a long input.
+  // 70B is slower but for an interactive paste-and-extract flow that's fine.
   var prompt =
-'You extract action items from meeting notes / chat / email and return STRICT JSON only.\n\n'+
+'You extract action items from meeting notes and return ONLY a JSON array. No prose, no markdown fences, no explanation. Start your response with [ and end with ].\n\n'+
 'TODAY: '+today+'\n'+
 'DEPARTMENTS: '+DEPTS.join(', ')+'\n'+
-'PEOPLE (name + dept): '+people.join('; ')+'\n\n'+
-'INSTRUCTIONS:\n'+
-'1. Identify concrete action items (decisions to act, owners, follow-ups). Skip status updates with no action.\n'+
-'2. For each, output: title (short imperative, max 90 chars), owner (use a PEOPLE name exactly if mentioned/implied, else ""), dept (one of DEPARTMENTS), priority (Critical/High/Medium/Low), due (YYYY-MM-DD or "" if not specified), notes (the source quote or short context, max 200 chars).\n'+
-'3. Return ONLY a JSON array, no prose, no markdown fences. Example:\n'+
-'[{"title":"Ship login fix","owner":"Sam Smith","dept":"Product & Engineering","priority":"High","due":"'+today+'","notes":"Sam: I will ship by Friday"}]\n\n'+
-'TEXT TO EXTRACT FROM:\n'+
-'"""\n'+txt+'\n"""\n\n'+
+'TEAM (name — dept): '+people.join('; ')+'\n\n'+
+'For each action item include these EXACT fields: title, owner, dept, priority, due, notes.\n'+
+'  - title: short imperative (max 90 chars)\n'+
+'  - owner: exact TEAM name if mentioned/implied, else "" \n'+
+'  - dept: one of DEPARTMENTS\n'+
+'  - priority: Critical | High | Medium | Low\n'+
+'  - due: YYYY-MM-DD if a date/relative time is given, else ""\n'+
+'  - notes: short quote from source (max 200 chars)\n\n'+
+'Skip status updates with no action. Skip social chatter.\n\n'+
+'EXAMPLE INPUT:\n'+
+'Alice will ship the login fix by Friday. Bob to email the vendor about pricing this week. Carol agreed to review the PR by tomorrow.\n\n'+
+'EXAMPLE OUTPUT:\n'+
+'[{"title":"Ship login fix","owner":"Alice","dept":"Product & Engineering","priority":"High","due":"'+today+'","notes":"Alice will ship the login fix by Friday"},{"title":"Email vendor about pricing","owner":"Bob","dept":"Operations","priority":"Medium","due":"","notes":"Bob to email the vendor about pricing this week"},{"title":"Review the PR","owner":"Carol","dept":"Product & Engineering","priority":"Medium","due":"","notes":"Carol agreed to review the PR by tomorrow"}]\n\n'+
+'NOW EXTRACT FROM THIS:\n'+
+txt+'\n\n'+
 'JSON:';
 
-  RL_SRV.call('ai_summarize', { prompt: prompt, max_tokens: 900 }).then(function(r){
+  RL_SRV.call('ai_summarize', { prompt: prompt, max_tokens: 1200, model: '@cf/meta/llama-3.1-70b-instruct' }).then(function(r){
     state.busy = false;
     if(!r || !r.ok){
       toast('AI failed: '+(r&&r.error||'unknown'),'err');
@@ -9849,29 +9859,95 @@ function tmExtractMeetingActions(){
     var raw = (r.text||'').trim();
     // Strip markdown fences if Llama added them anyway.
     raw = raw.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
-    // Find the first '[' and matching last ']'
-    var s = raw.indexOf('['); var e = raw.lastIndexOf(']');
+    // Try multiple parse strategies — Llama 70B is mostly clean but sometimes
+    // returns a single object instead of an array, or prefixes prose.
     var parsed = null;
-    if(s>=0 && e>s){
-      try { parsed = JSON.parse(raw.slice(s, e+1)); } catch(err){}
+    function tryParse(s){ try { return JSON.parse(s); } catch(_) { return null; } };
+    // Strategy 1: direct parse
+    parsed = tryParse(raw);
+    // Strategy 2: slice between first [ and last ]
+    if(!parsed){
+      var si = raw.indexOf('['), ei = raw.lastIndexOf(']');
+      if(si>=0 && ei>si){ parsed = tryParse(raw.slice(si, ei+1)); }
     }
-    if(!parsed || !Array.isArray(parsed)){
+    // Strategy 3: slice between first { and last } (single-object response)
+    if(!parsed){
+      var sj = raw.indexOf('{'), ej = raw.lastIndexOf('}');
+      if(sj>=0 && ej>sj){ parsed = tryParse(raw.slice(sj, ej+1)); }
+    }
+    // Strategy 4: scan for individual {...} blocks and parse each
+    if(!parsed){
+      var matches = raw.match(/\{[^{}]*\}/g);
+      if(matches && matches.length){
+        parsed = matches.map(tryParse).filter(Boolean);
+        if(!parsed.length) parsed = null;
+      }
+    }
+    // Wrap single-object responses in an array
+    if(parsed && !Array.isArray(parsed)) parsed = [parsed];
+    if(!parsed || !parsed.length){
       toast('Could not parse AI output — try again','err');
-      console.warn('Meeting extractor raw response:', raw);
+      try { console.warn('Meeting extractor raw response:', raw); } catch(_){}
       tmRefreshMeetingSection();
       return;
     }
+    // Tolerant field-name mapping — Llama sometimes picks "name"/"action"/etc.
+    function pick(obj, keys){
+      for(var i=0;i<keys.length;i++){ if(obj[keys[i]] != null && obj[keys[i]] !== '') return obj[keys[i]]; }
+      return '';
+    }
+    function normDept(v){
+      if(!v) return (currentUser&&currentUser.dept?currentUser.dept:DEPTS[0]);
+      if(DEPTS.indexOf(v) >= 0) return v;
+      // Case-insensitive + common alias matching
+      var low = String(v).toLowerCase();
+      for(var i=0;i<DEPTS.length;i++){ if(DEPTS[i].toLowerCase() === low) return DEPTS[i]; }
+      if(/eng|product|tech|dev/.test(low)) return DEPTS.indexOf('Product & Engineering')>=0 ? 'Product & Engineering' : DEPTS[0];
+      if(/op/.test(low)) return DEPTS.indexOf('Operations')>=0 ? 'Operations' : DEPTS[0];
+      if(/sale/.test(low)) return DEPTS.indexOf('Sales')>=0 ? 'Sales' : DEPTS[0];
+      if(/fin/.test(low)) return DEPTS.indexOf('Finance')>=0 ? 'Finance' : DEPTS[0];
+      if(/mgmt|management|lead/.test(low)) return DEPTS.indexOf('Management')>=0 ? 'Management' : DEPTS[0];
+      return (currentUser&&currentUser.dept?currentUser.dept:DEPTS[0]);
+    }
+    function normPriority(v){
+      var t = String(v||'').trim();
+      // Title-case + alias
+      var low = t.toLowerCase();
+      if(low.indexOf('crit')===0||low.indexOf('urg')===0) return 'Critical';
+      if(low.indexOf('hi')===0) return 'High';
+      if(low.indexOf('low')===0) return 'Low';
+      if(['critical','high','medium','low','planned'].indexOf(low) >= 0){
+        return low.charAt(0).toUpperCase()+low.slice(1);
+      }
+      return 'Medium';
+    }
+    function normOwner(v){
+      var s = String(v||'').trim();
+      if(!s) return '';
+      // If AI returned "Alice Smith (Engineering)" strip the parenthetical
+      return s.replace(/\s*\(.+?\)\s*$/, '').trim();
+    }
+    function normDue(v){
+      var s = String(v||'').trim();
+      if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      // Loose date detection — try Date.parse for things like "Friday"
+      var d = new Date(s);
+      if(!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+      return '';
+    }
     // Normalise + push as drafts
-    state.drafts = parsed.filter(function(x){return x && typeof x==='object' && (x.title||'').trim();}).map(function(x){
+    state.drafts = parsed.filter(function(x){return x && typeof x==='object';}).map(function(x){
+      var title = pick(x, ['title','action','task','item','description','what']);
+      var owner = normOwner(pick(x, ['owner','assignee','person','who','name','responsible']));
       return {
-        title: String(x.title||'').slice(0,200),
-        owner: String(x.owner||'').trim(),
-        dept: DEPTS.indexOf(x.dept)>=0 ? x.dept : (currentUser&&currentUser.dept?currentUser.dept:DEPTS[0]),
-        priority: ['Critical','High','Medium','Low','Planned'].indexOf(x.priority)>=0 ? x.priority : 'Medium',
-        due: /^\d{4}-\d{2}-\d{2}$/.test(x.due||'') ? x.due : '',
-        notes: String(x.notes||'').slice(0,500)
+        title: String(title||'').slice(0,200).trim(),
+        owner: owner,
+        dept: normDept(pick(x, ['dept','department','team'])),
+        priority: normPriority(pick(x, ['priority','prio','urgency'])),
+        due: normDue(pick(x, ['due','dueDate','due_date','deadline','by','when'])),
+        notes: String(pick(x, ['notes','quote','context','source','detail','note'])||'').slice(0,500)
       };
-    });
+    }).filter(function(d){ return d.title; });
     if(!state.drafts.length){
       toast('No actions detected','warn');
     } else {
