@@ -9051,21 +9051,19 @@ function renderTasksV2(){
   var st=tmState();
   var wrap=document.createElement('div');wrap.className='tm-wrap';
 
-  // Header: title + dept dropdown
+  // Header: title + "+ New task" button. Department selector removed —
+  // Tasks now always show every department in one unified view, so users
+  // don't have to flip between departments to see who's working on what.
+  // Force state to "All" so cached per-department filters from old sessions
+  // don't accidentally hide tasks.
+  if(st.dept !== 'All'){ tmSetState({dept:'All'}); st = tmState(); }
   var hdr=document.createElement('div');hdr.className='tm-hdr';
   hdr.innerHTML='<div class="tm-title">Tasks</div>';
-  // Global "+ New task" button — works on every tab
   var newBtn=document.createElement('button');newBtn.className='tm-new-btn';
   newBtn.innerHTML='<span style="font-size:16px;line-height:1;font-weight:700">+</span> New task <kbd>N</kbd>';
   newBtn.onclick=function(){tmOpenNewTaskModal();};
   newBtn.setAttribute('title','New task (press N)');
   hdr.appendChild(newBtn);
-  var deptSel=document.createElement('select');deptSel.className='tm-deptpicker';
-  [{v:'All',l:'All departments'}].concat(DEPTS.map(function(d){return {v:d,l:d};})).forEach(function(o){
-    var op=document.createElement('option');op.value=o.v;op.textContent=o.l;if(o.v===st.dept)op.selected=true;deptSel.appendChild(op);
-  });
-  deptSel.onchange=function(){tmSetState({dept:this.value});renderTasksV2();};
-  hdr.appendChild(deptSel);
   wrap.appendChild(hdr);
 
   // Status strip
