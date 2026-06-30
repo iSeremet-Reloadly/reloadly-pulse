@@ -3481,10 +3481,17 @@ function _saveDeptSummaryCache(c){
   try { localStorage.setItem('rl_dept_hpm_summary', JSON.stringify(c||{})); } catch(e){}
 }
 
-// Pulls the team's HPM data for a department over the last N weeks. Returns
-// {entries:[{name,email,weekKey,highlights,progress,confidence,me}], weeks, people}
-function _gatherDeptHPMs(dept, windowWeeks, allSubmissions){
-  var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - windowWeeks*7);
+// Pulls the team's HPM data for a department. windowSpec can be:
+//   - a number (last N weeks rolling window)
+//   - a string starting with 'W:' followed by ISO week key (single week only)
+function _gatherDeptHPMs(dept, windowSpec, allSubmissions){
+  var singleWeek = null, cutoff = null;
+  if(typeof windowSpec === 'string' && windowSpec.indexOf('W:') === 0){
+    singleWeek = windowSpec.slice(2);
+  } else {
+    var windowWeeks = (typeof windowSpec === 'number') ? windowSpec : 12;
+    cutoff = new Date(); cutoff.setDate(cutoff.getDate() - windowWeeks*7);
+  }
   var entries = [];
   var peopleSeen = {};
   var weeksSeen = {};
@@ -3495,8 +3502,12 @@ function _gatherDeptHPMs(dept, windowWeeks, allSubmissions){
     Object.keys(weeks).forEach(function(wk){
       var ent = weeks[wk];
       if(!ent || !ent.submittedAt) return;
-      var d = new Date(ent.submittedAt);
-      if(d < cutoff) return;
+      if(singleWeek){
+        if(wk !== singleWeek) return;
+      } else {
+        var d = new Date(ent.submittedAt);
+        if(d < cutoff) return;
+      }
       entries.push({
         name: u.name || email,
         email: email,
@@ -3511,21 +3522,46 @@ function _gatherDeptHPMs(dept, windowWeeks, allSubmissions){
     });
   });
   entries.sort(function(a,b){return (a.weekKey < b.weekKey) ? -1 : 1;});
-  return {entries: entries, people: Object.keys(peopleSeen).length, weeks: Object.keys(weeksSeen).length};
+  return {entries: entries, people: Object.keys(peopleSeen).length, weeks: Object.keys(weeksSeen).length, mode: singleWeek ? 'week' : 'rolling', label: singleWeek || ('last ' + (windowSpec || 12) + ' weeks')};
 }
 
-// Build the prompt + call Claude. Returns a Promise<string>.
+// Returns the set of week keys present in the submissions, sorted descending.
+function _allHPMWeekKeys(allSubmissions){
+  var set = {};
+  Object.keys(allSubmissions||{}).forEach(function(email){
+    Object.keys(allSubmissions[email]||{}).forEach(function(wk){
+      var e = allSubmissions[email][wk];
+      if(e && e.submittedAt) set[wk] = true;
+    });
+  });
+  return Object.keys(set).sort().reverse();
+}
+
+// Build the prompt + call AI. Returns a Promise<string>.
 function _generateDeptHPMSummary(dept, gathered){
   var lines = [];
-  lines.push('Summarize the ' + dept + ' team\'s weekly HPM (Highlights/Progress/Me) submissions over the last 12 weeks.');
-  lines.push('Each submission has Highlights (outcomes that moved OKRs), Progress (initiatives in flight), Me (personal context — may be sensitive), and a Confidence rating (1-5).');
-  lines.push('');
-  lines.push('Provide a 150-200 word executive summary covering:');
-  lines.push('1. Top 3-5 themes / wins from the team this period');
-  lines.push('2. Areas of momentum and what\'s in flight');
-  lines.push('3. Confidence trend — average level and any concerning patterns (sustained low or sharp drops)');
-  lines.push('4. Notable individual contributions worth surfacing');
-  lines.push('5. Personal/Me signals worth manager attention (only if concerning, otherwise omit this section)');
+  var isWeekMode = gathered.mode === 'week';
+  if(isWeekMode){
+    lines.push('Summarize the ' + dept + ' team\'s weekly HPM submissions for week ' + gathered.label + '.');
+    lines.push('Each submission has Highlights (outcomes that moved OKRs), Progress (initiatives in flight), Me (personal context — may be sensitive), and a Confidence rating (1-5).');
+    lines.push('');
+    lines.push('Provide a 120-180 word executive summary covering:');
+    lines.push('1. Key wins delivered this week');
+    lines.push('2. What\'s in flight + next-week priorities');
+    lines.push('3. Average confidence + any individuals reporting concerning levels');
+    lines.push('4. Notable individual contributions');
+    lines.push('5. Personal/Me signals worth manager attention (only if concerning, otherwise omit)');
+  } else {
+    lines.push('Summarize the ' + dept + ' team\'s weekly HPM (Highlights/Progress/Me) submissions over the ' + gathered.label + '.');
+    lines.push('Each submission has Highlights (outcomes that moved OKRs), Progress (initiatives in flight), Me (personal context — may be sensitive), and a Confidence rating (1-5).');
+    lines.push('');
+    lines.push('Provide a 150-200 word executive summary covering:');
+    lines.push('1. Top 3-5 themes / wins from the team this period');
+    lines.push('2. Areas of momentum and what\'s in flight');
+    lines.push('3. Confidence trend — average level and any concerning patterns (sustained low or sharp drops)');
+    lines.push('4. Notable individual contributions worth surfacing');
+    lines.push('5. Personal/Me signals worth manager attention (only if concerning, otherwise omit this section)');
+  }
   lines.push('');
   lines.push('Be specific, concrete, and evidence-based. Quote individuals where it adds signal. Avoid generic platitudes.');
   lines.push('');
@@ -3563,26 +3599,71 @@ function renderPerfHPMFeed(wrap, pd){
   var summarySec = document.createElement('div');
   summarySec.style.cssText = 'margin-bottom:24px';
   var summaryHdr = document.createElement('div');
-  summaryHdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px';
-  summaryHdr.innerHTML = '<div><div style="font-size:13px;font-weight:700;color:var(--acc);font-family:Roboto Mono,monospace;letter-spacing:.3px">✨ DEPARTMENTAL AI SUMMARIES</div><div style="font-size:11px;color:var(--mut);margin-top:3px">Last 12 weeks · click Generate to summarise themes, momentum, confidence trend, and signals worth manager attention.</div></div>';
+  summaryHdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:14px;flex-wrap:wrap';
+  // Left: title + tagline. Right: scope selector.
+  var leftBlock = document.createElement('div');
+  leftBlock.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--acc);font-family:Roboto Mono,monospace;letter-spacing:.3px">✨ DEPARTMENTAL AI SUMMARIES</div><div id="dept-sum-tagline" style="font-size:11px;color:var(--mut);margin-top:3px">Last 12 weeks · click Generate to summarise themes, momentum, confidence trend, and signals worth manager attention.</div>';
+  summaryHdr.appendChild(leftBlock);
+  var weekScope = document.createElement('div');
+  weekScope.style.cssText = 'display:flex;align-items:center;gap:8px';
+  weekScope.innerHTML = '<label style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.3px">SCOPE</label>';
+  var weekSel = document.createElement('select');
+  weekSel.id = 'dept-sum-scope';
+  weekSel.style.cssText = 'padding:6px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--surf);color:var(--txt);font-size:12px;min-width:170px';
+  weekScope.appendChild(weekSel);
+  summaryHdr.appendChild(weekScope);
   summarySec.appendChild(summaryHdr);
   var summaryGrid = document.createElement('div');
   summaryGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px';
   summarySec.appendChild(summaryGrid);
   wrap.appendChild(summarySec);
 
+  // Current scope state: 'rolling12' (default) or a specific 'W:weekKey'.
+  // Persist last selection in localStorage so it survives page reloads.
+  var currentScope = localStorage.getItem('rl_dept_sum_scope') || 'rolling12';
+
+  function _populateWeekSelector(allSubmissions){
+    var allWeeks = _allHPMWeekKeys(allSubmissions || {});
+    weekSel.innerHTML = '';
+    var opt = document.createElement('option'); opt.value = 'rolling12'; opt.textContent = 'Last 12 weeks (rolling)'; weekSel.appendChild(opt);
+    allWeeks.forEach(function(wk){
+      var o = document.createElement('option');
+      o.value = 'W:' + wk;
+      o.textContent = 'Week ' + wk;
+      weekSel.appendChild(o);
+    });
+    weekSel.value = currentScope;
+    if(weekSel.value !== currentScope){ weekSel.value = 'rolling12'; currentScope = 'rolling12'; }
+  }
+  weekSel.onchange = function(){
+    currentScope = weekSel.value;
+    localStorage.setItem('rl_dept_sum_scope', currentScope);
+    var tagline = document.getElementById('dept-sum-tagline');
+    if(tagline){
+      tagline.textContent = currentScope === 'rolling12'
+        ? 'Last 12 weeks · click Generate to summarise themes, momentum, confidence trend, and signals worth manager attention.'
+        : 'Single week (' + currentScope.slice(2) + ') · click Generate for that week\'s wins, what\'s in flight, and confidence read.';
+    }
+    // Re-render with cached lookup for current scope.
+    if(window._lastHPMSubs) _renderDeptSummaryCards(window._lastHPMSubs);
+  };
+
   function _renderDeptSummaryCards(allSubmissions){
+    window._lastHPMSubs = allSubmissions;
+    _populateWeekSelector(allSubmissions);
     summaryGrid.innerHTML = '';
     var cache = _loadDeptSummaryCache();
     DEPTS.forEach(function(dept){
-      var key = dept + '|12w';
+      var key = dept + '|' + currentScope;
       var cached = cache[key];
-      var gathered = _gatherDeptHPMs(dept, 12, allSubmissions);
+      var spec = currentScope === 'rolling12' ? 12 : currentScope;
+      var gathered = _gatherDeptHPMs(dept, spec, allSubmissions);
       var card = document.createElement('div');
       card.style.cssText = 'background:linear-gradient(135deg,rgba(108,99,255,.06),rgba(99,102,241,.02));border:1px solid rgba(108,99,255,.25);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px';
       var cardHdr = document.createElement('div');
       cardHdr.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:8px';
-      cardHdr.innerHTML = '<div><div style="font-size:13px;font-weight:700;color:var(--txt)">'+esc(dept)+'</div><div style="font-size:10px;color:var(--mut);margin-top:2px;font-family:Roboto Mono,monospace">'+gathered.entries.length+' entries · '+gathered.people+' people · '+gathered.weeks+' weeks</div></div>';
+      var weeksLabel = gathered.mode === 'week' ? ('week ' + gathered.label) : (gathered.weeks + ' weeks');
+      cardHdr.innerHTML = '<div><div style="font-size:13px;font-weight:700;color:var(--txt)">'+esc(dept)+'</div><div style="font-size:10px;color:var(--mut);margin-top:2px;font-family:Roboto Mono,monospace">'+gathered.entries.length+' entries · '+gathered.people+' people · '+weeksLabel+'</div></div>';
       var genBtn = document.createElement('button');
       genBtn.className = 'hbtn';
       genBtn.style.cssText = 'font-size:10px;padding:5px 11px;border-color:var(--acc);color:var(--acc);flex-shrink:0';
