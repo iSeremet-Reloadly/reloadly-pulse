@@ -16877,7 +16877,7 @@ var FUND=(function(){
 
     // Tabs
     var tabBar=document.createElement('div');tabBar.className='fund-tabbar';
-    [{id:'daily',l:'Daily Pull'},{id:'forecast',l:'Forecast'},{id:'recs',l:'Fund Now'},{id:'history',l:'History'},{id:'registry',l:'Providers'}].forEach(function(t){
+    [{id:'daily',l:'Daily Pull'},{id:'forecast',l:'Forecast'},{id:'recs',l:'Fund Now'},{id:'bender0930',l:'09:30 Bender'},{id:'history',l:'History'},{id:'registry',l:'Providers'}].forEach(function(t){
       var b=document.createElement('button');b.className='fund-tab'+(t.id===ui.tab?' active':'');b.textContent=t.l;
       b.onclick=function(){ui.tab=t.id;NS.saveUI(ui);NS.renderFunding();};
       tabBar.appendChild(b);
@@ -16890,8 +16890,184 @@ var FUND=(function(){
     else if(ui.tab==='recs')_renderRecommendations(content);
     else if(ui.tab==='history')_renderHistory(content);
     else if(ui.tab==='registry')_renderRegistry(content);
+    else if(ui.tab==='bender0930')_renderBender0930(content);
     main.appendChild(wrap);
   };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 09:30 BST Bender snapshot tab — read-only server-side captures. The cron
+  // fires at 09:30 daily, pulls latest hourly + gift card summary from Slack,
+  // and stores a labelled snapshot per date. This tab shows the last N and
+  // lets the user drill into any date to see wallet-level balances.
+  // ═══════════════════════════════════════════════════════════════════════════
+  NS._benderState = NS._benderState || { snapshots: null, loading: false, error: null, selectedDate: null, lastFetched: 0 };
+  function _renderBender0930(host){
+    var s = NS._benderState;
+    host.innerHTML = '';
+    var wrap = document.createElement('div');
+
+    // Header + refresh
+    var hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px';
+    hdr.innerHTML =
+      '<div>' +
+        '<div style="font-size:13px;font-weight:800">09:30 BST Bender Snapshot</div>' +
+        '<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">Daily server-side capture · verify manual Daily Pull matches Bender</div>' +
+      '</div>';
+    var toolWrap = document.createElement('div');toolWrap.style.cssText='display:flex;gap:8px';
+    var refreshBtn = document.createElement('button');refreshBtn.className='fund-btn';
+    refreshBtn.innerHTML = s.loading ? '⟳ Loading…' : '⟲ Refresh';
+    refreshBtn.disabled = !!s.loading;
+    refreshBtn.onclick = function(){ _fetchBender0930(true); };
+    toolWrap.appendChild(refreshBtn);
+    var snapNowBtn = document.createElement('button');snapNowBtn.className='fund-btn';
+    snapNowBtn.innerHTML = '📸 Snapshot now';
+    snapNowBtn.title = 'Force a fresh snapshot right now (skips the 09:30 schedule)';
+    snapNowBtn.onclick = function(){
+      if(!confirm('Trigger a fresh Bender snapshot now?')) return;
+      snapNowBtn.disabled = true; snapNowBtn.innerHTML = '⟳ Capturing…';
+      if(typeof RL_SRV === 'undefined'){ snapNowBtn.disabled=false; snapNowBtn.innerHTML='📸 Snapshot now'; return; }
+      RL_SRV.call('record_daily_bender', {}).then(function(r){
+        snapNowBtn.disabled = false; snapNowBtn.innerHTML = '📸 Snapshot now';
+        if(r && r.ok){ toast('Snapshot captured','ok'); _fetchBender0930(true); }
+        else { toast('Snapshot failed: '+(r && r.error || 'unknown'),'err'); }
+      }).catch(function(){ snapNowBtn.disabled=false; snapNowBtn.innerHTML='📸 Snapshot now'; toast('Network error','err'); });
+    };
+    toolWrap.appendChild(snapNowBtn);
+    hdr.appendChild(toolWrap);
+    wrap.appendChild(hdr);
+
+    // Auto-fetch on first mount or if stale (>2 min)
+    if(!s.snapshots && !s.loading){ _fetchBender0930(false); }
+    else if(s.lastFetched && Date.now() - s.lastFetched > 120000 && !s.loading){ _fetchBender0930(false); }
+
+    if(s.loading && !s.snapshots){
+      var loading = document.createElement('div');
+      loading.style.cssText = 'padding:40px;text-align:center;color:var(--mut);font-size:11px';
+      loading.textContent = 'Loading server snapshots…';
+      wrap.appendChild(loading);
+      host.appendChild(wrap); return;
+    }
+    if(s.error){
+      var err = document.createElement('div');
+      err.style.cssText = 'padding:20px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);border-radius:8px;color:var(--red);font-size:11px;margin-bottom:12px';
+      err.textContent = 'Could not fetch snapshots: ' + s.error;
+      wrap.appendChild(err);
+    }
+    var snaps = s.snapshots || [];
+    if(!snaps.length){
+      var empty = document.createElement('div');
+      empty.style.cssText = 'padding:40px;text-align:center;color:var(--mut);font-size:11px;background:var(--surf);border:1px dashed var(--brd);border-radius:10px';
+      empty.innerHTML = 'No snapshots yet. The cron fires at 09:30 BST every day.<br><br>You can force one now with the "Snapshot now" button above.';
+      wrap.appendChild(empty); host.appendChild(wrap); return;
+    }
+
+    // Snapshot list — left column
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:280px 1fr;gap:14px';
+    var listBox = document.createElement('div');
+    listBox.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden;max-height:600px;overflow-y:auto';
+    var listHdr = document.createElement('div');
+    listHdr.style.cssText = 'padding:8px 14px;background:var(--surf2);font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;border-bottom:1px solid var(--brd)';
+    listHdr.textContent = 'SNAPSHOTS (' + snaps.length + ')';
+    listBox.appendChild(listHdr);
+    if(!s.selectedDate) s.selectedDate = snaps[0].date;
+    snaps.forEach(function(sn){
+      var active = sn.date === s.selectedDate;
+      var row = document.createElement('div');
+      row.style.cssText = 'padding:10px 14px;border-top:1px solid var(--brd);cursor:pointer;'+(active?'background:rgba(108,99,255,.12);border-left:3px solid var(--acc)':'');
+      row.onmouseenter = function(){ if(!active) this.style.background='rgba(255,255,255,.03)'; };
+      row.onmouseleave = function(){ if(!active) this.style.background=''; };
+      row.onclick = function(){ s.selectedDate = sn.date; _renderBender0930(host); };
+      var when = sn.capturedAt ? new Date(sn.capturedAt).toLocaleString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'}) : '—';
+      row.innerHTML =
+        '<div style="font-size:12px;font-weight:700">' + sn.date + '</div>' +
+        '<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">' +
+          sn.balanceCount + ' wallets · ' + when + ' BST' +
+        '</div>';
+      listBox.appendChild(row);
+    });
+    grid.appendChild(listBox);
+
+    // Detail — right column
+    var detail = document.createElement('div');
+    detail.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden';
+    var sel = snaps.find(function(x){ return x.date === s.selectedDate; }) || snaps[0];
+    var dhdr = document.createElement('div');
+    dhdr.style.cssText = 'padding:12px 16px;background:var(--surf2);border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center';
+    var when2 = sel.capturedAt ? new Date(sel.capturedAt).toLocaleString('en-GB',{timeZone:'Europe/London'}) : '—';
+    dhdr.innerHTML =
+      '<div>' +
+        '<div style="font-size:12px;font-weight:800">' + sel.date + ' — ' + sel.balanceCount + ' wallets</div>' +
+        '<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">Captured ' + when2 + ' BST</div>' +
+      '</div>';
+    var copyBtn = document.createElement('button');copyBtn.className='fund-btn';copyBtn.style.cssText='font-size:9px;padding:4px 10px';copyBtn.innerHTML='📋 Copy TSV';
+    copyBtn.onclick = function(){
+      var rows = [['WALLET','CURRENCY','BALANCE']];
+      Object.keys(sel.balances||{}).sort().forEach(function(k){
+        var b = sel.balances[k]||{};
+        rows.push([k, b.currency||'', typeof b.local==='number'?b.local:'']);
+      });
+      var tsv = rows.map(function(r){ return r.join('\t'); }).join('\n');
+      try { navigator.clipboard.writeText(tsv).then(function(){ toast('Copied '+sel.balanceCount+' rows','ok'); }); } catch(_){ toast('Copy failed','err'); }
+    };
+    dhdr.appendChild(copyBtn);
+    detail.appendChild(dhdr);
+
+    // Balance table
+    var tblWrap = document.createElement('div');
+    tblWrap.style.cssText = 'max-height:520px;overflow-y:auto';
+    var tbl = document.createElement('table');
+    tbl.style.cssText = 'width:100%;border-collapse:collapse;font-size:11px';
+    tbl.innerHTML = '<thead><tr style="background:var(--surf2);color:var(--mut);font-family:Roboto Mono,monospace;font-size:9px;font-weight:700"><th style="text-align:left;padding:8px 14px;border-bottom:1px solid var(--brd)">WALLET</th><th style="text-align:left;padding:8px 14px;border-bottom:1px solid var(--brd)">CCY</th><th style="text-align:right;padding:8px 14px;border-bottom:1px solid var(--brd)">BALANCE</th></tr></thead><tbody></tbody>';
+    var tb = tbl.querySelector('tbody');
+    var keys = Object.keys(sel.balances||{}).sort();
+    keys.forEach(function(k, idx){
+      var b = sel.balances[k]||{};
+      var tr = document.createElement('tr');
+      tr.style.cssText = 'border-bottom:1px solid var(--brd)'+(idx%2===0?'':';background:rgba(255,255,255,.02)');
+      var amt = typeof b.local === 'number' ? b.local.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+      tr.innerHTML =
+        '<td style="padding:8px 14px;font-family:Roboto Mono,monospace">' + k + '</td>' +
+        '<td style="padding:8px 14px;font-family:Roboto Mono,monospace;color:var(--mut)">' + (b.currency||'') + '</td>' +
+        '<td style="padding:8px 14px;text-align:right;font-family:Roboto Mono,monospace;font-weight:600">' + amt + '</td>';
+      tb.appendChild(tr);
+    });
+    if(!keys.length){
+      var em = document.createElement('tr');em.innerHTML='<td colspan="3" style="padding:20px;text-align:center;color:var(--mut)">No balances in this snapshot</td>';tb.appendChild(em);
+    }
+    tblWrap.appendChild(tbl);
+    detail.appendChild(tblWrap);
+    grid.appendChild(detail);
+
+    wrap.appendChild(grid);
+    host.appendChild(wrap);
+  }
+
+  function _fetchBender0930(showToast){
+    var s = NS._benderState;
+    if(typeof RL_SRV === 'undefined' || !RL_SRV.call){
+      s.error = 'AI bridge unavailable';
+      return;
+    }
+    s.loading = true; s.error = null;
+    // Re-render loading state
+    var host = document.querySelector('#main .fund-wrap');
+    RL_SRV.call('get_daily_bender_history', { limit: 30 }).then(function(r){
+      s.loading = false; s.lastFetched = Date.now();
+      if(r && r.ok){
+        s.snapshots = Array.isArray(r.snapshots) ? r.snapshots : [];
+        if(s.selectedDate && !s.snapshots.find(function(x){return x.date===s.selectedDate;})) s.selectedDate = null;
+        if(showToast) toast('Loaded '+s.snapshots.length+' snapshot'+(s.snapshots.length===1?'':'s'),'ok');
+      } else {
+        s.error = (r && r.error) || 'unknown';
+      }
+      NS.renderFunding();
+    }).catch(function(err){
+      s.loading = false; s.error = 'network';
+      NS.renderFunding();
+    });
+  }
 
   // ===== BURN-RATE FORECAST =====
   // Walks the snapshot history backwards from today, sums consumption-only deltas (positive
