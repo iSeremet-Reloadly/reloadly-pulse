@@ -9540,17 +9540,23 @@ function tmRenderMeetingExtractor(wrap){
   var state = window._tmMeeting;
   var sec = document.createElement('div');
   sec.id = 'tm-meeting-sec';
-  sec.style.cssText = 'margin-top:32px;border-top:1px solid var(--brd);padding-top:20px';
+  // Coloured panel — accent border + soft tinted background to lift it off
+  // the surrounding task list. A subtle left-edge stripe gives it identity
+  // without screaming for attention when collapsed.
+  sec.style.cssText = 'margin-top:32px;background:linear-gradient(135deg, rgba(108,99,255,0.08), rgba(108,99,255,0.02));border:1px solid rgba(108,99,255,0.35);border-left:4px solid var(--acc);border-radius:12px;padding:18px 22px;box-shadow:0 2px 14px rgba(108,99,255,0.08)';
 
   // Collapsible header
   var hdr = document.createElement('div');
-  hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;padding:8px 0';
+  hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none';
   hdr.innerHTML =
-    '<div>' +
-      '<div style="font-size:13px;font-weight:800">📋 Meeting → Actions</div>' +
-      '<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">Paste meeting notes — AI extracts action items you can create as tasks</div>' +
+    '<div style="display:flex;align-items:center;gap:14px">' +
+      '<div style="width:42px;height:42px;border-radius:10px;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 12px rgba(108,99,255,0.35)">📋</div>' +
+      '<div>' +
+        '<div style="font-size:15px;font-weight:800;letter-spacing:-0.2px;display:flex;align-items:center;gap:8px">Meeting → Actions <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--acc);color:#fff;font-family:Roboto Mono,monospace">AI</span></div>' +
+        '<div style="font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:3px">Paste meeting notes — AI extracts action items you can assign as tasks</div>' +
+      '</div>' +
     '</div>' +
-    '<div style="font-size:18px;color:var(--mut)">'+(state.expanded?'▾':'▸')+'</div>';
+    '<div style="font-size:22px;color:var(--acc);font-weight:800">'+(state.expanded?'▾':'▸')+'</div>';
   hdr.onclick = function(){
     state.expanded = !state.expanded;
     tmRefreshMeetingSection();
