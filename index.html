@@ -16904,19 +16904,45 @@ var FUND=(function(){
   function _renderBender0930(host){
     var s = NS._benderState;
     host.innerHTML = '';
+
+    // Inject the spinner keyframes once (guarded so re-renders don't stack).
+    if(!document.getElementById('bender-loader-style')){
+      var st = document.createElement('style');st.id='bender-loader-style';
+      st.textContent =
+        '@keyframes bender-spin{to{transform:rotate(360deg)}}'+
+        '@keyframes bender-pulse{0%,100%{opacity:.4}50%{opacity:1}}'+
+        '.bender-spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(108,99,255,.25);border-top-color:var(--acc);border-radius:50%;animation:bender-spin .8s linear infinite;vertical-align:middle;margin-right:6px}'+
+        '.bender-progress{position:relative;height:3px;background:rgba(108,99,255,.12);border-radius:2px;overflow:hidden;margin:0 0 12px}'+
+        '.bender-progress::after{content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;background:linear-gradient(90deg,transparent,var(--acc),transparent);animation:bender-slide 1.1s ease-in-out infinite}'+
+        '@keyframes bender-slide{0%{left:-40%}100%{left:100%}}'+
+        '.bender-refreshing{opacity:.55;pointer-events:none;transition:opacity .2s}';
+      document.head.appendChild(st);
+    }
+
     var wrap = document.createElement('div');
+    wrap.id = 'bender-panel';
+
+    // Progress bar strip shown any time we're loading — always visible mid-refresh
+    if(s.loading){
+      var progress = document.createElement('div');
+      progress.className = 'bender-progress';
+      wrap.appendChild(progress);
+    }
 
     // Header + refresh
     var hdr = document.createElement('div');
     hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px';
+    var busyPill = s.loading
+      ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(108,99,255,.15);color:var(--acc);font-family:Roboto Mono,monospace;margin-left:10px;vertical-align:middle"><span class="bender-spin" style="margin:0"></span>UPDATING…</span>'
+      : '';
     hdr.innerHTML =
       '<div>' +
-        '<div style="font-size:13px;font-weight:800">09:30 BST Bender Snapshot</div>' +
+        '<div style="font-size:13px;font-weight:800;display:flex;align-items:center">09:30 BST Bender Snapshot' + busyPill + '</div>' +
         '<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">Daily server-side capture · verify manual Daily Pull matches Bender</div>' +
       '</div>';
     var toolWrap = document.createElement('div');toolWrap.style.cssText='display:flex;gap:8px';
     var refreshBtn = document.createElement('button');refreshBtn.className='fund-btn';
-    refreshBtn.innerHTML = s.loading ? '⟳ Loading…' : '⟲ Refresh';
+    refreshBtn.innerHTML = s.loading ? '<span class="bender-spin"></span>Loading…' : '⟲ Refresh';
     refreshBtn.disabled = !!s.loading;
     refreshBtn.onclick = function(){ _fetchBender0930(true); };
     toolWrap.appendChild(refreshBtn);
@@ -16925,13 +16951,20 @@ var FUND=(function(){
     snapNowBtn.title = 'Force a fresh snapshot right now (skips the 09:30 schedule)';
     snapNowBtn.onclick = function(){
       if(!confirm('Trigger a fresh Bender snapshot now?')) return;
-      snapNowBtn.disabled = true; snapNowBtn.innerHTML = '⟳ Capturing…';
-      if(typeof RL_SRV === 'undefined'){ snapNowBtn.disabled=false; snapNowBtn.innerHTML='📸 Snapshot now'; return; }
+      snapNowBtn.disabled = true;
+      snapNowBtn.innerHTML = '<span class="bender-spin"></span>Capturing…';
+      // Flip global loading flag so the whole panel dims + shows the progress bar.
+      s.loading = true; NS.renderFunding();
+      if(typeof RL_SRV === 'undefined'){
+        s.loading = false; snapNowBtn.disabled=false; snapNowBtn.innerHTML='📸 Snapshot now';
+        NS.renderFunding(); return;
+      }
       RL_SRV.call('record_daily_bender', {}).then(function(r){
-        snapNowBtn.disabled = false; snapNowBtn.innerHTML = '📸 Snapshot now';
         if(r && r.ok){ toast('Snapshot captured','ok'); _fetchBender0930(true); }
-        else { toast('Snapshot failed: '+(r && r.error || 'unknown'),'err'); }
-      }).catch(function(){ snapNowBtn.disabled=false; snapNowBtn.innerHTML='📸 Snapshot now'; toast('Network error','err'); });
+        else { s.loading = false; toast('Snapshot failed: '+(r && r.error || 'unknown'),'err'); NS.renderFunding(); }
+      }).catch(function(){
+        s.loading = false; toast('Network error','err'); NS.renderFunding();
+      });
     };
     toolWrap.appendChild(snapNowBtn);
     hdr.appendChild(toolWrap);
@@ -16965,6 +16998,7 @@ var FUND=(function(){
     // Snapshot list — left column
     var grid = document.createElement('div');
     grid.style.cssText = 'display:grid;grid-template-columns:280px 1fr;gap:14px';
+    if(s.loading){ grid.className = 'bender-refreshing'; }
     var listBox = document.createElement('div');
     listBox.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden;max-height:600px;overflow-y:auto';
     var listHdr = document.createElement('div');
@@ -17139,11 +17173,13 @@ var FUND=(function(){
     var s = NS._benderState;
     if(typeof RL_SRV === 'undefined' || !RL_SRV.call){
       s.error = 'AI bridge unavailable';
+      NS.renderFunding();
       return;
     }
     s.loading = true; s.error = null;
-    // Re-render loading state
-    var host = document.querySelector('#main .fund-wrap');
+    // Force an immediate re-render so the spinner + progress bar appear the
+    // moment the request kicks off, not only when it completes.
+    NS.renderFunding();
     RL_SRV.call('get_daily_bender_history', { limit: 30 }).then(function(r){
       s.loading = false; s.lastFetched = Date.now();
       if(r && r.ok){
