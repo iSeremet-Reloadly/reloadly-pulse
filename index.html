@@ -1490,6 +1490,9 @@ function init(){
   if(profile && hasPassword(saved) && sessionToken && Date.now() < sessionExpiresAt){
     currentUser={email:saved,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin,canAccessProposals:!!profile.canAccessProposals||!!profile.isAdmin,canAccessWalletOps:!!profile.canAccessWalletOps||!!profile.isAdmin};
     loadData();
+    // If the URL carries a hash route (e.g. #/okrtracker), honor it on load
+    // instead of falling back to the default view.
+    setTimeout(function(){ try { _applyHashRoute(); } catch(_){} }, 0);
     // Async revalidation — Worker may invalidate idle sessions (>2h) or
     // explicitly revoked ones. If invalid, sign out + show gate.
     if(typeof RL_SRV !== 'undefined'){
@@ -1688,6 +1691,9 @@ function _finalizeSignIn(email, profile, sessionToken, expiresAt){
   document.getElementById('gate').style.display='none';
   loadData();
   try { logEntry('Signed in as '+profile.role,'edit'); autoSave(); } catch(e){}
+  // Honour any hash-route the user opened Pulse with (e.g. someone shared a
+  // link to /#/okrtracker) after they successfully authenticate.
+  setTimeout(function(){ try { _applyHashRoute(); } catch(_){} }, 0);
 }
 function renderUserPill(){
   var ex=document.getElementById('user-pill-el');if(ex)ex.remove();
@@ -2530,6 +2536,40 @@ function render(){
     }
   } catch(e){}
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Hash-based deep-linking. Writing `location.hash = '#/okr'` when the user
+// navigates makes URLs like https://pulse.reloadly.com/#/okrtracker shareable
+// and reload-safe. GitHub Pages can't serve path-based routes without a 404
+// fallback, so hashes are the pragmatic choice.
+//
+// _ROUTE_ALIASES lets us support friendly URLs (okrtracker, walletops, etc.)
+// on top of the internal view keys. Add new entries alongside new modules.
+// ─────────────────────────────────────────────────────────────────────────────
+var _ROUTE_ALIASES = {
+  'okr': 'okr', 'okrtracker': 'okr', 'okr-tracker': 'okr', 'okrs': 'okr',
+  'dashboard': 'dashboard', 'dash': 'dashboard',
+  'tasks': 'tasks', 'task': 'tasks',
+  'mytasks': 'mytasks', 'my-tasks': 'mytasks', 'my': 'mytasks',
+  'strategy': 'strategy',
+  'roadmaps': 'roadmaps', 'roadmap': 'roadmaps',
+  'performance': 'perf', 'perf': 'perf',
+  'funding': 'funding', 'walletops': 'funding', 'wallet-ops': 'funding', 'wallet': 'funding',
+  'pricing': 'pricing',
+  'proposals': 'proposals', 'proposal': 'proposals',
+  'users': 'users', 'usermgmt': 'users', 'user-management': 'users', 'usermanagement': 'users',
+  'reminders': 'reminders',
+  'timeline': 'timeline',
+  'help': 'help'
+};
+function _viewFromHash(){
+  var h = String(location.hash || '').replace(/^#\/?/, '').toLowerCase().split(/[?#]/)[0];
+  if(!h) return null;
+  return _ROUTE_ALIASES[h] || null;
+}
+// Guard flag so writing location.hash inside go() doesn't fire hashchange →
+// recursive go() calls.
+var _routeSuppressHash = false;
+
 function go(v){
   if(!data||!currentUser)return;
   // Per-route access gate — each module has its own permission now.
@@ -2541,7 +2581,31 @@ function go(v){
   var el=document.getElementById('nav-'+v);if(el)el.classList.add('active');
   Object.values(charts).forEach(function(c){try{c.destroy();}catch(e){}});
   charts={};render();
+  // Reflect the current view in the URL so it's shareable + reload-safe.
+  try {
+    var desired = '#/' + v;
+    if(location.hash !== desired){
+      _routeSuppressHash = true;
+      // Use replaceState so we don't spam browser history with every click,
+      // but do fall back to hash write if the History API is missing.
+      if(history && history.replaceState){
+        history.replaceState(null, '', location.pathname + location.search + desired);
+      } else {
+        location.hash = desired;
+      }
+      _routeSuppressHash = false;
+    }
+  } catch(_){}
 }
+// Kick the app to a hash-supplied view once the user is authenticated. Called
+// from init() after currentUser is populated, and on every hashchange event.
+function _applyHashRoute(){
+  if(_routeSuppressHash) return;
+  if(!currentUser || !data) return;
+  var v = _viewFromHash();
+  if(v && v !== view) go(v);
+}
+window.addEventListener('hashchange', _applyHashRoute);
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function spill(s){return '<span class="sp '+(SPC[s]||'ns')+'"><span class="sdot"></span>'+s+'</span>';}
 function bpill(p){return '<span class="badge '+p+'">'+p+'</span>';}
