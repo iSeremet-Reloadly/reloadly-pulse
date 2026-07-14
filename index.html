@@ -1748,6 +1748,13 @@ function renderMyTasks(){
             okrsHtml += '</div>';
             okrsHtml += '</div>';
             okrsHtml += '<div style="height:3px;background:var(--bg);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+g.deptColor+';border-radius:2px"></div></div>';
+            // ✨ AI: Suggest tasks — payload carries all context the recommender needs.
+            // stopPropagation prevents the parent onclick (which navigates to OKR view) from firing.
+            var suggestPayload = encodeURIComponent(JSON.stringify({
+              dept: g.dept, objId: g.obj.id, objTitle: g.obj.title, objPct: objPct,
+              krId: row.kr.id, krTitle: row.kr.title, krPct: pct, krConf: conf
+            }));
+            okrsHtml += '<div style="margin-top:8px;text-align:right"><button onclick="event.stopPropagation();mtSuggestTasksForKR(\''+suggestPayload+'\')" style="font-size:10px;padding:5px 10px;background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px">✨ SUGGEST TASKS</button></div>';
             okrsHtml += '</div>';
             okrsHtml += '</div>';
           });
@@ -1782,6 +1789,168 @@ function renderMyTasks(){
   h2+=okrsHtml;
   el.innerHTML=h2;
   _wireMyOKRsToggle();
+}
+
+// ── AI: Suggest tasks for a specific KR ────────────────────────────────────
+// Called from the ✨ SUGGEST TASKS button on each KR card in My OKRs. Sends
+// the KR context to the same Cloudflare Worker + Llama endpoint the meeting
+// extractor uses, parses the JSON reply, opens a review modal so the user can
+// pick which suggestions to bulk-create as tasks (owner = current user, KR
+// link via OKR_LINKS so progress flows both ways).
+function mtSuggestTasksForKR(payloadEnc){
+  var payload;
+  try { payload = JSON.parse(decodeURIComponent(payloadEnc)); }
+  catch(e){ toast('Bad KR payload','err'); return; }
+  if(typeof RL_SRV === 'undefined' || !RL_SRV.call){ toast('AI bridge unavailable','err'); return; }
+  // Loading overlay so the user knows a call is in flight (Llama 70B is ~10s).
+  var loader = document.createElement('div');
+  loader.id = 'mt-suggest-loader';
+  loader.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center';
+  loader.innerHTML = '<div style="background:var(--surf);padding:26px 32px;border-radius:12px;text-align:center;font-family:Roboto Mono,monospace">' +
+    '<div style="width:32px;height:32px;border:3px solid var(--brd);border-top-color:var(--acc);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px"></div>' +
+    '<div style="font-size:12px;color:var(--mut)">Asking AI for task ideas…</div>' +
+    '<div style="font-size:10px;color:var(--mut);margin-top:6px">'+esc(payload.krId||'')+'</div></div>' +
+    '<style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
+  document.body.appendChild(loader);
+
+  var today = new Date().toISOString().split('T')[0];
+  var prompt =
+'You are a senior operator helping an OKR owner break down a Key Result into concrete tasks. Return ONLY a JSON array. No prose, no markdown fences. Start with [ and end with ].\n\n'+
+'CONTEXT:\n'+
+'  Department: '+payload.dept+'\n'+
+'  Objective: '+payload.objTitle+' ('+payload.objPct+'%)\n'+
+'  Key Result: '+payload.krTitle+'\n'+
+'  Current progress: '+payload.krPct+'%\n'+
+'  Confidence: '+(payload.krConf||'Not started')+'\n'+
+'  Today: '+today+'\n\n'+
+'Suggest 4 to 6 concrete, executable tasks that would move this KR forward. Each must be a real deliverable, not vague advice. Sequence them logically (foundational tasks first, then dependent ones).\n\n'+
+'For each task include EXACTLY these fields:\n'+
+'  - title: short imperative (max 90 chars)\n'+
+'  - priority: Critical | High | Medium | Low\n'+
+'  - due: YYYY-MM-DD estimate (2 days to 4 weeks out — use today\'s date + realistic offset)\n'+
+'  - why: one sentence linking this task to the KR (max 140 chars)\n\n'+
+'EXAMPLE OUTPUT:\n'+
+'[{"title":"Draft compliance policy v1","priority":"High","due":"'+today+'","why":"Baseline document unblocks all downstream approval work"}]\n\n'+
+'JSON:';
+
+  RL_SRV.call('ai_summarize', { prompt: prompt, max_tokens: 1200, model: '@cf/meta/llama-3.1-70b-instruct' }).then(function(r){
+    var loaderEl = document.getElementById('mt-suggest-loader');
+    if(loaderEl) loaderEl.remove();
+    if(!r || !r.ok){ toast('AI failed: '+(r&&r.error||'unknown'),'err'); return; }
+    var raw = String(r.text||'').trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+    var parsed = null;
+    function tryParse(s){ try { return JSON.parse(s); } catch(_) { return null; } }
+    parsed = tryParse(raw);
+    if(!parsed){ var si=raw.indexOf('['), ei=raw.lastIndexOf(']'); if(si>=0&&ei>si) parsed=tryParse(raw.slice(si,ei+1)); }
+    if(!parsed){ var matches = raw.match(/\{[^{}]*\}/g); if(matches) parsed = matches.map(tryParse).filter(Boolean); }
+    if(parsed && !Array.isArray(parsed)) parsed = [parsed];
+    if(!parsed || !parsed.length){ toast('Could not parse AI reply — try again','err'); try{console.warn('Raw AI reply:',raw);}catch(_){} return; }
+    // Normalise fields.
+    var suggestions = parsed.filter(function(x){return x&&typeof x==='object';}).map(function(x){
+      var title = String(x.title||x.task||x.action||'').slice(0,200).trim();
+      var pri = String(x.priority||'Medium').trim();
+      var priLow = pri.toLowerCase();
+      if(priLow.indexOf('crit')===0||priLow.indexOf('urg')===0) pri='Critical';
+      else if(priLow.indexOf('hi')===0) pri='High';
+      else if(priLow.indexOf('low')===0) pri='Low';
+      else pri='Medium';
+      var due = String(x.due||x.dueDate||x.due_date||'').trim();
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(due)){ var d=new Date(due); due = isNaN(d.getTime())?'':d.toISOString().split('T')[0]; }
+      return { title: title, priority: pri, due: due, why: String(x.why||x.notes||'').slice(0,300) };
+    }).filter(function(s){ return s.title; });
+    if(!suggestions.length){ toast('No usable suggestions returned','warn'); return; }
+    _mtRenderSuggestModal(payload, suggestions);
+  }).catch(function(err){
+    var loaderEl = document.getElementById('mt-suggest-loader');
+    if(loaderEl) loaderEl.remove();
+    toast('AI error: '+(err&&err.message||err),'err');
+  });
+}
+
+// Review modal — user picks which suggestions to add. Bulk-creates tasks in the
+// KR's dept, assigned to the current user, linked to the KR via OKR_LINKS.
+function _mtRenderSuggestModal(payload, suggestions){
+  var overlay = document.createElement('div');
+  overlay.id = 'mt-suggest-modal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.onclick = function(ev){ if(ev.target===overlay) overlay.remove(); };
+  var box = document.createElement('div');
+  box.style.cssText='background:var(--surf);border-radius:14px;padding:24px;width:720px;max-width:94vw;max-height:88vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.5)';
+  var html = '';
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">';
+  html += '<div><div style="font-size:9px;font-family:Roboto Mono,monospace;color:var(--mut);letter-spacing:.6px;margin-bottom:4px">✨ AI TASK SUGGESTIONS · '+esc(payload.krId)+'</div>';
+  html += '<div style="font-size:16px;font-weight:800;color:var(--txt);line-height:1.3">'+esc(payload.krTitle)+'</div>';
+  html += '<div style="font-size:10px;color:var(--mut);margin-top:4px">'+esc(payload.dept)+' · currently '+payload.krPct+'% · '+esc(payload.krConf||'Not started')+'</div></div>';
+  html += '<button id="mt-sg-close" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">×</button>';
+  html += '</div>';
+  html += '<div style="font-size:11px;color:var(--mut);margin-bottom:14px;line-height:1.5">Tick the tasks to create. Each will be added to <b>'+esc(payload.dept)+'</b>, assigned to you, and linked to this KR so progress rolls up automatically.</div>';
+  html += '<div id="mt-sg-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">';
+  suggestions.forEach(function(s, i){
+    html += '<label style="display:flex;gap:12px;padding:12px 14px;background:var(--surf2);border:1px solid var(--brd);border-left:3px solid var(--acc);border-radius:8px;cursor:pointer">';
+    html += '<input type="checkbox" data-i="'+i+'" checked style="width:16px;height:16px;flex-shrink:0;margin-top:2px;cursor:pointer">';
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:4px">'+esc(s.title)+'</div>';
+    html += '<div style="font-size:10px;color:var(--mut);line-height:1.4;margin-bottom:6px">'+esc(s.why)+'</div>';
+    html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+    var priColors = {Critical:'var(--red)',High:'var(--yel)',Medium:'var(--acc)',Low:'var(--mut)'};
+    html += '<span style="font-size:9px;padding:2px 8px;border-radius:3px;background:'+(priColors[s.priority]||'var(--mut)')+';color:#fff;font-family:Roboto Mono,monospace;font-weight:700">'+s.priority+'</span>';
+    if(s.due) html += '<span style="font-size:9px;padding:2px 8px;border-radius:3px;background:var(--bg);color:var(--mut);font-family:Roboto Mono,monospace">DUE '+s.due+'</span>';
+    html += '</div></div></label>';
+  });
+  html += '</div>';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid var(--brd)">';
+  html += '<div style="font-size:10px;color:var(--mut)"><a id="mt-sg-none" style="color:var(--acc);cursor:pointer;text-decoration:underline">select none</a> · <a id="mt-sg-all" style="color:var(--acc);cursor:pointer;text-decoration:underline">select all</a></div>';
+  html += '<div style="display:flex;gap:8px">';
+  html += '<button id="mt-sg-cancel" style="padding:9px 16px;background:var(--surf2);color:var(--txt);border:1px solid var(--brd);border-radius:6px;cursor:pointer;font-size:12px">Cancel</button>';
+  html += '<button id="mt-sg-add" style="padding:9px 20px;background:var(--acc);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">+ Add selected to My Tasks</button>';
+  html += '</div></div>';
+  box.innerHTML = html;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  var close = function(){ overlay.remove(); };
+  box.querySelector('#mt-sg-close').onclick = close;
+  box.querySelector('#mt-sg-cancel').onclick = close;
+  box.querySelector('#mt-sg-all').onclick = function(){ box.querySelectorAll('#mt-sg-list input[type=checkbox]').forEach(function(cb){cb.checked=true;}); };
+  box.querySelector('#mt-sg-none').onclick = function(){ box.querySelectorAll('#mt-sg-list input[type=checkbox]').forEach(function(cb){cb.checked=false;}); };
+  box.querySelector('#mt-sg-add').onclick = function(){
+    var picks = Array.from(box.querySelectorAll('#mt-sg-list input[type=checkbox]:checked')).map(function(cb){ return suggestions[parseInt(cb.dataset.i,10)]; });
+    if(!picks.length){ toast('Select at least one','warn'); return; }
+    _mtCreateTasksAndLink(payload, picks);
+    close();
+  };
+}
+
+// Actually create the tasks + link them to the KR. Uses the same task-shape
+// as manual creation so drag/drop, filters, and archive all work.
+function _mtCreateTasksAndLink(payload, tasks){
+  if(!data[payload.dept]) data[payload.dept] = [];
+  var created = [];
+  tasks.forEach(function(t){
+    var newTask = {
+      id: nextId(payload.dept),
+      name: t.title,
+      status: 'Not Started',
+      priority: t.priority,
+      assignee: currentUser ? (currentUser.name||currentUser.email) : '',
+      due: t.due || '',
+      progress: 0,
+      notes: 'AI-suggested for '+payload.krId+' · '+payload.krTitle + (t.why?('\n\nWhy: '+t.why):''),
+      createdAt: new Date().toISOString()
+    };
+    data[payload.dept].push(newTask);
+    created.push(newTask.id);
+  });
+  // Link every created task to the KR so it counts toward KR completion.
+  if(!OKR_LINKS[payload.krId]) OKR_LINKS[payload.krId] = [];
+  created.forEach(function(tid){
+    if(OKR_LINKS[payload.krId].indexOf(tid) < 0) OKR_LINKS[payload.krId].push(tid);
+  });
+  localStorage.setItem('rl_okr_links', JSON.stringify(OKR_LINKS));
+  logEntry('AI suggested '+created.length+' task'+(created.length===1?'':'s')+' for '+payload.krId,'ai');
+  autoSave();
+  toast('Added '+created.length+' task'+(created.length===1?'':'s')+' + linked to '+payload.krId,'ok');
+  renderMyTasks();
 }
 
 // Wire the collapsible My OKRs section. Idempotent — safe to call after
