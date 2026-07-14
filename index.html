@@ -4735,11 +4735,21 @@ function _hpmWindow(weekKey){
 function _hpmBlankEntry(department){
   return {department: department, highlights:[{text:'', krId:null}], progress:[{text:'', krId:null}], me:{text:'', visibility:'manager'}, confidence:null, submittedAt:null, lastEditedAt:null, late:false};
 }
-// Flatten OKR_DATA to a list of {label, krId, deptColor} for the picker.
+// Flatten the CURRENT quarter's OKRs to {label, krId, deptColor} for the
+// HPM picker. Was reading the hardcoded Q2 OKR_DATA seed — that meant new
+// Q3/Q4 KRs never showed in the picker.
 function _allKRsForPicker(){
+  var src = null;
+  try {
+    if(typeof loadOKRForQuarter === 'function' && typeof getActiveOKRKey === 'function'){
+      src = loadOKRForQuarter(getActiveOKRKey());
+    }
+  } catch(_){}
+  if(!src || !src.depts) src = (typeof OKR_DATA !== 'undefined') ? OKR_DATA : null;
+  if(!src || !src.depts) return [];
   var out = [];
-  Object.keys(OKR_DATA.depts).forEach(function(deptName){
-    var d = OKR_DATA.depts[deptName];
+  Object.keys(src.depts).forEach(function(deptName){
+    var d = src.depts[deptName];
     (d.objectives||[]).forEach(function(obj){
       (obj.krs||[]).forEach(function(kr){
         out.push({krId: kr.id, label: '['+deptName.substring(0,4).toUpperCase()+'] '+obj.title.substring(0,40)+' › '+kr.title, dept: deptName});
@@ -6417,6 +6427,83 @@ function saveUI(u){localStorage.setItem(STATE_KEY,JSON.stringify(u));}
 // Inline info icon helper — reuses existing .th-info / data-tip system
 function _thi(tip){return ' <span class="th-info" data-tip="'+String(tip||'').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" style="cursor:help">i</span>';}
 
+// ── Hydration: ensure Strategy nodes exist for every current OKR ────────
+// Migration is idempotent (only runs once per quarter) so it doesn't pick
+// up new objectives added later. This lighter hydrate walks the current
+// OKR data and creates any missing Strategy nodes / edges without touching
+// user's custom nodes. Called from renderStrategy so every view is fresh.
+NS.hydrateFromOKR = function(){
+  var allNodes = loadNodes();
+  var allEdges = loadEdges();
+  var changed = false;
+  // Find every OKR quarter we have data for
+  var quarters = [];
+  for(var i=0; i<localStorage.length; i++){
+    var k = localStorage.key(i);
+    if(k && /^rl_okr_Q[1-4]_\d{4}$/.test(k)) quarters.push(k.replace('rl_okr_',''));
+  }
+  if(typeof getActiveOKRKey === 'function' && quarters.indexOf(getActiveOKRKey()) < 0) quarters.push(getActiveOKRKey());
+  quarters.forEach(function(qk){
+    var okr = loadOKRForQuarter(qk);
+    if(!okr || !okr.depts) return;
+    if(!allNodes[qk]) allNodes[qk] = {};
+    if(!allEdges[qk]) allEdges[qk] = [];
+    var qnodes = allNodes[qk];
+    var qedges = allEdges[qk];
+    var edgeSeen = {};
+    qedges.forEach(function(e){ edgeSeen[e.p+'|'+e.c] = 1; });
+    Object.keys(okr.depts).forEach(function(deptName){
+      var dept = okr.depts[deptName];
+      var isCompany = (deptName === 'Company');
+      (dept.objectives||[]).forEach(function(obj){
+        var nid = (isCompany?'CO-':'DO-') + obj.id;
+        if(!qnodes[nid]){
+          qnodes[nid] = {
+            id:nid, type:isCompany?'CompanyObjective':'DepartmentObjective',
+            title:obj.title||'(untitled)', dept:deptName, quarter:qk,
+            ownerEmail:'', ownerName:obj.owner||'',
+            state:obj.progress>=100?'Done':(obj.progress>0?'Active':'Draft'),
+            progressPct:obj.progress||0, sourceOkrObjId:obj.id,
+            createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
+          };
+          changed = true;
+        } else {
+          // Keep title + progress fresh so Strategy reflects edits made in OKR Tracker.
+          if(qnodes[nid].title !== (obj.title||'')){ qnodes[nid].title = obj.title||''; changed = true; }
+          if(qnodes[nid].progressPct !== (obj.progress||0)){ qnodes[nid].progressPct = obj.progress||0; changed = true; }
+        }
+        (obj.krs||[]).forEach(function(kr){
+          var kid = 'KR-' + kr.id;
+          if(!qnodes[kid]){
+            qnodes[kid] = {
+              id:kid, type:'KeyResult', title:kr.title||'(untitled)',
+              dept:deptName, quarter:qk,
+              ownerEmail:'', ownerName:kr.owner||'',
+              state:kr.progress>=100?'Done':(kr.confidence==='Off Track'?'AtRisk':(kr.progress>0?'Active':'Draft')),
+              progressPct:kr.progress||0, confidence:kr.confidence||'Not started',
+              metric:{name:'',baseline:null,target:null,unit:'',direction:''},
+              sourceKrId:kr.id, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
+            };
+            changed = true;
+          } else {
+            if(qnodes[kid].title !== (kr.title||'')){ qnodes[kid].title = kr.title||''; changed = true; }
+            if(qnodes[kid].progressPct !== (kr.progress||0)){ qnodes[kid].progressPct = kr.progress||0; changed = true; }
+            if(qnodes[kid].confidence !== (kr.confidence||'Not started')){ qnodes[kid].confidence = kr.confidence||'Not started'; changed = true; }
+          }
+          var ek = nid+'|'+kid;
+          if(!edgeSeen[ek]){ qedges.push({p:nid,c:kid,w:1.0,pr:true}); edgeSeen[ek] = 1; changed = true; }
+        });
+      });
+    });
+  });
+  if(changed){
+    saveNodes(allNodes);
+    saveEdges(allEdges);
+    // Piggy-back the existing OKR_SYNC push so nodes propagate to teammates.
+    try { if(typeof OKR_SYNC !== 'undefined' && OKR_SYNC && OKR_SYNC.push) OKR_SYNC.push(); } catch(_){}
+  }
+};
+
 // ── Migration: existing OKR + task data -> typed nodes + edges ────────
 NS.migrate=function(){
   var migrated=loadMig();
@@ -6716,6 +6803,9 @@ function toggleExpand(id){var s=getState();s.expanded[id]=!s.expanded[id];saveUI
 
 // ── Renderer ──────────────────────────────────────────────────────────
 NS.renderStrategy=function(){
+  // Ensure Strategy graph reflects every current OKR objective + KR before
+  // rendering. Idempotent, cheap, keeps user's custom nodes intact.
+  try { if(typeof NS.hydrateFromOKR === 'function') NS.hydrateFromOKR(); } catch(_){}
   // V2: 4-tab structure per STRATEGY_REDESIGN.md
   return NS._renderV2();
 };
