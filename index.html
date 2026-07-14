@@ -2289,8 +2289,88 @@ function _bootAllSyncs(){
   try { _initRoadmapsSync(); } catch(e){}
   try { _initOKRSync(); } catch(e){}
   try { _initPerfSync(); } catch(e){}
+  try { _initFreshnessLoop(); } catch(e){}
 }
 if(typeof window !== 'undefined'){ setTimeout(_bootAllSyncs, 1500); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Freshness loop — keeps data and code up to date without manual Cmd+Shift+R.
+//   1) On tab visibility change (blur→focus), force a pull on every sync
+//      engine so switching back to Pulse immediately refreshes everything.
+//   2) Watches the served index.html Last-Modified header. When a new deploy
+//      lands, shows a subtle "New version — reload" banner (auto-reloads
+//      after 60s if the user doesn't act).
+//   3) Sync status pill in the header ("Live · synced now" / "Updating…")
+//      so users see the sync is running.
+// ─────────────────────────────────────────────────────────────────────────────
+window._pulseLastModified = null;
+window._pulseLastSyncAt = Date.now();
+function _forcePullAllSyncs(){
+  window._pulseLastSyncAt = Date.now();
+  [window.USER_REG_SYNC, window.ACT_LOG_SYNC, window.RM_SYNC, window.OKR_SYNC, window.PERF_SYNC, window._TASKS_SYNC].forEach(function(eng){
+    if(eng && eng.pull) { try { eng.pull(true); } catch(_){} }
+  });
+  // Tasks uses a dedicated pull function.
+  if(typeof _pullTasksFromWorker === 'function') { try { _pullTasksFromWorker(true); } catch(_){} }
+  _updateFreshnessPill();
+}
+function _checkForNewDeploy(){
+  return fetch(location.pathname + '?_hb=' + Date.now(), { method: 'HEAD', cache: 'no-store' })
+    .then(function(r){
+      var lm = r.headers.get('last-modified') || r.headers.get('etag') || '';
+      if(!lm) return;
+      if(!window._pulseLastModified){ window._pulseLastModified = lm; return; }
+      if(lm !== window._pulseLastModified){
+        _showNewVersionBanner();
+      }
+    }).catch(function(){});
+}
+function _showNewVersionBanner(){
+  if(document.getElementById('_pulse-new-ver')) return;
+  var bar = document.createElement('div');
+  bar.id = '_pulse-new-ver';
+  bar.style.cssText = 'position:fixed;bottom:16px;right:16px;background:var(--acc);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,0.35);z-index:99999;display:flex;align-items:center;gap:12px;font-family:system-ui,-apple-system,sans-serif';
+  bar.innerHTML = '<span>✨ New version available</span>';
+  var reloadBtn = document.createElement('button');
+  reloadBtn.textContent = 'Reload';
+  reloadBtn.style.cssText = 'background:#fff;color:var(--acc);border:none;padding:6px 14px;border-radius:6px;font-weight:800;cursor:pointer;font-size:12px';
+  reloadBtn.onclick = function(){ location.reload(); };
+  bar.appendChild(reloadBtn);
+  document.body.appendChild(bar);
+  // Auto-reload after 60s if user doesn't click — assumes they're inactive.
+  setTimeout(function(){ if(document.getElementById('_pulse-new-ver')) location.reload(); }, 60000);
+}
+function _updateFreshnessPill(){
+  var el = document.getElementById('_pulse-live-pill');
+  if(!el){
+    var host = document.getElementById('as-lbl');
+    if(!host) return;
+    el = document.createElement('span');
+    el.id = '_pulse-live-pill';
+    el.style.cssText = 'font-size:9px;font-family:Roboto Mono,monospace;color:var(--grn);margin-right:8px;padding:2px 8px;border-radius:20px;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.3);cursor:pointer';
+    el.title = 'Data auto-syncs every 30s. Click to force a refresh now.';
+    el.onclick = _forcePullAllSyncs;
+    host.parentNode.insertBefore(el, host);
+  }
+  var age = Math.round((Date.now() - window._pulseLastSyncAt)/1000);
+  el.textContent = '● Live · ' + (age < 5 ? 'just now' : age < 60 ? age+'s ago' : Math.floor(age/60)+'m ago');
+}
+function _initFreshnessLoop(){
+  // 1) Force pull on visibility change (tab refocus)
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden){
+      _forcePullAllSyncs();
+      _checkForNewDeploy();
+    }
+  });
+  // 2) Version check on interval
+  _checkForNewDeploy(); // baseline
+  setInterval(_checkForNewDeploy, 120000); // every 2 min
+  // 3) Freshness pill updater — refresh label every 15s so it doesn't drift
+  setInterval(_updateFreshnessPill, 15000);
+  // Kick a pull every time an engine finishes so pill stays current
+  setTimeout(_updateFreshnessPill, 2000);
+}
 
 function autoSave(){
   localStorage.setItem('rl_tasks_v4',JSON.stringify(data));
