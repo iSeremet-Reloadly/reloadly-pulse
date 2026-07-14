@@ -1320,13 +1320,63 @@ function _okrNextKRId(obj){
   var used = {}; (obj.krs||[]).forEach(function(k){ used[k.id]=1; });
   for(var n=1;;n++){ var id = obj.id+'-'+n; if(!used[id]) return id; }
 }
-function okrAddObjective(deptName){
+function okrAddObjective(deptName, opts){
+  opts = opts || {};
   var key = getActiveOKRKey(); var d = loadOKRForQuarter(key); if(!d || !d.depts[deptName]) return;
   var dept = d.depts[deptName];
   var newId = _okrNextObjectiveId(dept, deptName);
-  dept.objectives.push({ id:newId, title:'New objective — click to edit', progress:0, krs:[] });
+  var newObj = { id:newId, title:opts.title||'New objective — click to edit', progress:0, krs:[] };
+  if(opts.owner) newObj.owner = opts.owner;
+  if(opts.parentObjectiveId) newObj.parentObjectiveId = opts.parentObjectiveId;
+  dept.objectives.push(newObj);
   saveOKRForQuarter(key, d);
   renderOKR();
+}
+// Return objectives eligible as parents for a new objective, based on the
+// hierarchy Company > Department > Individual. `forLevel` is 'dept' or
+// 'individual'.
+function _okrLinkableParents(forLevel){
+  var key = getActiveOKRKey(); var d = loadOKRForQuarter(key);
+  if(!d || !d.depts) return [];
+  var out = [];
+  if(forLevel === 'dept'){
+    // Only Company objectives (owner-less, in "Company" dept).
+    (d.depts.Company && d.depts.Company.objectives ? d.depts.Company.objectives : []).forEach(function(o){
+      if(!(o.owner||'')) out.push({ id:o.id, title:o.title, dept:'Company' });
+    });
+  } else if(forLevel === 'individual'){
+    // Dept-level objectives across all depts (no owner set).
+    Object.keys(d.depts).forEach(function(dn){
+      (d.depts[dn].objectives||[]).forEach(function(o){
+        if(!(o.owner||'')) out.push({ id:o.id, title:o.title, dept:dn });
+      });
+    });
+  }
+  return out;
+}
+// Update an objective's parent link. deptName+objId → parent obj id (or '' to clear).
+function okrSetParentObjective(deptName, objectiveId, parentObjectiveId){
+  var key = getActiveOKRKey(); var d = loadOKRForQuarter(key);
+  if(!d || !d.depts[deptName]) return;
+  var obj = (d.depts[deptName].objectives||[]).find(function(o){return o.id===objectiveId;});
+  if(!obj) return;
+  if(parentObjectiveId) obj.parentObjectiveId = parentObjectiveId;
+  else delete obj.parentObjectiveId;
+  saveOKRForQuarter(key, d);
+  renderOKR();
+}
+// Look up parent objective title for display.
+function _okrParentLabel(parentObjectiveId){
+  if(!parentObjectiveId) return '';
+  var key = getActiveOKRKey(); var d = loadOKRForQuarter(key);
+  if(!d || !d.depts) return '';
+  var found = null;
+  Object.keys(d.depts).forEach(function(dn){
+    (d.depts[dn].objectives||[]).forEach(function(o){
+      if(o.id === parentObjectiveId) found = { dept: dn, title: o.title };
+    });
+  });
+  return found ? ('['+found.dept+'] '+found.title) : '';
 }
 function okrAddKR(deptName, objectiveId){
   var key = getActiveOKRKey(); var d = loadOKRForQuarter(key); if(!d || !d.depts[deptName]) return;
@@ -3315,6 +3365,32 @@ function renderOKR(){
       oh.appendChild(delObjBtn);
     }
     od.appendChild(oh);
+    // Parent-link row: dept objectives may roll up to a Company objective.
+    // Company objectives never have a parent so we hide the row for them.
+    if(df !== 'Company'){
+      var parentLbl2 = _okrParentLabel(obj.parentObjectiveId);
+      var pRow = document.createElement('div');
+      pRow.style.cssText='font-size:10px;color:var(--mut);margin:-4px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+      pRow.innerHTML = parentLbl2 ? ('↑ '+esc(parentLbl2)) : '<span style="font-style:italic">↑ not linked to a Company objective</span>';
+      if(isAdmin()){
+        var linkBtn2 = document.createElement('button');
+        linkBtn2.style.cssText='background:none;border:1px solid var(--brd);color:var(--mut);cursor:pointer;font-size:9px;padding:2px 8px;border-radius:4px;font-family:Roboto Mono,monospace';
+        linkBtn2.textContent = parentLbl2 ? 'change link' : '+ link to Company obj';
+        linkBtn2.onclick = (function(dn, oid){return function(){
+          var parents = _okrLinkableParents('dept');
+          if(!parents.length){ toast('No Company objectives exist yet — create one first.','warn'); return; }
+          var opts = parents.map(function(p, i){ return (i+1)+'. '+p.title; }).join('\n');
+          var current = _okrParentLabel(obj.parentObjectiveId);
+          var input = prompt('Type the number of the Company Objective to link to (blank to unlink):\n\n'+opts+'\n\n(current: '+(current||'none')+')');
+          if(input === null) return;
+          if(!input){ okrSetParentObjective(dn, oid, ''); return; }
+          var n = parseInt(input,10);
+          if(!isNaN(n) && n>=1 && n<=parents.length){ okrSetParentObjective(dn, oid, parents[n-1].id); }
+        };})(df, obj.id);
+        pRow.appendChild(linkBtn2);
+      }
+      od.appendChild(pRow);
+    }
     var krsDiv=document.createElement('div');krsDiv.style.cssText='display:flex;flex-direction:column;gap:8px';
     obj.krs.forEach(function(kr){
       var lc=(OKR_LINKS[kr.id]||[]).length;
@@ -3566,22 +3642,78 @@ function _renderIndividualOKRsSection(wrap, okrData, activeKey){
           personObjectives.forEach(function(row){
             var deptColor = (okrData.depts[row.dept]||{}).color || 'var(--acc)';
             var pct = row.obj.progress || 0;
-            var objEl = document.createElement('div');
-            objEl.style.cssText = 'padding:10px 12px;background:var(--surf);border:2px solid '+deptColor+';border-radius:6px;margin-top:6px;cursor:pointer';
-            objEl.onclick = (function(dn){return function(){localStorage.setItem('rl_okr_dept',dn);renderOKR();};})(row.dept);
             var krCount = (row.obj.krs||[]).length;
-            objEl.innerHTML =
-              '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">'+
-                '<div style="flex:1;min-width:0">'+
-                  '<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:2px">'+row.obj.id+' · '+row.dept+' · personal</div>'+
-                  '<div style="font-size:12px;color:var(--txt);font-weight:700;line-height:1.3">'+esc(row.obj.title)+'</div>'+
-                  '<div style="font-size:9px;color:var(--mut);margin-top:2px;font-family:Roboto Mono,monospace">'+krCount+' KR'+(krCount===1?'':'s')+'</div>'+
-                '</div>'+
-                '<div style="text-align:right;flex-shrink:0">'+
-                  '<div style="font-size:15px;font-weight:800;color:'+deptColor+'">'+pct+'<span style="font-size:9px">%</span></div>'+
-                '</div>'+
-              '</div>'+
-              '<div style="height:3px;background:var(--surf2);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+deptColor+';border-radius:2px"></div></div>';
+            var parentLbl = _okrParentLabel(row.obj.parentObjectiveId);
+            var objEl = document.createElement('div');
+            objEl.style.cssText = 'padding:10px 12px;background:var(--surf);border:2px solid '+deptColor+';border-radius:6px;margin-top:6px';
+            // Header row with title (editable for admins), progress, edit menu
+            var head = document.createElement('div');
+            head.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px';
+            var meta = document.createElement('div');meta.style.cssText='flex:1;min-width:0';
+            var idLine = document.createElement('div');idLine.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:2px';
+            idLine.textContent = row.obj.id+' · '+row.dept+' · personal';
+            meta.appendChild(idLine);
+            var titleEl = document.createElement('div');titleEl.style.cssText='font-size:12px;color:var(--txt);font-weight:700;line-height:1.3;border-bottom:1px dashed transparent';
+            titleEl.textContent = row.obj.title||'(untitled)';
+            if(isAdmin()){
+              titleEl.contentEditable = 'true';
+              titleEl.style.outline = 'none';
+              titleEl.onfocus = function(){this.style.borderBottomColor='var(--acc)';};
+              titleEl.onblur = (function(dn, oid){return function(){
+                this.style.borderBottomColor='transparent';
+                var v = this.textContent.trim();
+                if(!v) return;
+                var k = getActiveOKRKey(); var dd = loadOKRForQuarter(k);
+                var oo = (dd.depts[dn].objectives||[]).find(function(x){return x.id===oid;});
+                if(!oo) return;
+                if(oo.title === v) return;
+                oo.title = v; saveOKRForQuarter(k, dd);
+              };})(row.dept, row.obj.id);
+            }
+            meta.appendChild(titleEl);
+            // Parent link line (shown if set) + change link button (admin)
+            var pLine = document.createElement('div');pLine.style.cssText='font-size:10px;color:var(--mut);margin-top:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+            pLine.innerHTML = parentLbl ? '↑ '+esc(parentLbl) : '<span style="font-style:italic">↑ not linked to a dept objective</span>';
+            if(isAdmin()){
+              var linkBtn = document.createElement('button');
+              linkBtn.style.cssText='background:none;border:1px solid var(--brd);color:var(--mut);cursor:pointer;font-size:9px;padding:2px 8px;border-radius:4px;font-family:Roboto Mono,monospace';
+              linkBtn.textContent = parentLbl ? 'change link' : '+ link to dept obj';
+              linkBtn.onclick = (function(dn, oid){return function(ev){
+                ev.stopPropagation();
+                var parents = _okrLinkableParents('individual');
+                var opts = parents.map(function(p, i){ return (i+1)+'. ['+p.dept+'] '+p.title; }).join('\n');
+                var current = row.obj.parentObjectiveId || '';
+                var input = prompt('Type the number of the Dept Objective to link to (blank to unlink):\n\n'+opts+'\n\n(current: '+(_okrParentLabel(current)||'none')+')');
+                if(input === null) return;
+                var n = parseInt(input,10);
+                if(!input){ okrSetParentObjective(dn, oid, ''); return; }
+                if(!isNaN(n) && n>=1 && n<=parents.length){ okrSetParentObjective(dn, oid, parents[n-1].id); }
+              };})(row.dept, row.obj.id);
+              pLine.appendChild(linkBtn);
+            }
+            meta.appendChild(pLine);
+            var krCountLine = document.createElement('div');krCountLine.style.cssText='font-size:9px;color:var(--mut);margin-top:3px;font-family:Roboto Mono,monospace';
+            krCountLine.textContent = krCount+' KR'+(krCount===1?'':'s');
+            meta.appendChild(krCountLine);
+            head.appendChild(meta);
+            var right = document.createElement('div');right.style.cssText='display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0';
+            var pctEl = document.createElement('div');pctEl.style.cssText='font-size:15px;font-weight:800;color:'+deptColor;
+            pctEl.innerHTML = pct+'<span style="font-size:9px">%</span>';
+            right.appendChild(pctEl);
+            if(isAdmin()){
+              var delBtn = document.createElement('button');
+              delBtn.style.cssText='background:none;border:1px solid var(--brd);color:var(--mut);cursor:pointer;font-size:10px;padding:3px 8px;border-radius:4px;line-height:1;font-family:Roboto Mono,monospace';
+              delBtn.textContent = '× delete';
+              delBtn.onmouseenter=function(){this.style.color='var(--red)';this.style.borderColor='var(--red)';};
+              delBtn.onmouseleave=function(){this.style.color='var(--mut)';this.style.borderColor='var(--brd)';};
+              delBtn.onclick = (function(dn, oid){return function(ev){ ev.stopPropagation(); okrDeleteObjective(dn, oid); };})(row.dept, row.obj.id);
+              right.appendChild(delBtn);
+            }
+            head.appendChild(right);
+            objEl.appendChild(head);
+            var bar = document.createElement('div');bar.style.cssText='height:3px;background:var(--surf2);border-radius:2px';
+            bar.innerHTML = '<div style="width:'+pct+'%;height:100%;background:'+deptColor+';border-radius:2px"></div>';
+            objEl.appendChild(bar);
             krWrap.appendChild(objEl);
           });
         }
@@ -3670,6 +3802,15 @@ function _openAddObjectiveForPersonModal(personDept, personName, activeKey){
   html += '<div style="font-size:11px;color:var(--mut);margin-bottom:18px">Creates a new objective in <strong>'+esc(personDept)+'</strong> with '+esc(personName)+' as the owner. You can add KRs to it afterwards.</div>';
   html += '<label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">OBJECTIVE TITLE</label>';
   html += '<input id="aobj-title" placeholder="e.g. Ship Finance dashboard v2 by end of quarter" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:14px">';
+  // Cascade link: pick a Dept objective this personal objective rolls up to.
+  html += '<label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">↑ LINK TO DEPT OBJECTIVE (optional)</label>';
+  var linkableP = _okrLinkableParents('individual');
+  html += '<select id="aobj-parent" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:14px">';
+  html += '<option value="">— none / standalone —</option>';
+  linkableP.forEach(function(p){
+    html += '<option value="'+p.id+'">['+p.dept+'] '+esc(p.title)+'</option>';
+  });
+  html += '</select>';
   html += '<label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">FIRST KEY RESULT (optional)</label>';
   html += '<input id="aobj-kr" placeholder="e.g. Deliver dashboard by Oct 15 with 3 charts live" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:18px">';
   html += '<div style="display:flex;justify-content:flex-end;gap:10px">';
@@ -3692,6 +3833,8 @@ function _openAddObjectiveForPersonModal(personDept, personName, activeKey){
     if(!dept){ toast('Unknown dept','err'); return; }
     if(!dept.objectives) dept.objectives = [];
     var newObj = { id: _okrNextObjectiveId(dept, personDept), title: title, progress: 0, owner: personName, krs: [] };
+    var parent = (box.querySelector('#aobj-parent')||{}).value || '';
+    if(parent) newObj.parentObjectiveId = parent;
     if(krTitle){
       newObj.krs.push({ id: _okrNextKRId(newObj), title: krTitle, progress: 0, owner: personName, confidence: 'Not started' });
     }
@@ -9274,6 +9417,7 @@ NS.openMindmap=function(focusId){
   var st=loadUI();
   _MM.quarter=st.quarter||getActiveOKRKey();
   _MM.member=st.mmMember||'';
+  _MM.dept=st.mmDept||'';
   _MM.layout=st.mmLayout||'tree';
 
   // Pick initial focus
@@ -9324,6 +9468,19 @@ NS.openMindmap=function(focusId){
   allMembers.forEach(function(m){var op=document.createElement('option');op.value=m.e;op.textContent=m.n;if(m.e===_MM.member)op.selected=true;mSel.appendChild(op);});
   mSel.onchange=function(){var s=loadUI();s.mmMember=this.value;s.mmFocus=null;saveUI(s);NS.openMindmap(null);};
   top.appendChild(_mmField('MEMBER',mSel));
+
+  // === Department filter — narrow the chain to a single dept branch ===
+  var dSel=document.createElement('select');dSel.className='mm-sel';
+  var dOptAll=document.createElement('option');dOptAll.value='';dOptAll.textContent='— all departments —';dSel.appendChild(dOptAll);
+  // Derive dept list from the OKR data for this quarter (matches actual data,
+  // not the DEPTS constant, so renamed/added depts show up).
+  var deptSet={};
+  Object.values(nodesMap).forEach(function(nn){ if(nn.dept) deptSet[nn.dept]=1; });
+  Object.keys(deptSet).sort().forEach(function(dn){
+    var op=document.createElement('option');op.value=dn;op.textContent=dn;if(dn===_MM.dept)op.selected=true;dSel.appendChild(op);
+  });
+  dSel.onchange=function(){var s=loadUI();s.mmDept=this.value;s.mmFocus=null;saveUI(s);NS.openMindmap(null);};
+  top.appendChild(_mmField('DEPT',dSel));
 
   // === Company Objective filter — anchor the chain to a specific CO ===
   var coSel=document.createElement('select');coSel.className='mm-sel';coSel.style.minWidth='200px';
@@ -9530,6 +9687,25 @@ function _mmRenderSvgInto(host){
       return hasDescendantOwnedBy(c.id,mN,_MM.member,edges,nodesMap);
     });
   }
+  // DEPT filter — keep children whose dept matches, or whose subtree contains
+  // a node in that dept. Company Objectives have no dept themselves so they
+  // pass through unless every descendant chain is off-dept.
+  if(_MM.dept){
+    var wantDept=_MM.dept;
+    function subtreeTouchesDept(id){
+      var stack=[id],seen={};
+      while(stack.length){
+        var x=stack.pop(); if(seen[x])continue; seen[x]=1;
+        var nn=nodesMap[x]; if(nn && nn.dept===wantDept) return true;
+        edges.filter(function(e){return e.p===x;}).forEach(function(e){stack.push(e.c);});
+      }
+      return false;
+    }
+    children=children.filter(function(c){
+      if(c.dept && c.dept===wantDept) return true;
+      return subtreeTouchesDept(c.id);
+    });
+  }
   var parents=edges.filter(function(e){return e.c===_MM.focusId;}).map(function(e){return nodesMap[e.p];}).filter(Boolean);
   var parent=parents[0]||null;
 
@@ -9646,6 +9822,8 @@ function _mmRenderChainSvg(host,nodesMap,edges,focus){
 
   // Find Dept Objectives linked to this CO
   var deptObjs=edges.filter(function(e){return e.p===rootCO.id;}).map(function(e){return nodesMap[e.c];}).filter(function(n){return n&&n.type==='DepartmentObjective';});
+  // DEPT filter (from mindmap top-bar): narrow chain to one dept branch.
+  if(_MM.dept){ deptObjs = deptObjs.filter(function(n){ return n && n.dept===_MM.dept; }); }
   // Group remaining KRs under the CO (KRs directly under CO without going through DO)
   var directKRs=edges.filter(function(e){return e.p===rootCO.id;}).map(function(e){return nodesMap[e.c];}).filter(function(n){return n&&n.type==='KeyResult';});
 
