@@ -6697,27 +6697,71 @@ NS.hydrateFromOKR = function(){
     if(!allEdges[qk]) allEdges[qk] = [];
     var qnodes = allNodes[qk];
     var qedges = allEdges[qk];
+    // Cleanup: nuke any previously-hydrated Objective node whose current type
+    // no longer matches (e.g. an OPS-1 obj that was retyped Dept→Individual
+    // still had a DO-OPS-1 node hanging around). We keep manually-added
+    // Initiative/Task nodes (no sourceOkrObjId) intact.
+    var validPairs = {}; // sourceOkrObjId → {isCompany, isPersonal}
+    Object.keys(okr.depts).forEach(function(dn){
+      (okr.depts[dn].objectives||[]).forEach(function(o){
+        validPairs[o.id] = { isCompany: dn==='Company', isPersonal: !!(o.owner||'').trim() && dn!=='Company' };
+      });
+    });
+    Object.keys(qnodes).forEach(function(nid){
+      var n = qnodes[nid];
+      if(!n || !n.sourceOkrObjId) return;
+      var vp = validPairs[n.sourceOkrObjId];
+      if(!vp){ delete qnodes[nid]; return; }
+      var expectedPrefix = vp.isCompany ? 'CO-' : (vp.isPersonal ? 'IO-' : 'DO-');
+      if(nid.indexOf(expectedPrefix) !== 0){
+        // Wrong prefix for current typing — drop it and let the pass below
+        // recreate under the right id. Edges into/out of it get pruned too.
+        delete qnodes[nid];
+      }
+    });
+    // Drop edges that reference a node we just deleted.
+    qedges = qedges.filter(function(e){ return qnodes[e.p] && qnodes[e.c]; });
+    allEdges[qk] = qedges;
     var edgeSeen = {};
     qedges.forEach(function(e){ edgeSeen[e.p+'|'+e.c] = 1; });
+    // Build sourceOkrObjId → node id map so we can resolve parentObjectiveId
+    // (which points at OKR-side ids like "OPS-1") to the Strategy node id
+    // (which is prefixed "DO-OPS-1" or "CO-CO-1"). Filled during the first
+    // pass, consumed after all objectives are typed.
+    var sourceIdToNode = {};
     Object.keys(okr.depts).forEach(function(deptName){
       var dept = okr.depts[deptName];
       var isCompany = (deptName === 'Company');
       (dept.objectives||[]).forEach(function(obj){
-        var nid = (isCompany?'CO-':'DO-') + obj.id;
+        // Type resolution:
+        //   Company dept + no owner  → CompanyObjective (CO- prefix)
+        //   any dept + owner set     → IndividualObjective (IO- prefix)
+        //   otherwise                → DepartmentObjective (DO- prefix)
+        var isPersonal = !!(obj.owner||'').trim() && !isCompany;
+        var typeName = isCompany ? 'CompanyObjective' : (isPersonal ? 'IndividualObjective' : 'DepartmentObjective');
+        var prefix = isCompany ? 'CO-' : (isPersonal ? 'IO-' : 'DO-');
+        var nid = prefix + obj.id;
+        sourceIdToNode[obj.id] = nid;
         if(!qnodes[nid]){
           qnodes[nid] = {
-            id:nid, type:isCompany?'CompanyObjective':'DepartmentObjective',
+            id:nid, type:typeName,
             title:obj.title||'(untitled)', dept:deptName, quarter:qk,
             ownerEmail:'', ownerName:obj.owner||'',
             state:obj.progress>=100?'Done':(obj.progress>0?'Active':'Draft'),
             progressPct:obj.progress||0, sourceOkrObjId:obj.id,
+            parentObjectiveId: obj.parentObjectiveId || null,
             createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
           };
           changed = true;
         } else {
-          // Keep title + progress fresh so Strategy reflects edits made in OKR Tracker.
+          // Keep title, progress, type and parent link fresh so Strategy
+          // reflects edits made in OKR Tracker. Retype covers old blobs where
+          // personal objectives were originally stored as DepartmentObjective.
           if(qnodes[nid].title !== (obj.title||'')){ qnodes[nid].title = obj.title||''; changed = true; }
           if(qnodes[nid].progressPct !== (obj.progress||0)){ qnodes[nid].progressPct = obj.progress||0; changed = true; }
+          if(qnodes[nid].type !== typeName){ qnodes[nid].type = typeName; changed = true; }
+          if((qnodes[nid].parentObjectiveId||null) !== (obj.parentObjectiveId||null)){ qnodes[nid].parentObjectiveId = obj.parentObjectiveId||null; changed = true; }
+          if((qnodes[nid].ownerName||'') !== (obj.owner||'')){ qnodes[nid].ownerName = obj.owner||''; changed = true; }
         }
         (obj.krs||[]).forEach(function(kr){
           var kid = 'KR-' + kr.id;
@@ -6740,6 +6784,31 @@ NS.hydrateFromOKR = function(){
           var ek = nid+'|'+kid;
           if(!edgeSeen[ek]){ qedges.push({p:nid,c:kid,w:1.0,pr:true}); edgeSeen[ek] = 1; changed = true; }
         });
+      });
+    });
+    // Second pass — turn every obj.parentObjectiveId into an explicit parent→child
+    // edge. This is what makes the Strategy mindmap and cascade panels reflect
+    // the CO↔Dept and Dept↔Individual links the user set on the OKR page.
+    // Also: strip stale token-overlap-guessed CO→DO edges when an explicit
+    // parent link contradicts them (i.e. the DO now cascades from a different CO).
+    Object.keys(okr.depts).forEach(function(deptName){
+      (okr.depts[deptName].objectives||[]).forEach(function(obj){
+        if(!obj.parentObjectiveId) return;
+        var childNid = sourceIdToNode[obj.id];
+        var parentNid = sourceIdToNode[obj.parentObjectiveId];
+        if(!childNid || !parentNid) return;
+        // Drop any existing edges pointing INTO this child from a different parent
+        // (leftover from the old auto-cascade guess).
+        for(var i=qedges.length-1; i>=0; i--){
+          if(qedges[i].c === childNid && qedges[i].p !== parentNid){
+            var stale = qedges[i].p+'|'+qedges[i].c;
+            delete edgeSeen[stale];
+            qedges.splice(i,1);
+            changed = true;
+          }
+        }
+        var ek2 = parentNid+'|'+childNid;
+        if(!edgeSeen[ek2]){ qedges.push({p:parentNid,c:childNid,w:1.0,pr:true}); edgeSeen[ek2] = 1; changed = true; }
       });
     });
   });
