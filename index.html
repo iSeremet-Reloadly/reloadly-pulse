@@ -2357,6 +2357,26 @@ function _initOKRSync(){
       }
     },
     onPullApplied: function(){
+      // Always re-hydrate Strategy graph from the freshly-pulled OKR data,
+      // regardless of which view is active. That way when a teammate switches
+      // to Strategy later they see the current cascade — no stale ghost data
+      // from before the last sync.
+      try { if(typeof STRAT !== 'undefined' && STRAT && typeof STRAT.hydrateFromOKR === 'function') STRAT.hydrateFromOKR(); } catch(_){}
+      // Also re-run the parent-cascade progress roll-up on every pulled quarter
+      // so a KR bump made by teammate A shows as an updated Dept/Company % on
+      // teammate B's Dashboard/OKR tab within one sync cycle (no manual save).
+      try {
+        for(var i=0;i<localStorage.length;i++){
+          var k=localStorage.key(i);
+          if(k && /^rl_okr_Q[1-4]_\d{4}$/.test(k)){
+            var d = JSON.parse(localStorage.getItem(k));
+            if(d && typeof _recalcAllObjectiveProgress === 'function'){
+              _recalcAllObjectiveProgress(d);
+              localStorage.setItem(k, JSON.stringify(d));
+            }
+          }
+        }
+      } catch(_){}
       if(typeof view !== 'undefined' && (view === 'strategy' || view === 'okr' || view === 'dashboard' || view === 'mytasks') && typeof render === 'function'){
         try { render(); } catch(e){}
       }
@@ -10040,29 +10060,42 @@ function _mmRenderChainSvg(host,nodesMap,edges,focus){
   var memberName=memberKey&&window.USER_REGISTRY&&USER_REGISTRY[memberKey]?USER_REGISTRY[memberKey].name:memberKey;
   function isMatch(o){if(!memberKey)return true;return o.key===memberKey||o.key===memberName||o.name===memberName;}
 
-  // Build a unique-people list for col 3, merging across DOs
+  // Build a unique-people list for col 3, merging across DOs. Now also
+  // collects the actual KR/IO node objects so we can expand a 4th column of
+  // KRs when a person is clicked. Deduped by node id in case a person owns
+  // the same KR discovered through multiple DO paths.
   var personMap={};
   deptWithOwners.forEach(function(dw){
     dw.owners.forEach(function(o){
-      if(!personMap[o.key])personMap[o.key]={key:o.key,name:o.name,email:o.email,deptIds:{},nodeCount:0};
+      if(!personMap[o.key])personMap[o.key]={key:o.key,name:o.name,email:o.email,deptIds:{},nodes:[],_nodeIds:{}};
       personMap[o.key].deptIds[dw.dept.id]=1;
-      personMap[o.key].nodeCount+=o.nodes.length;
+      (o.nodes||[]).forEach(function(nn){
+        if(!personMap[o.key]._nodeIds[nn.id]){ personMap[o.key]._nodeIds[nn.id]=1; personMap[o.key].nodes.push(nn); }
+      });
     });
   });
+  Object.values(personMap).forEach(function(pp){ pp.nodeCount = pp.nodes.length; delete pp._nodeIds; });
   var persons=Object.values(personMap);
   if(memberKey){
     var match=persons.filter(isMatch);
     var others=persons.filter(function(o){return !isMatch(o);});
     persons=match.concat(others);  // matching first, then dimmed
   }
+  // If a previously-expanded person no longer appears in this CO chain, clear
+  // the expansion so we don't render a stray KR column.
+  if(_MM.expandedPersonKey && !personMap[_MM.expandedPersonKey]) _MM.expandedPersonKey = null;
+  var expandedPerson = _MM.expandedPersonKey ? personMap[_MM.expandedPersonKey] : null;
 
   // === Layout ===
-  var W=1500, H=900;
+  // Widen the canvas when a person is expanded so the KR column has room
+  // without being clipped by pan/zoom bounds.
+  var W = expandedPerson ? 2000 : 1500, H = 900;
   var pad=40;
-  var colX={CO:240,DO:760,IND:1260};
+  var colX = expandedPerson ? {CO:220, DO:720, IND:1200, KR:1720} : {CO:240,DO:760,IND:1260};
   var coBoxW=380,coBoxH=120;
   var doBoxW=360,doBoxH=84;
   var indBoxW=320,indBoxH=64;
+  var krBoxW=440, krBoxH=60;
 
   var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('viewBox','0 0 '+W+' '+H);
@@ -10112,8 +10145,12 @@ function _mmRenderChainSvg(host,nodesMap,edges,focus){
   var visiblePersons=persons.slice(0,maxVisible);
   var indTotal=visiblePersons.length*indBoxH+(visiblePersons.length-1)*10;
   var indStartY=H/2-indTotal/2+indBoxH/2;
+  // Track each rendered person's y coordinate so we can draw curves from
+  // their node to their KRs in the 4th column below.
+  var personYByKey = {};
   visiblePersons.forEach(function(p,i){
     var py=indStartY+i*(indBoxH+10);
+    personYByKey[p.key] = py;
     var dim=memberKey&&!isMatch(p);
     // Curves: connect to each DO that has this person as an owner
     Object.keys(p.deptIds).forEach(function(doId){
@@ -10123,8 +10160,32 @@ function _mmRenderChainSvg(host,nodesMap,edges,focus){
       var dy=doStartY+didx*(doBoxH+16);
       _mmDrawCurve(panG, colX.DO+doBoxW/2, dy, colX.IND-indBoxW/2, py, '#a78bfa', dim?0.18:0.7, false);
     });
-    _mmDrawPersonNode(panG, p, colX.IND-indBoxW/2, py-indBoxH/2, indBoxW, indBoxH, dim);
+    var isExpanded = expandedPerson && expandedPerson.key===p.key;
+    _mmDrawPersonNode(panG, p, colX.IND-indBoxW/2, py-indBoxH/2, indBoxW, indBoxH, dim, isExpanded);
   });
+
+  // === Individual KR column (4th column) — appears only when a person is expanded ===
+  if(expandedPerson && colX.KR){
+    var krCol = expandedPerson.nodes || [];
+    // Header for the new column
+    _mmColHeader(panG, colX.KR, 30, 'KEY RESULT', '#09faa3');
+    var personY = personYByKey[expandedPerson.key] != null ? personYByKey[expandedPerson.key] : H/2;
+    var krTotal = krCol.length*krBoxH + Math.max(0,krCol.length-1)*10;
+    var krStartY = personY - krTotal/2 + krBoxH/2;
+    krCol.forEach(function(krNode, i){
+      var ky = krStartY + i*(krBoxH+10);
+      // Curve: expanded person's right edge → this KR's left edge
+      _mmDrawCurve(panG, colX.IND+indBoxW/2, personY, colX.KR-krBoxW/2, ky, '#09faa3', 0.85, false);
+      _mmDrawKRNode(panG, krNode, colX.KR-krBoxW/2, ky-krBoxH/2, krBoxW, krBoxH);
+    });
+    if(!krCol.length){
+      var emptyKR = document.createElementNS('http://www.w3.org/2000/svg','text');
+      emptyKR.setAttribute('x',colX.KR);emptyKR.setAttribute('y',personY);emptyKR.setAttribute('text-anchor','middle');
+      emptyKR.setAttribute('fill','var(--mut)');emptyKR.setAttribute('font-size','12');
+      emptyKR.textContent='No KRs found for '+expandedPerson.name;
+      panG.appendChild(emptyKR);
+    }
+  }
   if(persons.length>maxVisible){
     var more=document.createElementNS('http://www.w3.org/2000/svg','text');
     more.setAttribute('x',colX.IND);more.setAttribute('y',indStartY+visiblePersons.length*(indBoxH+10)-10);
@@ -10185,15 +10246,21 @@ function _mmColHeader(host,x,y,label,color){
   host.appendChild(g);
 }
 
-function _mmDrawPersonNode(host,p,x,y,w,h,dim){
+function _mmDrawPersonNode(host,p,x,y,w,h,dim,isExpanded){
   var g=document.createElementNS('http://www.w3.org/2000/svg','g');
-  g.setAttribute('class','mm-node-g'+(dim?' dim':''));g.style.cursor='pointer';
+  g.setAttribute('class','mm-node-g'+(dim?' dim':'')+(isExpanded?' expanded':''));g.style.cursor='pointer';
   if(dim)g.setAttribute('opacity','0.35');
-  g.addEventListener('click',function(){
-    // Switch to Individual view focused on this person
-    if(p.email){setState({viewpoint:'individual',mmMember:p.email});}
-    document.getElementById('strat-mm-overlay').classList.remove('open');
-    NS.renderStrategy();
+  g.addEventListener('click',function(ev){
+    // Toggle inline expansion — reveals a 4th KR column beside this person.
+    // Shift-click still walks to the person's Individual view (old behavior).
+    if(ev.shiftKey){
+      if(p.email){setState({viewpoint:'individual',mmMember:p.email});}
+      document.getElementById('strat-mm-overlay').classList.remove('open');
+      NS.renderStrategy();
+      return;
+    }
+    _MM.expandedPersonKey = (_MM.expandedPersonKey===p.key) ? null : p.key;
+    if(_MM.container) _mmRenderSvgInto(_MM.container);
   });
   var rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
   rect.setAttribute('x',x);rect.setAttribute('y',y);rect.setAttribute('width',w);rect.setAttribute('height',h);
@@ -10228,6 +10295,54 @@ function _mmDrawPersonNode(host,p,x,y,w,h,dim){
   // Tooltip
   var tip=document.createElementNS('http://www.w3.org/2000/svg','title');
   tip.textContent=p.name+(role?' · '+role:'')+' · owns '+p.nodeCount+' KR/IO';
+  g.appendChild(tip);
+  host.appendChild(g);
+}
+
+// Compact KR card rendered in the 4th (expansion) column of Strategy Chain.
+// Bounded to krBoxH so multiple KRs stack cleanly next to a person node.
+function _mmDrawKRNode(host, kr, x, y, w, h){
+  var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('class','mm-node-g');g.style.cursor='pointer';
+  g.addEventListener('click', function(){ NS.openMindmapDetail(kr.id); });
+  var rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  rect.setAttribute('x',x);rect.setAttribute('y',y);rect.setAttribute('width',w);rect.setAttribute('height',h);
+  rect.setAttribute('rx',8);rect.setAttribute('fill','rgba(9,250,163,.10)');
+  rect.setAttribute('stroke','#09faa3');rect.setAttribute('stroke-width','1.6');
+  g.appendChild(rect);
+  // Type badge on the left (matches the OBJECTIVE/KEY RESULT chips on the OKR page)
+  var badge=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  badge.setAttribute('x',x+8);badge.setAttribute('y',y+8);badge.setAttribute('width',72);badge.setAttribute('height',16);
+  badge.setAttribute('rx',3);badge.setAttribute('fill','#09faa3');
+  g.appendChild(badge);
+  var badgeT=document.createElementNS('http://www.w3.org/2000/svg','text');
+  badgeT.setAttribute('x',x+44);badgeT.setAttribute('y',y+19);badgeT.setAttribute('text-anchor','middle');
+  badgeT.setAttribute('fill','#0a2e1c');badgeT.setAttribute('font-size','9');badgeT.setAttribute('font-weight','800');
+  badgeT.setAttribute('font-family','Roboto Mono,monospace');
+  badgeT.textContent = kr.type==='IndividualObjective' ? 'IND OBJ' : 'KEY RESULT';
+  g.appendChild(badgeT);
+  // KR id on the right of the badge row
+  var idT=document.createElementNS('http://www.w3.org/2000/svg','text');
+  idT.setAttribute('x',x+w-10);idT.setAttribute('y',y+19);idT.setAttribute('text-anchor','end');
+  idT.setAttribute('fill','var(--mut)');idT.setAttribute('font-size','9');
+  idT.setAttribute('font-family','Roboto Mono,monospace');
+  idT.textContent = (kr.sourceKrId||kr.sourceOkrObjId||kr.id||'');
+  g.appendChild(idT);
+  // Title
+  var t=document.createElementNS('http://www.w3.org/2000/svg','text');
+  t.setAttribute('x',x+10);t.setAttribute('y',y+42);
+  t.setAttribute('fill','var(--txt)');t.setAttribute('font-size','12');t.setAttribute('font-weight','600');
+  t.textContent = truncate(kr.title||'(untitled)', 58);
+  g.appendChild(t);
+  // Progress % on the right
+  var pct=document.createElementNS('http://www.w3.org/2000/svg','text');
+  pct.setAttribute('x',x+w-10);pct.setAttribute('y',y+h-8);pct.setAttribute('text-anchor','end');
+  pct.setAttribute('fill','#09faa3');pct.setAttribute('font-size','12');pct.setAttribute('font-weight','800');
+  pct.textContent = (kr.progressPct||0)+'%';
+  g.appendChild(pct);
+  // Tooltip = full title (in case truncated)
+  var tip=document.createElementNS('http://www.w3.org/2000/svg','title');
+  tip.textContent = kr.title || '(untitled)';
   g.appendChild(tip);
   host.appendChild(g);
 }
