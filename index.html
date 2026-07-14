@@ -6780,6 +6780,11 @@ NS.hydrateFromOKR = function(){
             if(qnodes[kid].title !== (kr.title||'')){ qnodes[kid].title = kr.title||''; changed = true; }
             if(qnodes[kid].progressPct !== (kr.progress||0)){ qnodes[kid].progressPct = kr.progress||0; changed = true; }
             if(qnodes[kid].confidence !== (kr.confidence||'Not started')){ qnodes[kid].confidence = kr.confidence||'Not started'; changed = true; }
+            // Owner refresh: the mindmap's INDIVIDUAL column only surfaces a
+            // person when the KR node has ownerName set. Previously we only
+            // wrote ownerName at CREATE time, so KRs hydrated before an owner
+            // was assigned stayed anonymous forever. Refresh it every pass.
+            if((qnodes[kid].ownerName||'') !== (kr.owner||'')){ qnodes[kid].ownerName = kr.owner||''; changed = true; }
           }
           var ek = nid+'|'+kid;
           if(!edgeSeen[ek]){ qedges.push({p:nid,c:kid,w:1.0,pr:true}); edgeSeen[ek] = 1; changed = true; }
