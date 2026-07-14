@@ -1528,15 +1528,14 @@ function renderMyTasks(){
   h2 += '<a href="#/tasks" onclick="event.preventDefault();go(\'tasks\');" style="font-size:11px;color:var(--mut);text-decoration:none;padding:6px 12px;border:1px solid var(--brd);border-radius:6px;font-family:Roboto Mono,monospace">See Team Tasks →</a>';
   h2 += '</div>';
 
-  // ── MY OKRs section ─────────────────────────────────────────────────────
-  // Show KRs the user is directly involved in — either as owner, or via
-  // tasks they own that are linked to a KR. Grouped by objective so people
-  // see the strategic context of their day-to-day work.
+  // MY OKRs section is now rendered AFTER the task table (see below) and is
+  // collapsible. Precompute the HTML into a string so we can drop it in the
+  // right spot no matter which render path (with-tasks / no-tasks) fires.
+  var okrsHtml = '';
   try {
     var okrQKey = (typeof getActiveOKRKey === 'function') ? getActiveOKRKey() : null;
     var okrDataMine = okrQKey && (typeof loadOKRForQuarter === 'function') ? loadOKRForQuarter(okrQKey) : null;
     if(okrDataMine && okrDataMine.depts){
-      // Build a set of my task IDs for the "linked task" match.
       var myTaskIds = {};
       DEPTS.forEach(function(d){
         (data[d]||[]).forEach(function(t){
@@ -1544,7 +1543,7 @@ function renderMyTasks(){
         });
       });
       var okrLinks = (typeof OKR_LINKS !== 'undefined' && OKR_LINKS) ? OKR_LINKS : {};
-      var myKRs = []; // {dept, deptColor, obj, kr, why}
+      var myKRs = [];
       Object.keys(okrDataMine.depts).forEach(function(dName){
         var dept = okrDataMine.depts[dName];
         (dept.objectives||[]).forEach(function(obj){
@@ -1563,43 +1562,54 @@ function renderMyTasks(){
         });
       });
 
-      h2 += '<div style="margin:0 0 22px">';
-      h2 += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;gap:12px">';
-      h2 += '<div style="font-size:11px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.1em">🎯 MY OKRs — '+(typeof quarterLabel==='function'?quarterLabel(okrQKey):okrQKey)+'</div>';
-      h2 += '<a href="#/okr" onclick="event.preventDefault();go(\'okr\');" style="font-size:10px;color:var(--mut);text-decoration:none;font-family:Roboto Mono,monospace">Open OKR Tracker →</a>';
-      h2 += '</div>';
+      // Collapse state persists per-user so once expanded it stays expanded.
+      var okrsOpen = false;
+      try { okrsOpen = localStorage.getItem('rl_mytasks_okrs_open') === '1'; } catch(_){}
+      var chev = okrsOpen ? '▾' : '▸';
+      var count = myKRs.length;
 
+      okrsHtml += '<div style="margin:24px 0 22px;background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden">';
+      okrsHtml += '<div id="my-okrs-toggle" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;user-select:none">';
+      okrsHtml += '<div style="display:flex;align-items:center;gap:10px">';
+      okrsHtml += '<span style="font-size:14px;color:var(--acc)">'+chev+'</span>';
+      okrsHtml += '<span style="font-size:12px;font-weight:700">🎯 My OKRs</span>';
+      okrsHtml += '<span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">'+(typeof quarterLabel==='function'?quarterLabel(okrQKey):okrQKey)+' · '+count+' KR'+(count===1?'':'s')+'</span>';
+      okrsHtml += '</div>';
+      okrsHtml += '<a href="#/okr" onclick="event.stopPropagation();event.preventDefault();go(\'okr\');" style="font-size:10px;color:var(--mut);text-decoration:none;font-family:Roboto Mono,monospace">Open OKR Tracker →</a>';
+      okrsHtml += '</div>';
+
+      okrsHtml += '<div id="my-okrs-body" style="'+(okrsOpen?'':'display:none;')+'padding:0 16px 16px">';
       if(!myKRs.length){
-        h2 += '<div style="padding:20px;background:var(--surf);border:1px dashed var(--brd);border-radius:10px;text-align:center;color:var(--mut);font-size:11px">You aren\'t on any key result this quarter. Ask an admin in <strong>OKR Tracker</strong> to add you as owner, or link one of your tasks to a KR from the task drawer.</div>';
+        okrsHtml += '<div style="padding:20px;background:var(--surf2);border:1px dashed var(--brd);border-radius:8px;text-align:center;color:var(--mut);font-size:11px">You aren\'t on any key result this quarter. Ask an admin in <strong>OKR Tracker</strong> to add you as owner, or link one of your tasks to a KR from the task drawer.</div>';
       } else {
-        h2 += '<div style="display:grid;gap:10px">';
+        okrsHtml += '<div style="display:grid;gap:10px">';
         myKRs.forEach(function(row){
           var conf = row.kr.confidence || 'Not started';
           var cc = conf==='On track'?'var(--grn)':conf==='At Risk'?'var(--yel)':conf==='Off Track'?'var(--red)':conf==='Completed'?'var(--acc)':'var(--mut)';
           var pct = row.kr.progress || 0;
-          h2 += '<div style="background:var(--surf);border:1px solid var(--brd);border-left:3px solid '+row.deptColor+';border-radius:8px;padding:12px 16px;cursor:pointer" onclick="localStorage.setItem(\'rl_okr_dept\',\''+row.dept+'\');go(\'okr\')">';
-          h2 += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px">';
-          h2 += '<div style="flex:1;min-width:0">';
-          h2 += '<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:2px">'+row.kr.id+' · '+row.dept+' · '+row.why+'</div>';
-          h2 += '<div style="font-size:12px;color:var(--txt);font-weight:600;line-height:1.3">'+esc(row.kr.title)+'</div>';
-          h2 += '<div style="font-size:10px;color:var(--mut);margin-top:3px">↑ '+esc(row.obj.title)+'</div>';
-          h2 += '</div>';
-          h2 += '<div style="text-align:right;flex-shrink:0;min-width:80px">';
-          h2 += '<div style="font-size:16px;font-weight:800;color:'+row.deptColor+'">'+pct+'<span style="font-size:10px">%</span></div>';
-          h2 += '<div style="font-size:9px;font-weight:700;color:'+cc+';font-family:Roboto Mono,monospace;margin-top:2px">'+conf+'</div>';
-          h2 += '</div>';
-          h2 += '</div>';
-          h2 += '<div style="height:4px;background:var(--surf2);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+row.deptColor+';border-radius:2px"></div></div>';
-          h2 += '</div>';
+          okrsHtml += '<div style="background:var(--surf2);border:1px solid var(--brd);border-left:3px solid '+row.deptColor+';border-radius:8px;padding:12px 16px;cursor:pointer" onclick="localStorage.setItem(\'rl_okr_dept\',\''+row.dept+'\');go(\'okr\')">';
+          okrsHtml += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px">';
+          okrsHtml += '<div style="flex:1;min-width:0">';
+          okrsHtml += '<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:2px">'+row.kr.id+' · '+row.dept+' · '+row.why+'</div>';
+          okrsHtml += '<div style="font-size:12px;color:var(--txt);font-weight:600;line-height:1.3">'+esc(row.kr.title)+'</div>';
+          okrsHtml += '<div style="font-size:10px;color:var(--mut);margin-top:3px">↑ '+esc(row.obj.title)+'</div>';
+          okrsHtml += '</div>';
+          okrsHtml += '<div style="text-align:right;flex-shrink:0;min-width:80px">';
+          okrsHtml += '<div style="font-size:16px;font-weight:800;color:'+row.deptColor+'">'+pct+'<span style="font-size:10px">%</span></div>';
+          okrsHtml += '<div style="font-size:9px;font-weight:700;color:'+cc+';font-family:Roboto Mono,monospace;margin-top:2px">'+conf+'</div>';
+          okrsHtml += '</div>';
+          okrsHtml += '</div>';
+          okrsHtml += '<div style="height:4px;background:var(--bg);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+row.deptColor+';border-radius:2px"></div></div>';
+          okrsHtml += '</div>';
         });
-        h2 += '</div>';
+        okrsHtml += '</div>';
       }
-      h2 += '</div>';
+      okrsHtml += '</div>';
+      okrsHtml += '</div>';
     }
   } catch(_){}
-  // ── End MY OKRs section ────────────────────────────────────────────────
   h2+='<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin:14px 0 18px;padding:14px;background:var(--surf);border:1px solid var(--brd);border-radius:10px">';  h2+='<div style="flex:2;min-width:200px"><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">NEW TASK</label><input id="mtn" placeholder="Describe the task..." style="width:100%;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box"></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">DEPT</label><select id="mtd" style="padding:8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px">'+DEPTS.map(function(d){return '<option value="'+d+'"'+(d===(currentUser.dept||'')?' selected':'')+'>'+d+'</option>';}).join('')+'</select></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">PRIORITY</label><select id="mtp" style="padding:8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option></select></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">DUE</label><input id="mtdue" type="date" style="padding:7px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px"></div>';  h2+='<button style="background:var(--acc);color:#fff;border:none;padding:9px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer" onclick="addMyTask()">+ Add</button>';  h2+='</div>';
-  if(!all.length){h2+='<div style="color:var(--mut);margin-top:32px;text-align:center;font-size:11px">No tasks assigned to you yet.</div>';el.innerHTML=h2;return;}
+  if(!all.length){h2+='<div style="color:var(--mut);margin-top:32px;text-align:center;font-size:11px">No tasks assigned to you yet.</div>';h2+=okrsHtml;el.innerHTML=h2;_wireMyOKRsToggle();return;}
   h2+='<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>STATUS</th><th>PRIORITY</th><th>DUE</th><th>PROGRESS</th></tr></thead><tbody>';
   all.forEach(function(t){
     var c=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};
@@ -1617,7 +1627,25 @@ function renderMyTasks(){
     h2+='</tr>';
   });
   h2+='</tbody></table></div>';
+  h2+=okrsHtml;
   el.innerHTML=h2;
+  _wireMyOKRsToggle();
+}
+
+// Wire the collapsible My OKRs section. Idempotent — safe to call after
+// every renderMyTasks() since the toggle element is re-created each render.
+function _wireMyOKRsToggle(){
+  var toggle = document.getElementById('my-okrs-toggle');
+  var body = document.getElementById('my-okrs-body');
+  if(!toggle || !body) return;
+  toggle.onclick = function(){
+    var isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : 'block';
+    try { localStorage.setItem('rl_mytasks_okrs_open', isOpen ? '0' : '1'); } catch(_){}
+    // Swap the chevron
+    var chev = toggle.querySelector('span');
+    if(chev) chev.textContent = isOpen ? '▸' : '▾';
+  };
 }
 
 function _showGate(){
