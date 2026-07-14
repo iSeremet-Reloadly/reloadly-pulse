@@ -1365,6 +1365,57 @@ function okrSetParentObjective(deptName, objectiveId, parentObjectiveId){
   saveOKRForQuarter(key, d);
   renderOKR();
 }
+// Roll-up: recompute every objective's progress from own KRs + linked children.
+// Personal objective progress feeds its parent Dept objective; Dept objective
+// progress feeds its parent Company objective. Runs bottom-up over 3 passes so
+// changes at the leaves propagate all the way to Company in one call.
+function _recalcAllObjectiveProgress(d){
+  if(!d || !d.depts) return;
+  var allObjs = [];
+  Object.keys(d.depts).forEach(function(dn){
+    (d.depts[dn].objectives||[]).forEach(function(o){ allObjs.push({dept:dn, obj:o}); });
+  });
+  function ownKRAvg(o){
+    var ks = o.krs||[]; if(!ks.length) return null;
+    return Math.round(ks.reduce(function(s,k){return s+(parseInt(k.progress,10)||0);},0)/ks.length);
+  }
+  function childrenOf(objId){
+    return allObjs.filter(function(r){ return r.obj.parentObjectiveId===objId; }).map(function(r){return r.obj;});
+  }
+  // Iterate several passes so leaf → mid → root propagation stabilises.
+  for(var pass=0; pass<4; pass++){
+    allObjs.forEach(function(r){
+      var o = r.obj;
+      var parts = [];
+      var krAvg = ownKRAvg(o);
+      if(krAvg !== null) parts.push(krAvg);
+      childrenOf(o.id).forEach(function(child){
+        var cp = parseInt(child.progress,10);
+        if(!isNaN(cp)) parts.push(cp);
+      });
+      if(parts.length){
+        o.progress = Math.round(parts.reduce(function(s,x){return s+x;},0)/parts.length);
+      } else if(o.progress == null){
+        o.progress = 0;
+      }
+    });
+  }
+}
+// Find every objective whose parentObjectiveId points at this objective.
+// Used to render the "↓ Linked from" cascade list under Company + Dept cards.
+function _okrChildrenOf(objectiveId){
+  var key = getActiveOKRKey(); var d = loadOKRForQuarter(key);
+  if(!d || !d.depts) return [];
+  var out = [];
+  Object.keys(d.depts).forEach(function(dn){
+    (d.depts[dn].objectives||[]).forEach(function(o){
+      if(o.parentObjectiveId === objectiveId){
+        out.push({ dept: dn, obj: o, isPersonal: !!(o.owner||'').trim() });
+      }
+    });
+  });
+  return out;
+}
 // Look up parent objective title for display.
 function _okrParentLabel(parentObjectiveId){
   if(!parentObjectiveId) return '';
@@ -1406,6 +1457,10 @@ function okrDeleteKR(deptName, objectiveId, krId){
 }
 function loadOKRForQuarter(key){var stored=localStorage.getItem('rl_okr_'+key);if(stored){try{return JSON.parse(stored);}catch(e){}}if(key==='Q2_2026')return JSON.parse(JSON.stringify(OKR_DATA));return null;}
 function saveOKRForQuarter(key,data){
+  // Propagate progress up the parent chain before persisting so a leaf change
+  // (e.g. a personal KR bumped by the owner) is reflected in the linked Dept
+  // and Company objective %s on the very same save + sync round-trip.
+  try { _recalcAllObjectiveProgress(data); } catch(_){}
   localStorage.setItem('rl_okr_'+key,JSON.stringify(data));
   // Push the whole OKR blob so every teammate sees the change within ~30s.
   // OKR_SYNC.getLocal() collects every rl_okr_QX_YYYY key each push.
@@ -3345,7 +3400,10 @@ function renderOKR(){
     var od=document.createElement('div');od.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px 20px;margin-bottom:16px';
     var oh=document.createElement('div');oh.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px';
     var otd=document.createElement('div');otd.style.cssText='flex:1';
-    var oid=document.createElement('div');oid.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:3px';oid.textContent=obj.id;
+    var oid=document.createElement('div');oid.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:3px;display:flex;align-items:center;gap:8px';
+    // OBJECTIVE badge — purple, universal across all depts. Pairs with the
+    // green "KEY RESULT" badge on KRs so the card type is legible at a glance.
+    oid.innerHTML='<span style="background:#6c63ff;color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;letter-spacing:.6px">OBJECTIVE</span><span>'+obj.id+'</span>';
     var otl=document.createElement('div');otl.style.cssText='font-size:14px;font-weight:700';otl.textContent=obj.title;
     if(isAdmin()){otl.contentEditable='true';otl.style.outline='none';otl.style.borderBottom='1px dashed transparent';otl.onfocus=function(){this.style.borderBottomColor='var(--acc)';};otl.onblur=(function(o,k,d){return function(){this.style.borderBottomColor='transparent';o.title=this.textContent.trim();saveOKRForQuarter(k,d);};})(obj,activeKey,okrData);}
     otd.appendChild(oid);otd.appendChild(otl);
@@ -3400,7 +3458,10 @@ function renderOKR(){
       // KR header
       var kh=document.createElement('div');kh.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px';
       var ktd=document.createElement('div');ktd.style.cssText='flex:1';
-      var kid2=document.createElement('div');kid2.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:2px';kid2.textContent=kr.id;ktd.appendChild(kid2);
+      var kid2=document.createElement('div');kid2.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:2px;display:flex;align-items:center;gap:6px';
+      // KEY RESULT badge — teal/green, distinct from the purple OBJECTIVE badge.
+      kid2.innerHTML='<span style="background:#09faa3;color:#0a2e1c;font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;letter-spacing:.6px">KEY RESULT</span><span>'+kr.id+'</span>';
+      ktd.appendChild(kid2);
       var ktl=document.createElement('div');ktl.style.cssText='font-size:12px;color:var(--txt)';ktl.textContent=kr.title;
       if(isAdmin()){ktl.contentEditable='true';ktl.style.outline='none';ktl.style.borderBottom='1px dashed transparent';ktl.onfocus=function(){this.style.borderBottomColor='var(--acc2)';};ktl.onblur=(function(k2,key2,d2){return function(){this.style.borderBottomColor='transparent';k2.title=this.textContent.trim();saveOKRForQuarter(key2,d2);};})(kr,activeKey,okrData);}
       ktd.appendChild(ktl);
@@ -3463,7 +3524,10 @@ function renderOKR(){
         var eb=document.createElement('div');eb.style.cssText='display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd)';
         var pl=document.createElement('span');pl.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace';pl.textContent='Progress:';eb.appendChild(pl);
         var pi=document.createElement('input');pi.type='number';pi.min='0';pi.max='100';pi.value=kr.progress;pi.style.cssText='width:52px;padding:2px 4px;font-size:10px;font-family:Roboto Mono,monospace;text-align:center;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px';
-        pi.onchange=(function(ko,oo,dd,kk){return function(){var v=Math.min(100,Math.max(0,parseInt(this.value)||0));this.value=v;ko.progress=v;oo.progress=Math.round(oo.krs.reduce(function(ss,k){return ss+k.progress;},0)/Math.max(1,oo.krs.length));saveOKRForQuarter(kk,dd);renderOKR();};})(kr,obj,okrData,activeKey);
+        // Progress-change handler: saveOKRForQuarter also runs the roll-up so
+        // this KR bump automatically propagates to the parent Dept + Company
+        // objective %s. No manual computation needed here.
+        pi.onchange=(function(ko,oo,dd,kk){return function(){var v=Math.min(100,Math.max(0,parseInt(this.value)||0));this.value=v;ko.progress=v;saveOKRForQuarter(kk,dd);renderOKR();};})(kr,obj,okrData,activeKey);
         eb.appendChild(pi);
         var ps=document.createElement('span');ps.style.cssText='font-size:9px;color:var(--mut)';ps.textContent='%';eb.appendChild(ps);
         var sp2=document.createElement('div');sp2.style.cssText='flex:1';eb.appendChild(sp2);
@@ -3476,6 +3540,40 @@ function renderOKR(){
       krsDiv.appendChild(kd);
     });
     od.appendChild(krsDiv);
+    // === Linked-children cascade ===
+    // Under a Company objective: show every dept objective that rolls up here.
+    // Under a Dept objective: show every personal objective that rolls up here.
+    // This is what makes the CO ↔ Dept ↔ Individual chain visible on this page
+    // (rather than only in the Strategy mindmap).
+    var _kids = _okrChildrenOf(obj.id);
+    if(_kids.length){
+      var childWrap = document.createElement('div');
+      childWrap.style.cssText='margin-top:14px;padding:12px 14px;background:var(--surf2);border-left:3px solid #6c63ff;border-radius:0 6px 6px 0';
+      var childHdr = document.createElement('div');
+      childHdr.style.cssText='font-size:9px;font-family:Roboto Mono,monospace;color:var(--mut);letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:6px';
+      var _isCompany = (df==='Company');
+      childHdr.innerHTML='<span style="background:#6c63ff;color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;letter-spacing:.6px">↓ CASCADE</span><span>'+_kids.length+' '+(_isCompany?'DEPT':'INDIVIDUAL')+' OBJECTIVE'+(_kids.length===1?'':'S')+' ROLL UP HERE</span>';
+      childWrap.appendChild(childHdr);
+      _kids.forEach(function(k){
+        var childDeptColor = ((okrData.depts[k.dept]||{}).color) || 'var(--mut)';
+        var row2 = document.createElement('div');
+        row2.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 0;font-size:11px';
+        var badge = document.createElement('span');
+        badge.style.cssText='font-size:8px;font-family:Roboto Mono,monospace;padding:2px 6px;border-radius:3px;background:'+childDeptColor+'22;color:'+childDeptColor+';font-weight:700';
+        badge.textContent = k.isPersonal ? (k.dept+' · '+(k.obj.owner||'?')) : k.dept;
+        row2.appendChild(badge);
+        var title = document.createElement('span');
+        title.style.cssText='flex:1;color:var(--txt)';
+        title.textContent = k.obj.title || '(untitled)';
+        row2.appendChild(title);
+        var pctSpan = document.createElement('span');
+        pctSpan.style.cssText='font-size:11px;font-weight:700;color:'+childDeptColor+';min-width:36px;text-align:right';
+        pctSpan.textContent = (k.obj.progress||0)+'%';
+        row2.appendChild(pctSpan);
+        childWrap.appendChild(row2);
+      });
+      od.appendChild(childWrap);
+    }
     // + Add Key Result button + empty state for objectives with no KRs.
     if(isAdmin()){
       if(!obj.krs.length){
@@ -3863,19 +3961,23 @@ function _openAddKRForPersonModal(personDept, personName, activeKey){
 
   var html = '';
   html += '<div style="font-size:16px;font-weight:800;margin-bottom:6px">Add Key Result for '+esc(personName)+'</div>';
-  html += '<div style="font-size:11px;color:var(--mut);margin-bottom:18px">Under an existing objective, or create a new one.</div>';
+  html += '<div style="font-size:11px;color:var(--mut);margin-bottom:14px">Personal KRs sit under this person\'s personal objectives — they don\'t clutter the dept view. Progress rolls up via the linked Dept objective.</div>';
 
-  // Objective picker
-  html += '<label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">PARENT OBJECTIVE</label>';
+  // Personal-objective picker — only shows objectives owned by THIS person.
+  // Prevents individual KRs from being attached to a dept-level objective and
+  // polluting the dept view. If none exist yet, only the "__NEW__" option is
+  // shown, forcing the flow to create a personal objective first.
+  var personalObjs = (deptObj.objectives||[]).filter(function(o){ return (o.owner||'').trim() === personName; });
+  html += '<label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">PARENT PERSONAL OBJECTIVE</label>';
   html += '<select id="akr-obj" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;margin-bottom:14px">';
-  Object.keys(okrData.depts).forEach(function(dn){
-    var opts = (okrData.depts[dn].objectives||[]).map(function(o){
-      var sel = (dn===personDept && o===((okrData.depts[dn].objectives||[])[0])) ? ' selected' : '';
-      return '<option value="'+dn+'|'+o.id+'"'+sel+'>['+dn+'] '+esc(o.title)+'</option>';
-    }).join('');
-    if(opts) html += '<optgroup label="'+dn+'">'+opts+'</optgroup>';
-  });
-  html += '<option value="__NEW__">+ Create a new objective in '+personDept+'</option>';
+  if(!personalObjs.length){
+    html += '<option value="__NEW__" selected>+ Create '+esc(personName)+'\'s first personal objective</option>';
+  } else {
+    personalObjs.forEach(function(o, i){
+      html += '<option value="'+personDept+'|'+o.id+'"'+(i===0?' selected':'')+'>'+esc(o.title)+'</option>';
+    });
+    html += '<option value="__NEW__">+ Create a new personal objective for '+esc(personName)+'</option>';
+  }
   html += '</select>';
 
   // New objective title (hidden until __NEW__ picked)
@@ -3915,7 +4017,9 @@ function _openAddKRForPersonModal(personDept, personName, activeKey){
       var dept = d.depts[personDept];
       if(!dept){ toast('Unknown dept','err'); return; }
       var newId = _okrNextObjectiveId(dept, personDept);
-      targetObj = { id:newId, title:newTitle, progress:0, krs:[] };
+      // Personal objective — owner set to the person, so it's filtered out of
+      // the dept-level view and only surfaces under Individual OKRs.
+      targetObj = { id:newId, title:newTitle, progress:0, owner:personName, krs:[] };
       dept.objectives = dept.objectives || [];
       dept.objectives.push(targetObj);
       targetDept = personDept;
