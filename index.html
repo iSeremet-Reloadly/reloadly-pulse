@@ -1507,14 +1507,26 @@ function renderMyTasks(){
   if(!currentUser||!data)return;
   var myName=currentUser.name;
   var all=[];
-  var myCount=currentUser?DEPTS.reduce(function(acc,d){return acc+(data[d]||[]).filter(function(t){return(t.assignee||'').trim()===currentUser.name&&t.status!=='Done';}).length;},0):0;
+  var myCount=currentUser?DEPTS.reduce(function(acc,d){return acc+(data[d]||[]).filter(function(t){return(t.assignee||'').trim()===currentUser.name&&t.status!=='Done'&&!t.archived;}).length;},0):0;
   var mc=document.getElementById('c-mytasks');if(mc)mc.textContent=myCount||'';
-  DEPTS.forEach(function(d){(data[d]||[]).forEach(function(t){if((t.assignee||'').trim()===myName)all.push(Object.assign({},t,{dept:d}));});});
+  DEPTS.forEach(function(d){(data[d]||[]).forEach(function(t){if((t.assignee||'').trim()===myName && !t.archived && t.status !== 'Done')all.push(Object.assign({},t,{dept:d}));});});
   all.sort(function(a,b){return new Date(a.due||0)-new Date(b.due||0);});
   var done=all.filter(function(t){return t.status==='Done';}).length;
   var el=document.getElementById('main');if(!el)return;
-  var h2='<div class="ptitle">My Tasks</div>';
-  h2+='<div class="psub">'+all.length+' task'+(all.length!==1?'s':'')+' assigned to you · '+done+' done</div>';
+  // Personal-view identity: green accent + first-name banner so it's obvious
+  // at a glance you're in the "just my work" view (not the team-wide Tasks).
+  var firstName = (myName || '').split(' ')[0] || 'Your';
+  var greeting = firstName + "'s Tasks";
+  var h2 = '<div style="background:linear-gradient(135deg, rgba(74,222,128,0.10), rgba(74,222,128,0.02));border:1px solid rgba(74,222,128,0.35);border-left:6px solid var(--grn);border-radius:12px;padding:20px 24px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap">';
+  h2 += '<div style="display:flex;align-items:center;gap:16px">';
+  h2 += '<div style="width:52px;height:52px;border-radius:12px;background:var(--grn);display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 4px 14px rgba(74,222,128,0.35);flex-shrink:0">🎯</div>';
+  h2 += '<div>';
+  h2 += '<div style="font-size:20px;font-weight:800;letter-spacing:-0.3px;display:flex;align-items:center;gap:10px">'+esc(greeting)+' <span style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--grn);color:#0a0a12;font-family:Roboto Mono,monospace">PERSONAL</span></div>';
+  h2 += '<div style="font-size:12px;color:var(--mut);margin-top:4px">'+all.length+' active · '+done+' done — focused on just what’s assigned to you</div>';
+  h2 += '</div>';
+  h2 += '</div>';
+  h2 += '<a href="#/tasks" onclick="event.preventDefault();go(\'tasks\');" style="font-size:11px;color:var(--mut);text-decoration:none;padding:6px 12px;border:1px solid var(--brd);border-radius:6px;font-family:Roboto Mono,monospace">See team view →</a>';
+  h2 += '</div>';
   h2+='<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin:14px 0 18px;padding:14px;background:var(--surf);border:1px solid var(--brd);border-radius:10px">';  h2+='<div style="flex:2;min-width:200px"><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">NEW TASK</label><input id="mtn" placeholder="Describe the task..." style="width:100%;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box"></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">DEPT</label><select id="mtd" style="padding:8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px">'+DEPTS.map(function(d){return '<option value="'+d+'"'+(d===(currentUser.dept||'')?' selected':'')+'>'+d+'</option>';}).join('')+'</select></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">PRIORITY</label><select id="mtp" style="padding:8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option></select></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">DUE</label><input id="mtdue" type="date" style="padding:7px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px"></div>';  h2+='<button style="background:var(--acc);color:#fff;border:none;padding:9px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer" onclick="addMyTask()">+ Add</button>';  h2+='</div>';
   if(!all.length){h2+='<div style="color:var(--mut);margin-top:32px;text-align:center;font-size:11px">No tasks assigned to you yet.</div>';el.innerHTML=h2;return;}
   h2+='<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>STATUS</th><th>PRIORITY</th><th>DUE</th><th>PROGRESS</th></tr></thead><tbody>';
@@ -2342,9 +2354,9 @@ function _renderAdminUsers(){
     row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessPricing"'+(u.canAccessPricing?' checked':'')+' title="Pricing (Ops) access.'+_sessionNote+'"></td>';
     row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessProposals"'+(u.canAccessProposals?' checked':'')+' title="Proposals access.'+_sessionNote+'"></td>';
     row += '<td style="text-align:center"><input type="checkbox" data-upd-email="'+e+'" data-upd-field="canAccessWalletOps"'+(u.canAccessWalletOps?' checked':'')+' title="Supplier Wallet Ops access.'+_sessionNote+'"></td>';
-    row += '<td style="text-align:center">'+(hasPassword(e)?'<span style="color:var(--grn)">✓</span>':'<span style="color:var(--red)">&ndash;</span>')+'</td>';
+    // PWD column + Set Pwd button removed — passwordless auth (email OTP)
+    // means these controls no longer do anything meaningful.
     row += '<td style="white-space:nowrap;display:flex;gap:6px">';
-    row += '<button class="hbtn" style="font-size:10px;padding:4px 8px" data-set-pwd="'+e+'">Set Pwd</button>';
     if(!archived){
       row += '<button class="hbtn" style="font-size:10px;padding:4px 8px;border-color:var(--red);color:var(--red)" data-archive="'+e+'"'+(you?' disabled title="Cannot archive yourself"':'')+'>Archive</button>';
     } else {
@@ -2355,7 +2367,7 @@ function _renderAdminUsers(){
     return row;
   }
   // ── ACTIVE workforce table ────────────────────────────────────────────────
-  html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME</th><th>ROLE</th><th>DEPT</th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+_shCol('PROPOSALS')+_shCol('WALLET OPS')+'<th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
+  html+='<div class="tw"><table><thead><tr><th>EMAIL</th><th>NAME</th><th>ROLE</th><th>DEPT</th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+_shCol('PROPOSALS')+_shCol('WALLET OPS')+'<th>ACTIONS</th></tr></thead><tbody>';
   activeEntries.forEach(function(kv){ html += _renderUserRow(kv[0], kv[1], false); });
   html+='</tbody></table></div>';
   // ── ARCHIVED workforce section (collapsed by default) ─────────────────────
@@ -2369,7 +2381,7 @@ function _renderAdminUsers(){
     html+='<span>'+archivedEntries.length+' user'+(archivedEntries.length===1?'':'s')+'</span>';
     html+='<span style="font-size:11px;font-weight:400;color:var(--mut);opacity:.7;margin-left:auto">Click to expand · restore returns them to the active list</span>';
     html+='</summary>';
-    html+='<div class="tw" style="padding:0"><table><thead><tr><th>EMAIL</th><th>NAME</th><th>ROLE</th><th>DEPT</th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+_shCol('PROPOSALS')+_shCol('WALLET OPS')+'<th>PWD</th><th>ACTIONS</th></tr></thead><tbody>';
+    html+='<div class="tw" style="padding:0"><table><thead><tr><th>EMAIL</th><th>NAME</th><th>ROLE</th><th>DEPT</th>'+_shCol('EXPORT')+_shCol('VIEW ALL')+_shCol('ADMIN')+_shCol('PRICING')+_shCol('PROPOSALS')+_shCol('WALLET OPS')+'<th>ACTIONS</th></tr></thead><tbody>';
     archivedEntries.forEach(function(kv){ html += _renderUserRow(kv[0], kv[1], true); });
     html+='</tbody></table></div>';
     html+='</details>';
@@ -2387,13 +2399,8 @@ function _renderAdminUsers(){
   html+='<div class="fld"><label title="Slack member ID — required for HPM @-mentions and At-Risk DMs">SLACK ID</label><input id="nu-slackid" placeholder="U069HLBU3GT" style="font-family:Roboto Mono,monospace;font-size:12px"></div>';
   html+='<button class="add-btn" id="au-btn">+ ADD</button>';
   html+='</div></div>';
-  // Change own password
-  html+='<div class="sh" style="margin-top:20px"><div><div class="sh-t">Change My Password</div><div class="sh-s">Update your own login password</div></div>';
-  html+='<div class="atb" style="grid-template-columns:1fr 1fr auto">';
-  html+='<div class="fld"><label>NEW PASSWORD</label><input id="my-pwd" type="password" placeholder="New password (min 8 chars)"></div>';
-  html+='<div class="fld"><label>CONFIRM</label><input id="my-pwd2" type="password" placeholder="Confirm new password"></div>';
-  html+='<button class="add-btn" id="my-pwd-btn">UPDATE</button>';
-  html+='</div></div>';
+  // "Change My Password" section removed — Pulse now uses passwordless
+  // email-OTP sign-in, so there's no password to change.
   document.getElementById('main').innerHTML=html;
 
   // ── Wire up inline field edits (name, role, dept, checkboxes, slackId) ───
@@ -9551,7 +9558,10 @@ function tmState(){
   // in the sidebar (which renders the per-user list). Legacy 'my' values from
   // older sessions get coerced to 'board' since the My Work tab is gone.
   var tab = s.tab || 'board';
-  if(tab === 'my') tab = 'board';
+  // Coerce legacy or removed-tab values to 'board' so users who had one of
+  // these selected before don't land on an empty content area.
+  var validTabs = ['board','team'];
+  if(validTabs.indexOf(tab) < 0) tab = 'board';
   return {
     tab: tab,
     dept:s.dept||(currentUser&&currentUser.dept?currentUser.dept:'All'),
@@ -9612,6 +9622,18 @@ function tmGetTasks(st){
     if(st.dept!=='All' && d!==st.dept)return;
     (data[d]||[]).forEach(function(t){all.push(Object.assign({},t,{dept:d}));});
   });
+  // Auto-archive: tasks that hit Done disappear from active views to keep the
+  // board focused on what's still moving. A "Show archived" toggle in the
+  // Tasks header (stored on tmState.showArchived) surfaces them again for
+  // review. Legacy tasks that were marked Done before the archive field
+  // existed also get treated as archived so the transition is seamless.
+  if(!st || !st.showArchived){
+    all = all.filter(function(t){
+      if(t.archived) return false;
+      if(t.status === 'Done') return false;
+      return true;
+    });
+  }
   return all;
 }
 function tmGetMyTasks(st){
@@ -9657,12 +9679,32 @@ function renderTasksV2(){
   // don't accidentally hide tasks.
   if(st.dept !== 'All'){ tmSetState({dept:'All'}); st = tmState(); }
   var hdr=document.createElement('div');hdr.className='tm-hdr';
-  hdr.innerHTML='<div class="tm-title">Tasks</div>';
+  // Team-view identity: purple accent + explicit TEAM badge so users can
+  // tell at a glance this is the shared cross-department view, not their
+  // personal My Tasks page (which uses green + first-name greeting).
+  hdr.innerHTML =
+    '<div style="display:flex;align-items:center;gap:14px">'+
+      '<div style="width:44px;height:44px;border-radius:11px;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 12px rgba(108,99,255,0.35);flex-shrink:0">👥</div>'+
+      '<div>'+
+        '<div style="font-size:18px;font-weight:800;letter-spacing:-0.3px;display:flex;align-items:center;gap:10px">Tasks <span style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--acc);color:#fff;font-family:Roboto Mono,monospace">TEAM</span></div>'+
+        '<div style="font-size:11px;color:var(--mut);margin-top:2px">Every task across every department — the shared team view</div>'+
+      '</div>'+
+    '</div>';
   var newBtn=document.createElement('button');newBtn.className='tm-new-btn';
   newBtn.innerHTML='<span style="font-size:16px;line-height:1;font-weight:700">+</span> New task <kbd>N</kbd>';
   newBtn.onclick=function(){tmOpenNewTaskModal();};
   newBtn.setAttribute('title','New task (press N)');
   hdr.appendChild(newBtn);
+  // Show Archived toggle — Done tasks disappear from active views by default.
+  var archLbl = document.createElement('label');
+  archLbl.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:10px;color:var(--mut);cursor:pointer;margin-left:10px;font-family:Roboto Mono,monospace';
+  archLbl.innerHTML = '<input type="checkbox" '+(st.showArchived?'checked':'')+' style="cursor:pointer;margin:0"> Show archived';
+  archLbl.title = 'Include tasks that were auto-archived when moved to Done';
+  archLbl.querySelector('input').onchange = function(){
+    tmSetState({showArchived: this.checked});
+    renderTasksV2();
+  };
+  hdr.appendChild(archLbl);
   wrap.appendChild(hdr);
 
   // Status strip
@@ -9681,16 +9723,14 @@ function renderTasksV2(){
 
   // Tabs
   var isManager=currentUser&&(currentUser.isAdmin||(currentUser.systemRole==='manager'||currentUser.systemRole==='admin'));
-  // My Work tab removed — the "My Tasks" sidebar entry is the canonical
-  // per-user view, so Tasks focuses on cross-team views (Board / Team /
-  // Timeline / Calendar / Manager) to avoid duplication.
+  // Only ship tabs whose view is actually built. Timeline / Calendar /
+  // Manager placeholders were removed — they showed "ships in Phase X"
+  // messages that felt like dead ends. Bring them back when the view
+  // exists for real.
   var tabs=[
     {id:'board',label:'Board'},
     {id:'team',label:'Team'},
-    {id:'timeline',label:'Timeline'},
-    {id:'calendar',label:'Calendar'},
   ];
-  if(isManager)tabs.push({id:'manager',label:'Manager'});
   var tabBar=document.createElement('div');tabBar.className='tm-tabs';
   tabs.forEach(function(t){
     var b=document.createElement('button');b.className='tm-tab'+(t.id===st.tab?' active':'');
@@ -9703,12 +9743,11 @@ function renderTasksV2(){
   // Content
   var content=document.createElement('div');content.className='tm-content';
   wrap.appendChild(content);
-  if(st.tab==='my')      tmRenderMyWork(content, st);
-  else if(st.tab==='team')   tmRenderTeam(content, st);
-  else if(st.tab==='board')  tmRenderBoard(content, st);
-  else if(st.tab==='timeline')tmRenderTimeline(content, st);
-  else if(st.tab==='calendar')tmRenderCalendar(content, st);
-  else if(st.tab==='manager')tmRenderManager(content, st);
+  // Board is the canonical default. Team is the other real view. Anything
+  // else (including legacy 'my' / 'timeline' / 'calendar' / 'manager' saved
+  // in browser state) falls through to Board so users don't hit blank space.
+  if(st.tab==='team') tmRenderTeam(content, st);
+  else tmRenderBoard(content, st);
 
   // Meeting → Actions extractor — paste meeting notes / Slack thread / email
   // at the bottom of Tasks and let the AI propose action items the user can
@@ -10360,7 +10399,10 @@ function tmRenderTeam(host, st){
 // ── BOARD TAB (Kanban) ─────────────────────────────────────────────────
 function tmRenderBoard(host, st){
   var tasks=tmGetTasks(st);
-  var cols=['Not Started','In Progress','Blocked','Done'];
+  // Keep all 4 columns visible so drag-to-Done still works as an "archive"
+  // gesture. When archived is off (default), the Done column shows an empty
+  // state prompt so users know completed items moved to Archive.
+  var cols = ['Not Started','In Progress','Blocked','Done'];
   var board=document.createElement('div');board.className='tm-board';
   cols.forEach(function(col){
     var colTasks=tasks.filter(function(t){return (t.status||'Not Started')===col;});
@@ -10446,6 +10488,9 @@ function tmRenderBoard(host, st){
     t.lastUpdated = new Date().toISOString();
     if(newStatus === 'Done' && !t.completedAt) t.completedAt = t.lastUpdated;
     if(newStatus !== 'Done' && t.completedAt) delete t.completedAt;
+    // Auto-archive on Done. Un-archive if moved back out of Done.
+    if(newStatus === 'Done'){ t.archived = true; t.archivedAt = t.lastUpdated; }
+    else if(t.archived){ delete t.archived; delete t.archivedAt; }
     try { autoSave(); } catch(_){}
     try { logEntry(t.id+' moved '+oldStatus+' → '+newStatus,'edit'); } catch(_){}
     toast(t.id+' → '+newStatus,'ok');
@@ -10631,6 +10676,10 @@ function tmOpenDrawer(t, dept){
       t.lastUpdated = new Date().toISOString();
       if(f === 'status' && v === 'Done' && !t.completedAt) t.completedAt = t.lastUpdated;
       if(f === 'status' && v !== 'Done' && t.completedAt) delete t.completedAt;
+      if(f === 'status'){
+        if(v === 'Done'){ t.archived = true; t.archivedAt = t.lastUpdated; }
+        else if(t.archived){ delete t.archived; delete t.archivedAt; }
+      }
       try { autoSave(); } catch(_){}
       try { logEntry(t.id+' '+f+' → '+v,'edit'); } catch(_){}
       toast('Saved','ok');
@@ -10823,7 +10872,9 @@ function renderRoadmaps(){
   wrap.appendChild(strip);
 
   // === Tabs ===
-  var tabs=[{id:'nnl',label:'Now / Next / Later'},{id:'timeline',label:'Timeline'},{id:'releases',label:'Releases'}];
+  // Releases placeholder tab removed — was a dead end ("ships in Phase 3").
+  // Restore when the view is real.
+  var tabs=[{id:'nnl',label:'Now / Next / Later'},{id:'timeline',label:'Timeline'}];
   var tabBar=document.createElement('div');tabBar.className='rm-tabs';
   tabs.forEach(function(t){
     var b=document.createElement('button');b.className='rm-tab'+(t.id===st.tab?' active':'');
