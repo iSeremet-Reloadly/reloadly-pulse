@@ -1289,7 +1289,71 @@ function getCurrentQuarter(){var now=new Date(),y=now.getFullYear(),m=now.getMon
 function quarterLabel(key){var p=key.split('_');return p[0]+' '+p[1];}
 function quarterDates(key){var p=key.split('_'),q=parseInt(p[0].slice(1)),y=parseInt(p[1]),starts=[[0,1],[3,1],[6,1],[9,1]],ends=[[2,31],[5,30],[8,30],[11,31]],ms=starts[q-1],me=ends[q-1],pad=function(n){return n<10?'0'+n:String(n);};var sd=y+'-'+pad(ms[0]+1)+'-'+pad(ms[1]),ed=y+'-'+pad(me[0]+1)+'-'+pad(me[1]),totalDays=Math.round((new Date(ed)-new Date(sd))/86400000)+1;return{startDate:sd,endDate:ed,totalDays:totalDays};}
 function generateQuarterList(){var list=[],qs=['Q1','Q2','Q3','Q4'];for(var y=2026;y<=2028;y++){for(var qi=0;qi<4;qi++){if(y===2026&&qi===0)continue;list.push(qs[qi]+'_'+y);}}return list;}
-function blankOKRData(key){var d=quarterDates(key),cy=key.split('_')[0];function mkDept(pre,col,icon){var objs=[];for(var i=1;i<=3;i++){var krs=[];for(var j=1;j<=3;j++){krs.push({id:pre+'-'+i+'-'+j,title:'Key Result '+j,progress:0,owner:'',confidence:'Not started'});}objs.push({id:pre+'-'+i,title:'Objective '+i,progress:0,krs:krs});}return{color:col,icon:icon,objectives:objs};}return{cycle:cy,startDate:d.startDate,endDate:d.endDate,totalDays:d.totalDays,depts:{"Company":mkDept('CO','var(--acc)','[CO]'),"Operations":mkDept('OPS','var(--grn)','[OPS]'),"Finance":mkDept('FIN','var(--yel)','[FIN]'),"Product & Engineering":mkDept('ENG','var(--red)','[ENG]'),"Sales":mkDept('SAL','#2778c4','[SAL]')}};}
+function blankOKRData(key){
+  // Blank quarter now starts with ZERO objectives per dept. Users add via
+  // "+ Add Objective" and "+ Add Key Result" buttons — no forced 3×3 shape.
+  // Individuals typically have 1 objective, teams 1-2, and each objective
+  // might have 1-5 KRs depending on scope.
+  var d=quarterDates(key),cy=key.split('_')[0];
+  function mkDept(col,icon){return{color:col,icon:icon,objectives:[]};}
+  return{cycle:cy,startDate:d.startDate,endDate:d.endDate,totalDays:d.totalDays,depts:{
+    "Company":mkDept('var(--acc)','[CO]'),
+    "Operations":mkDept('var(--grn)','[OPS]'),
+    "Finance":mkDept('var(--yel)','[FIN]'),
+    "Product & Engineering":mkDept('var(--red)','[ENG]'),
+    "Sales":mkDept('#2778c4','[SAL]')
+  }};
+}
+// ID-generators that don't collide with existing objectives/KRs. Prefix is
+// derived from the dept name (first 3 letters uppercased for consistency
+// with the seed data pattern like CO-, OPS-, FIN-, ENG-, SAL-).
+function _okrDeptPrefix(deptName){
+  var map = {'Company':'CO','Operations':'OPS','Finance':'FIN','Product & Engineering':'ENG','Sales':'SAL'};
+  return map[deptName] || String(deptName||'X').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase();
+}
+function _okrNextObjectiveId(dept, deptName){
+  var pre = _okrDeptPrefix(deptName);
+  var used = {}; (dept.objectives||[]).forEach(function(o){ used[o.id]=1; });
+  for(var n=1;;n++){ var id = pre+'-'+n; if(!used[id]) return id; }
+}
+function _okrNextKRId(obj){
+  var used = {}; (obj.krs||[]).forEach(function(k){ used[k.id]=1; });
+  for(var n=1;;n++){ var id = obj.id+'-'+n; if(!used[id]) return id; }
+}
+function okrAddObjective(deptName){
+  var key = getActiveOKRKey(); var d = loadOKRForQuarter(key); if(!d || !d.depts[deptName]) return;
+  var dept = d.depts[deptName];
+  var newId = _okrNextObjectiveId(dept, deptName);
+  dept.objectives.push({ id:newId, title:'New objective — click to edit', progress:0, krs:[] });
+  saveOKRForQuarter(key, d);
+  renderOKR();
+}
+function okrAddKR(deptName, objectiveId){
+  var key = getActiveOKRKey(); var d = loadOKRForQuarter(key); if(!d || !d.depts[deptName]) return;
+  var obj = (d.depts[deptName].objectives||[]).find(function(o){ return o.id===objectiveId; });
+  if(!obj) return;
+  if(!obj.krs) obj.krs = [];
+  obj.krs.push({ id:_okrNextKRId(obj), title:'New key result — click to edit', progress:0, owner:'', confidence:'Not started' });
+  saveOKRForQuarter(key, d);
+  renderOKR();
+}
+function okrDeleteObjective(deptName, objectiveId){
+  if(!confirm('Delete this objective and all its KRs?')) return;
+  var key = getActiveOKRKey(); var d = loadOKRForQuarter(key); if(!d || !d.depts[deptName]) return;
+  d.depts[deptName].objectives = (d.depts[deptName].objectives||[]).filter(function(o){ return o.id!==objectiveId; });
+  saveOKRForQuarter(key, d);
+  renderOKR();
+}
+function okrDeleteKR(deptName, objectiveId, krId){
+  if(!confirm('Delete this key result?')) return;
+  var key = getActiveOKRKey(); var d = loadOKRForQuarter(key); if(!d || !d.depts[deptName]) return;
+  var obj = (d.depts[deptName].objectives||[]).find(function(o){ return o.id===objectiveId; });
+  if(!obj) return;
+  obj.krs = (obj.krs||[]).filter(function(k){ return k.id!==krId; });
+  obj.progress = obj.krs.length ? Math.round(obj.krs.reduce(function(s,k){return s+(k.progress||0);},0)/obj.krs.length) : 0;
+  saveOKRForQuarter(key, d);
+  renderOKR();
+}
 function loadOKRForQuarter(key){var stored=localStorage.getItem('rl_okr_'+key);if(stored){try{return JSON.parse(stored);}catch(e){}}if(key==='Q2_2026')return JSON.parse(JSON.stringify(OKR_DATA));return null;}
 function saveOKRForQuarter(key,data){localStorage.setItem('rl_okr_'+key,JSON.stringify(data));}
 function getActiveOKRKey(){return localStorage.getItem('rl_okr_active_quarter')||getCurrentQuarter();}
@@ -1487,7 +1551,10 @@ function init(){
   // timestamp client-side for the initial render to avoid a flash of the
   // sign-in gate; the Worker verify call below re-validates async and signs
   // out cleanly if the session is actually invalid (e.g. revoked admin-side).
-  if(profile && hasPassword(saved) && sessionToken && Date.now() < sessionExpiresAt){
+  // Passwordless: session token + non-expired timestamp are the only gates.
+  // hasPassword(saved) check was a leftover from the password era and made
+  // every refresh boot users back to the sign-in screen.
+  if(profile && sessionToken && Date.now() < sessionExpiresAt){
     currentUser={email:saved,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin,canAccessProposals:!!profile.canAccessProposals||!!profile.isAdmin,canAccessWalletOps:!!profile.canAccessWalletOps||!!profile.isAdmin};
     loadData();
     // If the URL carries a hash route (e.g. #/okrtracker), honor it on load
@@ -2860,7 +2927,17 @@ function renderOKR(){
   else if(isPast){badge.style.background='rgba(100,116,139,.15)';badge.style.color='var(--mut)';badge.textContent='PAST';}
   else{badge.style.background='rgba(251,191,36,.15)';badge.style.color='var(--yel)';badge.textContent='FUTURE';}
   qWrap.appendChild(badge);
-  if(isAdmin()&&okrData){var editBtn=document.createElement('button');editBtn.className='hbtn';editBtn.style.cssText='font-size:10px;padding:5px 12px';editBtn.textContent='+ Add KR';editBtn.onclick=function(){toast('Click any objective or KR title to edit inline','ok');};qWrap.appendChild(editBtn);}
+  if(isAdmin()&&okrData){
+    var addObjBtn=document.createElement('button');addObjBtn.className='hbtn';
+    addObjBtn.style.cssText='font-size:10px;padding:5px 12px;border-color:var(--acc);color:var(--acc);font-weight:700';
+    addObjBtn.textContent='+ Add Objective';
+    addObjBtn.title='Add a new objective to the currently selected department';
+    addObjBtn.onclick=function(){
+      var currentDept = localStorage.getItem('rl_okr_dept')||'Company';
+      okrAddObjective(currentDept);
+    };
+    qWrap.appendChild(addObjBtn);
+  }
   hdrRow.appendChild(titleEl);hdrRow.appendChild(qWrap);wrap.appendChild(hdrRow);
   // ── No data ───────────────────────────────────────────────────────────────
   if(!okrData){
@@ -2882,7 +2959,33 @@ function renderOKR(){
   row.appendChild(daysCard);
   Object.keys(okrData.depts).forEach(function(d){var dept=okrData.depts[d];var pct=Math.round(dept.objectives.reduce(function(s,o){return s+o.progress;},0)/Math.max(1,dept.objectives.length));var active=d===df;var card=document.createElement('div');card.style.cssText='flex:1;min-width:110px;background:var(--surf);border:1px solid '+(active?dept.color:'var(--brd)')+';border-radius:10px;padding:14px 18px;cursor:pointer'+(active?';background:var(--surf2)':'');card.innerHTML='<div style="font-size:9px;color:'+dept.color+';font-family:Roboto Mono,monospace;font-weight:700;margin-bottom:4px">'+dept.icon+' '+d.toUpperCase()+'</div><div style="font-size:22px;font-weight:700">'+pct+'<span style="font-size:12px">%</span></div><div style="margin-top:6px;height:4px;background:var(--surf2);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+dept.color+';border-radius:2px"></div></div><div style="font-size:9px;color:var(--mut);margin-top:3px;font-family:Roboto Mono,monospace">overall</div>';card.onclick=(function(dd){return function(){setOKRDept(dd);};})(d);row.appendChild(card);});
   wrap.appendChild(row);
-  var dl=document.createElement('div');dl.style.cssText='font-size:11px;font-weight:700;color:'+deptObj.color+';font-family:Roboto Mono,monospace;letter-spacing:.1em;margin-bottom:12px';dl.textContent=deptObj.icon+' '+df.toUpperCase()+' OBJECTIVES — '+quarterLabel(activeKey);wrap.appendChild(dl);
+  var dlRow=document.createElement('div');
+  dlRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap';
+  var dl=document.createElement('div');dl.style.cssText='font-size:11px;font-weight:700;color:'+deptObj.color+';font-family:Roboto Mono,monospace;letter-spacing:.1em';dl.textContent=deptObj.icon+' '+df.toUpperCase()+' OBJECTIVES — '+quarterLabel(activeKey);
+  dlRow.appendChild(dl);
+  if(isAdmin()){
+    var addObjInline=document.createElement('button');addObjInline.className='hbtn';
+    addObjInline.style.cssText='font-size:10px;padding:5px 12px;border-color:'+deptObj.color+';color:'+deptObj.color+';font-weight:700';
+    addObjInline.textContent='+ Add Objective';
+    addObjInline.onclick=(function(dept){return function(){okrAddObjective(dept);};})(df);
+    dlRow.appendChild(addObjInline);
+  }
+  wrap.appendChild(dlRow);
+  if(!deptObj.objectives.length){
+    var empObj=document.createElement('div');
+    empObj.style.cssText='text-align:center;padding:40px 20px;background:var(--surf);border:1px dashed var(--brd);border-radius:10px;color:var(--mut);margin-bottom:16px';
+    empObj.innerHTML='<div style="font-size:28px;margin-bottom:8px">🎯</div>'+
+      '<div style="font-size:13px;font-weight:600;color:var(--txt);margin-bottom:4px">No objectives for '+df+' yet</div>'+
+      '<div style="font-size:11px">Individuals typically have 1 objective. Teams have 1-2. Each objective can have 1-5 key results — however many you can actually accomplish.</div>';
+    if(isAdmin()){
+      var startBtn=document.createElement('button');startBtn.className='hbtn';
+      startBtn.style.cssText='font-size:11px;padding:8px 16px;margin-top:14px;border-color:'+deptObj.color+';color:'+deptObj.color+';font-weight:700';
+      startBtn.textContent='+ Add first objective';
+      startBtn.onclick=(function(dept){return function(){okrAddObjective(dept);};})(df);
+      empObj.appendChild(startBtn);
+    }
+    wrap.appendChild(empObj);
+  }
   // ── Objectives ────────────────────────────────────────────────────────────
   deptObj.objectives.forEach(function(obj){
     var od=document.createElement('div');od.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px 20px;margin-bottom:16px';
@@ -2950,6 +3053,16 @@ function renderOKR(){
       var btns=document.createElement('div');btns.style.cssText='display:flex;align-items:center;gap:8px';
       if(lc>0){var ss=document.createElement('span');ss.style.cssText='font-size:10px;color:var(--acc);cursor:pointer;font-family:Roboto Mono,monospace';ss.textContent='[linked] '+lc+' task'+(lc>1?'s':'');ss.onclick=(function(kid3){return function(){showOKRLinkedTasks(kid3);};})(kr.id);btns.appendChild(ss);}
       var lb=document.createElement('button');lb.className='hbtn';lb.style.cssText='font-size:9px;padding:3px 8px';lb.textContent='+ Link Task';lb.onclick=(function(kid3,kt3){return function(){openLinkTaskModal(kid3,kt3);};})(kr.id,kr.title);btns.appendChild(lb);
+      if(isAdmin()){
+        var delKR=document.createElement('button');
+        delKR.style.cssText='background:none;border:none;color:var(--mut);cursor:pointer;font-size:14px;padding:2px 6px;line-height:1';
+        delKR.title='Delete this key result';
+        delKR.textContent='×';
+        delKR.onmouseenter=function(){this.style.color='var(--red)';};
+        delKR.onmouseleave=function(){this.style.color='var(--mut)';};
+        delKR.onclick=(function(dept,oid2,kid3){return function(){okrDeleteKR(dept,oid2,kid3);};})(df,obj.id,kr.id);
+        btns.appendChild(delKR);
+      }
       ft.appendChild(btns);kd.appendChild(ft);
       // Admin edit bar
       if(isAdmin()){
@@ -2968,7 +3081,22 @@ function renderOKR(){
       }
       krsDiv.appendChild(kd);
     });
-    od.appendChild(krsDiv);wrap.appendChild(od);
+    od.appendChild(krsDiv);
+    // + Add Key Result button + empty state for objectives with no KRs.
+    if(isAdmin()){
+      if(!obj.krs.length){
+        var noKR=document.createElement('div');
+        noKR.style.cssText='padding:14px;text-align:center;color:var(--mut);font-size:11px;background:var(--surf2);border-radius:6px;margin-top:8px;border:1px dashed var(--brd)';
+        noKR.textContent='No key results yet — add 1 to '+((obj.krs&&obj.krs.length)?obj.krs.length:0)+' below.';
+        od.appendChild(noKR);
+      }
+      var addKR=document.createElement('button');addKR.className='hbtn';
+      addKR.style.cssText='font-size:10px;padding:5px 12px;margin-top:10px;border-color:'+deptObj.color+';color:'+deptObj.color+';font-weight:700';
+      addKR.textContent='+ Add Key Result';
+      addKR.onclick=(function(dept,oid2){return function(){okrAddKR(dept,oid2);};})(df,obj.id);
+      od.appendChild(addKR);
+    }
+    wrap.appendChild(od);
   });
   main.innerHTML='';main.appendChild(wrap);
 }
@@ -10237,16 +10365,69 @@ function tmRenderBoard(host, st){
   cols.forEach(function(col){
     var colTasks=tasks.filter(function(t){return (t.status||'Not Started')===col;});
     var c=document.createElement('div');c.className='tm-board-col';
+    c.dataset.status = col;
     c.innerHTML='<div class="tm-board-col-h"><span class="tm-board-col-label">'+col.toUpperCase()+'</span><span class="tm-board-col-count">'+colTasks.length+'</span></div>';
     var list=document.createElement('div');list.className='tm-board-list';
+    list.dataset.status = col;
+    // Column-level drop target — accept cards dragged in.
+    list.addEventListener('dragover', function(e){
+      e.preventDefault();
+      list.classList.add('tm-drop-hover');
+    });
+    list.addEventListener('dragleave', function(e){
+      // Only remove hover if we truly left the column (not just hovered a child).
+      if(!list.contains(e.relatedTarget)) list.classList.remove('tm-drop-hover');
+    });
+    list.addEventListener('drop', function(e){
+      e.preventDefault();
+      list.classList.remove('tm-drop-hover');
+      var payload = e.dataTransfer.getData('text/plain');
+      if(!payload) return;
+      var parts = payload.split('|');
+      var taskId = parts[0], dept = parts[1];
+      var newStatus = list.dataset.status;
+      // Look up + mutate. Falls back to scanning all depts if the dept the
+      // card thought it was in doesn't have this task (e.g. after a re-sync).
+      var t = (data[dept]||[]).find(function(x){return x.id===taskId;});
+      if(!t){
+        for(var i=0;i<DEPTS.length;i++){
+          var found = (data[DEPTS[i]]||[]).find(function(x){return x.id===taskId;});
+          if(found){ t = found; dept = DEPTS[i]; break; }
+        }
+      }
+      if(!t){ toast('Task not found','err'); return; }
+      if((t.status||'Not Started') === newStatus){ return; }
+      var oldStatus = t.status;
+      t.status = newStatus;
+      t.lastUpdated = new Date().toISOString();
+      if(newStatus === 'Done' && !t.completedAt) t.completedAt = t.lastUpdated;
+      if(newStatus !== 'Done' && t.completedAt) delete t.completedAt;
+      try { autoSave(); } catch(_){}
+      try { logEntry(t.id+' moved '+oldStatus+' → '+newStatus,'edit'); } catch(_){}
+      toast(t.id+' → '+newStatus,'ok');
+      renderTasksV2();
+    });
     colTasks.slice(0,20).forEach(function(t){
       var h=tmHealth(t);
       var pri=(t.priority||'Planned').toLowerCase().replace(/ /g,'-');
       var card=document.createElement('div');card.className='tm-board-card';
+      card.draggable = true;
+      card.dataset.taskId = t.id;
+      card.dataset.dept = t.dept || '';
       card.innerHTML='<div class="tm-board-card-h">'+tmHealthDot(h)+'<span class="tm-card-id">'+t.id+'</span></div>'+
         '<div class="tm-board-card-title">'+esc(t.name)+'</div>'+
         '<div class="tm-board-card-meta"><span class="tm-pri pri-'+pri+'">'+esc(t.priority||'')+'</span><span>'+esc(t.assignee||'')+'</span></div>';
       card.onclick=function(){tmOpenDrawer(t, t.dept);};
+      // HTML5 drag-and-drop wiring — payload is "taskId|dept" so drop knows
+      // where to find + update the task.
+      card.addEventListener('dragstart', function(e){
+        e.dataTransfer.setData('text/plain', t.id + '|' + (t.dept||''));
+        e.dataTransfer.effectAllowed = 'move';
+        card.classList.add('tm-dragging');
+      });
+      card.addEventListener('dragend', function(){
+        card.classList.remove('tm-dragging');
+      });
       list.appendChild(card);
     });
     if(colTasks.length>20){
@@ -10257,6 +10438,14 @@ function tmRenderBoard(host, st){
     c.appendChild(list);
     board.appendChild(c);
   });
+  // One-time style injection for drop hover + dragging appearance.
+  if(!document.getElementById('tm-board-dnd-style')){
+    var st2=document.createElement('style');st2.id='tm-board-dnd-style';
+    st2.textContent =
+      '.tm-drop-hover{background:rgba(108,99,255,.10);outline:2px dashed var(--acc);outline-offset:-4px;border-radius:8px;transition:background .1s}'+
+      '.tm-dragging{opacity:.4;transform:rotate(-1deg)}';
+    document.head.appendChild(st2);
+  }
   host.appendChild(board);
 }
 
@@ -10410,6 +10599,31 @@ function tmOpenDrawer(t, dept){
   var pendingKR=t.linkedKRId||'';
   var pickerBtn=tmRenderKRPickerButton(pendingKR, function(newId){pendingKR=newId;});
   pickerCell.appendChild(pickerBtn);
+
+  // Live-save: dropdowns (status/owner/priority/due) commit on change so users
+  // don't have to hunt for the Save button after each change. Notes still
+  // require the Save button (avoids noisy KV pushes on every keystroke).
+  box.querySelectorAll('.tm-drawer-field').forEach(function(el){
+    var f = el.getAttribute('data-f');
+    var eventName = (el.tagName === 'SELECT' || el.type === 'date' || el.type === 'number') ? 'change' : 'blur';
+    if(f === 'notes') return; // notes only saves via the Save button
+    el.addEventListener(eventName, function(){
+      var v = el.value;
+      if(f === 'progress') v = Math.min(100, Math.max(0, parseInt(v) || 0));
+      t[f] = v;
+      t.lastUpdated = new Date().toISOString();
+      if(f === 'status' && v === 'Done' && !t.completedAt) t.completedAt = t.lastUpdated;
+      if(f === 'status' && v !== 'Done' && t.completedAt) delete t.completedAt;
+      try { autoSave(); } catch(_){}
+      try { logEntry(t.id+' '+f+' → '+v,'edit'); } catch(_){}
+      toast('Saved','ok');
+      // For status changes on the Board tab, re-render immediately so the
+      // card jumps to the new column without needing a manual refresh.
+      if(f === 'status' && typeof view !== 'undefined' && view === 'tasks'){
+        try { renderTasksV2(); } catch(_){}
+      }
+    });
+  });
 
   ov.querySelector('#tm-drawer-save').onclick=function(){
     var oldKR=t.linkedKRId||'';
