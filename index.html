@@ -7175,6 +7175,10 @@ function _stratViewpointHeader(wrap, activeViewpoint){
 
 // ── Hydration helper used by all modes ─────────────────────────────────
 function _stratHydrate(quarter){
+  // Force a fresh OKR→graph rebuild so callers (detail panel, scoring, chain
+  // renderers) never see a stale localStorage snapshot. Cheap and idempotent
+  // when nothing changed.
+  try { if(typeof NS.hydrateFromOKR === 'function') NS.hydrateFromOKR(); } catch(_){}
   var allNodes=loadNodes()[quarter]||{};
   var allEdges=loadEdges()[quarter]||[];
   var liveTasks={};
@@ -9758,6 +9762,11 @@ function _mmField(label,el){
 }
 
 function _mmHydrateNodes(quarter){
+  // Rebuild Strategy graph from the current OKR data before reading. Without
+  // this the mindmap only sees what a previous renderStrategy() call happened
+  // to have written — so a fresh quarter, or KRs / owners added after the last
+  // Strategy-tab visit, would be invisible to the mindmap forever.
+  try { if(typeof NS.hydrateFromOKR === 'function') NS.hydrateFromOKR(); } catch(_){}
   var allNodes=loadNodes()[quarter]||{};
   var allEdges=loadEdges()[quarter]||[];
   var nodesMap=Object.assign({},allNodes);
