@@ -1355,7 +1355,12 @@ function okrDeleteKR(deptName, objectiveId, krId){
   renderOKR();
 }
 function loadOKRForQuarter(key){var stored=localStorage.getItem('rl_okr_'+key);if(stored){try{return JSON.parse(stored);}catch(e){}}if(key==='Q2_2026')return JSON.parse(JSON.stringify(OKR_DATA));return null;}
-function saveOKRForQuarter(key,data){localStorage.setItem('rl_okr_'+key,JSON.stringify(data));}
+function saveOKRForQuarter(key,data){
+  localStorage.setItem('rl_okr_'+key,JSON.stringify(data));
+  // Push the whole OKR blob so every teammate sees the change within ~30s.
+  // OKR_SYNC.getLocal() collects every rl_okr_QX_YYYY key each push.
+  try { if(typeof OKR_SYNC !== 'undefined' && OKR_SYNC && OKR_SYNC.push) OKR_SYNC.push(); } catch(_){}
+}
 function getActiveOKRKey(){return localStorage.getItem('rl_okr_active_quarter')||getCurrentQuarter();}
 function setActiveOKRKey(key){localStorage.setItem('rl_okr_active_quarter',key);}
 function getPreviousQuarterKey(key){var p=key.split('_'),q=parseInt(p[0].slice(1)),y=parseInt(p[1]);return q===1?'Q4_'+(y-1):'Q'+(q-1)+'_'+y;}
@@ -2104,6 +2109,31 @@ function _initUserRegistrySync(){
         if(!USER_REGISTRY[email]) USER_REGISTRY[email] = remote[email];
         else Object.assign(USER_REGISTRY[email], remote[email]);
       });
+      // Reconcile ARCHIVED_USERS with the registry's per-user .archived flag.
+      // Before this, someone archived on browser A had their .archived synced
+      // to browser B via USER_REGISTRY, but B's local ARCHIVED_USERS array
+      // was empty — so filters that checked the array (Individual OKRs,
+      // person dropdowns, etc.) still showed them as active. Union the two
+      // sources of truth here so every browser stays consistent.
+      try {
+        if(typeof ARCHIVED_USERS !== 'undefined' && Array.isArray(ARCHIVED_USERS)){
+          var seen = {};
+          ARCHIVED_USERS.forEach(function(e){ seen[e] = 1; });
+          Object.keys(USER_REGISTRY).forEach(function(e){
+            if(USER_REGISTRY[e] && USER_REGISTRY[e].archived === true && !seen[e]){
+              ARCHIVED_USERS.push(e); seen[e] = 1;
+            }
+          });
+          // Also flip the field for anyone in the array without it, so the
+          // two directions stay symmetrical.
+          ARCHIVED_USERS.forEach(function(e){
+            if(USER_REGISTRY[e] && USER_REGISTRY[e].archived !== true){
+              USER_REGISTRY[e].archived = true;
+            }
+          });
+          localStorage.setItem('rl_archived', JSON.stringify(ARCHIVED_USERS));
+        }
+      } catch(_){}
     },
     onPullApplied: function(d, by){
       if(typeof view !== 'undefined' && view === 'admin' && typeof renderAdmin === 'function'){
@@ -2177,24 +2207,52 @@ function _initOKRSync(){
   OKR_SYNC = _createDocSync({
     key: 'shared_okr',
     getLocal: function(){
+      // Collect every per-quarter blob so Q3, Q4, etc. all sync — not just
+      // the hardcoded Q2 seed. Without this, quarters set up in one browser
+      // never appear in another (this was the reason Samuel wasn't seeing
+      // Dren's Q3 objectives).
+      var quarters = {};
+      try {
+        for(var i=0; i<localStorage.length; i++){
+          var k = localStorage.key(i);
+          if(!k) continue;
+          if(/^rl_okr_Q[1-4]_\d{4}$/.test(k)){
+            try { quarters[k] = JSON.parse(localStorage.getItem(k)); } catch(_){}
+          }
+        }
+      } catch(_){}
       return {
         okrData: (typeof OKR_DATA !== 'undefined') ? OKR_DATA : null,
+        quarters: quarters,
         stratNodes: JSON.parse(localStorage.getItem('rl_strat_nodes_v1')||'{}'),
-        stratEdges: JSON.parse(localStorage.getItem('rl_strat_edges_v1')||'{}')
+        stratEdges: JSON.parse(localStorage.getItem('rl_strat_edges_v1')||'{}'),
+        okrLinks: JSON.parse(localStorage.getItem('rl_okr_links')||'{}')
       };
     },
     setLocal: function(remote){
       if(!remote) return;
       if(remote.okrData && typeof OKR_DATA !== 'undefined'){
-        // Deep-merge dept-level KR updates — preserves any local-only KRs
-        // while taking remote confidence/progress changes.
         try { window.OKR_DATA = JSON.parse(JSON.stringify(remote.okrData)); } catch(e){}
+      }
+      // Write every remote quarter back to localStorage. Remote wins for the
+      // quarter data (last-writer). Additive: quarters that exist locally
+      // but not remotely are left untouched.
+      if(remote.quarters && typeof remote.quarters === 'object'){
+        Object.keys(remote.quarters).forEach(function(k){
+          if(/^rl_okr_Q[1-4]_\d{4}$/.test(k) && remote.quarters[k]){
+            try { localStorage.setItem(k, JSON.stringify(remote.quarters[k])); } catch(_){}
+          }
+        });
       }
       if(remote.stratNodes) localStorage.setItem('rl_strat_nodes_v1', JSON.stringify(remote.stratNodes));
       if(remote.stratEdges) localStorage.setItem('rl_strat_edges_v1', JSON.stringify(remote.stratEdges));
+      if(remote.okrLinks){
+        localStorage.setItem('rl_okr_links', JSON.stringify(remote.okrLinks));
+        try { window.OKR_LINKS = remote.okrLinks; } catch(_){}
+      }
     },
     onPullApplied: function(){
-      if(typeof view !== 'undefined' && (view === 'strategy' || view === 'okr' || view === 'dashboard') && typeof render === 'function'){
+      if(typeof view !== 'undefined' && (view === 'strategy' || view === 'okr' || view === 'dashboard' || view === 'mytasks') && typeof render === 'function'){
         try { render(); } catch(e){}
       }
     }
@@ -3317,8 +3375,11 @@ function _renderIndividualOKRsSection(wrap, okrData, activeKey){
   var archived = (typeof ARCHIVED_USERS!=='undefined'&&Array.isArray(ARCHIVED_USERS))?ARCHIVED_USERS:[];
   var deptPeople = {};
   Object.keys(USER_REGISTRY||{}).forEach(function(em){
-    if(archived.indexOf(em) >= 0) return;
     var u = USER_REGISTRY[em]||{};
+    // Belt-and-braces: honour both the array AND the per-user .archived
+    // field. If either says archived, hide the person.
+    if(archived.indexOf(em) >= 0) return;
+    if(u.archived === true) return;
     var d = u.dept || 'Unassigned';
     if(!deptPeople[d]) deptPeople[d] = [];
     deptPeople[d].push({email: em, name: u.name||em, role: u.role||''});
