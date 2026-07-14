@@ -1215,7 +1215,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="ni" id="nav-strategy" onclick="go('strategy')"><div class="ni-l"><div class="dd" style="background:linear-gradient(45deg,var(--acc),var(--grn))"></div>Strategy</div></div>
     <div class="ni" id="nav-okr" onclick="go('okr')"><div class="ni-l"><div class="dd" style="background:var(--acc2)"></div>OKR Tracker</div></div>
     <div class="ni" id="nav-mytasks-v2" onclick="goMyTasks()"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#22d3ee,#6c63ff)"></div>My Tasks</div><div class="cnt" id="c-mytasks-v2"></div></div>
-    <div class="ni" id="nav-tasks" onclick="go('tasks')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#6c63ff)"></div>Tasks</div><div class="cnt" id="c-tasks"></div></div>
+    <div class="ni" id="nav-tasks" onclick="go('tasks')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#6c63ff)"></div>Team Tasks</div><div class="cnt" id="c-tasks"></div></div>
     <div class="ni" id="nav-roadmaps" onclick="go('roadmaps')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f59e0b,#ec4899)"></div>Roadmaps</div></div>
     <!-- Legacy dept tabs (hidden, routes still work) -->
     <div class="ni" id="nav-Management" onclick="go('Management')" style="display:none"></div>
@@ -1525,7 +1525,7 @@ function renderMyTasks(){
   h2 += '<div style="font-size:12px;color:var(--mut);margin-top:4px">'+all.length+' active · '+done+' done — focused on just what’s assigned to you</div>';
   h2 += '</div>';
   h2 += '</div>';
-  h2 += '<a href="#/tasks" onclick="event.preventDefault();go(\'tasks\');" style="font-size:11px;color:var(--mut);text-decoration:none;padding:6px 12px;border:1px solid var(--brd);border-radius:6px;font-family:Roboto Mono,monospace">See team view →</a>';
+  h2 += '<a href="#/tasks" onclick="event.preventDefault();go(\'tasks\');" style="font-size:11px;color:var(--mut);text-decoration:none;padding:6px 12px;border:1px solid var(--brd);border-radius:6px;font-family:Roboto Mono,monospace">See Team Tasks →</a>';
   h2 += '</div>';
   h2+='<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin:14px 0 18px;padding:14px;background:var(--surf);border:1px solid var(--brd);border-radius:10px">';  h2+='<div style="flex:2;min-width:200px"><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">NEW TASK</label><input id="mtn" placeholder="Describe the task..." style="width:100%;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box"></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">DEPT</label><select id="mtd" style="padding:8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px">'+DEPTS.map(function(d){return '<option value="'+d+'"'+(d===(currentUser.dept||'')?' selected':'')+'>'+d+'</option>';}).join('')+'</select></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">PRIORITY</label><select id="mtp" style="padding:8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option></select></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">DUE</label><input id="mtdue" type="date" style="padding:7px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px"></div>';  h2+='<button style="background:var(--acc);color:#fff;border:none;padding:9px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer" onclick="addMyTask()">+ Add</button>';  h2+='</div>';
   if(!all.length){h2+='<div style="color:var(--mut);margin-top:32px;text-align:center;font-size:11px">No tasks assigned to you yet.</div>';el.innerHTML=h2;return;}
@@ -9686,7 +9686,7 @@ function renderTasksV2(){
     '<div style="display:flex;align-items:center;gap:14px">'+
       '<div style="width:44px;height:44px;border-radius:11px;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 12px rgba(108,99,255,0.35);flex-shrink:0">👥</div>'+
       '<div>'+
-        '<div style="font-size:18px;font-weight:800;letter-spacing:-0.3px;display:flex;align-items:center;gap:10px">Tasks <span style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--acc);color:#fff;font-family:Roboto Mono,monospace">TEAM</span></div>'+
+        '<div style="font-size:18px;font-weight:800;letter-spacing:-0.3px;display:flex;align-items:center;gap:10px">Team Tasks <span style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--acc);color:#fff;font-family:Roboto Mono,monospace">SHARED</span></div>'+
         '<div style="font-size:11px;color:var(--mut);margin-top:2px">Every task across every department — the shared team view</div>'+
       '</div>'+
     '</div>';
