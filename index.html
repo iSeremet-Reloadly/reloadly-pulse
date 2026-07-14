@@ -10369,44 +10369,6 @@ function tmRenderBoard(host, st){
     c.innerHTML='<div class="tm-board-col-h"><span class="tm-board-col-label">'+col.toUpperCase()+'</span><span class="tm-board-col-count">'+colTasks.length+'</span></div>';
     var list=document.createElement('div');list.className='tm-board-list';
     list.dataset.status = col;
-    // Column-level drop target — accept cards dragged in.
-    list.addEventListener('dragover', function(e){
-      e.preventDefault();
-      list.classList.add('tm-drop-hover');
-    });
-    list.addEventListener('dragleave', function(e){
-      // Only remove hover if we truly left the column (not just hovered a child).
-      if(!list.contains(e.relatedTarget)) list.classList.remove('tm-drop-hover');
-    });
-    list.addEventListener('drop', function(e){
-      e.preventDefault();
-      list.classList.remove('tm-drop-hover');
-      var payload = e.dataTransfer.getData('text/plain');
-      if(!payload) return;
-      var parts = payload.split('|');
-      var taskId = parts[0], dept = parts[1];
-      var newStatus = list.dataset.status;
-      // Look up + mutate. Falls back to scanning all depts if the dept the
-      // card thought it was in doesn't have this task (e.g. after a re-sync).
-      var t = (data[dept]||[]).find(function(x){return x.id===taskId;});
-      if(!t){
-        for(var i=0;i<DEPTS.length;i++){
-          var found = (data[DEPTS[i]]||[]).find(function(x){return x.id===taskId;});
-          if(found){ t = found; dept = DEPTS[i]; break; }
-        }
-      }
-      if(!t){ toast('Task not found','err'); return; }
-      if((t.status||'Not Started') === newStatus){ return; }
-      var oldStatus = t.status;
-      t.status = newStatus;
-      t.lastUpdated = new Date().toISOString();
-      if(newStatus === 'Done' && !t.completedAt) t.completedAt = t.lastUpdated;
-      if(newStatus !== 'Done' && t.completedAt) delete t.completedAt;
-      try { autoSave(); } catch(_){}
-      try { logEntry(t.id+' moved '+oldStatus+' → '+newStatus,'edit'); } catch(_){}
-      toast(t.id+' → '+newStatus,'ok');
-      renderTasksV2();
-    });
     colTasks.slice(0,20).forEach(function(t){
       var h=tmHealth(t);
       var pri=(t.priority||'Planned').toLowerCase().replace(/ /g,'-');
@@ -10438,12 +10400,67 @@ function tmRenderBoard(host, st){
     c.appendChild(list);
     board.appendChild(c);
   });
+  // Board-level drag handlers via event delegation. Attaching on the board
+  // (not per-column) is critical: when the cursor hovers over a card inside
+  // a column, dragover fires on the card, and if the card doesn't call
+  // preventDefault the browser treats the drop as "not allowed". Delegating
+  // catches every dragover regardless of which child element is under the
+  // cursor.
+  board.addEventListener('dragover', function(e){
+    e.preventDefault();
+    if(e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    var col = e.target.closest('.tm-board-list');
+    // Clear stale hover from any other column, then mark this one.
+    board.querySelectorAll('.tm-board-list.tm-drop-hover').forEach(function(l){
+      if(l !== col) l.classList.remove('tm-drop-hover');
+    });
+    if(col) col.classList.add('tm-drop-hover');
+  });
+  board.addEventListener('dragleave', function(e){
+    // Only clear hover if we've left the board entirely.
+    if(!board.contains(e.relatedTarget)){
+      board.querySelectorAll('.tm-board-list.tm-drop-hover').forEach(function(l){ l.classList.remove('tm-drop-hover'); });
+    }
+  });
+  board.addEventListener('drop', function(e){
+    e.preventDefault();
+    board.querySelectorAll('.tm-board-list.tm-drop-hover').forEach(function(l){ l.classList.remove('tm-drop-hover'); });
+    var col = e.target.closest('.tm-board-list');
+    if(!col) return;
+    var payload = e.dataTransfer.getData('text/plain');
+    if(!payload) return;
+    var parts = payload.split('|');
+    var taskId = parts[0], dept = parts[1];
+    var newStatus = col.dataset.status;
+    var t = (data[dept]||[]).find(function(x){return x.id===taskId;});
+    if(!t){
+      for(var i=0;i<DEPTS.length;i++){
+        var found = (data[DEPTS[i]]||[]).find(function(x){return x.id===taskId;});
+        if(found){ t = found; dept = DEPTS[i]; break; }
+      }
+    }
+    if(!t){ toast('Task not found','err'); return; }
+    if((t.status||'Not Started') === newStatus){ return; }
+    var oldStatus = t.status;
+    t.status = newStatus;
+    t.lastUpdated = new Date().toISOString();
+    if(newStatus === 'Done' && !t.completedAt) t.completedAt = t.lastUpdated;
+    if(newStatus !== 'Done' && t.completedAt) delete t.completedAt;
+    try { autoSave(); } catch(_){}
+    try { logEntry(t.id+' moved '+oldStatus+' → '+newStatus,'edit'); } catch(_){}
+    toast(t.id+' → '+newStatus,'ok');
+    renderTasksV2();
+  });
   // One-time style injection for drop hover + dragging appearance.
   if(!document.getElementById('tm-board-dnd-style')){
     var st2=document.createElement('style');st2.id='tm-board-dnd-style';
     st2.textContent =
-      '.tm-drop-hover{background:rgba(108,99,255,.10);outline:2px dashed var(--acc);outline-offset:-4px;border-radius:8px;transition:background .1s}'+
-      '.tm-dragging{opacity:.4;transform:rotate(-1deg)}';
+      '.tm-drop-hover{background:rgba(108,99,255,.10)!important;outline:2px dashed var(--acc);outline-offset:-4px;border-radius:8px;transition:background .1s}'+
+      '.tm-dragging{opacity:.4;transform:rotate(-1deg)}'+
+      // Cards should not be a drop target themselves — pointer-events:none
+      // during a drag would kill the click handler, so we let dragover
+      // bubble up to the board (delegated handler above catches it).
+      '.tm-board-list{min-height:60px}';
     document.head.appendChild(st2);
   }
   host.appendChild(board);
