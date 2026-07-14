@@ -3110,7 +3110,12 @@ function renderOKR(){
   // Department cards row — nowrap so all fit on one line. min-width lowered
   // so they compress a bit rather than overflow.
   var row=document.createElement('div');row.style.cssText='display:flex;gap:12px;margin-bottom:20px;overflow-x:auto';
-  Object.keys(okrData.depts).forEach(function(d){var dept=okrData.depts[d];var pct=Math.round(dept.objectives.reduce(function(s,o){return s+o.progress;},0)/Math.max(1,dept.objectives.length));var active=d===df;var card=document.createElement('div');card.style.cssText='flex:1;min-width:0;background:var(--surf);border:1px solid '+(active?dept.color:'var(--brd)')+';border-radius:10px;padding:14px 18px;cursor:pointer'+(active?';background:var(--surf2)':'');card.innerHTML='<div style="font-size:9px;color:'+dept.color+';font-family:Roboto Mono,monospace;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+dept.icon+' '+d.toUpperCase()+'</div><div style="font-size:22px;font-weight:700">'+pct+'<span style="font-size:12px">%</span></div><div style="margin-top:6px;height:4px;background:var(--surf2);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+dept.color+';border-radius:2px"></div></div><div style="font-size:9px;color:var(--mut);margin-top:3px;font-family:Roboto Mono,monospace">overall</div>';card.onclick=(function(dd){return function(){setOKRDept(dd);};})(d);row.appendChild(card);});
+  Object.keys(okrData.depts).forEach(function(d){var dept=okrData.depts[d];
+    // Dept card % averages only DEPT-LEVEL objectives (personal ones live
+    // under Individual OKRs and shouldn't inflate/deflate the dept number).
+    var _dl=(dept.objectives||[]).filter(function(o){return !((o.owner||'').trim());});
+    var pct=Math.round(_dl.reduce(function(s,o){return s+(o.progress||0);},0)/Math.max(1,_dl.length));
+    var active=d===df;var card=document.createElement('div');card.style.cssText='flex:1;min-width:0;background:var(--surf);border:1px solid '+(active?dept.color:'var(--brd)')+';border-radius:10px;padding:14px 18px;cursor:pointer'+(active?';background:var(--surf2)':'');card.innerHTML='<div style="font-size:9px;color:'+dept.color+';font-family:Roboto Mono,monospace;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+dept.icon+' '+d.toUpperCase()+'</div><div style="font-size:22px;font-weight:700">'+pct+'<span style="font-size:12px">%</span></div><div style="margin-top:6px;height:4px;background:var(--surf2);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+dept.color+';border-radius:2px"></div></div><div style="font-size:9px;color:var(--mut);margin-top:3px;font-family:Roboto Mono,monospace">overall</div>';card.onclick=(function(dd){return function(){setOKRDept(dd);};})(d);row.appendChild(card);});
   wrap.appendChild(row);
   var dlRow=document.createElement('div');
   dlRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap';
@@ -3124,7 +3129,10 @@ function renderOKR(){
     dlRow.appendChild(addObjInline);
   }
   wrap.appendChild(dlRow);
-  if(!deptObj.objectives.length){
+  // Empty state considers dept-level objectives only (personal ones live in
+  // the Individual OKRs section below).
+  var _deptLevelCount = (deptObj.objectives||[]).filter(function(o){return !((o.owner||'').trim());}).length;
+  if(!_deptLevelCount){
     var empObj=document.createElement('div');
     empObj.style.cssText='text-align:center;padding:40px 20px;background:var(--surf);border:1px dashed var(--brd);border-radius:10px;color:var(--mut);margin-bottom:16px';
     empObj.innerHTML='<div style="font-size:28px;margin-bottom:8px">🎯</div>'+
@@ -3140,7 +3148,12 @@ function renderOKR(){
     wrap.appendChild(empObj);
   }
   // ── Objectives ────────────────────────────────────────────────────────────
-  deptObj.objectives.forEach(function(obj){
+  // Filter out INDIVIDUAL objectives (obj.owner set to a person's name).
+  // Hierarchy: Company OKRs > Department OKRs > Individual OKRs — the dept
+  // view only shows dept-level objectives. Individual ones surface in the
+  // "Individual OKRs by person" section below.
+  var deptLevelObjectives = (deptObj.objectives||[]).filter(function(o){ return !((o.owner||'').trim()); });
+  deptLevelObjectives.forEach(function(obj){
     var od=document.createElement('div');od.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:18px 20px;margin-bottom:16px';
     var oh=document.createElement('div');oh.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px';
     var otd=document.createElement('div');otd.style.cssText='flex:1';
