@@ -3149,7 +3149,21 @@ function renderOKR(){
     if(isAdmin()){otl.contentEditable='true';otl.style.outline='none';otl.style.borderBottom='1px dashed transparent';otl.onfocus=function(){this.style.borderBottomColor='var(--acc)';};otl.onblur=(function(o,k,d){return function(){this.style.borderBottomColor='transparent';o.title=this.textContent.trim();saveOKRForQuarter(k,d);};})(obj,activeKey,okrData);}
     otd.appendChild(oid);otd.appendChild(otl);
     var opd=document.createElement('div');opd.style.cssText='margin-left:20px;text-align:right;position:relative';opd.innerHTML='<div style="font-size:28px;font-weight:800;color:'+deptObj.color+';display:flex;align-items:center;justify-content:flex-end;gap:5px"><span class="th-info" style="font-size:9px" data-tip="Objective % is the average of all its Key Results\u2019 progress values. Each KR is weighted equally. Update a KR\u2019s progress and this recalculates automatically.">i</span><span>'+obj.progress+'<span style="font-size:14px">%</span></span></div><div style="width:80px;height:6px;background:var(--surf2);border-radius:3px;margin-top:4px"><div style="width:'+obj.progress+'%;height:100%;background:'+deptObj.color+';border-radius:3px"></div></div>';
-    oh.appendChild(otd);oh.appendChild(opd);od.appendChild(oh);
+    oh.appendChild(otd);oh.appendChild(opd);
+    // Admin-only Delete Objective button — visible on every objective in
+    // every department. Small × next to the % block. Same helper handles
+    // the confirm + save + re-render.
+    if(isAdmin()){
+      var delObjBtn=document.createElement('button');
+      delObjBtn.style.cssText='background:none;border:1px solid var(--brd);color:var(--mut);cursor:pointer;font-size:14px;padding:4px 10px;line-height:1;margin-left:10px;border-radius:6px;align-self:flex-start;flex-shrink:0';
+      delObjBtn.title='Delete this objective and all its key results';
+      delObjBtn.textContent='× Delete';
+      delObjBtn.onmouseenter=function(){this.style.color='var(--red)';this.style.borderColor='var(--red)';};
+      delObjBtn.onmouseleave=function(){this.style.color='var(--mut)';this.style.borderColor='var(--brd)';};
+      delObjBtn.onclick=(function(dept,oid2){return function(){okrDeleteObjective(dept,oid2);};})(df,obj.id);
+      oh.appendChild(delObjBtn);
+    }
+    od.appendChild(oh);
     var krsDiv=document.createElement('div');krsDiv.style.cssText='display:flex;flex-direction:column;gap:8px';
     obj.krs.forEach(function(kr){
       var lc=(OKR_LINKS[kr.id]||[]).length;
@@ -3251,7 +3265,273 @@ function renderOKR(){
     }
     wrap.appendChild(od);
   });
+  // Individual OKRs section — drills down from dept → person → their KRs.
+  // Renders below the department objectives list so it doesn't disrupt the
+  // existing team view.
+  try { _renderIndividualOKRsSection(wrap, okrData, activeKey); } catch(e){ /* non-fatal */ }
   main.innerHTML='';main.appendChild(wrap);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Individual OKRs by person — drill-down UI. Clicking a dept expands it to
+// show the people in that dept. Clicking a person expands their KR list
+// (owned KRs across any dept objective). Admins get "+ Add KR for [Name]".
+// State persists per browser: which dept + person is expanded, so the panel
+// remembers its position across re-renders.
+// ─────────────────────────────────────────────────────────────────────────────
+function _loadIndividualOKRUI(){
+  try { return JSON.parse(localStorage.getItem('rl_okr_indiv_ui')||'{}'); } catch(_) { return {}; }
+}
+function _saveIndividualOKRUI(s){
+  try { localStorage.setItem('rl_okr_indiv_ui', JSON.stringify(s||{})); } catch(_){}
+}
+function _renderIndividualOKRsSection(wrap, okrData, activeKey){
+  if(!okrData || !okrData.depts) return;
+  var ui = _loadIndividualOKRUI();
+  var openDept = ui.dept || null;
+  var openPerson = ui.person || null;
+
+  var section = document.createElement('div');
+  section.style.cssText = 'margin-top:28px;padding-top:20px;border-top:1px solid var(--brd)';
+
+  // Section header
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;gap:10px;flex-wrap:wrap';
+  hdr.innerHTML = '<div><div style="font-size:14px;font-weight:800">👤 Individual OKRs</div><div style="font-size:11px;color:var(--mut);margin-top:2px">Click a department to see its people. Click a person to see their KRs.</div></div>';
+  section.appendChild(hdr);
+
+  // Build people-by-dept map from USER_REGISTRY (active only)
+  var archived = (typeof ARCHIVED_USERS!=='undefined'&&Array.isArray(ARCHIVED_USERS))?ARCHIVED_USERS:[];
+  var deptPeople = {};
+  Object.keys(USER_REGISTRY||{}).forEach(function(em){
+    if(archived.indexOf(em) >= 0) return;
+    var u = USER_REGISTRY[em]||{};
+    var d = u.dept || 'Unassigned';
+    if(!deptPeople[d]) deptPeople[d] = [];
+    deptPeople[d].push({email: em, name: u.name||em, role: u.role||''});
+  });
+  Object.keys(deptPeople).forEach(function(d){
+    deptPeople[d].sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+  });
+
+  // Row of dept tiles — click to expand/collapse
+  var deptRow = document.createElement('div');
+  deptRow.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px';
+  Object.keys(okrData.depts).forEach(function(dName){
+    var dept = okrData.depts[dName];
+    var people = deptPeople[dName] || [];
+    var isOpen = openDept === dName;
+    var tile = document.createElement('div');
+    tile.style.cssText = 'background:var(--surf);border:1px solid '+(isOpen?dept.color:'var(--brd)')+';border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .15s'+(isOpen?';background:var(--surf2);box-shadow:0 0 0 2px '+dept.color+'33':'');
+    tile.innerHTML =
+      '<div style="font-size:9px;color:'+dept.color+';font-family:Roboto Mono,monospace;font-weight:700;margin-bottom:4px">'+dept.icon+' '+dName.toUpperCase()+'</div>'+
+      '<div style="font-size:20px;font-weight:800">'+people.length+'</div>'+
+      '<div style="font-size:9px;color:var(--mut);margin-top:2px;font-family:Roboto Mono,monospace">'+(people.length===1?'person':'people')+'</div>';
+    tile.onclick = (function(name){return function(){
+      var s = _loadIndividualOKRUI();
+      s.dept = s.dept === name ? null : name;
+      s.person = null;
+      _saveIndividualOKRUI(s);
+      renderOKR();
+    };})(dName);
+    deptRow.appendChild(tile);
+  });
+  section.appendChild(deptRow);
+
+  // Expanded dept panel — show people + their KRs
+  if(openDept && deptPeople[openDept]){
+    var dept = okrData.depts[openDept] || {};
+    var panel = document.createElement('div');
+    panel.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-left:4px solid '+(dept.color||'var(--acc)')+';border-radius:10px;padding:16px 18px';
+    var pHdr = document.createElement('div');
+    pHdr.style.cssText = 'font-size:11px;font-weight:700;color:'+(dept.color||'var(--acc)')+';font-family:Roboto Mono,monospace;letter-spacing:.1em;margin-bottom:12px';
+    pHdr.textContent = (dept.icon||'')+' '+openDept.toUpperCase()+' — INDIVIDUALS';
+    panel.appendChild(pHdr);
+
+    var personList = document.createElement('div');
+    personList.style.cssText = 'display:grid;gap:8px';
+    deptPeople[openDept].forEach(function(person){
+      // Find KRs owned by this person across all dept objectives
+      var personKRs = [];
+      Object.keys(okrData.depts).forEach(function(dn){
+        (okrData.depts[dn].objectives||[]).forEach(function(obj){
+          (obj.krs||[]).forEach(function(kr){
+            if((kr.owner||'').trim() === person.name){
+              personKRs.push({dept: dn, obj: obj, kr: kr});
+            }
+          });
+        });
+      });
+      var isPersonOpen = openPerson === person.email;
+      var personCard = document.createElement('div');
+      personCard.style.cssText = 'background:var(--surf2);border:1px solid var(--brd);border-radius:8px;overflow:hidden';
+      // Person header row (clickable)
+      var pRow = document.createElement('div');
+      pRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;user-select:none';
+      pRow.onmouseenter = function(){ if(!isPersonOpen) this.style.background='rgba(255,255,255,.02)'; };
+      pRow.onmouseleave = function(){ if(!isPersonOpen) this.style.background=''; };
+      pRow.innerHTML =
+        '<div style="display:flex;align-items:center;gap:10px">'+
+          '<span style="font-size:12px;color:var(--mut)">'+(isPersonOpen?'▾':'▸')+'</span>'+
+          '<div>'+
+            '<div style="font-size:13px;font-weight:700">'+esc(person.name)+'</div>'+
+            '<div style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace;margin-top:1px">'+esc(person.role||'')+'</div>'+
+          '</div>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:12px">'+
+          '<span style="font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace">'+personKRs.length+' KR'+(personKRs.length===1?'':'s')+'</span>'+
+        '</div>';
+      pRow.onclick = (function(em){return function(){
+        var s = _loadIndividualOKRUI();
+        s.person = s.person === em ? null : em;
+        _saveIndividualOKRUI(s);
+        renderOKR();
+      };})(person.email);
+      personCard.appendChild(pRow);
+
+      if(isPersonOpen){
+        var krWrap = document.createElement('div');
+        krWrap.style.cssText = 'padding:0 14px 14px;border-top:1px solid var(--brd)';
+        if(!personKRs.length){
+          var em = document.createElement('div');
+          em.style.cssText = 'padding:16px 0;text-align:center;color:var(--mut);font-size:11px';
+          em.textContent = 'No KRs assigned to '+person.name+' yet.';
+          krWrap.appendChild(em);
+        } else {
+          personKRs.forEach(function(row){
+            var conf = row.kr.confidence || 'Not started';
+            var cc = conf==='On track'?'var(--grn)':conf==='At Risk'?'var(--yel)':conf==='Off Track'?'var(--red)':conf==='Completed'?'var(--acc)':'var(--mut)';
+            var pct = row.kr.progress || 0;
+            var deptColor = (okrData.depts[row.dept]||{}).color || 'var(--acc)';
+            var krEl = document.createElement('div');
+            krEl.style.cssText = 'padding:10px 12px;background:var(--surf);border:1px solid var(--brd);border-left:3px solid '+deptColor+';border-radius:6px;margin-top:8px;cursor:pointer';
+            krEl.onclick = (function(dn){return function(){localStorage.setItem('rl_okr_dept',dn);renderOKR();};})(row.dept);
+            krEl.innerHTML =
+              '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">'+
+                '<div style="flex:1;min-width:0">'+
+                  '<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:2px">'+row.kr.id+' · '+row.dept+'</div>'+
+                  '<div style="font-size:11px;color:var(--txt);font-weight:600;line-height:1.3">'+esc(row.kr.title)+'</div>'+
+                  '<div style="font-size:10px;color:var(--mut);margin-top:2px">↑ '+esc(row.obj.title)+'</div>'+
+                '</div>'+
+                '<div style="text-align:right;flex-shrink:0">'+
+                  '<div style="font-size:14px;font-weight:800;color:'+deptColor+'">'+pct+'<span style="font-size:9px">%</span></div>'+
+                  '<div style="font-size:9px;font-weight:700;color:'+cc+';font-family:Roboto Mono,monospace;margin-top:1px">'+conf+'</div>'+
+                '</div>'+
+              '</div>'+
+              '<div style="height:3px;background:var(--surf2);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+deptColor+';border-radius:2px"></div></div>';
+            krWrap.appendChild(krEl);
+          });
+        }
+        // Admin: "+ Add KR for [Name]"
+        if(isAdmin()){
+          var addRow = document.createElement('div');
+          addRow.style.cssText = 'margin-top:12px;display:flex;gap:8px;flex-wrap:wrap';
+          var addBtn = document.createElement('button');
+          addBtn.className = 'hbtn';
+          addBtn.style.cssText = 'font-size:10px;padding:6px 12px;border-color:'+(dept.color||'var(--acc)')+';color:'+(dept.color||'var(--acc)')+';font-weight:700';
+          addBtn.textContent = '+ Add KR for '+person.name;
+          addBtn.onclick = (function(dn, pn){return function(){ _openAddKRForPersonModal(dn, pn, activeKey); };})(openDept, person.name);
+          addRow.appendChild(addBtn);
+          krWrap.appendChild(addRow);
+        }
+        personCard.appendChild(krWrap);
+      }
+      personList.appendChild(personCard);
+    });
+    panel.appendChild(personList);
+    section.appendChild(panel);
+  }
+  wrap.appendChild(section);
+}
+
+// Modal to add a KR owned by a specific person. Lets the admin pick an
+// existing objective (from any dept) or create a new one on the fly.
+function _openAddKRForPersonModal(personDept, personName, activeKey){
+  var okrData = loadOKRForQuarter(activeKey);
+  if(!okrData){ toast('Set up this quarter\'s OKRs first','err'); return; }
+  var existing = document.getElementById('okr-add-kr-modal');
+  if(existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'okr-add-kr-modal';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.onclick = function(ev){ if(ev.target===overlay) overlay.remove(); };
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--surf);border-radius:12px;padding:24px;width:560px;max-width:92vw;max-height:90vh;overflow-y:auto';
+  var deptObj = okrData.depts[personDept] || {};
+
+  var html = '';
+  html += '<div style="font-size:16px;font-weight:800;margin-bottom:6px">Add Key Result for '+esc(personName)+'</div>';
+  html += '<div style="font-size:11px;color:var(--mut);margin-bottom:18px">Under an existing objective, or create a new one.</div>';
+
+  // Objective picker
+  html += '<label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">PARENT OBJECTIVE</label>';
+  html += '<select id="akr-obj" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;margin-bottom:14px">';
+  Object.keys(okrData.depts).forEach(function(dn){
+    var opts = (okrData.depts[dn].objectives||[]).map(function(o){
+      var sel = (dn===personDept && o===((okrData.depts[dn].objectives||[])[0])) ? ' selected' : '';
+      return '<option value="'+dn+'|'+o.id+'"'+sel+'>['+dn+'] '+esc(o.title)+'</option>';
+    }).join('');
+    if(opts) html += '<optgroup label="'+dn+'">'+opts+'</optgroup>';
+  });
+  html += '<option value="__NEW__">+ Create a new objective in '+personDept+'</option>';
+  html += '</select>';
+
+  // New objective title (hidden until __NEW__ picked)
+  html += '<div id="akr-new-obj-wrap" style="display:none;margin-bottom:14px">';
+  html += '<label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">NEW OBJECTIVE TITLE</label>';
+  html += '<input id="akr-new-obj-title" placeholder="e.g. Close the quarter with zero overdue AP" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;box-sizing:border-box">';
+  html += '</div>';
+
+  // KR title
+  html += '<label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">KEY RESULT TITLE</label>';
+  html += '<input id="akr-kr-title" placeholder="e.g. Reduce vendor payment lag from 15 to 5 days" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:18px">';
+
+  html += '<div style="display:flex;justify-content:flex-end;gap:10px">';
+  html += '<button id="akr-cancel" class="hbtn">Cancel</button>';
+  html += '<button id="akr-save" class="hbtn xl" style="border-color:var(--grn);color:var(--grn);font-weight:700">Add KR</button>';
+  html += '</div>';
+
+  box.innerHTML = html;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  var objSel = box.querySelector('#akr-obj');
+  var newWrap = box.querySelector('#akr-new-obj-wrap');
+  objSel.onchange = function(){ newWrap.style.display = (this.value==='__NEW__') ? 'block' : 'none'; };
+
+  box.querySelector('#akr-cancel').onclick = function(){ overlay.remove(); };
+  box.querySelector('#akr-save').onclick = function(){
+    var krTitle = (box.querySelector('#akr-kr-title').value||'').trim();
+    if(!krTitle){ toast('Enter a KR title','err'); return; }
+    var choice = objSel.value;
+    var d = loadOKRForQuarter(activeKey);
+    if(!d){ toast('Quarter data missing','err'); return; }
+    var targetDept, targetObj;
+    if(choice === '__NEW__'){
+      var newTitle = (box.querySelector('#akr-new-obj-title').value||'').trim();
+      if(!newTitle){ toast('Enter the new objective title','err'); return; }
+      var dept = d.depts[personDept];
+      if(!dept){ toast('Unknown dept','err'); return; }
+      var newId = _okrNextObjectiveId(dept, personDept);
+      targetObj = { id:newId, title:newTitle, progress:0, krs:[] };
+      dept.objectives = dept.objectives || [];
+      dept.objectives.push(targetObj);
+      targetDept = personDept;
+    } else {
+      var parts = choice.split('|');
+      targetDept = parts[0];
+      var objId = parts[1];
+      targetObj = (d.depts[targetDept].objectives||[]).find(function(o){return o.id===objId;});
+      if(!targetObj){ toast('Objective not found','err'); return; }
+    }
+    if(!targetObj.krs) targetObj.krs = [];
+    var newKR = { id:_okrNextKRId(targetObj), title:krTitle, progress:0, owner:personName, confidence:'Not started' };
+    targetObj.krs.push(newKR);
+    saveOKRForQuarter(activeKey, d);
+    overlay.remove();
+    toast('KR added for '+personName,'ok');
+    renderOKR();
+  };
 }
 function openLinkTaskModal(krId,krTitle){
   var allTasks=[];DEPTS.forEach(function(d){(data[d]||[]).forEach(function(t){if((t.assignee||'').trim()!==''){allTasks.push(Object.assign({},t,{dept:d}));}});});
