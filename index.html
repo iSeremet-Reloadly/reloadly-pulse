@@ -1653,19 +1653,21 @@ function renderMyTasks(){
         });
       });
       var okrLinks = (typeof OKR_LINKS !== 'undefined' && OKR_LINKS) ? OKR_LINKS : {};
+      // Ownership-only: My OKRs shows KRs where this user is the assigned
+      // Owner. Contributor mode (linked-task participation) was surfacing too
+      // much noise. Team-wide behavior is the same since the KR.owner field
+      // itself is synced through OKR_SYNC — every teammate sees their own
+      // owned KRs here consistently.
       var myKRs = [];
       Object.keys(okrDataMine.depts).forEach(function(dName){
         var dept = okrDataMine.depts[dName];
         (dept.objectives||[]).forEach(function(obj){
           (obj.krs||[]).forEach(function(kr){
-            var owns = (kr.owner||'').trim() === myName;
-            var linkedTaskIds = okrLinks[kr.id] || [];
-            var contributes = linkedTaskIds.some(function(tid){ return myTaskIds[tid]; });
-            if(owns || contributes){
+            if((kr.owner||'').trim() === myName){
               myKRs.push({
                 dept: dName, deptColor: dept.color || 'var(--acc)',
                 obj: obj, kr: kr,
-                why: owns ? (contributes ? 'owner + contributor' : 'owner') : 'contributor'
+                why: 'owner'
               });
             }
           });
