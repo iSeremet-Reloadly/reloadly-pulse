@@ -1480,65 +1480,13 @@ async function sha256(str){
   const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
 }
-async function hashPwd(email,pwd){return sha256(email.toLowerCase()+'::'+pwd);}
-function getPwdStore(){try{return JSON.parse(localStorage.getItem('rl_pwd_store')||'{}');}catch(e){return {};}}
-function setPwdStore(store){localStorage.setItem('rl_pwd_store',JSON.stringify(store));}
-// Passwords now live in Worker KV so they work across browsers, incognito,
-// and new devices. localStorage hash is kept as a legacy/offline fallback —
-// on successful local verify, we silently migrate it to the Worker.
-async function verifyPassword(email, pwd){
-  email = email.toLowerCase();
-  // Try Worker first (canonical source of truth)
-  if(typeof RL_SRV !== 'undefined'){
-    try {
-      var r = await RL_SRV.call('auth_verify_password', {email: email, password: pwd});
-      if(r && r.ok) return true;
-      if(r && r.error === 'no_password_set'){
-        // Fall through to legacy local check — may migrate up afterwards
-      } else {
-        return false;
-      }
-    } catch(e){ /* network error — fall through to local */ }
-  }
-  // Legacy local fallback
-  var store = getPwdStore(), hash = store[email];
-  if(!hash) return false;
-  var attempt = await hashPwd(email, pwd);
-  if(attempt !== hash) return false;
-  // Migration: legacy hash verified locally → push to Worker so it works
-  // everywhere going forward. Fire-and-forget.
-  if(typeof RL_SRV !== 'undefined'){
-    RL_SRV.call('auth_set_password', {email: email, password: pwd}).catch(function(){});
-  }
-  return true;
-}
-async function setPassword(email, pwd){
-  email = email.toLowerCase();
-  // Worker is canonical
-  if(typeof RL_SRV !== 'undefined'){
-    var r = await RL_SRV.call('auth_set_password', {email: email, password: pwd});
-    if(!r || !r.ok) throw new Error((r && (r.error + (r.detail ? ': '+r.detail : ''))) || 'set_failed');
-  }
-  // Legacy local store kept in sync for offline use
-  var store = getPwdStore();
-  store[email] = await hashPwd(email, pwd);
-  setPwdStore(store);
-}
-// hasPassword is called sync in a few spots — keep a synchronous fast path
-// against the local cache, but also expose hasPasswordAsync for the gate
-// flow so we can check the Worker for cross-browser users.
-function hasPassword(email){ return !!getPwdStore()[email.toLowerCase()]; }
-async function hasPasswordAsync(email){
-  email = email.toLowerCase();
-  if(getPwdStore()[email]) return true;
-  if(typeof RL_SRV !== 'undefined'){
-    try {
-      var r = await RL_SRV.call('auth_has_password', {email: email});
-      return !!(r && r.ok && r.hasPassword);
-    } catch(e){}
-  }
-  return false;
-}
+// Password auth (hashPwd/getPwdStore/setPwdStore/verifyPassword/setPassword/
+// hasPassword/hasPasswordAsync, plus the rl_pwd_store localStorage key) has
+// been removed entirely. OTP-to-email (gateLogin → gateVerifyOTP) is the
+// sole sign-in method now — see _finalizeSignIn. The old auth_set_password
+// Worker action had no authorization check at all, so any signed-in browser
+// could silently overwrite any colleague's password; removing the feature
+// closes that hole completely rather than patching around it.
 
 function assigneeOptions(selected){
   if(!window.USER_REGISTRY)return'<option value="">-- Unassigned --</option>';
@@ -1982,12 +1930,14 @@ function init(){
   var sessionExpiresAt=parseInt(localStorage.getItem('rl_session_expires_at')||'0',10);
   var profile=saved?USER_REGISTRY[saved]:null;
   // Fast-path: cached user + non-expired session timestamp. We trust the
-  // timestamp client-side for the initial render to avoid a flash of the
-  // sign-in gate; the Worker verify call below re-validates async and signs
-  // out cleanly if the session is actually invalid (e.g. revoked admin-side).
-  // Passwordless: session token + non-expired timestamp are the only gates.
-  // hasPassword(saved) check was a leftover from the password era and made
-  // every refresh boot users back to the sign-in screen.
+  // locally-cached profile fields ONLY for the very first paint, to avoid a
+  // flash of the sign-in gate — this is display state, not a security
+  // boundary, since every sensitive Worker action independently re-checks
+  // the real session's permissions server-side regardless of what's shown
+  // here. The verify call below re-validates async, corrects isAdmin/perm
+  // fields from the server's answer, signs out if the session is actually
+  // invalid, and re-renders the nav so any correction shows up within
+  // seconds instead of persisting until next login.
   if(profile && sessionToken && Date.now() < sessionExpiresAt){
     currentUser={email:saved,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin,canAccessProposals:!!profile.canAccessProposals||!!profile.isAdmin,canAccessWalletOps:!!profile.canAccessWalletOps||!!profile.isAdmin};
     loadData();
@@ -1995,15 +1945,22 @@ function init(){
     // instead of falling back to the default view.
     setTimeout(function(){ try { _applyHashRoute(); } catch(_){} }, 0);
     // Async revalidation — Worker may invalidate idle sessions (>2h) or
-    // explicitly revoked ones. If invalid, sign out + show gate.
+    // explicitly revoked ones. If invalid, sign out + show gate. If valid,
+    // sync the real permission fields from the server (source of truth)
+    // and refresh the nav so a permission change takes effect promptly.
     if(typeof RL_SRV !== 'undefined'){
       setTimeout(function(){
         RL_SRV.call('auth_verify_session', {sessionToken: sessionToken}).then(function(r){
           if(!r || !r.ok){
             try { toast('Session expired — please sign in again', 'warn'); } catch(e){}
             signOut();
-          } else if(r.expiresAt){
-            localStorage.setItem('rl_session_expires_at', String(r.expiresAt));
+          } else {
+            if(r.expiresAt){ localStorage.setItem('rl_session_expires_at', String(r.expiresAt)); }
+            if(currentUser){
+              currentUser.isAdmin=!!r.isAdmin;currentUser.canExport=!!r.canExport;currentUser.canViewAll=!!r.canViewAll;
+              currentUser.canAccessPricing=!!r.canAccessPricing;currentUser.canAccessProposals=!!r.canAccessProposals;currentUser.canAccessWalletOps=!!r.canAccessWalletOps;
+              try { renderUserPill(); } catch(e){}
+            }
           }
         }).catch(function(){});
       }, 2000);
@@ -2084,22 +2041,10 @@ function loadData(){
   renderUserPill();checkReminders();
   if(!window._ri)window._ri=setInterval(checkReminders,3600000);
 }
-function gateSetupPwd(){
-  var email=window._setupEmail;
-  var p1=(document.getElementById('gate-new-pwd')||{}).value||'';
-  var p2=(document.getElementById('gate-new-pwd2')||{}).value||'';
-  var errEl=document.getElementById('gate-err');
-  if(!p1||p1.length<8){errEl.textContent='Password must be at least 8 characters.';return;}
-  if(p1!==p2){errEl.textContent='Passwords do not match.';return;}
-  errEl.textContent='';
-  setPassword(email,p1).then(function(){
-    var profile=USER_REGISTRY[email];
-    window.currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin,canAccessProposals:!!profile.canAccessProposals||!!profile.isAdmin,canAccessWalletOps:!!profile.canAccessWalletOps||!!profile.isAdmin};
-    localStorage.setItem('rl_user_email',email);
-    document.getElementById('gate').style.display='none';
-    loadData();logEntry('First sign-in by '+profile.name,'edit');autoSave();
-  });
-}
+// gateSetupPwd() (password-based first-time setup) removed — Pulse is
+// passwordless (OTP-to-email) end to end now, and there's no UI left that
+// calls this, so first sign-in goes through the same gateLogin()/OTP flow
+// as every subsequent one.
 
 function gateEmailChanged(){
   var emailRaw=(document.getElementById('gate-email')||{}).value||'';
@@ -2134,10 +2079,10 @@ function gateLogin(){
   // Passwordless: trust token short-circuits to direct sign-in. Otherwise the
   // Worker emails a 6-digit OTP and we show the entry UI.
   var trustToken = localStorage.getItem('rl_trust_token') || null;
-  RL_SRV.call('auth_send_otp', {email: email, trustToken: trustToken, isAdmin: !!profile.isAdmin}).then(function(r){
+  RL_SRV.call('auth_send_otp', {email: email, trustToken: trustToken}).then(function(r){
     btn.textContent='Send sign-in code';btn.disabled=false;
     if(r && r.ok && r.sessionToken){
-      _finalizeSignIn(email, profile, r.sessionToken, r.expiresAt);
+      _finalizeSignIn(email, profile, r.sessionToken, r.expiresAt, r);
     } else if(r && r.ok && r.sent){
       window._pendingAuthEmail = email;
       document.getElementById('gate-submit-btn').style.display='none';
@@ -2164,10 +2109,10 @@ function gateVerifyOTP(){
   errEl.textContent='';
   var profile = USER_REGISTRY[email];
   if(!profile){errEl.textContent='Session lost. Refresh and try again.';return;}
-  RL_SRV.call('auth_verify_otp', {email: email, code: code, isAdmin: !!profile.isAdmin, rememberDevice: remember}).then(function(r){
+  RL_SRV.call('auth_verify_otp', {email: email, code: code, rememberDevice: remember}).then(function(r){
     if(r && r.ok && r.sessionToken){
       if(r.trustToken){ localStorage.setItem('rl_trust_token', r.trustToken); }
-      _finalizeSignIn(email, profile, r.sessionToken, r.expiresAt);
+      _finalizeSignIn(email, profile, r.sessionToken, r.expiresAt, r);
     } else {
       errEl.textContent = 'Code: ' + ((r && (r.detail || r.error)) || 'invalid');
     }
@@ -2178,14 +2123,24 @@ function gateResendOTP(){
   var email = window._pendingAuthEmail; if(!email) return;
   var errEl=document.getElementById('gate-err');
   errEl.textContent='';
-  RL_SRV.call('auth_send_otp', {email: email, isAdmin: !!(USER_REGISTRY[email]||{}).isAdmin}).then(function(r){
+  RL_SRV.call('auth_send_otp', {email: email}).then(function(r){
     if(r && r.ok && r.sent){ toast('New code sent','ok'); }
     else { errEl.textContent = 'Resend: ' + ((r && (r.detail || r.error)) || 'failed'); }
   });
 }
 
-function _finalizeSignIn(email, profile, sessionToken, expiresAt){
-  currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,canExport:profile.canExport,canViewAll:profile.canViewAll,isAdmin:!!profile.isAdmin,canAccessPricing:!!profile.canAccessPricing||!!profile.isAdmin,canAccessProposals:!!profile.canAccessProposals||!!profile.isAdmin,canAccessWalletOps:!!profile.canAccessWalletOps||!!profile.isAdmin};
+// perms is the Worker's response from auth_send_otp/auth_verify_otp (or, on
+// page-load revalidation, auth_verify_session) — the server-side roster is
+// the only trusted source for isAdmin and the other permission flags, so we
+// build currentUser's access fields from THAT, not from the locally-cached
+// USER_REGISTRY profile. profile still supplies name/role/dept, which are
+// just directory display info, not access control.
+function _finalizeSignIn(email, profile, sessionToken, expiresAt, perms){
+  perms = perms || {};
+  currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,
+    isAdmin:!!perms.isAdmin,canExport:!!perms.canExport,canViewAll:!!perms.canViewAll,
+    canAccessPricing:!!perms.canAccessPricing,canAccessProposals:!!perms.canAccessProposals,
+    canAccessWalletOps:!!perms.canAccessWalletOps};
   localStorage.setItem('rl_user_email', email);
   localStorage.setItem('rl_session_token', sessionToken);
   if(expiresAt) localStorage.setItem('rl_session_expires_at', String(expiresAt));
@@ -3000,7 +2955,15 @@ function _renderAdminUsers(){
         if(typeof RL_SRV === 'undefined') return;
         var roster = Object.keys(USER_REGISTRY).map(function(em){
           var ux = USER_REGISTRY[em];
-          return {email: em, name: ux.name || em, slackId: ux.slackId || null, dept: ux.dept || null};
+          // Permission fields are included so the Worker's roster — the ONLY
+          // server-side source of truth for isAdmin/permissions since the
+          // auth hardening pass — reflects what this admin's Admin page
+          // actually shows. Never trust these fields from the client at
+          // sign-in time; this push is what makes the roster correct.
+          return {email: em, name: ux.name || em, slackId: ux.slackId || null, dept: ux.dept || null,
+            isAdmin: !!ux.isAdmin, canExport: !!ux.canExport, canViewAll: !!ux.canViewAll,
+            canAccessPricing: !!ux.canAccessPricing, canAccessProposals: !!ux.canAccessProposals,
+            canAccessWalletOps: !!ux.canAccessWalletOps};
         });
         RL_SRV.pushRoster(roster).then(function(r){
           if(r && r.ok){
@@ -3068,23 +3031,14 @@ function _renderAdminUsers(){
     });
   }
 
-  // ── Wire up Set Password ───────────────────────────────────────────────────
+  // ── Wire up admin click handlers (archive/restore) ─────────────────────────
+  // "Set Password" used to live here — removed along with password auth
+  // entirely (auth_set_password had no server-side authorization check at
+  // all, so any signed-in browser could silently overwrite any colleague's
+  // password; OTP-to-email is now the sole sign-in method).
   if(!_adminRoot.dataset.adminPwdWired){
     _adminRoot.dataset.adminPwdWired = '1';
   document.getElementById('main').addEventListener('click',function(ev){
-    var setBtn=ev.target.closest('[data-set-pwd]');
-    if(setBtn){
-      var targetEmail=setBtn.getAttribute('data-set-pwd');
-      var newPwd=prompt('Set password for '+targetEmail+'\n(min 8 characters):');
-      if(!newPwd)return;
-      if(newPwd.length<8){toast('Min 8 characters','err');return;}
-      setPassword(targetEmail,newPwd).then(function(){
-        toast('Password set ✓','ok');
-        logEntry('Admin set password for: '+targetEmail,'edit');
-        autoSave();renderAdmin();
-      });
-      return;
-    }
     // ── Archive ──────────────────────────────────────────────────────────────
     var archBtn=ev.target.closest('[data-archive]');
     if(archBtn&&!archBtn.disabled){
@@ -3115,22 +3069,9 @@ function _renderAdminUsers(){
   });
   } // close adminPwdWired guard
 
-  // ── Change own password ───────────────────────────────────────────────────
-  var mpBtn=document.getElementById('my-pwd-btn');
-  if(mpBtn)mpBtn.addEventListener('click',function(){
-    var p1=(document.getElementById('my-pwd')||{}).value||'';
-    var p2=(document.getElementById('my-pwd2')||{}).value||'';
-    if(!p1){toast('Enter a new password','err');return;}
-    if(p1.length<8){toast('Minimum 8 characters','err');return;}
-    if(p1!==p2){toast('Passwords do not match','err');return;}
-    setPassword(currentUser.email,p1).then(function(){
-      toast('Password updated ✓','ok');
-      logEntry('Changed own password','edit');
-      autoSave();
-      document.getElementById('my-pwd').value='';
-      document.getElementById('my-pwd2').value='';
-    });
-  });
+  // "Change own password" used to live here — removed along with password
+  // auth entirely (see note above). No UI referenced my-pwd-btn/my-pwd/
+  // my-pwd2 anymore, so this was already dead code.
 
   // ── Add User ──────────────────────────────────────────────────────────────
   var btn=document.getElementById('au-btn');
@@ -3151,7 +3092,10 @@ function _renderAdminUsers(){
     if(typeof RL_SRV !== 'undefined'){
       var roster = Object.keys(USER_REGISTRY).map(function(em){
         var ux = USER_REGISTRY[em];
-        return {email: em, name: ux.name || em, slackId: ux.slackId || null, dept: ux.dept || null};
+        return {email: em, name: ux.name || em, slackId: ux.slackId || null, dept: ux.dept || null,
+          isAdmin: !!ux.isAdmin, canExport: !!ux.canExport, canViewAll: !!ux.canViewAll,
+          canAccessPricing: !!ux.canAccessPricing, canAccessProposals: !!ux.canAccessProposals,
+          canAccessWalletOps: !!ux.canAccessWalletOps};
       });
       RL_SRV.pushRoster(roster);
     }
@@ -5004,10 +4948,16 @@ var RL_SRV = {
   call: function(action, payload){
     var u = RL_SRV.url();
     if(!u) return Promise.resolve({error:'no_worker_url'});
+    // Auto-attach the signed-in session token to every call so the Worker
+    // can verify who's actually asking, instead of trusting whatever the
+    // payload claims. Explicit sessionToken in payload (rare) still wins.
+    var tok = null;
+    try { tok = localStorage.getItem('rl_session_token'); } catch(e){}
+    var merged = Object.assign({action:action}, tok ? {sessionToken:tok} : {}, payload||{});
     return fetch(u, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(Object.assign({action:action}, payload||{}))
+      body: JSON.stringify(merged)
     }).then(function(r){return r.json();}).catch(function(e){return {error:'network', detail:String(e)};});
   },
   pushHPM: function(email, weekKey, entry){ return RL_SRV.call('put_hpm', {email:email, weekKey:weekKey, entry:entry}); },
@@ -5091,7 +5041,10 @@ function _rl_srv_bootstrap(){
     if(typeof USER_REGISTRY === 'object'){
       var roster = Object.keys(USER_REGISTRY).map(function(email){
         var u = USER_REGISTRY[email];
-        return {email: email, name: u.name||email, slackId: u.slackId||null, dept: u.dept||null};
+        return {email: email, name: u.name||email, slackId: u.slackId||null, dept: u.dept||null,
+          isAdmin: !!u.isAdmin, canExport: !!u.canExport, canViewAll: !!u.canViewAll,
+          canAccessPricing: !!u.canAccessPricing, canAccessProposals: !!u.canAccessProposals,
+          canAccessWalletOps: !!u.canAccessWalletOps};
       });
       RL_SRV.pushRoster(roster);
     }
@@ -6556,10 +6509,16 @@ function renderReviewComments(box, revId, r, iRer, iRee){
       var u2 = USER_REGISTRY[c.author] || {name: c.author};
       var visBadge = c.visibility==='hr' ? '<span style="font-size:8px;padding:1px 5px;border-radius:8px;background:var(--red);color:white;font-family:Roboto Mono,monospace;margin-left:6px">HR ONLY</span>' : c.visibility==='manager' ? '<span style="font-size:8px;padding:1px 5px;border-radius:8px;background:var(--yel);color:black;font-family:Roboto Mono,monospace;margin-left:6px">CONFIDENTIAL</span>' : '';
       var top = document.createElement('div');top.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px';
-      top.innerHTML='<div style="display:flex;align-items:center"><span style="font-size:11px;font-weight:700">'+u2.name+'</span>'+visBadge+'</div><span style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+timeDiff(new Date(c.at))+'</span>';
+      top.innerHTML='<div style="display:flex;align-items:center"><span style="font-size:11px;font-weight:700">'+esc(u2.name)+'</span>'+visBadge+'</div><span style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+timeDiff(new Date(c.at))+'</span>';
       item.appendChild(top);
       var body = document.createElement('div');body.style.cssText='font-size:12px;white-space:pre-wrap;line-height:1.4';
-      var rendered = (c.text||'').replace(/@(\S+)/g, function(m, mention){return '<span style="color:var(--acc);font-weight:600">@'+mention+'</span>';});
+      // Escape FIRST, then linkify @mentions — comment text is fully
+      // user-supplied (anyone can post one), and rendering it via innerHTML
+      // without escaping let any user inject executable HTML/script into a
+      // review comment. Escaping before the @mention regex is safe because
+      // esc() only touches &<>"' — none of which appear in the mention regex
+      // itself, so the highlighted @name still renders correctly.
+      var rendered = esc(c.text||'').replace(/@(\S+)/g, function(m, mention){return '<span style="color:var(--acc);font-weight:600">@'+mention+'</span>';});
       body.innerHTML = rendered;
       item.appendChild(body);
       if(c.author === me || isAd){
