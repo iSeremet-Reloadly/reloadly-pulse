@@ -2061,11 +2061,13 @@ function gateEmailChanged(){
     if(email.indexOf('@')>0&&hint){hint.textContent='Use your Reloadly email (name@reloadly.com).';}
     return;
   }
-  if(typeof USER_REGISTRY==='undefined'||!USER_REGISTRY[email]){
-    if(hint){hint.textContent='Email not recognized. Ask your admin to add you.';hint.style.color='var(--red)';}
-    return;
-  }
-  // Passwordless: show the "Send code" button as soon as we have a recognised email.
+  // Note: we deliberately do NOT block here on USER_REGISTRY[email] missing.
+  // USER_REGISTRY is a local display-only cache (name/role/dept) that only
+  // refreshes from the Worker once a session exists, so someone added to the
+  // roster after this page was last loaded would otherwise see a false
+  // "not recognized" error even though the server would happily let them in.
+  // The Worker's roster (checked server-side in auth_send_otp) is the real,
+  // always-current gate — this client-side check is UX-only.
   if(submitBtn)submitBtn.style.display='block';
   if(hint){hint.textContent='We\'ll email you a 6-digit code to sign in.';}
 }
@@ -2073,8 +2075,12 @@ function gateLogin(){
   var email=(document.getElementById('gate-email')||{}).value.trim().toLowerCase();
   var errEl=document.getElementById('gate-err');
   var btn=document.getElementById('gate-submit-btn');
-  var profile=USER_REGISTRY[email];
-  if(!profile){errEl.textContent='Access denied. Contact your administrator.';return;}
+  // Fall back to a minimal display-only profile if this browser's local
+  // USER_REGISTRY hasn't synced this person yet — the server (not this local
+  // cache) is what actually decides whether they're allowed to sign in.
+  // Once signed in, the registry sync picks up their real name/role/dept
+  // within seconds.
+  var profile=USER_REGISTRY[email] || {name: email, role: '', dept: ''};
   errEl.textContent='';
   btn.textContent='Sending code…';btn.disabled=true;
   // Passwordless: every sign-in requires a fresh OTP — no "remember this
@@ -2106,8 +2112,10 @@ function gateVerifyOTP(){
   var errEl=document.getElementById('gate-err');
   if(!email || !code){errEl.textContent='Enter the 6-digit code.';return;}
   errEl.textContent='';
-  var profile = USER_REGISTRY[email];
-  if(!profile){errEl.textContent='Session lost. Refresh and try again.';return;}
+  // Same fallback as gateLogin() — don't block on a local cache the server
+  // has already validated by getting this far (auth_send_otp already
+  // confirmed the roster knows this email).
+  var profile = USER_REGISTRY[email] || {name: email, role: '', dept: ''};
   RL_SRV.call('auth_verify_otp', {email: email, code: code}).then(function(r){
     if(r && r.ok && r.sessionToken){
       _finalizeSignIn(email, profile, r.sessionToken, r.expiresAt, r);
@@ -2148,6 +2156,25 @@ function _finalizeSignIn(email, profile, sessionToken, expiresAt, perms){
   // Honour any hash-route the user opened Pulse with (e.g. someone shared a
   // link to /#/okrtracker) after they successfully authenticate.
   setTimeout(function(){ try { _applyHashRoute(); } catch(_){} }, 0);
+  // If this browser hadn't synced the shared user directory yet (e.g. a
+  // brand-new account signing in for the first time — see gateLogin()'s
+  // fallback profile), pull it now so the real name/role/dept replace the
+  // placeholder within a second or two instead of waiting for the next
+  // 30s poll tick.
+  try {
+    if(typeof _initUserRegistrySync === 'function') _initUserRegistrySync();
+    if(typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC && typeof USER_REG_SYNC.pull === 'function'){
+      USER_REG_SYNC.pull(true).then(function(){
+        var fresh = (typeof USER_REGISTRY === 'object') && USER_REGISTRY[email];
+        if(fresh && currentUser && currentUser.email === email){
+          currentUser.name = fresh.name || currentUser.name;
+          currentUser.role = fresh.role || currentUser.role;
+          currentUser.dept = fresh.dept || currentUser.dept;
+          try { renderUserPill(); } catch(e){}
+        }
+      });
+    }
+  } catch(e){}
 }
 function renderUserPill(){
   var ex=document.getElementById('user-pill-el');if(ex)ex.remove();
