@@ -1253,9 +1253,6 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div id="gate-otp-row" style="display:none;margin-top:8px">
       <div style="font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:10px">We sent a 6-digit code to <strong id="gate-otp-email" style="color:var(--txt)"></strong>. Check your inbox.</div>
       <input class="gate-input" id="gate-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" style="margin-bottom:10px;letter-spacing:.4em;font-family:Roboto Mono,monospace;text-align:center;font-size:18px" onkeydown="if(event.key==='Enter')gateVerifyOTP()">
-      <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mut);margin-bottom:10px;cursor:pointer">
-        <input id="gate-remember" type="checkbox" style="accent-color:var(--acc)"> Remember this device for 30 days
-      </label>
       <button class="gate-btn" onclick="gateVerifyOTP()">Verify &amp; Sign In</button>
       <button onclick="gateResendOTP()" style="background:none;border:none;color:var(--mut);font-size:10px;cursor:pointer;margin-top:6px;text-decoration:underline">Resend code</button>
     </div>
@@ -1925,6 +1922,10 @@ function _showGate(){
 }
 function init(){
   applyStoredTheme();
+  // "Remember this device" was removed — purge any leftover trust token from
+  // before this change so it can never be used, even on a device that never
+  // explicitly signed out.
+  localStorage.removeItem('rl_trust_token');
   var saved=localStorage.getItem('rl_user_email');
   var sessionToken=localStorage.getItem('rl_session_token');
   var sessionExpiresAt=parseInt(localStorage.getItem('rl_session_expires_at')||'0',10);
@@ -2076,10 +2077,9 @@ function gateLogin(){
   if(!profile){errEl.textContent='Access denied. Contact your administrator.';return;}
   errEl.textContent='';
   btn.textContent='Sending code…';btn.disabled=true;
-  // Passwordless: trust token short-circuits to direct sign-in. Otherwise the
-  // Worker emails a 6-digit OTP and we show the entry UI.
-  var trustToken = localStorage.getItem('rl_trust_token') || null;
-  RL_SRV.call('auth_send_otp', {email: email, trustToken: trustToken}).then(function(r){
+  // Passwordless: every sign-in requires a fresh OTP — no "remember this
+  // device" shortcut. The Worker emails a 6-digit code and we show the entry UI.
+  RL_SRV.call('auth_send_otp', {email: email}).then(function(r){
     btn.textContent='Send sign-in code';btn.disabled=false;
     if(r && r.ok && r.sessionToken){
       _finalizeSignIn(email, profile, r.sessionToken, r.expiresAt, r);
@@ -2103,15 +2103,13 @@ function gateLogin(){
 function gateVerifyOTP(){
   var email = window._pendingAuthEmail;
   var code = (document.getElementById('gate-otp').value || '').trim();
-  var remember = !!document.getElementById('gate-remember').checked;
   var errEl=document.getElementById('gate-err');
   if(!email || !code){errEl.textContent='Enter the 6-digit code.';return;}
   errEl.textContent='';
   var profile = USER_REGISTRY[email];
   if(!profile){errEl.textContent='Session lost. Refresh and try again.';return;}
-  RL_SRV.call('auth_verify_otp', {email: email, code: code, rememberDevice: remember}).then(function(r){
+  RL_SRV.call('auth_verify_otp', {email: email, code: code}).then(function(r){
     if(r && r.ok && r.sessionToken){
-      if(r.trustToken){ localStorage.setItem('rl_trust_token', r.trustToken); }
       _finalizeSignIn(email, profile, r.sessionToken, r.expiresAt, r);
     } else {
       errEl.textContent = 'Code: ' + ((r && (r.detail || r.error)) || 'invalid');
@@ -2182,8 +2180,10 @@ function signOut(forced){
   localStorage.removeItem('rl_user_email');
   localStorage.removeItem('rl_session_token');
   localStorage.removeItem('rl_session_expires_at');
-  // Keep rl_trust_token — that's per-device trust, intentionally separate
-  // from the sign-in session so "remember this device" works across logouts.
+  // "Remember this device" has been removed — every sign-in now requires a
+  // fresh OTP. Clear any leftover trust token from before this change so it
+  // can't be used even if it hasn't expired server-side yet.
+  localStorage.removeItem('rl_trust_token');
   currentUser=null;
   var expBtn=document.getElementById('export-btn');if(expBtn)expBtn.style.display='none';
   document.getElementById('gate').style.display='flex';
