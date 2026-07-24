@@ -1871,11 +1871,18 @@ function _mtRenderSuggestModal(payload, suggestions){
 // Actually create the tasks + link them to the KR. Uses the same task-shape
 // as manual creation so drag/drop, filters, and archive all work.
 function _mtCreateTasksAndLink(payload, tasks){
-  if(!data[payload.dept]) data[payload.dept] = [];
+  // payload.dept is "Company" for Company-level OKRs (not a real department),
+  // which crashes nextId()/CFG[dept] and silently kills this whole handler —
+  // that's the "Add selected to My Tasks does nothing" bug. These tasks are
+  // assigned to the current user anyway, so file them under the user's own
+  // real department instead of the literal "Company" label. Department-level
+  // OKRs already pass a real dept in payload.dept, so this is a no-op for them.
+  var targetDept = CFG[payload.dept] ? payload.dept : ((currentUser && CFG[currentUser.dept]) ? currentUser.dept : 'Management');
+  if(!data[targetDept]) data[targetDept] = [];
   var created = [];
   tasks.forEach(function(t){
     var newTask = {
-      id: nextId(payload.dept),
+      id: nextId(targetDept),
       name: t.title,
       status: 'Not Started',
       priority: t.priority,
@@ -1885,7 +1892,7 @@ function _mtCreateTasksAndLink(payload, tasks){
       notes: 'AI-suggested for '+payload.krId+' · '+payload.krTitle + (t.why?('\n\nWhy: '+t.why):''),
       createdAt: new Date().toISOString()
     };
-    data[payload.dept].push(newTask);
+    data[targetDept].push(newTask);
     created.push(newTask.id);
   });
   // Link every created task to the KR so it counts toward KR completion.
