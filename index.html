@@ -2040,11 +2040,16 @@ function loadData(){
   // Default view: Tasks for everyone unless explicitly overridden
   if(view==='dashboard')view='tasks';
   try{STRAT.migrate();}catch(e){console.warn('STRAT migrate failed',e);}
-  // HPM auto-task: if the user is mid-window and hasn't submitted, ensure a
-  // task is on their plate. Idempotent.
-  try{ _ensureHPMTaskForCurrentUser(); }catch(e){}
   render();
-  try{ _injectHPMBanner(); }catch(e){}
+  // HPM auto-task + nag banner: if the user is mid-window and hasn't
+  // submitted, ensure a task is on their plate and show the reminder banner.
+  // Gated on the Annual Leave cache being fresh first, so someone on leave
+  // doesn't get nagged or have a task auto-created against them for a week
+  // they're not working — refresh it, THEN run both checks. Idempotent.
+  _refreshLeaveCache().catch(function(){}).then(function(){
+    try{ _ensureHPMTaskForCurrentUser(); }catch(e){}
+    try{ _injectHPMBanner(); }catch(e){}
+  });
   document.getElementById('ts').textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'});
   renderUserPill();checkReminders();
   if(!window._ri)window._ri=setInterval(checkReminders,3600000);
@@ -2835,12 +2840,22 @@ function renderAdmin(){
   if(!isAdmin()){renderDash();return;}
   var tab = window._adminTab || 'users';
   if(tab==='log'){return _renderAdminLog();}
+  if(tab==='leave'){
+    // Paint immediately with whatever's cached, then refresh from the
+    // Worker exactly once and re-paint if anything changed — avoids a
+    // self-triggering fetch loop (the render function itself never fetches).
+    _renderAdminLeave();
+    _refreshLeaveCache().then(function(){
+      if((window._adminTab||'users')==='leave') _renderAdminLeave();
+    });
+    return;
+  }
   return _renderAdminUsers();
 }
 function _adminTabBar(active){
   var bar='<div style="display:flex;gap:0;border-bottom:1px solid var(--brd);margin:14px 0 20px">';
-  ['users','log'].forEach(function(t){
-    var l={users:'Users',log:'Activity Log'}[t];
+  ['users','leave','log'].forEach(function(t){
+    var l={users:'Users',leave:'Annual Leave',log:'Activity Log'}[t];
     var cls='background:none;border:none;padding:9px 18px;font-size:11px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;font-family:Roboto Mono,monospace;letter-spacing:.4px;'
       +(t===active?'color:var(--txt);border-color:var(--acc)':'color:var(--mut)');
     bar+='<button onclick="window._adminTab=\''+t+'\';renderAdmin();" style="'+cls+'">'+l+'</button>';
@@ -2858,6 +2873,117 @@ function _renderAdminLog(){
   var holder=document.createElement('div');holder.id='admin-log-holder';main.appendChild(holder);
   // Render the log body into the holder
   _renderLogBody(holder);
+}
+// ── Annual Leave admin tab — mark someone on leave for a date range so the
+// HPM nudge/nag logic (client-side banner + auto-task, and the Worker's
+// Slack laggard callout) exempts them for any week their leave overlaps.
+function _renderAdminLeave(){
+  if(!isAdmin()){renderDash();return;}
+  var main = document.getElementById('main');
+  main.innerHTML='';
+  var ttl=document.createElement('div');ttl.className='ptitle';ttl.textContent='User Management';main.appendChild(ttl);
+  var sub=document.createElement('div');sub.className='psub';sub.textContent='Annual Leave · exempts someone from HPM reminders/nudges while they\'re away';main.appendChild(sub);
+  main.insertAdjacentHTML('beforeend', _adminTabBar('leave'));
+
+  var infoBar=document.createElement('div');
+  infoBar.style.cssText='background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:10px 14px;margin:0 0 16px;font-size:12px;line-height:1.55;color:var(--txt);display:flex;gap:10px;align-items:center';
+  infoBar.innerHTML='<span style="color:var(--grn);font-size:14px;line-height:1;flex-shrink:0">●</span><div><b style="color:var(--grn)">Synced across the team.</b> Anyone marked here is skipped by the HPM nag banner, doesn\'t get an auto-created "submit HPM" task, and won\'t be listed as a laggard in the Slack reminder for any week their leave overlaps.</div>';
+  main.appendChild(infoBar);
+
+  // ── Add-leave form ──────────────────────────────────────────────────────
+  var formCard=document.createElement('div');
+  formCard.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:16px 18px;margin-bottom:20px';
+  var formTitle=document.createElement('div');formTitle.style.cssText='font-size:12px;font-weight:700;margin-bottom:12px;color:var(--txt)';formTitle.textContent='+ Add leave';formCard.appendChild(formTitle);
+  var formGrid=document.createElement('div');formGrid.style.cssText='display:grid;grid-template-columns:1.4fr 1fr 1fr 1.4fr auto;gap:10px;align-items:end';
+
+  function _fld(label){var w=document.createElement('div');w.innerHTML='<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:5px;letter-spacing:.4px">'+label+'</div>';return w;}
+
+  var personWrap=_fld('PERSON');
+  var personSel=document.createElement('select');
+  personSel.style.cssText='width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;box-sizing:border-box';
+  Object.keys(USER_REGISTRY).filter(function(e){return !(USER_REGISTRY[e]&&USER_REGISTRY[e].archived===true) && ARCHIVED_USERS.indexOf(e)<0;})
+    .sort(function(a,b){return (USER_REGISTRY[a].name||a).localeCompare(USER_REGISTRY[b].name||b);})
+    .forEach(function(e){var op=document.createElement('option');op.value=e;op.textContent=USER_REGISTRY[e].name+' ('+e+')';personSel.appendChild(op);});
+  personWrap.appendChild(personSel);
+
+  var startWrap=_fld('START DATE');
+  var startInp=document.createElement('input');startInp.type='date';startInp.style.cssText='width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;box-sizing:border-box';
+  startWrap.appendChild(startInp);
+
+  var endWrap=_fld('END DATE');
+  var endInp=document.createElement('input');endInp.type='date';endInp.style.cssText='width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;box-sizing:border-box';
+  endWrap.appendChild(endInp);
+
+  var noteWrap=_fld('NOTE (OPTIONAL)');
+  var noteInp=document.createElement('input');noteInp.type='text';noteInp.placeholder='e.g. Annual leave';noteInp.style.cssText='width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;box-sizing:border-box';
+  noteWrap.appendChild(noteInp);
+
+  var addBtn=document.createElement('button');addBtn.className='hbtn xl';addBtn.style.cssText='border-color:var(--acc);color:var(--acc);white-space:nowrap';addBtn.textContent='+ Add';
+  addBtn.onclick=function(){
+    var email=personSel.value, sd=startInp.value, ed=endInp.value, note=noteInp.value.trim();
+    if(!email||!sd||!ed){toast('Pick a person and both dates','err');return;}
+    if(ed<sd){toast('End date is before start date','err');return;}
+    addBtn.disabled=true;addBtn.textContent='Adding…';
+    RL_SRV.addLeave({email:email,startDate:sd,endDate:ed,note:note}).then(function(r){
+      addBtn.disabled=false;addBtn.textContent='+ Add';
+      if(r&&r.ok){
+        toast('Leave added for '+(USER_REGISTRY[email]?USER_REGISTRY[email].name:email),'ok');
+        logEntry('Added annual leave for '+email+' ('+sd+' to '+ed+')','edit');
+        startInp.value='';endInp.value='';noteInp.value='';
+        _refreshLeaveCache().then(function(){ _renderAdminLeave(); });
+      } else {
+        toast('Failed: '+((r&&(r.detail||r.error))||'unknown error'),'err');
+      }
+    }).catch(function(e){addBtn.disabled=false;addBtn.textContent='+ Add';toast('Network error','err');});
+  };
+
+  formGrid.appendChild(personWrap);formGrid.appendChild(startWrap);formGrid.appendChild(endWrap);formGrid.appendChild(noteWrap);formGrid.appendChild(addBtn);
+  formCard.appendChild(formGrid);
+  main.appendChild(formCard);
+
+  // ── Existing leave records ──────────────────────────────────────────────
+  var listCard=document.createElement('div');
+  listCard.style.cssText='background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden';
+  var todayStr=new Date().toISOString().slice(0,10);
+  var records=(_LEAVE_CACHE||[]).slice().sort(function(a,b){return (b.startDate||'').localeCompare(a.startDate||'');});
+  if(!records.length){
+    listCard.innerHTML='<div style="padding:24px;text-align:center;color:var(--mut);font-size:12px">No leave recorded yet.</div>';
+  } else {
+    var th=document.createElement('div');
+    th.style.cssText='display:grid;grid-template-columns:1.6fr 1.2fr 1.6fr 1fr auto;gap:0;padding:10px 16px;background:var(--surf2);font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;font-weight:700;letter-spacing:.5px';
+    th.innerHTML='<div>PERSON</div><div>DATES</div><div>NOTE</div><div>ADDED BY</div><div></div>';
+    listCard.appendChild(th);
+    records.forEach(function(l){
+      var u=USER_REGISTRY[l.email]||{name:l.email};
+      var isCurrent = l.startDate<=todayStr && l.endDate>=todayStr;
+      var isPast = l.endDate<todayStr;
+      var row=document.createElement('div');
+      row.style.cssText='display:grid;grid-template-columns:1.6fr 1.2fr 1.6fr 1fr auto;gap:0;padding:10px 16px;border-top:1px solid var(--brd);align-items:center'+(isPast?';opacity:.5':'');
+      var badge = isCurrent ? '<span style="font-size:8px;padding:2px 6px;border-radius:8px;background:var(--grn);color:#042;font-family:Roboto Mono,monospace;font-weight:700;margin-left:6px">ON LEAVE NOW</span>' : '';
+      row.innerHTML='<div style="font-size:12px;font-weight:600">'+esc(u.name)+badge+'<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">'+esc(l.email)+'</div></div>'
+        +'<div style="font-size:11px;color:var(--txt)">'+esc(l.startDate)+' → '+esc(l.endDate)+'</div>'
+        +'<div style="font-size:11px;color:var(--mut)">'+esc(l.note||'—')+'</div>'
+        +'<div style="font-size:10px;color:var(--mut)">'+esc((l.createdBy&&USER_REGISTRY[l.createdBy]&&USER_REGISTRY[l.createdBy].name)||l.createdBy||'—')+'</div>';
+      var rmBtn=document.createElement('button');rmBtn.className='hbtn';rmBtn.style.cssText='font-size:10px;padding:4px 10px;color:var(--red);border-color:var(--red)';rmBtn.textContent='Remove';
+      rmBtn.onclick=function(){
+        if(!confirm('Remove this leave record for '+u.name+' ('+l.startDate+' → '+l.endDate+')?'))return;
+        rmBtn.disabled=true;rmBtn.textContent='…';
+        RL_SRV.removeLeave(l.id).then(function(r){
+          if(r&&r.ok){
+            logEntry('Removed annual leave for '+l.email,'edit');
+            _refreshLeaveCache().then(function(){ _renderAdminLeave(); });
+          } else {
+            rmBtn.disabled=false;rmBtn.textContent='Remove';
+            toast('Failed to remove','err');
+          }
+        }).catch(function(){rmBtn.disabled=false;rmBtn.textContent='Remove';toast('Network error','err');});
+      };
+      var actCell=document.createElement('div');actCell.appendChild(rmBtn);
+      row.appendChild(actCell);
+      listCard.appendChild(row);
+    });
+  }
+  main.appendChild(listCard);
 }
 function _renderAdminUsers(){
   if(!isAdmin()){renderDash();return;}
@@ -5002,6 +5128,15 @@ var RL_SRV = {
   pushOKR: function(okr){
     var by = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
     return RL_SRV.call('put_okr_state', {okr:okr, by:by});
+  },
+  getLeave: function(){ return RL_SRV.call('get_leave'); },
+  addLeave: function(entry){
+    var by = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
+    return RL_SRV.call('add_leave', {entry:entry, by:by});
+  },
+  removeLeave: function(id){
+    var by = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
+    return RL_SRV.call('remove_leave', {id:id, by:by});
   }
 };
 
@@ -5619,6 +5754,38 @@ function _hpmConfidenceForQuarter(email, cycle){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ANNUAL LEAVE — lets an admin mark someone on leave for a date range so they
+// aren't nagged by the HPM banner, don't get an auto-created "submit HPM"
+// task, and (server-side, in the Worker's postHPMNudge) aren't called out as
+// a laggard in the Slack reminder while they're away.
+// Records live in the Worker's KV (shared across the team, not per-browser)
+// — _LEAVE_CACHE here is just a local read-through cache refreshed on load
+// and whenever the admin UI opens/edits it.
+// ═══════════════════════════════════════════════════════════════════════════
+var _LEAVE_CACHE = [];
+function _refreshLeaveCache(){
+  if(typeof RL_SRV === 'undefined' || !RL_SRV.getLeave) return Promise.resolve([]);
+  return RL_SRV.getLeave().then(function(r){
+    _LEAVE_CACHE = (r && r.ok && Array.isArray(r.leave)) ? r.leave : [];
+    return _LEAVE_CACHE;
+  }).catch(function(){ return _LEAVE_CACHE; });
+}
+// True if `email` has a leave record overlapping the given ISO week at all
+// (not just "on leave today") — mirrors the Worker's _isOnLeaveForWeek() so
+// the client and the Slack nudge pipeline agree on who's exempt.
+function _isOnLeaveForWeek(email, weekKey){
+  if(!email || !weekKey || !_LEAVE_CACHE.length) return false;
+  var e = String(email).toLowerCase();
+  var range;
+  try { range = _weekRange(weekKey); } catch(_){ return false; }
+  var mondayStr = range.monday.toISOString().slice(0,10);
+  var sundayStr = range.sunday.toISOString().slice(0,10);
+  return _LEAVE_CACHE.some(function(l){
+    return l && l.email && l.email.toLowerCase() === e && l.startDate <= sundayStr && l.endDate >= mondayStr;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HPM AUTO-TASK + NOTIFICATION
 // On every Pulse load (and once per hour while open), if the HPM window is
 // active and the current user hasn't submitted yet:
@@ -5638,6 +5805,9 @@ function _ensureHPMTaskForCurrentUser(){
   var win;
   try { win = _hpmWindow(weekKey); } catch(e){ return; }
   if(!win || win.status === 'pre-open') return;
+  // Skip entirely if the user is on approved leave covering this week —
+  // no auto-task should ever be created against someone who's away.
+  if(_isOnLeaveForWeek(me, weekKey)) return;
   // Skip if already submitted.
   var existingSub = null;
   try { existingSub = _getMyHPM(me, weekKey); } catch(e){}
@@ -5682,6 +5852,8 @@ function _renderHPMNotificationBanner(){
   var win;
   try { win = _hpmWindow(weekKey); } catch(e){ return null; }
   if(!win || win.status === 'pre-open') return null;
+  // On approved leave covering this week — don't nag.
+  if(_isOnLeaveForWeek(me, weekKey)) return null;
   var existingSub = null;
   try { existingSub = _getMyHPM(me, weekKey); } catch(e){}
   if(existingSub && existingSub.submittedAt) return null;
