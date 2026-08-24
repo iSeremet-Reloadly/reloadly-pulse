@@ -1715,7 +1715,8 @@ function renderMyTasks(){
     }
   } catch(_){}
   h2+='<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin:14px 0 18px;padding:14px;background:var(--surf);border:1px solid var(--brd);border-radius:10px">';  h2+='<div style="flex:2;min-width:200px"><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">NEW TASK</label><input id="mtn" placeholder="Describe the task..." style="width:100%;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box"></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">DEPT</label><select id="mtd" style="padding:8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px">'+DEPTS.map(function(d){return '<option value="'+d+'"'+(d===(currentUser.dept||'')?' selected':'')+'>'+d+'</option>';}).join('')+'</select></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">PRIORITY</label><select id="mtp" style="padding:8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option></select></div>';  h2+='<div><label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">DUE</label><input id="mtdue" type="date" style="padding:7px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px"></div>';  h2+='<button style="background:var(--acc);color:#fff;border:none;padding:9px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer" onclick="addMyTask()">+ Add</button>';  h2+='</div>';
-  if(!all.length){h2+='<div style="color:var(--mut);margin-top:32px;text-align:center;font-size:11px">No tasks assigned to you yet.</div>';h2+=okrsHtml;el.innerHTML=h2;_wireMyOKRsToggle();return;}
+  h2+=_renderPrivateTodosWidget(_PRIVATE_TASKS, false, null);
+  if(!all.length){h2+='<div style="color:var(--mut);margin-top:32px;text-align:center;font-size:11px">No tasks assigned to you yet.</div>';h2+=okrsHtml;el.innerHTML=h2;_wireMyOKRsToggle();_wirePrivateTodosToggle();return;}
   h2+='<div class="tw"><table><thead><tr><th>ID</th><th>TASK</th><th>DEPT</th><th>STATUS</th><th>PRIORITY</th><th>DUE</th><th>PROGRESS</th></tr></thead><tbody>';
   all.forEach(function(t){
     var c=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};
@@ -1736,6 +1737,7 @@ function renderMyTasks(){
   h2+=okrsHtml;
   el.innerHTML=h2;
   _wireMyOKRsToggle();
+  _wirePrivateTodosToggle();
 }
 
 // ── AI: Suggest tasks for a specific KR ────────────────────────────────────
@@ -2049,6 +2051,12 @@ function loadData(){
   _refreshLeaveCache().catch(function(){}).then(function(){
     try{ _ensureHPMTaskForCurrentUser(); }catch(e){}
     try{ _injectHPMBanner(); }catch(e){}
+  });
+  // Private to-dos load independently of the leave/HPM chain above — if the
+  // user is already sitting on My Tasks when this resolves, re-render so the
+  // widget picks up their list instead of showing empty until next visit.
+  _refreshPrivateTasks().catch(function(){}).then(function(){
+    try{ if(document.getElementById('priv-todo-toggle')) renderMyTasks(); }catch(e){}
   });
   document.getElementById('ts').textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'});
   renderUserPill();checkReminders();
@@ -3010,7 +3018,7 @@ function _renderAdminUsers(){
   // Persistence banner — registry is now KV-backed, edits sync across users.
   html+='<div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:10px 14px;margin:12px 0 16px;font-size:12px;line-height:1.55;color:var(--txt);display:flex;gap:10px;align-items:center">';
   html+='<span style="color:var(--grn);font-size:14px;line-height:1;flex-shrink:0">●</span>';
-  html+='<div><b style="color:var(--grn)">Synced across the team.</b> Edits to name, role, dept, Slack ID, and permission toggles save to the Worker KV and reach other admins within 30 seconds. Passwords stay local-only (per-user secret).</div>';
+  html+='<div><b style="color:var(--grn)">Synced across the team.</b> Edits to name, role, dept, Slack ID, and permission toggles save to the Worker KV and reach other admins within 30 seconds. Pulse is passwordless — sign-in is a one-time email code, nothing password-related is stored anywhere.</div>';
   html+='</div>';
   function _shCol(label){return '<th>'+label+'</th>';}
   function _renderUserRow(e, u, archived){
@@ -3047,6 +3055,9 @@ function _renderAdminUsers(){
     // PWD column + Set Pwd button removed — passwordless auth (email OTP)
     // means these controls no longer do anything meaningful.
     row += '<td style="white-space:nowrap;display:flex;gap:6px">';
+    if(!you){
+      row += '<button class="hbtn" style="font-size:10px;padding:4px 8px" data-view-private="'+e+'" title="Read-only — see this person\'s private to-dos (admin/manager oversight)">🔒 To-dos</button>';
+    }
     if(!archived){
       row += '<button class="hbtn" style="font-size:10px;padding:4px 8px;border-color:var(--red);color:var(--red)" data-archive="'+e+'"'+(you?' disabled title="Cannot archive yourself"':'')+'>Archive</button>';
     } else {
@@ -3199,6 +3210,13 @@ function _renderAdminUsers(){
   if(!_adminRoot.dataset.adminPwdWired){
     _adminRoot.dataset.adminPwdWired = '1';
   document.getElementById('main').addEventListener('click',function(ev){
+    // ── View private to-dos (read-only admin/manager oversight) ─────────────
+    var privBtn=ev.target.closest('[data-view-private]');
+    if(privBtn){
+      var em=privBtn.getAttribute('data-view-private');
+      _viewPrivateTasksForUser(em, (USER_REGISTRY[em]&&USER_REGISTRY[em].name)||em);
+      return;
+    }
     // ── Archive ──────────────────────────────────────────────────────────────
     var archBtn=ev.target.closest('[data-archive]');
     if(archBtn&&!archBtn.disabled){
@@ -5137,6 +5155,16 @@ var RL_SRV = {
   removeLeave: function(id){
     var by = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
     return RL_SRV.call('remove_leave', {id:id, by:by});
+  },
+  // Private/individual to-dos — deliberately NOT part of the shared tasks
+  // doc (see worker.js getPrivateTasks/putPrivateTasks for why: a separate
+  // per-person KV key so no other browser ever downloads them, and no risk
+  // of the shared-doc overwrite pattern wiping them out).
+  getPrivateTasks: function(targetEmail){
+    return RL_SRV.call('get_private_tasks', targetEmail ? {targetEmail:targetEmail} : {});
+  },
+  putPrivateTasks: function(tasks){
+    return RL_SRV.call('put_private_tasks', {tasks:tasks});
   }
 };
 
@@ -5782,6 +5810,144 @@ function _isOnLeaveForWeek(email, weekKey){
   var sundayStr = range.sunday.toISOString().slice(0,10);
   return _LEAVE_CACHE.some(function(l){
     return l && l.email && l.email.toLowerCase() === e && l.startDate <= sundayStr && l.endDate >= mondayStr;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRIVATE / INDIVIDUAL TO-DOS — a personal action list, visible only to the
+// owner (plus admins/canViewAll, read-only, for oversight). Lives in its own
+// per-person Worker KV key (private_tasks:<email>), never inside the shared
+// tasks doc — see worker.js getPrivateTasks/putPrivateTasks for why: the
+// shared doc is a full-overwrite sync, so anything private mixed into it
+// could get silently wiped by someone else's browser saving its own copy.
+// Deliberately lightweight: {id, name, done, notes, due, createdAt} only —
+// no status/priority/progress/dept/OKR-link, no team-facing footprint.
+// _PRIVATE_TASKS is a local read-through cache, refreshed on load.
+// ═══════════════════════════════════════════════════════════════════════════
+var _PRIVATE_TASKS = [];
+function _refreshPrivateTasks(){
+  if(typeof RL_SRV === 'undefined' || !RL_SRV.getPrivateTasks) return Promise.resolve([]);
+  return RL_SRV.getPrivateTasks().then(function(r){
+    _PRIVATE_TASKS = (r && r.ok && Array.isArray(r.tasks)) ? r.tasks : [];
+    return _PRIVATE_TASKS;
+  }).catch(function(){ return _PRIVATE_TASKS; });
+}
+function _savePrivateTasks(){
+  if(typeof RL_SRV === 'undefined' || !RL_SRV.putPrivateTasks) return;
+  RL_SRV.putPrivateTasks(_PRIVATE_TASKS).catch(function(){});
+}
+function _addPrivateTodo(){
+  var input = document.getElementById('priv-todo-input');
+  if(!input) return;
+  var name = (input.value || '').trim();
+  if(!name){ toast('To-do text required','err'); return; }
+  _PRIVATE_TASKS.unshift({
+    id: 'priv-' + Date.now() + '-' + Math.random().toString(36).slice(2,7),
+    name: name, done: false, notes: '', due: '',
+    createdAt: new Date().toISOString()
+  });
+  input.value = '';
+  _savePrivateTasks();
+  renderMyTasks();
+}
+function _togglePrivateTodo(id){
+  var t = _PRIVATE_TASKS.filter(function(x){return x.id===id;})[0];
+  if(!t) return;
+  t.done = !t.done;
+  _savePrivateTasks();
+  renderMyTasks();
+}
+function _deletePrivateTodo(id){
+  _PRIVATE_TASKS = _PRIVATE_TASKS.filter(function(x){return x.id!==id;});
+  _savePrivateTasks();
+  renderMyTasks();
+}
+// Renders the widget HTML. `readOnly` + `ownerLabel` are used by the admin
+// break-glass viewer (_renderAdminPrivateTasksViewer) to show someone else's
+// list without exposing edit controls.
+function _renderPrivateTodosWidget(list, readOnly, ownerLabel){
+  list = list || [];
+  var open = list.length > 0;
+  try { if(!readOnly) open = localStorage.getItem('rl_mytasks_private_open') !== '0'; } catch(_){}
+  var pending = list.filter(function(t){return !t.done;}).length;
+  var html = '<div style="margin:0 0 20px;background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden">';
+  html += '<div id="priv-todo-toggle" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;'+(readOnly?'':'cursor:pointer;user-select:none')+'">';
+  html += '<div style="display:flex;align-items:center;gap:10px">';
+  html += '<span style="font-size:12px;font-weight:700">🔒 '+(ownerLabel ? esc(ownerLabel)+"'s Private To-Dos" : 'Private To-Dos')+'</span>';
+  html += '<span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">'+pending+' open · '+list.length+' total'+(readOnly?' · read-only':' · only visible to you')+'</span>';
+  html += '</div>';
+  html += '</div>';
+  html += '<div id="priv-todo-body" style="padding:0 16px 16px">';
+  if(!readOnly){
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
+    html += '<input id="priv-todo-input" placeholder="Add a personal to-do..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();_addPrivateTodo();}" style="flex:1;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box">';
+    html += '<button onclick="_addPrivateTodo()" style="background:var(--acc);color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>';
+    html += '</div>';
+  }
+  if(!list.length){
+    html += '<div style="color:var(--mut);font-size:11px;padding:'+(readOnly?'8px 0':'0')+'">'+(readOnly?'No private to-dos.':'Nothing here yet — add a personal reminder above. It stays private to you.')+'</div>';
+  } else {
+    html += '<div style="display:flex;flex-direction:column;gap:6px">';
+    list.forEach(function(t){
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surf2);border:1px solid var(--brd);border-radius:6px'+(t.done?';opacity:.55':'')+'">';
+      if(readOnly){
+        html += '<span style="font-size:13px">'+(t.done?'✅':'⬜')+'</span>';
+      } else {
+        html += '<input type="checkbox" '+(t.done?'checked':'')+' onchange="_togglePrivateTodo(\''+t.id+'\')" style="cursor:pointer">';
+      }
+      html += '<span style="flex:1;font-size:12px;'+(t.done?'text-decoration:line-through;':'')+'">'+esc(t.name)+'</span>';
+      if(!readOnly){
+        html += '<button onclick="_deletePrivateTodo(\''+t.id+'\')" title="Delete" style="background:none;border:none;color:var(--mut);cursor:pointer;font-size:13px">✕</button>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+function _wirePrivateTodosToggle(){
+  var t = document.getElementById('priv-todo-toggle');
+  var b = document.getElementById('priv-todo-body');
+  if(!t || !b) return;
+  t.onclick = function(){
+    var nowHidden = b.style.display !== 'none';
+    b.style.display = nowHidden ? 'none' : '';
+    try { localStorage.setItem('rl_mytasks_private_open', nowHidden ? '0' : '1'); } catch(_){}
+  };
+}
+// Admin/manager read-only viewer — fetches someone else's private to-dos via
+// get_private_tasks (server enforces isAdmin/canViewAll; this UI is only
+// reachable from the Admin page today, so effectively admin-only for now)
+// and shows them in a modal. No edit controls are rendered — _viewOnly=true
+// on the widget strips the input/checkbox/delete affordances entirely, and
+// there's no save path wired here even if someone tried.
+function _viewPrivateTasksForUser(email, name){
+  var overlay = document.createElement('div');
+  overlay.id = 'priv-view-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = '<div style="background:var(--bg);border:1px solid var(--brd);border-radius:12px;max-width:480px;width:100%;max-height:80vh;overflow:auto;padding:4px">' +
+    '<div style="display:flex;justify-content:flex-end;padding:8px 8px 0"><button onclick="document.getElementById(\'priv-view-modal\').remove()" style="background:none;border:none;color:var(--mut);cursor:pointer;font-size:16px">✕</button></div>' +
+    '<div id="priv-view-body" style="padding:0 16px 16px"><div style="text-align:center;color:var(--mut);font-size:12px;padding:24px">Loading…</div></div>' +
+    '</div>';
+  overlay.addEventListener('click', function(ev){ if(ev.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  if(typeof RL_SRV === 'undefined' || !RL_SRV.getPrivateTasks){
+    document.getElementById('priv-view-body').innerHTML = '<div style="color:var(--red);font-size:12px">Worker bridge unavailable.</div>';
+    return;
+  }
+  RL_SRV.getPrivateTasks(email).then(function(r){
+    var body = document.getElementById('priv-view-body');
+    if(!body) return; // modal already closed
+    if(!r || !r.ok){
+      body.innerHTML = '<div style="color:var(--red);font-size:12px">'+esc((r&&(r.detail||r.error))||'Failed to load')+'</div>';
+      return;
+    }
+    body.innerHTML = _renderPrivateTodosWidget(r.tasks||[], true, name);
+  }).catch(function(){
+    var body = document.getElementById('priv-view-body');
+    if(body) body.innerHTML = '<div style="color:var(--red);font-size:12px">Network error.</div>';
   });
 }
 
