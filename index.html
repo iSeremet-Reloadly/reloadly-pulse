@@ -5838,15 +5838,17 @@ function _savePrivateTasks(){
 }
 function _addPrivateTodo(){
   var input = document.getElementById('priv-todo-input');
+  var dueInput = document.getElementById('priv-todo-due-input');
   if(!input) return;
   var name = (input.value || '').trim();
   if(!name){ toast('To-do text required','err'); return; }
   _PRIVATE_TASKS.unshift({
     id: 'priv-' + Date.now() + '-' + Math.random().toString(36).slice(2,7),
-    name: name, done: false, notes: '', due: '',
+    name: name, done: false, notes: '', due: dueInput ? (dueInput.value || '') : '',
     createdAt: new Date().toISOString()
   });
   input.value = '';
+  if(dueInput) dueInput.value = '';
   _savePrivateTasks();
   renderMyTasks();
 }
@@ -5854,6 +5856,13 @@ function _togglePrivateTodo(id){
   var t = _PRIVATE_TASKS.filter(function(x){return x.id===id;})[0];
   if(!t) return;
   t.done = !t.done;
+  _savePrivateTasks();
+  renderMyTasks();
+}
+function _setPrivateTodoDue(id, value){
+  var t = _PRIVATE_TASKS.filter(function(x){return x.id===id;})[0];
+  if(!t) return;
+  t.due = value || '';
   _savePrivateTasks();
   renderMyTasks();
 }
@@ -5879,9 +5888,10 @@ function _renderPrivateTodosWidget(list, readOnly, ownerLabel){
   html += '</div>';
   html += '<div id="priv-todo-body" style="padding:0 16px 16px">';
   if(!readOnly){
-    html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
-    html += '<input id="priv-todo-input" placeholder="Add a personal to-do..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();_addPrivateTodo();}" style="flex:1;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box">';
-    html += '<button onclick="_addPrivateTodo()" style="background:var(--acc);color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>';
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
+    html += '<input id="priv-todo-input" placeholder="Add a personal to-do..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();_addPrivateTodo();}" style="flex:1 1 160px;min-width:120px;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box">';
+    html += '<input id="priv-todo-due-input" type="date" title="Optional due date" style="flex:0 0 auto;padding:7px 8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box">';
+    html += '<button onclick="_addPrivateTodo()" style="flex:0 0 auto;background:var(--acc);color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">+ Add</button>';
     html += '</div>';
   }
   if(!list.length){
@@ -5889,15 +5899,24 @@ function _renderPrivateTodosWidget(list, readOnly, ownerLabel){
   } else {
     html += '<div style="display:flex;flex-direction:column;gap:6px">';
     list.forEach(function(t){
+      var overdue = !!(t.due && !t.done && t.due.slice(0,10) < new Date().toISOString().slice(0,10));
       html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surf2);border:1px solid var(--brd);border-radius:6px'+(t.done?';opacity:.55':'')+'">';
+      // Explicit width/padding/margin overrides below are required: this
+      // app's global `input,select,textarea{width:100%}` rule (for text
+      // fields) also matches checkboxes, which stretched them to fill the
+      // row and broke the whole layout — this pins it back to a normal
+      // fixed-size checkbox that won't grow/shrink as a flex item.
       if(readOnly){
-        html += '<span style="font-size:13px">'+(t.done?'✅':'⬜')+'</span>';
+        html += '<span style="flex:0 0 auto;font-size:13px">'+(t.done?'✅':'⬜')+'</span>';
       } else {
-        html += '<input type="checkbox" '+(t.done?'checked':'')+' onchange="_togglePrivateTodo(\''+t.id+'\')" style="cursor:pointer">';
+        html += '<input type="checkbox" '+(t.done?'checked':'')+' onchange="_togglePrivateTodo(\''+t.id+'\')" style="cursor:pointer;flex:0 0 auto;width:15px;height:15px;min-width:15px;padding:0;margin:0;border-radius:3px">';
       }
-      html += '<span style="flex:1;font-size:12px;'+(t.done?'text-decoration:line-through;':'')+'">'+esc(t.name)+'</span>';
-      if(!readOnly){
-        html += '<button onclick="_deletePrivateTodo(\''+t.id+'\')" title="Delete" style="background:none;border:none;color:var(--mut);cursor:pointer;font-size:13px">✕</button>';
+      html += '<span style="flex:1 1 auto;min-width:0;font-size:12px;overflow-wrap:break-word;'+(t.done?'text-decoration:line-through;':'')+'">'+esc(t.name)+'</span>';
+      if(readOnly){
+        if(t.due) html += '<span style="flex:0 0 auto;font-size:10px;font-family:Roboto Mono,monospace;'+(overdue?'color:var(--red);font-weight:700':'color:var(--mut)')+'">'+esc(t.due.slice(0,10))+'</span>';
+      } else {
+        html += '<input type="date" value="'+(t.due?esc(t.due.slice(0,10)):'')+'" onchange="_setPrivateTodoDue(\''+t.id+'\', this.value)" title="Due date" style="flex:0 0 auto;width:128px;padding:4px 6px;font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);border-radius:4px;color:'+(overdue?'var(--red)':'var(--txt)')+'">';
+        html += '<button onclick="_deletePrivateTodo(\''+t.id+'\')" title="Delete" style="flex:0 0 auto;background:none;border:none;color:var(--mut);cursor:pointer;font-size:13px">✕</button>';
       }
       html += '</div>';
     });
