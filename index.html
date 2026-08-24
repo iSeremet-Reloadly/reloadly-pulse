@@ -3056,7 +3056,7 @@ function _renderAdminUsers(){
     // means these controls no longer do anything meaningful.
     row += '<td style="white-space:nowrap;display:flex;gap:6px">';
     if(!you){
-      row += '<button class="hbtn" style="font-size:10px;padding:4px 8px" data-view-private="'+e+'" title="Read-only — see this person\'s private to-dos (admin/manager oversight)">🔒 To-dos</button>';
+      row += '<button class="hbtn" style="font-size:10px;padding:4px 8px" data-view-private="'+e+'" title="Read-only — view this person\'s personal action items (admin/manager oversight)">🔒 Action Items</button>';
     }
     if(!archived){
       row += '<button class="hbtn" style="font-size:10px;padding:4px 8px;border-color:var(--red);color:var(--red)" data-archive="'+e+'"'+(you?' disabled title="Cannot archive yourself"':'')+'>Archive</button>';
@@ -5882,20 +5882,20 @@ function _renderPrivateTodosWidget(list, readOnly, ownerLabel){
   var html = '<div style="margin:0 0 20px;background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden">';
   html += '<div id="priv-todo-toggle" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;'+(readOnly?'':'cursor:pointer;user-select:none')+'">';
   html += '<div style="display:flex;align-items:center;gap:10px">';
-  html += '<span style="font-size:12px;font-weight:700">🔒 '+(ownerLabel ? esc(ownerLabel)+"'s Private To-Dos" : 'Private To-Dos')+'</span>';
+  html += '<span style="font-size:12px;font-weight:700">🔒 '+(ownerLabel ? esc(ownerLabel)+"'s Personal Action Items" : 'Personal Action Items')+'</span>';
   html += '<span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">'+pending+' open · '+list.length+' total'+(readOnly?' · read-only':' · only visible to you')+'</span>';
   html += '</div>';
   html += '</div>';
   html += '<div id="priv-todo-body" style="padding:0 16px 16px">';
   if(!readOnly){
     html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
-    html += '<input id="priv-todo-input" placeholder="Add a personal to-do..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();_addPrivateTodo();}" style="flex:1 1 160px;min-width:120px;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box">';
+    html += '<input id="priv-todo-input" placeholder="Add a personal action item..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();_addPrivateTodo();}" style="flex:1 1 160px;min-width:120px;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box">';
     html += '<input id="priv-todo-due-input" type="date" title="Optional due date" style="flex:0 0 auto;padding:7px 8px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box">';
     html += '<button onclick="_addPrivateTodo()" style="flex:0 0 auto;background:var(--acc);color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">+ Add</button>';
     html += '</div>';
   }
   if(!list.length){
-    html += '<div style="color:var(--mut);font-size:11px;padding:'+(readOnly?'8px 0':'0')+'">'+(readOnly?'No private to-dos.':'Nothing here yet — add a personal reminder above. It stays private to you.')+'</div>';
+    html += '<div style="color:var(--mut);font-size:11px;padding:'+(readOnly?'8px 0':'0')+'">'+(readOnly?'No personal action items.':'Nothing here yet — add an item above. Visible only to you.')+'</div>';
   } else {
     html += '<div style="display:flex;flex-direction:column;gap:6px">';
     list.forEach(function(t){
