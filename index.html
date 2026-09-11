@@ -1191,6 +1191,22 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
   .guide-body{padding:20px 18px}
 }
 
+/* Weekly HPM submission form -- mobile pass, 2026-09-11, per user feedback
+   that HPM submission needed to be usable on phone screens. Scoped to the
+   hpm- prefixed classes used only by renderPerfHPM / _buildLineSection so
+   nothing else in Pulse is affected. */
+@media (max-width:640px){
+  .hpm-form-box{padding:16px 14px !important}
+  .hpm-dept-row{flex-wrap:wrap;row-gap:10px}
+  .hpm-sec-label{flex-wrap:wrap}
+  .hpm-row{flex-direction:column !important;align-items:stretch !important}
+  .hpm-row-actions{width:100%}
+  .hpm-kr-select{max-width:none !important;flex:1 1 auto !important}
+  .hpm-conf-box{flex-wrap:wrap}
+  .hpm-conf-btn{padding:8px 10px !important;min-width:0 !important;flex:1 1 auto}
+  .hpm-submit-row{flex-wrap:wrap !important;align-items:flex-start !important}
+}
+
 </style>
 </head>
 <body>
@@ -3373,6 +3389,18 @@ function go(v){
 function _applyHashRoute(){
   if(_routeSuppressHash) return;
   if(!currentUser || !data) return;
+  // Optional deep-link sub-view for the Performance page, e.g.
+  // https://pulse.reloadly.com/?sub=hpm#/perf -- used by the HPM email
+  // cadence's CTA so it lands directly on the Weekly HPM tab instead of
+  // just the Performance overview. Only applied when the query param
+  // matches a known perf sub-view key; harmless no-op otherwise.
+  try {
+    var _sub = new URLSearchParams(location.search).get('sub');
+    var _PERF_SUB_VIEWS = ['overview','hpm','hpmfeed','reviewcal','team','calibration','talent','reviews','feedback','my','mgrdash','history','courses','orgtree'];
+    if(_sub && _PERF_SUB_VIEWS.indexOf(_sub) >= 0){
+      localStorage.setItem('rl_perf_view', _sub);
+    }
+  } catch(_e){}
   var v = _viewFromHash();
   if(v && v !== view) go(v);
 }
@@ -5321,7 +5349,7 @@ function _hpmWindow(weekKey){
 }
 
 function _hpmBlankEntry(department){
-  return {department: department, highlights:[{text:'', krId:null}], progress:[{text:'', krId:null}], me:{text:'', visibility:'manager'}, confidence:null, submittedAt:null, lastEditedAt:null, late:false};
+  return {department: department, highlights:[{text:'', krId:null}], progress:[{text:'', krId:null}], me:{text:'', visibility:'company'}, confidence:null, submittedAt:null, lastEditedAt:null, late:false};
 }
 // Flatten the CURRENT quarter's OKRs to {label, krId, deptColor} for the
 // HPM picker. Was reading the hardcoded Q2 OKR_DATA seed — that meant new
@@ -6269,10 +6297,12 @@ function renderPerfHPM(wrap, pd){
 
   // Form
   var form = document.createElement('div');
+  form.className = 'hpm-form-box';
   form.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:24px 28px;margin-bottom:20px';
 
   // Department display
   var deptRow = document.createElement('div');
+  deptRow.className = 'hpm-dept-row';
   deptRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid var(--brd)';
   deptRow.innerHTML = '<div><div style="font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;font-family:Roboto Mono,monospace">DEPARTMENT</div><div style="font-size:14px;font-weight:600;color:var(--txt);margin-top:3px">'+esc(deptName||'(not set)')+'</div></div>'
     + (existing.submittedAt ? '<div style="text-align:right"><div style="font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;font-family:Roboto Mono,monospace">LAST SUBMITTED</div><div style="font-size:12px;color:var(--txt);margin-top:3px">'+new Date(existing.submittedAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+(existing.late?' <span class="badge Critical">LATE</span>':'')+'</div></div>' : '');
@@ -6286,6 +6316,7 @@ function renderPerfHPM(wrap, pd){
     var sec = document.createElement('div');
     sec.style.cssText = 'margin-bottom:22px';
     var sl = document.createElement('div');
+    sl.className = 'hpm-sec-label';
     sl.style.cssText = 'display:flex;align-items:baseline;gap:8px;margin-bottom:8px';
     sl.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.3px;font-family:Roboto Mono,monospace">'+label+' <span style="color:var(--red)">*</span></div><div style="font-size:11px;color:var(--mut)">'+hint+'</div>';
     sec.appendChild(sl);
@@ -6294,6 +6325,7 @@ function renderPerfHPM(wrap, pd){
       linesEl.innerHTML = '';
       items.forEach(function(item, idx){
         var row = document.createElement('div');
+        row.className = 'hpm-row';
         row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
         var ta = document.createElement('input');
         ta.type = 'text';
@@ -6302,6 +6334,7 @@ function renderPerfHPM(wrap, pd){
         ta.style.cssText = 'flex:1;padding:9px 12px;border:1px solid var(--brd);border-radius:6px;font-family:inherit;font-size:13px;color:var(--txt);background:var(--surf)';
         ta.onchange = function(){items[idx].text = ta.value; onChange();};
         var krSel = document.createElement('select');
+        krSel.className = 'hpm-kr-select';
         krSel.style.cssText = 'padding:9px 10px;border:1px solid var(--brd);border-radius:6px;font-family:inherit;font-size:12px;color:var(--txt);background:var(--surf);max-width:240px';
         krSel.title = 'Link this entry to a specific KR (optional)';
         var blank = document.createElement('option'); blank.value=''; blank.textContent='— Link KR (optional) —';
@@ -6328,9 +6361,13 @@ function renderPerfHPM(wrap, pd){
             promoteHighlightToReview(txt, items[idx].krId);
           };
         }
-        row.appendChild(ta); row.appendChild(krSel);
-        if(promBtn) row.appendChild(promBtn);
-        row.appendChild(delBtn);
+        var metaRow = document.createElement('div');
+        metaRow.className = 'hpm-row-actions';
+        metaRow.style.cssText = 'display:flex;gap:8px;align-items:center';
+        metaRow.appendChild(krSel);
+        if(promBtn) metaRow.appendChild(promBtn);
+        metaRow.appendChild(delBtn);
+        row.appendChild(ta); row.appendChild(metaRow);
         linesEl.appendChild(row);
       });
       var addBtn = document.createElement('button');
@@ -6353,45 +6390,37 @@ function renderPerfHPM(wrap, pd){
   // Me section
   var meSec = document.createElement('div');
   meSec.style.cssText = 'margin-bottom:22px';
-  meSec.innerHTML = '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.3px;font-family:Roboto Mono,monospace">Me (Personal Check-In) <span style="color:var(--red)">*</span></div><div style="font-size:11px;color:var(--mut)">How are you doing this week? Use "N/A" if you prefer not to share.</div></div>';
+  meSec.innerHTML = '<div class="hpm-sec-label" style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.3px;font-family:Roboto Mono,monospace">Me (Personal Check-In) <span style="color:var(--red)">*</span></div><div style="font-size:11px;color:var(--mut)">How are you doing this week? Use "N/A" if you prefer not to share.</div></div>';
   var meTa = document.createElement('textarea');
   meTa.value = existing.me.text || '';
   meTa.placeholder = 'Personal context affecting your focus, energy, or ability to perform this week.';
   meTa.style.cssText = 'width:100%;min-height:100px;padding:12px;border:1px solid var(--brd);border-radius:8px;font-family:inherit;font-size:13px;color:var(--txt);background:var(--surf);resize:vertical;box-sizing:border-box';
   meTa.onchange = function(){existing.me.text = meTa.value; saveLocal();};
   meSec.appendChild(meTa);
-  var visRow = document.createElement('div');
-  visRow.style.cssText = 'display:flex;gap:14px;align-items:center;margin-top:10px;font-size:12px';
-  function makeVisRadio(val, label, desc){
-    var lab = document.createElement('label');
-    lab.style.cssText = 'display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:8px 12px;border:1.5px solid '+(existing.me.visibility===val?'var(--acc)':'var(--brd)')+';border-radius:6px;background:'+(existing.me.visibility===val?'rgba(108,99,255,.06)':'transparent')+';flex:1';
-    var inp = document.createElement('input');
-    inp.type = 'radio'; inp.name = 'me-vis-'+weekKey; inp.value = val;
-    if(existing.me.visibility===val)inp.checked = true;
-    inp.style.cssText = 'margin-top:2px;accent-color:var(--acc)';
-    inp.onchange = function(){existing.me.visibility = val; saveLocal(); wrap.innerHTML=''; renderPerfHPM(wrap, pd);};
-    lab.appendChild(inp);
-    var txt = document.createElement('div');
-    txt.innerHTML = '<div style="font-weight:600;color:var(--txt)">'+label+'</div><div style="font-size:11px;color:var(--mut);margin-top:2px">'+desc+'</div>';
-    lab.appendChild(txt);
-    return lab;
-  }
-  visRow.appendChild(makeVisRadio('manager','Manager only','Default. Only your manager + admins see this section.'));
-  visRow.appendChild(makeVisRadio('company','Company-wide','Visible to everyone alongside Highlights / Progress.'));
-  meSec.appendChild(visRow);
+  // Visibility is no longer a per-submission choice — every "Me" entry is
+  // company-wide, same as Highlights/Progress. (Previously a Manager-only/
+  // Company-wide toggle; removed per Dren, 2026-09-07.) Force it here too,
+  // so an in-progress draft that still has the old 'manager' default gets
+  // migrated the moment the form renders, before the person even saves.
+  existing.me.visibility = 'company';
+  var visNote = document.createElement('div');
+  visNote.style.cssText = 'margin-top:10px;font-size:11px;color:var(--mut)';
+  visNote.textContent = 'Visible company-wide, alongside Highlights / Progress.';
+  meSec.appendChild(visNote);
   form.appendChild(meSec);
 
   // Confidence
   var confSec = document.createElement('div');
   confSec.style.cssText = 'margin-bottom:24px';
-  confSec.innerHTML = '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.3px;font-family:Roboto Mono,monospace">Confidence for the Week Ahead <span style="color:var(--red)">*</span></div><div style="font-size:11px;color:var(--mut)">How confident are you about delivering this week?</div></div>';
+  confSec.innerHTML = '<div class="hpm-sec-label" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.3px;font-family:Roboto Mono,monospace">Confidence for the Week Ahead <span style="color:var(--red)">*</span></div><div style="font-size:11px;color:var(--mut)">How confident are you about delivering this week?</div></div>';
   var starsBox = document.createElement('div');
+  starsBox.className = 'hpm-conf-box';
   starsBox.style.cssText = 'display:flex;gap:8px;align-items:center';
   var CONF_LABELS = ['Struggling','Some concerns','Neutral','Confident','Very confident'];
   for(var i=1; i<=5; i++){
     (function(n){
       var btn = document.createElement('button');
-      btn.className = 'hbtn';
+      btn.className = 'hbtn hpm-conf-btn';
       var sel = existing.confidence === n;
       btn.style.cssText = 'padding:10px 14px;font-size:13px;font-weight:600;background:'+(sel?'var(--acc)':'var(--surf2)')+';color:'+(sel?'#fff':'var(--mut)')+';border-color:'+(sel?'var(--acc)':'var(--brd)')+';min-width:48px';
       btn.innerHTML = '★'.repeat(n) + ' <span style="font-size:11px;font-weight:400;margin-left:4px">'+n+'</span>';
@@ -6411,6 +6440,7 @@ function renderPerfHPM(wrap, pd){
 
   // Submit row
   var submitRow = document.createElement('div');
+  submitRow.className = 'hpm-submit-row';
   submitRow.style.cssText = 'display:flex;gap:10px;align-items:center;padding-top:18px;border-top:1px solid var(--brd)';
   var submitBtn = document.createElement('button');
   submitBtn.className = 'hbtn';
