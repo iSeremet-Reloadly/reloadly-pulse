@@ -1200,10 +1200,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 @media (max-width:640px){
   .hpm-form-box{padding:16px 14px !important}
   .hpm-dept-row{flex-wrap:wrap;row-gap:10px}
-  .hpm-sec-label{flex-wrap:wrap}
-  .hpm-row{flex-direction:column !important;align-items:stretch !important}
-  .hpm-row-actions{width:100%}
-  .hpm-kr-select{max-width:none !important;flex:1 1 auto !important}
+  .hpm-sec-label{flex-direction:column;align-items:flex-start;gap:3px}
   .hpm-conf-box{flex-wrap:wrap}
   .hpm-conf-btn{padding:8px 10px !important;min-width:0 !important;flex:1 1 auto}
   .hpm-submit-row{flex-wrap:wrap !important;align-items:flex-start !important}
@@ -6391,15 +6388,15 @@ function renderPerfHPM(wrap, pd){
         ta.onchange = function(){items[idx].text = ta.value; onChange();};
         var krSel = document.createElement('select');
         krSel.className = 'hpm-kr-select';
-        krSel.style.cssText = 'padding:9px 10px;border:1px solid var(--brd);border-radius:6px;font-family:inherit;font-size:12px;color:var(--txt);background:var(--surf);max-width:240px';
+        krSel.style.cssText = 'flex:1;min-width:160px;padding:9px 10px;border:1px solid var(--brd);border-radius:6px;font-family:inherit;font-size:12px;color:var(--txt);background:var(--surf)';
         krSel.title = 'Link this entry to a specific KR (optional)';
-        var blank = document.createElement('option'); blank.value=''; blank.textContent='— Link KR (optional) —';
+        var blank = document.createElement('option'); blank.value=''; blank.textContent='— Link a Key Result (optional) —';
         krSel.appendChild(blank);
         krOptions.forEach(function(opt){var o=document.createElement('option');o.value=opt.krId;o.textContent=opt.label;if(item.krId===opt.krId)o.selected=true;krSel.appendChild(o);});
-        krSel.onchange = function(){items[idx].krId = krSel.value || null; onChange();};
+        krSel.onchange = function(){items[idx].krId = krSel.value || null; onChange(); _syncLinkBtn();};
         var delBtn = document.createElement('button');
         delBtn.className='hbtn';delBtn.style.cssText='font-size:11px;padding:6px 10px;color:var(--mut)';
-        delBtn.textContent='×';delBtn.title='Remove this line';
+        delBtn.textContent='× Remove line';delBtn.title='Remove this line';
         delBtn.onclick = function(){if(items.length<=1){items[0]={text:'',krId:null};}else{items.splice(idx,1);}renderLines();onChange();};
         // Promote-to-Review only shown on the Highlights section. Looks for
         // the user's currently active review and appends this line to its
@@ -6409,7 +6406,7 @@ function renderPerfHPM(wrap, pd){
           promBtn = document.createElement('button');
           promBtn.className = 'hbtn';
           promBtn.style.cssText = 'font-size:10px;padding:6px 9px;color:var(--acc);border-color:var(--acc)';
-          promBtn.textContent = '★ Promote';
+          promBtn.textContent = '★ Promote to review';
           promBtn.title = 'Add this highlight to your active Performance Review\'s wins section';
           promBtn.onclick = function(){
             var txt = (items[idx].text || '').trim();
@@ -6417,14 +6414,35 @@ function renderPerfHPM(wrap, pd){
             promoteHighlightToReview(txt, items[idx].krId);
           };
         }
+        // The KR-link/Promote/Remove controls used to sit in view at all
+        // times, competing with the Highlight/Progress text for attention.
+        // They now live behind a single link button per line, collapsed by
+        // default (see the section hint above for what the button does),
+        // so the text field is what a person's eye actually lands on.
         var metaRow = document.createElement('div');
         metaRow.className = 'hpm-row-actions';
-        metaRow.style.cssText = 'display:flex;gap:8px;align-items:center';
+        metaRow.style.cssText = 'display:none;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 14px;padding-top:8px;border-top:1px dashed var(--brd)';
         metaRow.appendChild(krSel);
         if(promBtn) metaRow.appendChild(promBtn);
         metaRow.appendChild(delBtn);
-        row.appendChild(ta); row.appendChild(metaRow);
+        var linkBtn = document.createElement('button');
+        linkBtn.type = 'button';
+        linkBtn.className = 'hbtn hpm-link-btn';
+        linkBtn.innerHTML = '&#128279;';
+        linkBtn.title = 'Link this line to a Key Result, promote it to your review, or remove it';
+        function _syncLinkBtn(){
+          var linked = !!items[idx].krId;
+          linkBtn.style.cssText = 'flex-shrink:0;width:32px;height:32px;padding:0;border-radius:50%;font-size:13px;justify-content:center'
+            + (linked ? ';color:var(--acc);border-color:var(--acc);background:rgba(9,250,163,.08)' : ';color:var(--mut)');
+        }
+        _syncLinkBtn();
+        linkBtn.onclick = function(){
+          var showing = metaRow.style.display !== 'none';
+          metaRow.style.display = showing ? 'none' : 'flex';
+        };
+        row.appendChild(ta); row.appendChild(linkBtn);
         linesEl.appendChild(row);
+        linesEl.appendChild(metaRow);
       });
       var addBtn = document.createElement('button');
       addBtn.className = 'hbtn';
@@ -6440,8 +6458,8 @@ function renderPerfHPM(wrap, pd){
 
   function saveLocal(){existing.lastEditedAt = new Date().toISOString();_setMyHPM(me, weekKey, existing);}
 
-  form.appendChild(_buildLineSection('Highlights (Progress Toward OKRs)','What specific outcomes did you deliver last week that moved your OKRs forward?',existing.highlights,'Add highlight',saveLocal));
-  form.appendChild(_buildLineSection('Progress (Current Momentum)','What key initiatives, projects, or deliverables have advanced as we move into this week?',existing.progress,'Add progress item',saveLocal));
+  form.appendChild(_buildLineSection('Highlights (Progress Toward OKRs)','What specific outcomes did you deliver last week that moved your OKRs forward? Tap \uD83D\uDD17 on a line to link it to a Key Result, promote it to your review, or remove it.',existing.highlights,'Add highlight',saveLocal));
+  form.appendChild(_buildLineSection('Progress (Current Momentum)','What key initiatives, projects, or deliverables have advanced as we move into this week? Tap \uD83D\uDD17 on a line to link it to a Key Result or remove it.',existing.progress,'Add progress item',saveLocal));
 
   // Me section
   var meSec = document.createElement('div');
