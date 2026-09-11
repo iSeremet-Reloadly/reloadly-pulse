@@ -1256,6 +1256,17 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
   .perf-subtabs.perf-subtabs-open{display:flex !important}
 }
 
+/* Weekly HPM: the decommissioning banner + window-status banner, collapsed
+   behind one "Status & reminders" toggle on mobile -- same reasoning as
+   the Performance sub-tab bar above. Desktop keeps both banners visible
+   at all times, exactly as before. */
+.hpm-info-toggle{display:none}
+@media (max-width:700px){
+  .hpm-info-toggle{display:inline-flex}
+  .hpm-info-wrap{display:none}
+  .hpm-info-wrap.hpm-info-open{display:block}
+}
+
 </style>
 </head>
 <body>
@@ -6316,6 +6327,7 @@ function _parseAndImportHPMCSV(raw){
   return {imported: imported, skipped: skipped, users: Object.keys(usersSeen).length};
 }
 
+var _hpmInfoOpen = false;
 function renderPerfHPM(wrap, pd){
   var me = currentUser.email;
   var u = USER_REGISTRY[me] || {};
@@ -6333,6 +6345,20 @@ function renderPerfHPM(wrap, pd){
     + '<div style="font-size:12px;color:var(--mut);line-height:1.55">Capture <b>Highlights</b> (outcomes that moved your OKRs), <b>Progress</b> (what\'s in flight), and <b>Me</b> (personal context). Confidence rating drives a weekly heartbeat that shows up in your Performance history and manager view.</div>';
   wrap.appendChild(hdr);
 
+  // Status & reminders (decommissioning banner + window-status banner) --
+  // collapsed behind a single toggle on mobile so they don't push the form
+  // itself further down the screen; always shown in full on desktop.
+  var infoToggle = document.createElement('button');
+  infoToggle.type = 'button';
+  infoToggle.className = 'hbtn hpm-info-toggle';
+  infoToggle.style.cssText = 'font-size:11px;padding:6px 14px;margin-bottom:12px';
+  infoToggle.innerHTML = (_hpmInfoOpen ? '&#9660;' : '&#9654;') + ' Status &amp; reminders';
+  infoToggle.onclick = function(){ _hpmInfoOpen = !_hpmInfoOpen; wrap.innerHTML=''; renderPerfHPM(wrap, pd); };
+  wrap.appendChild(infoToggle);
+  var infoWrap = document.createElement('div');
+  infoWrap.className = 'hpm-info-wrap'+(_hpmInfoOpen?' hpm-info-open':'');
+  wrap.appendChild(infoWrap);
+
   // HPM Phase 4: Decommissioning banner for the Google Form + admin importer.
   // Once the team has been on Pulse-HPM for a quarter, archive the form.
   var decom = document.createElement('div');
@@ -6346,7 +6372,7 @@ function renderPerfHPM(wrap, pd){
     impBtn.onclick = function(){ _showHPMImportDialog(wrap, pd); };
     decom.appendChild(impBtn);
   }
-  wrap.appendChild(decom);
+  infoWrap.appendChild(decom);
 
   // Window status banner
   var banner = document.createElement('div');
@@ -6364,7 +6390,7 @@ function renderPerfHPM(wrap, pd){
   }
   banner.style.cssText = bannerStyle+';background:'+bgCol;
   banner.innerHTML = statusText;
-  wrap.appendChild(banner);
+  infoWrap.appendChild(banner);
 
   // Form
   var form = document.createElement('div');
