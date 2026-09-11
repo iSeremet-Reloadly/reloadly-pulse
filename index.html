@@ -6367,7 +6367,7 @@ function renderPerfHPM(wrap, pd){
   // Highlights section
   function _buildLineSection(label, hint, items, addBtnLabel, onChange){
     var sec = document.createElement('div');
-    sec.style.cssText = 'margin-bottom:22px';
+    sec.style.cssText = 'margin-bottom:22px;padding-bottom:22px;border-bottom:1px solid var(--brd)';
     var sl = document.createElement('div');
     sl.className = 'hpm-sec-label';
     sl.style.cssText = 'display:flex;align-items:baseline;gap:8px;margin-bottom:8px';
@@ -6463,7 +6463,7 @@ function renderPerfHPM(wrap, pd){
 
   // Me section
   var meSec = document.createElement('div');
-  meSec.style.cssText = 'margin-bottom:22px';
+  meSec.style.cssText = 'margin-bottom:22px;padding-bottom:22px;border-bottom:1px solid var(--brd)';
   meSec.innerHTML = '<div class="hpm-sec-label" style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.3px;font-family:Roboto Mono,monospace">Me (Personal Check-In) <span style="color:var(--red)">*</span></div><div style="font-size:11px;color:var(--mut)">How are you doing this week? Use "N/A" if you prefer not to share.</div></div>';
   var meTa = document.createElement('textarea');
   meTa.value = existing.me.text || '';
