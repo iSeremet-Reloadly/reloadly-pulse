@@ -2401,10 +2401,10 @@ function _createDocSync(opts){
   //   pollIntervalMs: default 30000
   //   onPullApplied: fn(data, updatedBy) — UI re-render hook
   var state = {lastPushedAt: 0, lastPolledMetaAt: '', pushTimer: null, pulling: false, started: false};
-  function push(){
+  function push(immediate){
     if(typeof RL_SRV === 'undefined') return;
     if(state.pushTimer) clearTimeout(state.pushTimer);
-    state.pushTimer = setTimeout(function(){
+    var doPush = function(){
       state.pushTimer = null;
       try {
         var by = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
@@ -2416,7 +2416,12 @@ function _createDocSync(opts){
           }
         }).catch(function(){});
       } catch(e){}
-    }, opts.debounceMs || 2000);
+    };
+    // immediate=true skips the debounce entirely -- used for one-shot admin
+    // actions (add/archive/restore user) where a closed tab or quick refresh
+    // must not be able to race ahead of the write reaching the server.
+    if(immediate){ doPush(); }
+    else { state.pushTimer = setTimeout(doPush, opts.debounceMs || 2000); }
   }
   function pull(force){
     if(typeof RL_SRV === 'undefined' || state.pulling) return Promise.resolve();
@@ -3306,7 +3311,7 @@ function _renderAdminUsers(){
       if(USER_REGISTRY[em]) USER_REGISTRY[em].archived = true;
       logEntry('Admin archived user: '+em,'edit');
       autoSave();
-      if(typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC) USER_REG_SYNC.push();
+      if(typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC) USER_REG_SYNC.push(true);
       toast(USER_REGISTRY[em].name+' archived — syncing to team','ok');renderAdmin();
       return;
     }
@@ -3319,7 +3324,7 @@ function _renderAdminUsers(){
       if(USER_REGISTRY[em]) USER_REGISTRY[em].archived = false;
       logEntry('Admin restored user: '+em,'edit');
       autoSave();
-      if(typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC) USER_REG_SYNC.push();
+      if(typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC) USER_REG_SYNC.push(true);
       toast(USER_REGISTRY[em].name+' restored — syncing to team','ok');renderAdmin();
     }
   });
@@ -3355,6 +3360,7 @@ function _renderAdminUsers(){
       });
       RL_SRV.pushRoster(roster);
     }
+    if(typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC) USER_REG_SYNC.push(true);
     autoSave();toast(name+' added','ok');renderAdmin();
   });
 }
