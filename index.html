@@ -1245,6 +1245,17 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
   table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
 }
 
+/* Performance module sub-tab bar (Overview/Weekly HPM/Company Feed/...) --
+   collapsed by default on mobile behind a "Sections" toggle so it doesn't
+   push the actual page content off-screen under rows of wrapped pills.
+   Desktop is untouched: toggle stays hidden, tabs stay visible. */
+.perf-subtabs-toggle{display:none}
+@media (max-width:700px){
+  .perf-subtabs-toggle{display:inline-flex}
+  .perf-subtabs{display:none !important}
+  .perf-subtabs.perf-subtabs-open{display:flex !important}
+}
+
 </style>
 </head>
 <body>
@@ -4478,6 +4489,7 @@ function computeMetrics(email){
 function computeTeamHealth(){
   return Object.keys(USER_REGISTRY).filter(function(e){return ARCHIVED_USERS.indexOf(e)<0;}).map(function(email){var u=USER_REGISTRY[email],m=computeMetrics(email);return{email:email,name:u.name,role:u.role,dept:u.dept,metrics:m};});
 }
+var _perfSubtabsOpen = false;
 function renderPerf(){
   if(!currentUser)return;
   var main=document.getElementById('main');if(!main)return;
@@ -4485,14 +4497,20 @@ function renderPerf(){
   var wrap=document.createElement('div');
   var hdr=document.createElement('div');hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px';
   var ttl=document.createElement('div');ttl.innerHTML='<div class="ptitle">Performance</div><div class="psub">Evidence-based reviews · '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</div>';
-  var tabs=document.createElement('div');tabs.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+  var tabsToggle=document.createElement('button');
+  tabsToggle.type='button';
+  tabsToggle.className='hbtn perf-subtabs-toggle';
+  tabsToggle.style.cssText='font-size:11px;padding:6px 14px';
+  tabsToggle.innerHTML='&#9776; Sections';
+  tabsToggle.onclick=function(){_perfSubtabsOpen=!_perfSubtabsOpen;renderPerf();};
+  var tabs=document.createElement('div');tabs.className='perf-subtabs'+(_perfSubtabsOpen?' perf-subtabs-open':'');tabs.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
   [{k:'overview',lbl:'Overview'},{k:'hpm',lbl:'Weekly HPM'},{k:'hpmfeed',lbl:'Company Feed'},{k:'reviewcal',lbl:'Review Calendar',a:true},{k:'team',lbl:'Team Health',a:true},{k:'calibration',lbl:'Calibration',a:true},{k:'talent',lbl:'Talent Matrix',a:true},{k:'reviews',lbl:'Reviews'},{k:'feedback',lbl:'Feedback'},{k:'my',lbl:'My Profile'},{k:'mgrdash',lbl:'Manager View'},{k:'history',lbl:'My History'},{k:'courses',lbl:'Courses & Certs'},{k:'orgtree',lbl:'Org Tree',a:true}].forEach(function(td){
     if(td.a&&!isAd)return;
     var btn=document.createElement('button');btn.className='hbtn';
     btn.style.cssText='font-size:10px;padding:5px 14px'+(view===td.k?';border-color:var(--acc);color:var(--acc);font-weight:700':'');
-    btn.textContent=td.lbl;btn.onclick=(function(k){return function(){localStorage.setItem('rl_perf_view',k);renderPerf();};})(td.k);tabs.appendChild(btn);
+    btn.textContent=td.lbl;btn.onclick=(function(k){return function(){localStorage.setItem('rl_perf_view',k);_perfSubtabsOpen=false;renderPerf();};})(td.k);tabs.appendChild(btn);
   });
-  hdr.appendChild(ttl);hdr.appendChild(tabs);wrap.appendChild(hdr);
+  hdr.appendChild(ttl);hdr.appendChild(tabsToggle);hdr.appendChild(tabs);wrap.appendChild(hdr);
   if(view==='overview')renderPerfOverview(wrap);
   else if(view==='team'&&isAd)renderPerfTeam(wrap);
   else if(view==='reviews')renderPerfReviews(wrap,pd);
