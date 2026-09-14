@@ -2041,7 +2041,7 @@ function init(){
         RL_SRV.call('auth_verify_session', {sessionToken: sessionToken}).then(function(r){
           if(!r || !r.ok){
             try { toast('Session expired — please sign in again', 'warn'); } catch(e){}
-            signOut();
+            signOut(true);
           } else {
             if(r.expiresAt){ localStorage.setItem('rl_session_expires_at', String(r.expiresAt)); }
             if(currentUser){
@@ -2736,12 +2736,32 @@ function _updateFreshnessPill(){
   var age = Math.round((Date.now() - window._pulseLastSyncAt)/1000);
   el.textContent = '● Live · ' + (age < 5 ? 'just now' : age < 60 ? age+'s ago' : Math.floor(age/60)+'m ago');
 }
+// Re-verifies the signed-in session against the Worker. On success it
+// refreshes the server's lastActivity (staving off the 2h idle cutoff)
+// and our local expiresAt cache; on failure it forces a clean sign-out
+// with an explanatory toast, before the person tries to submit
+// something into a session that will just be silently rejected.
+function _verifySessionHeartbeat(){
+  try {
+    var sessionToken = localStorage.getItem('rl_session_token');
+    if(!sessionToken || typeof RL_SRV === 'undefined' || !currentUser) return;
+    RL_SRV.call('auth_verify_session', {sessionToken: sessionToken}).then(function(r){
+      if(!r || !r.ok){
+        try { toast('Your session expired — please sign in again to keep syncing', 'warn'); } catch(e){}
+        signOut(true);
+      } else if(r.expiresAt){
+        localStorage.setItem('rl_session_expires_at', String(r.expiresAt));
+      }
+    }).catch(function(){});
+  } catch(e){}
+}
 function _initFreshnessLoop(){
   // 1) Force pull on visibility change (tab refocus)
   document.addEventListener('visibilitychange', function(){
     if(!document.hidden){
       _forcePullAllSyncs();
       _checkForNewDeploy();
+      _verifySessionHeartbeat();
     }
   });
   // 2) Version check on interval
@@ -2751,6 +2771,10 @@ function _initFreshnessLoop(){
   setInterval(_updateFreshnessPill, 15000);
   // Kick a pull every time an engine finishes so pill stays current
   setTimeout(_updateFreshnessPill, 2000);
+  // 4) Session heartbeat every 10 min, independent of focus events, so a
+  // long-open and continuously-active tab still gets revalidated well
+  // before the idle/absolute cap is silently hit.
+  setInterval(_verifySessionHeartbeat, 600000);
 }
 
 function autoSave(){
@@ -6596,10 +6620,26 @@ function renderPerfHPM(wrap, pd){
     existing.lastEditedAt = existing.submittedAt;
     existing.late = (win.status === 'closed-late-allowed');
     _setMyHPM(me, weekKey, existing);
-    // Phase B: push to server-side KV so the Worker's nudge crons can see
-    // who has + hasn't submitted this week. Fire-and-forget — the local copy
-    // is still authoritative for the UI.
-    if(typeof RL_SRV !== 'undefined'){ RL_SRV.pushHPM(me, weekKey, existing); }
+    // Push to server-side KV so the Worker's nudge crons, Company Feed,
+    // and managers/admins can actually see this submission. Used to be
+    // pure fire-and-forget: a rejected write (most commonly an expired
+    // session) failed completely silently, while the UI still claimed
+    // "✓ HPM submitted" because that came from the local save, not from
+    // the server round-trip. Now the actual result gets checked so nobody
+    // believes they're recorded when the team-visible copy never landed.
+    if(typeof RL_SRV !== 'undefined'){
+      RL_SRV.pushHPM(me, weekKey, existing).then(function(r){
+        if(!r || r.ok === false){
+          var sessionIssue = !!(r && /session/.test(r.error||''));
+          toast(sessionIssue
+            ? '⚠ Saved on this device, but your session had expired so it did NOT sync to the team — please sign in again and click Submit once more.'
+            : '⚠ Saved on this device, but syncing to the team failed — please click Submit again in a moment.', 'warn');
+          if(sessionIssue){ try { signOut(true); } catch(e){} }
+        }
+      }).catch(function(){
+        toast('⚠ Saved on this device, but syncing to the team failed — please click Submit again in a moment.', 'warn');
+      });
+    }
     // Auto-complete the matching HPM auto-task so the user's task list and
     // the notification banner immediately reflect the submission.
     try {
