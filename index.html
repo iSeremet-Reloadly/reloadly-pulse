@@ -2326,10 +2326,12 @@ var _TASKS_SYNC = {
   pushTimer: null,
   pollInterval: null,
   pulling: false,
+  lastLocalChangeAt: 0,
 };
 
 function _pushTasksToWorker(){
   if(typeof RL_SRV === 'undefined' || typeof data === 'undefined') return;
+  _TASKS_SYNC.lastLocalChangeAt = Date.now();
   if(_TASKS_SYNC.pushTimer) clearTimeout(_TASKS_SYNC.pushTimer);
   _TASKS_SYNC.pushTimer = setTimeout(function(){
     _TASKS_SYNC.pushTimer = null;
@@ -2342,6 +2344,13 @@ function _pushTasksToWorker(){
       }
     }).catch(function(){});
   }, 2000);
+}
+
+// Same self-heal as _createDocSync.reconcile() -- retries a push that
+// never confirmed success instead of leaving local task edits stranded.
+function _reconcileTasksSync(){
+  if(_TASKS_SYNC.pushTimer) return;
+  if(_TASKS_SYNC.lastLocalChangeAt && _TASKS_SYNC.lastLocalChangeAt > _TASKS_SYNC.lastPushedAt){ _pushTasksToWorker(); }
 }
 
 function _pullTasksFromWorker(force){
@@ -2400,8 +2409,9 @@ function _createDocSync(opts){
   //   debounceMs:   default 2000
   //   pollIntervalMs: default 30000
   //   onPullApplied: fn(data, updatedBy) — UI re-render hook
-  var state = {lastPushedAt: 0, lastPolledMetaAt: '', pushTimer: null, pulling: false, started: false};
+  var state = {lastPushedAt: 0, lastPolledMetaAt: '', pushTimer: null, pulling: false, started: false, lastLocalChangeAt: 0};
   function push(immediate){
+    state.lastLocalChangeAt = Date.now();
     if(typeof RL_SRV === 'undefined') return;
     if(state.pushTimer) clearTimeout(state.pushTimer);
     var doPush = function(){
@@ -2451,7 +2461,15 @@ function _createDocSync(opts){
       }).catch(function(){});
     }, opts.pollIntervalMs || 30000);
   }
-  return {push: push, pull: pull, startPoll: startPoll, state: state, key: opts.key};
+  // Retries a push that never confirmed success (session expiry, network
+  // blip, ...) instead of leaving a locally-saved change stranded forever.
+  // Safe to call anytime: a no-op unless there's a local change with no
+  // matching confirmed push, and nothing already in flight.
+  function reconcile(){
+    if(state.pushTimer) return;
+    if(state.lastLocalChangeAt && state.lastLocalChangeAt > state.lastPushedAt){ push(true); }
+  }
+  return {push: push, pull: pull, startPoll: startPoll, state: state, key: opts.key, reconcile: reconcile};
 }
 
 // ── Phase 3: USER_REGISTRY sync ──────────────────────────────────────────
@@ -2741,6 +2759,17 @@ function _updateFreshnessPill(){
 // and our local expiresAt cache; on failure it forces a clean sign-out
 // with an explanatory toast, before the person tries to submit
 // something into a session that will just be silently rejected.
+function _reconcileAllSyncs(){
+  // One-stop retry pass: anything saved locally that never got a
+  // confirmed push to the server gets another attempt. Cheap and safe to
+  // call often -- each reconcile()/_reconcileTasksSync()/_reconcileHPM()
+  // call is itself a no-op unless there's an actual unconfirmed change.
+  [window.USER_REG_SYNC, window.ACT_LOG_SYNC, window.RM_SYNC, window.OKR_SYNC, window.PERF_SYNC].forEach(function(eng){
+    if(eng && eng.reconcile){ try { eng.reconcile(); } catch(e){} }
+  });
+  if(typeof _reconcileTasksSync === 'function'){ try { _reconcileTasksSync(); } catch(e){} }
+  if(typeof _reconcileHPM === 'function'){ try { _reconcileHPM(); } catch(e){} }
+}
 function _verifySessionHeartbeat(){
   try {
     var sessionToken = localStorage.getItem('rl_session_token');
@@ -2749,8 +2778,9 @@ function _verifySessionHeartbeat(){
       if(!r || !r.ok){
         try { toast('Your session expired — please sign in again to keep syncing', 'warn'); } catch(e){}
         signOut(true);
-      } else if(r.expiresAt){
-        localStorage.setItem('rl_session_expires_at', String(r.expiresAt));
+      } else {
+        if(r.expiresAt){ localStorage.setItem('rl_session_expires_at', String(r.expiresAt)); }
+        _reconcileAllSyncs();
       }
     }).catch(function(){});
   } catch(e){}
@@ -5404,6 +5434,35 @@ function _loadHPM(){try{return JSON.parse(localStorage.getItem('rl_perf_hpm_v1')
 function _saveHPM(s){localStorage.setItem('rl_perf_hpm_v1', JSON.stringify(s));}
 function _getMyHPM(email, weekKey){var s=_loadHPM();return (s[email]||{})[weekKey]||null;}
 function _setMyHPM(email, weekKey, data){var s=_loadHPM();s[email]=s[email]||{};s[email][weekKey]=data;_saveHPM(s);}
+// Self-heal for HPM specifically: compares each of the last 8 locally
+// submitted weeks against the server copy and re-pushes any that are
+// missing there, or where the local copy was edited more recently than
+// the server's last recorded write (covers a resubmit/edit whose push
+// failed after an earlier submit of the same week had already synced).
+function _reconcileHPM(){
+  try {
+    if(typeof RL_SRV === 'undefined' || !currentUser) return;
+    var me = currentUser.email;
+    var local = _loadHPM()[me] || {};
+    var weekKeys = Object.keys(local).filter(function(wk){ return local[wk] && local[wk].submittedAt; });
+    if(!weekKeys.length) return;
+    weekKeys.sort().reverse();
+    var recent = weekKeys.slice(0, 8);
+    RL_SRV.call('get_hpm', {email: me}).then(function(r){
+      if(!r || !r.ok) return;
+      var remote = r.entries || {};
+      recent.forEach(function(wk){
+        var l = local[wk];
+        var rem = remote[wk];
+        var localEdited = new Date(l.lastEditedAt || l.submittedAt).getTime();
+        var remoteWritten = (rem && rem.lastWriteAt) ? new Date(rem.lastWriteAt).getTime() : 0;
+        if(!rem || localEdited > remoteWritten){
+          RL_SRV.pushHPM(me, wk, l).catch(function(){});
+        }
+      });
+    }).catch(function(){});
+  } catch(e){}
+}
 
 // ISO 8601 week key — returns "YYYY-Www" (e.g. "2026-W26").
 function _isoWeek(date){
