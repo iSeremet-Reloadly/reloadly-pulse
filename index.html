@@ -2051,6 +2051,7 @@ function init(){
               currentUser.canAccessPricing=!!r.canAccessPricing;currentUser.canAccessProposals=!!r.canAccessProposals;currentUser.canAccessWalletOps=!!r.canAccessWalletOps;
               try { renderUserPill(); } catch(e){}
             }
+            _rlReconcileAfterAuth();
           }
         }).catch(function(){});
       }, 2000);
@@ -2288,6 +2289,17 @@ function gateResendOTP(){
 // build currentUser's access fields from THAT, not from the locally-cached
 // USER_REGISTRY profile. profile still supplies name/role/dept, which are
 // just directory display info, not access control.
+// Run the server-roster reconciliation once we KNOW who the user is (admin
+// flag confirmed by the Worker) and the shared registry has been pulled —
+// the 800ms bootstrap call runs too early for either to be true.
+function _rlReconcileAfterAuth(){
+  try {
+    var p = (typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC && typeof USER_REG_SYNC.pull === 'function') ? USER_REG_SYNC.pull(true) : null;
+    Promise.resolve(p).catch(function(){}).then(function(){
+      if(typeof _hydrateSlackIdsFromWorker === 'function') _hydrateSlackIdsFromWorker();
+    });
+  } catch(e){}
+}
 function _finalizeSignIn(email, profile, sessionToken, expiresAt, perms){
   perms = perms || {};
   currentUser={email:email,name:profile.name,role:profile.role,dept:profile.dept,
@@ -2299,6 +2311,7 @@ function _finalizeSignIn(email, profile, sessionToken, expiresAt, perms){
   if(expiresAt) localStorage.setItem('rl_session_expires_at', String(expiresAt));
   document.getElementById('gate').style.display='none';
   loadData();
+  setTimeout(_rlReconcileAfterAuth, 1500);
   try { logEntry('Signed in as '+profile.role,'edit'); autoSave(); } catch(e){}
   // Honour any hash-route the user opened Pulse with (e.g. someone shared a
   // link to /#/okrtracker) after they successfully authenticate.
