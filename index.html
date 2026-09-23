@@ -2132,6 +2132,7 @@ function loadData(){
   _refreshLeaveCache().catch(function(){}).then(function(){
     try{ _ensureHPMTaskForCurrentUser(); }catch(e){}
     try{ _injectHPMBanner(); }catch(e){}
+    setTimeout(function(){ try{ _hpmMaybePrompt(); }catch(e){} }, 2500);
   });
   // Private to-dos load independently of the leave/HPM chain above — if the
   // user is already sitting on My Tasks when this resolves, re-render so the
@@ -6372,6 +6373,96 @@ function _renderHPMNotificationBanner(){
   return banner;
 }
 
+// ── HPM prompt + nav badge (added 2026-09-23) ──────────────────────────
+// A one-per-page-load pop-up for anyone who hasn't submitted the current
+// reporting week's HPM (and isn't on approved leave), plus a red "HPM"
+// badge on the Performance menu item until they do. Before showing, the
+// server copy is checked so someone who submitted on another device is
+// never nagged. "Remind me later" snoozes for 4 hours.
+function _hpmDueInfo(){
+  if(typeof currentUser === 'undefined' || !currentUser) return null;
+  var me = currentUser.email, weekKey, win;
+  try { weekKey = _currentReportingWeek(); win = _hpmWindow(weekKey); } catch(e){ return null; }
+  if(!weekKey || !win || win.status === 'pre-open') return null;
+  try { if(_isOnLeaveForWeek(me, weekKey)) return null; } catch(e){}
+  var sub = null; try { sub = _getMyHPM(me, weekKey); } catch(e){}
+  if(sub && sub.submittedAt) return null;
+  return {weekKey: weekKey, isLate: win.status === 'closed-late-allowed', closesAt: win.closesAt};
+}
+function _hpmSetNavBadge(on){
+  try {
+    var nav = document.getElementById('nav-perf'); if(!nav) return;
+    var dot = document.getElementById('nav-perf-hpm-badge');
+    if(on && !dot){
+      dot = document.createElement('span');
+      dot.id = 'nav-perf-hpm-badge';
+      dot.textContent = 'HPM';
+      dot.title = 'Your weekly HPM is due';
+      dot.style.cssText = 'margin-left:auto;background:#ef4444;color:#fff;border-radius:9px;font-size:9px;font-weight:800;padding:1px 6px;letter-spacing:.04em;line-height:1.5';
+      var l = nav.querySelector('.ni-l'); (l || nav).appendChild(dot);
+      if(l) l.style.display = 'flex';
+    } else if(!on && dot){ dot.remove(); }
+  } catch(e){}
+}
+function _hpmOpenForm(){
+  try { var m = document.getElementById('hpm-prompt-modal'); if(m) m.remove(); } catch(e){}
+  try { localStorage.setItem('rl_perf_view','hpm'); go('perf'); } catch(e){}
+}
+function _hpmShowPrompt(info){
+  if(document.getElementById('hpm-prompt-modal')) return;
+  var ov = document.createElement('div');
+  ov.id = 'hpm-prompt-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
+  var col = info.isLate ? 'var(--yel)' : 'var(--acc)';
+  var closes = '';
+  try {
+    var ms = info.closesAt - new Date();
+    if(ms > 0){ var h = Math.floor(ms/3600000); closes = h >= 24 ? ('closes in '+Math.floor(h/24)+'d '+(h%24)+'h') : ('closes in '+h+'h '+Math.floor((ms%3600000)/60000)+'m'); }
+  } catch(e){}
+  var first = ((currentUser && currentUser.name) || '').split(' ')[0];
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-top:4px solid '+col+';border-radius:12px;padding:22px;width:420px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4)';
+  box.innerHTML = '<div style="font-size:11px;letter-spacing:.12em;font-weight:700;color:'+col+'">'+(info.isLate?'LATE HPM':'WEEKLY HPM')+' · '+esc(info.weekKey)+'</div>'
+    + '<div style="font-size:18px;font-weight:800;margin:8px 0 6px">'+(first?esc(first)+', your':'Your')+' HPM '+(info.isLate?'is overdue':'is due')+'</div>'
+    + '<div style="font-size:13px;color:var(--mut);line-height:1.55;margin-bottom:16px">'
+    + (info.isLate ? 'The window has closed — submitting now still counts, but it\'s marked late.' : 'Takes about 5 minutes: highlights, progress and how you\'re feeling'+(closes?' — <b style="color:var(--txt)">'+closes+'</b> (Mon 23:59)':'')+'.')
+    + '</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + '<button id="hpm-prompt-go" class="gate-btn" style="flex:1;min-width:150px;margin:0">Submit my HPM →</button>'
+    + '<button id="hpm-prompt-later" style="flex:0 0 auto;background:none;border:1px solid var(--brd);color:var(--mut);border-radius:8px;padding:10px 14px;cursor:pointer;font-size:12px">Remind me in 4h</button>'
+    + '</div>';
+  ov.appendChild(box);
+  function snooze(){ try { localStorage.setItem('rl_hpm_snooze_'+info.weekKey, String(Date.now() + 4*3600000)); } catch(e){} ov.remove(); }
+  ov.onclick = function(ev){ if(ev.target === ov) snooze(); };
+  document.body.appendChild(ov);
+  document.getElementById('hpm-prompt-go').onclick = _hpmOpenForm;
+  document.getElementById('hpm-prompt-later').onclick = snooze;
+  document.addEventListener('keydown', function onEsc(e){ if(e.key === 'Escape'){ document.removeEventListener('keydown', onEsc); if(document.getElementById('hpm-prompt-modal')) snooze(); } });
+}
+function _hpmMaybePrompt(){
+  var info = _hpmDueInfo();
+  _hpmSetNavBadge(!!info);
+  if(!info || window._hpmPromptDone) return;
+  window._hpmPromptDone = true;
+  // Already on the HPM form — the form is its own reminder.
+  try { if(view === 'perf' && localStorage.getItem('rl_perf_view') === 'hpm') return; } catch(e){}
+  var snoozeUntil = 0; try { snoozeUntil = parseInt(localStorage.getItem('rl_hpm_snooze_'+info.weekKey) || '0', 10); } catch(e){}
+  if(Date.now() < snoozeUntil) return;
+  var me = currentUser.email;
+  var check = (typeof RL_SRV !== 'undefined') ? RL_SRV.call('get_hpm', {email: me, weekKey: info.weekKey}) : Promise.resolve(null);
+  check.then(function(r){
+    var remote = r && r.ok && r.entry;
+    if(remote && remote.submittedAt){
+      // Submitted on another device — sync locally and clear all nags.
+      try { _setMyHPM(me, info.weekKey, remote); } catch(e){}
+      _hpmSetNavBadge(false);
+      try { var b = document.getElementById('hpm-notif-banner'); if(b) b.remove(); } catch(e){}
+      return;
+    }
+    if(_hpmDueInfo()) _hpmShowPrompt(info);
+  }).catch(function(){});
+}
+
 // Helper called from render() to inject the banner at the top of #main.
 function _injectHPMBanner(){
   var main = document.getElementById('main');
@@ -6381,6 +6472,7 @@ function _injectHPMBanner(){
   var b = _renderHPMNotificationBanner();
   if(b && main.firstChild) main.insertBefore(b, main.firstChild);
   else if(b) main.appendChild(b);
+  try { _hpmSetNavBadge(!!_hpmDueInfo()); } catch(e){}
 }
 
 // HPM Phase 4: Google Sheet importer dialog. Accepts CSV paste OR a CSV file
