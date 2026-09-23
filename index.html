@@ -3320,7 +3320,7 @@ function _renderAdminUsers(){
           return {email: em, name: ux.name || em, slackId: ux.slackId || null, dept: ux.dept || null,
             isAdmin: !!ux.isAdmin, canExport: !!ux.canExport, canViewAll: !!ux.canViewAll,
             canAccessPricing: !!ux.canAccessPricing, canAccessProposals: !!ux.canAccessProposals,
-            canAccessWalletOps: !!ux.canAccessWalletOps};
+            canAccessWalletOps: !!ux.canAccessWalletOps, archived: _rlIsArchived(em, ux)};
         });
         RL_SRV.pushRoster(roster).then(function(r){
           if(r && r.ok){
@@ -3415,6 +3415,9 @@ function _renderAdminUsers(){
       logEntry('Admin archived user: '+em,'edit');
       autoSave();
       if(typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC) USER_REG_SYNC.push(true);
+      if(typeof RL_SRV !== 'undefined') RL_SRV.call('set_user_archived', {email: em, archived: true}).then(function(r){
+        if(!(r && r.ok)) toast('Archived locally, but the server update failed — retry','warn');
+      });
       toast(USER_REGISTRY[em].name+' archived — syncing to team','ok');renderAdmin();
       return;
     }
@@ -3428,6 +3431,9 @@ function _renderAdminUsers(){
       logEntry('Admin restored user: '+em,'edit');
       autoSave();
       if(typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC) USER_REG_SYNC.push(true);
+      if(typeof RL_SRV !== 'undefined') RL_SRV.call('set_user_archived', {email: em, archived: false}).then(function(r){
+        if(!(r && r.ok)) toast('Restored locally, but the server update failed — retry','warn');
+      });
       toast(USER_REGISTRY[em].name+' restored — syncing to team','ok');renderAdmin();
     }
   });
@@ -3459,7 +3465,7 @@ function _renderAdminUsers(){
         return {email: em, name: ux.name || em, slackId: ux.slackId || null, dept: ux.dept || null,
           isAdmin: !!ux.isAdmin, canExport: !!ux.canExport, canViewAll: !!ux.canViewAll,
           canAccessPricing: !!ux.canAccessPricing, canAccessProposals: !!ux.canAccessProposals,
-          canAccessWalletOps: !!ux.canAccessWalletOps};
+          canAccessWalletOps: !!ux.canAccessWalletOps, archived: _rlIsArchived(em, ux)};
       });
       RL_SRV.pushRoster(roster);
     }
@@ -5418,6 +5424,15 @@ function _hydrateSlackIdsFromLocal(){
     if(USER_REGISTRY[email] && map[email]) USER_REGISTRY[email].slackId = map[email];
   });
 }
+// Archived = either the per-user flag (synced via shared_user_registry) or
+// this browser's legacy rl_archived list. Sent to the Worker's roster so
+// sign-in, HPM emails and metrics all exclude former staff.
+function _rlIsArchived(em, u){
+  try {
+    if(u && u.archived === true) return true;
+    return (typeof ARCHIVED_USERS !== 'undefined' && Array.isArray(ARCHIVED_USERS) && ARCHIVED_USERS.indexOf(em) >= 0);
+  } catch(e){ return false; }
+}
 function _hydrateSlackIdsFromWorker(){
   if(typeof RL_SRV === 'undefined' || typeof USER_REGISTRY !== 'object') return;
   return RL_SRV.call('get_roster').then(function(r){
@@ -5436,6 +5451,37 @@ function _hydrateSlackIdsFromWorker(){
       }
     });
     if(updated) _saveSlackIds(local);
+    // Membership + archive reconciliation with the Worker roster (the server-
+    // side source of truth for sign-in). Added 2026-09-23.
+    try {
+      var regChanged = false;
+      var admin = (typeof isAdmin === 'function') && isAdmin();
+      serverRoster.forEach(function(u){
+        if(!u || !u.email || u.email.indexOf('@') < 0) return;
+        var em = u.email.toLowerCase();
+        var loc = USER_REGISTRY[em];
+        if(!loc){
+          // Someone the server knows about but this registry lost (the
+          // "keeps disappearing from User Management" bug) — restore them.
+          USER_REGISTRY[em] = {name: u.name || em, role: u.role || '', dept: u.dept || 'Management',
+            canExport: !!u.canExport, canViewAll: !!u.canViewAll, isAdmin: !!u.isAdmin,
+            canAccessPricing: !!u.canAccessPricing, canAccessProposals: !!u.canAccessProposals,
+            canAccessWalletOps: !!u.canAccessWalletOps, slackId: u.slackId || null,
+            archived: u.archived === true};
+          regChanged = true;
+          return;
+        }
+        if(u.archived === true && loc.archived !== true){ loc.archived = true; regChanged = true; }
+        // Archived here but not yet on the server → push the archive (admins only).
+        if(admin && _rlIsArchived(em, loc) && u.archived !== true){
+          RL_SRV.call('set_user_archived', {email: em, archived: true});
+        }
+      });
+      if(regChanged){
+        if(admin && typeof USER_REG_SYNC !== 'undefined' && USER_REG_SYNC) USER_REG_SYNC.push(true);
+        updated = true;
+      }
+    } catch(e){}
     // If we're currently viewing the admin page, re-render so badges + saved
     // values show up without requiring a manual refresh.
     try { if(typeof view !== 'undefined' && view === 'admin' && typeof renderAdmin === 'function'){ renderAdmin(); } } catch(e){}
@@ -5460,7 +5506,7 @@ function _rl_srv_bootstrap(){
         return {email: email, name: u.name||email, slackId: u.slackId||null, dept: u.dept||null,
           isAdmin: !!u.isAdmin, canExport: !!u.canExport, canViewAll: !!u.canViewAll,
           canAccessPricing: !!u.canAccessPricing, canAccessProposals: !!u.canAccessProposals,
-          canAccessWalletOps: !!u.canAccessWalletOps};
+          canAccessWalletOps: !!u.canAccessWalletOps, archived: _rlIsArchived(email, u)};
       });
       RL_SRV.pushRoster(roster);
     }
