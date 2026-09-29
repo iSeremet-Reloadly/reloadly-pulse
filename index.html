@@ -1543,8 +1543,30 @@ function saveOKRForQuarter(key,data){
   // OKR_SYNC.getLocal() collects every rl_okr_QX_YYYY key each push.
   try { if(typeof OKR_SYNC !== 'undefined' && OKR_SYNC && OKR_SYNC.push) OKR_SYNC.push(); } catch(_){}
 }
-function getActiveOKRKey(){return localStorage.getItem('rl_okr_active_quarter')||getCurrentQuarter();}
-function setActiveOKRKey(key){localStorage.setItem('rl_okr_active_quarter',key);}
+// ── OKR visibility helpers (2026-09-29) ─────────────────────────────────
+// Owner strings on KRs/objectives are free text. Exact === matching hid
+// people's OKRs whenever the stored owner differed from their registry name
+// by an accent, case, spacing or a first-name-only entry. Match loosely.
+function _okrNorm(s){try{s=String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'');}catch(_){s=String(s||'');}return s.toLowerCase().replace(/\s+/g,' ').trim();}
+function _okrEmailForName(n){var x=_okrNorm(n);if(!x)return '';if(x.indexOf('@')>0)return x;var hit='';try{Object.keys(USER_REGISTRY||{}).forEach(function(em){if(!hit&&_okrNorm((USER_REGISTRY[em]||{}).name)===x)hit=em.toLowerCase();});}catch(_){}return hit;}
+function _okrNameEq(a,b){
+  var x=_okrNorm(a),y=_okrNorm(b);if(!x||!y)return false;if(x===y)return true;
+  if(x.indexOf('@')>0||y.indexOf('@')>0){var ex=_okrEmailForName(a),ey=_okrEmailForName(b);return !!ex&&ex===ey;}
+  var xt=x.split(' '),yt=y.split(' ');
+  if((xt.length===1||yt.length===1)&&xt[0]===yt[0])return true;
+  return false;
+}
+// owner matches person (by name or email)
+function _okrOwnerIs(owner,email,name){if(!owner)return false;if(email&&_okrNorm(owner)===_okrNorm(email))return true;return _okrNameEq(owner,name);}
+function _okrLatestQuarterWithData(){var best=null,bv=-1;try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);var m=k&&k.match(/^rl_okr_Q([1-4])_(\d{4})$/);if(m){var v=parseInt(m[2])*10+parseInt(m[1]);if(v>bv){bv=v;best='Q'+m[1]+'_'+m[2];}}}}catch(_){}return best;}
+// Current quarter, or the most recent quarter that has OKRs when the new
+// quarter hasn't been set up yet (first days of a quarter).
+function getCurrentOKRKey(){var cq=getCurrentQuarter();if(loadOKRForQuarter(cq))return cq;return _okrLatestQuarterWithData()||cq;}
+// The quarter someone browses to only sticks for this browser session —
+// it used to persist forever, leaving people stuck on an old quarter.
+function getActiveOKRKey(){var p=null;try{p=sessionStorage.getItem('rl_okr_q_pick');}catch(_){}if(p&&loadOKRForQuarter(p))return p;return getCurrentOKRKey();}
+function setActiveOKRKey(key){try{sessionStorage.setItem('rl_okr_q_pick',key);}catch(_){}try{localStorage.removeItem('rl_okr_active_quarter');}catch(_){}}
+function _okrHonourQuarter(q){var p=null;try{p=sessionStorage.getItem('rl_okr_q_pick');}catch(_){}return (q&&q===p)?q:getActiveOKRKey();}
 function getPreviousQuarterKey(key){var p=key.split('_'),q=parseInt(p[0].slice(1)),y=parseInt(p[1]);return q===1?'Q4_'+(y-1):'Q'+(q-1)+'_'+y;}
 
 
@@ -1668,7 +1690,7 @@ function renderMyTasks(){
   // right spot no matter which render path (with-tasks / no-tasks) fires.
   var okrsHtml = '';
   try {
-    var okrQKey = (typeof getActiveOKRKey === 'function') ? getActiveOKRKey() : null;
+    var okrQKey = (typeof getCurrentOKRKey === 'function') ? getCurrentOKRKey() : ((typeof getActiveOKRKey === 'function') ? getActiveOKRKey() : null);
     var okrDataMine = okrQKey && (typeof loadOKRForQuarter === 'function') ? loadOKRForQuarter(okrQKey) : null;
     if(okrDataMine && okrDataMine.depts){
       var myTaskIds = {};
@@ -1688,7 +1710,7 @@ function renderMyTasks(){
         var dept = okrDataMine.depts[dName];
         (dept.objectives||[]).forEach(function(obj){
           (obj.krs||[]).forEach(function(kr){
-            if((kr.owner||'').trim() === myName){
+            if(_okrOwnerIs(kr.owner, currentUser && currentUser.email, myName)){
               myKRs.push({
                 dept: dName, deptColor: dept.color || 'var(--acc)',
                 obj: obj, kr: kr,
@@ -3853,7 +3875,7 @@ function renderOKR(){
   var qs=generateQuarterList();if(qs.indexOf(activeKey)<0)qs.unshift(activeKey);
   var cqk=getCurrentQuarter();
   qs.forEach(function(k){var opt=document.createElement('option');opt.value=k;var lbl=quarterLabel(k)+(k===cqk?' ◆ Current':'');var exists=loadOKRForQuarter(k);if(!exists&&k!=='Q2_2026')lbl+=' — New';opt.textContent=lbl;if(k===activeKey)opt.selected=true;qSel.appendChild(opt);});
-  qSel.onchange=function(){var nk=this.value;var ex=loadOKRForQuarter(nk);if(ex){setActiveOKRKey(nk);renderOKR();}else{var prev=getPreviousQuarterKey(nk);okrNewQuarterModal(nk,prev,function(){renderOKR();});}};
+  qSel.onchange=function(){var nk=this.value;var ex=loadOKRForQuarter(nk);if(ex){setActiveOKRKey(nk);renderOKR();}else if(!isAdmin()){this.value=activeKey;if(typeof toast==='function')toast(quarterLabel(nk)+' OKRs haven\'t been published yet','err');try{if(OKR_SYNC)OKR_SYNC.pull(true);}catch(_){}}else{var prev=getPreviousQuarterKey(nk);okrNewQuarterModal(nk,prev,function(){renderOKR();});}};
   qWrap.appendChild(qSel);
   // Status badge
   var badge=document.createElement('span');badge.style.cssText='font-size:9px;font-family:Roboto Mono,monospace;padding:3px 10px;border-radius:20px;font-weight:700';
@@ -3882,7 +3904,8 @@ function renderOKR(){
     empty.innerHTML='<div style="font-size:40px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:700;margin-bottom:8px;color:var(--txt)">'+quarterLabel(activeKey)+' OKRs</div><div style="font-size:12px;margin-bottom:6px">'+d2.startDate+' – '+d2.endDate+'</div><div style="font-size:12px;margin-bottom:24px">Not set up yet. Get started below.</div>';
     var sb=document.createElement('button');sb.className='hbtn xl';sb.style.cssText='font-size:12px;padding:10px 24px;border-color:var(--acc);color:var(--acc);font-weight:700';sb.textContent='Set up '+quarterLabel(activeKey)+' →';
     sb.onclick=function(){okrNewQuarterModal(activeKey,getPreviousQuarterKey(activeKey),function(){renderOKR();});};
-    empty.appendChild(sb);wrap.appendChild(empty);main.innerHTML='';main.appendChild(wrap);return;
+    if(isAdmin())empty.appendChild(sb);else{var nt=document.createElement('div');nt.style.cssText='font-size:12px';nt.textContent='Your admins haven\'t published this quarter yet — check back soon.';empty.appendChild(nt);try{if(typeof OKR_SYNC!=='undefined'&&OKR_SYNC)OKR_SYNC.pull(true);}catch(_){}}
+    wrap.appendChild(empty);main.innerHTML='';main.appendChild(wrap);return;
   }
   var df=localStorage.getItem('rl_okr_dept')||'Company';var deptObj=okrData.depts[df];if(!deptObj){df='Company';deptObj=okrData.depts['Company'];}
   // ── Cycle bar ─────────────────────────────────────────────────────────────
@@ -4229,7 +4252,7 @@ function _renderIndividualOKRsSection(wrap, okrData, activeKey){
       var personObjectives = [];
       Object.keys(okrData.depts).forEach(function(dn){
         (okrData.depts[dn].objectives||[]).forEach(function(obj){
-          if((obj.owner||'').trim() === person.name){
+          if(_okrOwnerIs(obj.owner, person.email, person.name)){
             personObjectives.push({dept: dn, obj: obj});
           }
         });
@@ -4239,7 +4262,7 @@ function _renderIndividualOKRsSection(wrap, okrData, activeKey){
       Object.keys(okrData.depts).forEach(function(dn){
         (okrData.depts[dn].objectives||[]).forEach(function(obj){
           (obj.krs||[]).forEach(function(kr){
-            if((kr.owner||'').trim() === person.name){
+            if(_okrOwnerIs(kr.owner, person.email, person.name)){
               personKRs.push({dept: dn, obj: obj, kr: kr});
             }
           });
@@ -4512,7 +4535,7 @@ function _openAddKRForPersonModal(personDept, personName, activeKey){
   // Prevents individual KRs from being attached to a dept-level objective and
   // polluting the dept view. If none exist yet, only the "__NEW__" option is
   // shown, forcing the flow to create a personal objective first.
-  var personalObjs = (deptObj.objectives||[]).filter(function(o){ return (o.owner||'').trim() === personName; });
+  var personalObjs = (deptObj.objectives||[]).filter(function(o){ return _okrNameEq(o.owner, personName); });
   html += '<label style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;display:block;margin-bottom:4px">PARENT PERSONAL OBJECTIVE</label>';
   html += '<select id="akr-obj" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;margin-bottom:14px">';
   if(!personalObjs.length){
@@ -8112,7 +8135,7 @@ function getState(){var s=loadUI();return Object.assign({
   type:'All',
   search:'',
   expanded:{}
-},s);}
+},s,{quarter:_okrHonourQuarter(s.quarter)});}
 function setState(patch){var s=getState();Object.assign(s,patch);saveUI(s);}
 function toggleExpand(id){var s=getState();s.expanded[id]=!s.expanded[id];saveUI(s);}
 
@@ -8262,7 +8285,7 @@ NS._renderTodayMode=function(){
 
   // === CARD 1: Your most at-risk KR (or most active if all healthy) ===
   var myKRs=Object.values(H.nodes).filter(function(n){
-    return n.type==='KeyResult'&&((n.ownerName||'')===myName||(n.ownerEmail||'')===me);
+    return n.type==='KeyResult'&&(_okrNameEq(n.ownerName,myName)||(n.ownerEmail||'')===me);
   });
   var card1=document.createElement('div');card1.className='today-card';
   if(myKRs.length===0){
@@ -8637,8 +8660,8 @@ NS._renderDeptMode=function(){
     var grid=document.createElement('div');grid.className='strat-team-grid';
     deptMembers.forEach(function(em){
       var uu=USER_REGISTRY[em];
-      var memberIOs=Object.values(H.nodes).filter(function(n){return n.type==='IndividualObjective'&&((n.ownerEmail||'')===em||(n.ownerName||'')===uu.name);});
-      var memberKRs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult'&&((n.ownerName||'')===uu.name||(n.ownerEmail||'')===em);});
+      var memberIOs=Object.values(H.nodes).filter(function(n){return n.type==='IndividualObjective'&&((n.ownerEmail||'')===em||_okrNameEq(n.ownerName,uu.name));});
+      var memberKRs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult'&&(_okrNameEq(n.ownerName,uu.name)||(n.ownerEmail||'')===em);});
       var avgProg=0,band='unknown';
       if(memberIOs.length){
         var allMemKRs=[];
@@ -8713,8 +8736,8 @@ NS._renderIndividualMode=function(){
 
   // Find owned + contributed nodes
   var name=u.name||person;
-  var ownedKRs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult'&&((n.ownerName||'')===name||(n.ownerEmail||'')===person);});
-  var ownedInits=Object.values(H.nodes).filter(function(n){return n.type==='Initiative'&&((n.ownerName||'')===name||(n.ownerEmail||'')===person);});
+  var ownedKRs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult'&&(_okrNameEq(n.ownerName,name)||(n.ownerEmail||'')===person);});
+  var ownedInits=Object.values(H.nodes).filter(function(n){return n.type==='Initiative'&&(_okrNameEq(n.ownerName,name)||(n.ownerEmail||'')===person);});
   var ownedTasks=DEPTS.reduce(function(acc,d){return acc.concat((data[d]||[]).filter(function(t){return(t.assignee||'').trim()===name||(t.assignee||'').toLowerCase()===name.toLowerCase()||(t.assignee||'').split(' ')[0]===name.split(' ')[0];}).map(function(t){return Object.assign({},t,{dept:d});}));},[]);
 
   // Tasks due this week
@@ -8747,7 +8770,7 @@ NS._renderIndividualMode=function(){
   wrap.appendChild(sc);
 
   // === Your Individual Objectives (user-settable) ===
-  var ownedIOs=Object.values(H.nodes).filter(function(n){return n.type==='IndividualObjective'&&((n.ownerEmail||'')===person||(n.ownerName||'')===name);});
+  var ownedIOs=Object.values(H.nodes).filter(function(n){return n.type==='IndividualObjective'&&((n.ownerEmail||'')===person||_okrNameEq(n.ownerName,name));});
   var ioSec=document.createElement('div');ioSec.className='strat-vp-sec';
   ioSec.innerHTML='<div class="strat-vp-sec-h" style="display:flex;align-items:center;gap:10px">YOUR INDIVIDUAL OBJECTIVES <span style="font-size:9px;background:rgba(167,139,250,.18);color:#a78bfa;padding:2px 6px;border-radius:4px;font-family:Roboto Mono,monospace">L4</span>'+_thi('Personal quarterly commitments. Each Individual Objective must link upward to a Department or Company Objective. KRs roll up via average — change a KR progress inline and the IO recalculates automatically. ✎ Edit modifies title/parent/KRs. + Set Individual OKR adds a new one.')+'<button class="hbtn xl" style="margin-left:auto;background:var(--acc);color:#fff;border-color:var(--acc);font-size:11px" onclick="STRAT.openIndividualOKRModal(\''+person+'\')">+ Set Individual OKR</button></div>'
     +'<div class="strat-vp-sec-d">Personal quarterly commitments. Each must link upward to a Company or Department Objective.</div>';
@@ -9186,7 +9209,7 @@ function _v2State(){
   return {
     tab: s.v2Tab || 'overview',
     dept: s.v2Dept || (currentUser && currentUser.dept ? currentUser.dept : 'All'),
-    quarter: s.quarter || getActiveOKRKey(),
+    quarter: _okrHonourQuarter(s.quarter),
     expanded: s.v2Expanded || {},
     snoozed: s.v2Snoozed || {},
     heatmapOpen: !!s.v2HeatmapOpen
@@ -9841,8 +9864,8 @@ function _v2RenderPeople(host, st, H){
 
   members.forEach(function(em){
     var u=USER_REGISTRY[em];
-    var ios=Object.values(H.nodes).filter(function(n){return n.type==='IndividualObjective' && ((n.ownerEmail||'')===em||(n.ownerName||'')===u.name);});
-    var krs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult' && ((n.ownerEmail||'')===em||(n.ownerName||'')===u.name);});
+    var ios=Object.values(H.nodes).filter(function(n){return n.type==='IndividualObjective' && ((n.ownerEmail||'')===em||_okrNameEq(n.ownerName,u.name));});
+    var krs=Object.values(H.nodes).filter(function(n){return n.type==='KeyResult' && ((n.ownerEmail||'')===em||_okrNameEq(n.ownerName,u.name));});
     var weekTasks=DEPTS.reduce(function(acc,d){return acc.concat((data[d]||[]).filter(function(t){
       var a=(t.assignee||'').trim();
       if(a!==u.name && a!==em && (u.name && a!==u.name.split(' ')[0]))return false;
@@ -9924,7 +9947,7 @@ NS._renderCascadeMode=function(){
     if(qk===st.quarter)opt.selected=true;
     qSel.appendChild(opt);
   });
-  qSel.onchange=function(){setState({quarter:this.value,expanded:{}});NS.renderStrategy();};
+  qSel.onchange=function(){try{sessionStorage.setItem('rl_okr_q_pick',this.value);}catch(_){}setState({quarter:this.value,expanded:{}});NS.renderStrategy();};
   fbar.appendChild(wrapField('Quarter',qSel));
   // dept
   var dSel=document.createElement('select');
@@ -10633,7 +10656,7 @@ NS.openMindmap=function(focusId){
     if(!loadOKRForQuarter(qk))return;
     var op=document.createElement('option');op.value=qk;op.textContent=quarterLabel(qk);if(qk===_MM.quarter)op.selected=true;qSel.appendChild(op);
   });
-  qSel.onchange=function(){var s=loadUI();s.quarter=this.value;s.mmFocus=null;saveUI(s);NS.openMindmap(null);};
+  qSel.onchange=function(){var s=loadUI();s.quarter=this.value;try{sessionStorage.setItem('rl_okr_q_pick',this.value);}catch(_){}s.mmFocus=null;saveUI(s);NS.openMindmap(null);};
   top.appendChild(_mmField('QUARTER',qSel));
 
   var mSel=document.createElement('select');mSel.className='mm-sel';
@@ -11554,7 +11577,7 @@ NS.openMindmapDetail=function(nodeId){
   var ownerEmail=n.ownerEmail;
   if(!ownerEmail&&n.ownerName){
     // Map name → email via USER_REGISTRY
-    Object.keys(USER_REGISTRY||{}).forEach(function(em){if(USER_REGISTRY[em].name===n.ownerName)ownerEmail=em;});
+    Object.keys(USER_REGISTRY||{}).forEach(function(em){if(!ownerEmail&&_okrNameEq(USER_REGISTRY[em].name,n.ownerName))ownerEmail=em;});
   }
   if(ownerEmail){
     var ib=document.createElement('button');ib.className='hbtn';ib.style.fontSize='11px';ib.textContent='🎯 Owner in Individual view';
@@ -18366,7 +18389,9 @@ var FUND=(function(){
     // "Provider balance failures" marker.
     var inSuccess = true, inFail = false, current = null;
     for(var li=0; li<lines.length; li++){
-      var raw = lines[li];
+      // Strip Slack code-fence backticks — Bender's first provider line arrives
+      // as "```3 CSQ" and was being dropped (fixed 2026-09-25).
+      var raw = String(lines[li]).replace(/^(\s*)```/, '$1').replace(/```\s*$/, '');
       var line = raw.trim();
       if(/Successful provider balances/i.test(line)){inSuccess=true; inFail=false; current=null; continue;}
       if(/Provider balance failures/i.test(line)){inSuccess=false; inFail=true; current=null; continue;}
@@ -18765,10 +18790,11 @@ var FUND=(function(){
     var entries = [];
     var lines = text.split(/\r?\n/);
     lines.forEach(function(line){
-      line = line.trim();
+      // Strip Slack code-fence backticks ("```CYSEND : ..." was dropped — fixed 2026-09-25)
+      line = String(line).trim().replace(/^```/, '').replace(/```$/, '').trim();
       if(!line) return;
       // Strip @here mention and the header line
-      if(/^@here$/i.test(line)) return;
+      if(/^<?[@!]here>?$/i.test(line)) return;
       if(/Current Account Balance Summary/i.test(line)) return;
       // Match: NAME : (...rest)
       var m = line.match(/^([A-Z][A-Z0-9_]+)\s*:\s*(.+)$/);
