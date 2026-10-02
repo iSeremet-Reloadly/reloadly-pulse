@@ -2773,6 +2773,7 @@ function _bootAllSyncs(){
   try { _initRoadmapsSync(); } catch(e){}
   try { _initOKRSync(); } catch(e){}
   try { _initPerfSync(); } catch(e){}
+  try { _reconcileHPM(); } catch(e){}
   try { _initFreshnessLoop(); } catch(e){}
 }
 if(typeof window !== 'undefined'){ setTimeout(_bootAllSyncs, 1500); }
@@ -5571,29 +5572,95 @@ function _setMyHPM(email, weekKey, data){var s=_loadHPM();s[email]=s[email]||{};
 // missing there, or where the local copy was edited more recently than
 // the server's last recorded write (covers a resubmit/edit whose push
 // failed after an earlier submit of the same week had already synced).
+function _hpmTs(x){var v=x&&(x.lastWriteAt||x.lastEditedAt||x.submittedAt);var n=v?new Date(v).getTime():0;return isNaN(n)?0:n;}
 function _reconcileHPM(){
   try {
     if(typeof RL_SRV === 'undefined' || !currentUser) return;
     var me = currentUser.email;
-    var local = _loadHPM()[me] || {};
-    var weekKeys = Object.keys(local).filter(function(wk){ return local[wk] && local[wk].submittedAt; });
-    if(!weekKeys.length) return;
-    weekKeys.sort().reverse();
-    var recent = weekKeys.slice(0, 8);
     RL_SRV.call('get_hpm', {email: me}).then(function(r){
       if(!r || !r.ok) return;
       var remote = r.entries || {};
-      recent.forEach(function(wk){
-        var l = local[wk];
-        var rem = remote[wk];
+      var store = _loadHPM();
+      var local = store[me] || {};
+      var changed = false;
+      // 1) Pull: bring down every server week this browser doesn't have (or
+      //    has an older / unsubmitted copy of) — fixes empty history and blank
+      //    forms on a second device.
+      Object.keys(remote).forEach(function(wk){
+        var rem = remote[wk], l = local[wk];
+        if(!rem) return;
+        var take = false;
+        if(!l) take = true;
+        else if(rem.submittedAt && !l.submittedAt) take = true;
+        else if(rem.submittedAt && l.submittedAt){
+          var lEd = new Date(l.lastEditedAt || l.submittedAt).getTime();
+          var rW = rem.lastWriteAt ? new Date(rem.lastWriteAt).getTime() : 0;
+          if(rW > lEd && JSON.stringify(rem) !== JSON.stringify(l)) take = true;
+        }
+        if(take){ local[wk] = rem; changed = true; }
+      });
+      if(changed){
+        store[me] = local; _saveHPM(store);
+        try {
+          if(typeof view !== 'undefined' && view === 'perf' && typeof render === 'function'){
+            var pv = localStorage.getItem('rl_perf_view');
+            var ae = document.activeElement;
+            var typing = ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.isContentEditable);
+            if(!typing && (pv === 'hpm' || pv === 'my' || pv === 'overview' || !pv)) render();
+          }
+        } catch(_){}
+      }
+      // 2) Push: any submitted week the server is missing, or edited here
+      //    after the server's last write (a push that failed earlier).
+      Object.keys(local).filter(function(wk){ return local[wk] && local[wk].submittedAt; }).sort().reverse().slice(0, 8).forEach(function(wk){
+        var l = local[wk], rem = remote[wk];
         var localEdited = new Date(l.lastEditedAt || l.submittedAt).getTime();
         var remoteWritten = (rem && rem.lastWriteAt) ? new Date(rem.lastWriteAt).getTime() : 0;
-        if(!rem || localEdited > remoteWritten){
+        if(!rem || !rem.submittedAt || localEdited > remoteWritten){
           RL_SRV.pushHPM(me, wk, l).catch(function(){});
         }
       });
     }).catch(function(){});
+    _refreshHPMTeamCache(false);
   } catch(e){}
+}
+// Team-wide HPM cache (memory only — not persisted to this browser) so views
+// that show other people's HPMs (e.g. the Review confidence trend) don't
+// depend on what happens to be in this browser's localStorage.
+var _HPM_ALL = null, _HPM_ALL_AT = 0;
+function _refreshHPMTeamCache(force){
+  try {
+    if(typeof RL_SRV === 'undefined' || !currentUser) return;
+    if(!force && _HPM_ALL && Date.now() - _HPM_ALL_AT < 10*60*1000) return;
+    _HPM_ALL_AT = Date.now();
+    RL_SRV.call('get_hpm_all').then(function(r){ if(r && r.ok && r.submissions) _HPM_ALL = r.submissions; }).catch(function(){});
+  } catch(e){}
+}
+function _hpmEntriesFor(email){
+  var own = (_loadHPM()[email]) || {};
+  var team = (_HPM_ALL && _HPM_ALL[email]) || {};
+  var out = {};
+  Object.keys(team).forEach(function(wk){ out[wk] = team[wk]; });
+  Object.keys(own).forEach(function(wk){ if(!out[wk] || _hpmTs(own[wk]) >= _hpmTs(out[wk])) out[wk] = own[wk]; });
+  return out;
+}
+// After a submit, confirm the server really kept it; re-push if not.
+function _hpmVerifySubmit(email, weekKey, entry){
+  [90*1000, 10*60*1000].forEach(function(delay){
+    setTimeout(function(){
+      try {
+        if(typeof RL_SRV === 'undefined') return;
+        RL_SRV.call('get_hpm', {email: email, weekKey: weekKey}).then(function(r){
+          if(!r || !r.ok) return;
+          var rem = r.entry;
+          var cur = (_loadHPM()[email] || {})[weekKey] || entry;
+          if(!rem || !rem.submittedAt || (cur.lastEditedAt && rem.lastEditedAt !== cur.lastEditedAt && new Date(cur.lastEditedAt) > new Date(rem.lastEditedAt || 0))){
+            RL_SRV.pushHPM(email, weekKey, cur).catch(function(){});
+          }
+        }).catch(function(){});
+      } catch(e){}
+    }, delay);
+  });
 }
 
 // ISO 8601 week key — returns "YYYY-Www" (e.g. "2026-W26").
@@ -5652,7 +5719,7 @@ function _hpmWindow(weekKey){
 }
 
 function _hpmBlankEntry(department){
-  return {department: department, highlights:[{text:'', krId:null}], progress:[{text:'', krId:null}], me:{text:'', visibility:'company'}, confidence:null, submittedAt:null, lastEditedAt:null, late:false};
+  return {department: department, highlights:[{text:'', krId:null}], progress:[{text:'', krId:null}], blockers:[{text:'', helpFrom:''}], me:{text:'', visibility:'company'}, confidence:null, submittedAt:null, lastEditedAt:null, late:false};
 }
 // Flatten the CURRENT quarter's OKRs to {label, krId, deptColor} for the
 // HPM picker. Was reading the hardcoded Q2 OKR_DATA seed — that meant new
@@ -5729,6 +5796,7 @@ function _gatherDeptHPMs(dept, windowSpec, allSubmissions){
         weekKey: wk,
         highlights: (ent.highlights||[]).filter(function(h){return h.text;}).map(function(h){return h.text;}),
         progress: (ent.progress||[]).filter(function(p){return p.text;}).map(function(p){return p.text;}),
+        blockers: (ent.blockers||[]).filter(function(b){return b && b.text;}).map(function(b){return b.text + (b.helpFrom ? ' (help from: ' + b.helpFrom + ')' : '');}),
         confidence: ent.confidence,
         me: (ent.me && ent.me.text) || ''
       });
@@ -5758,23 +5826,25 @@ function _generateDeptHPMSummary(dept, gathered){
   var isWeekMode = gathered.mode === 'week';
   if(isWeekMode){
     lines.push('Summarize the ' + dept + ' team\'s weekly HPM submissions for week ' + gathered.label + '.');
-    lines.push('Each submission has Highlights (outcomes that moved OKRs), Progress (initiatives in flight), Me (personal context — may be sensitive), and a Confidence rating (1-5).');
+    lines.push('Each submission has Highlights (outcomes that moved OKRs), Progress (initiatives in flight), Blockers (where the person needs help — optional), Me (personal context — may be sensitive), and a Confidence rating (1-5).');
     lines.push('');
     lines.push('Provide a 120-180 word executive summary covering:');
     lines.push('1. Key wins delivered this week');
     lines.push('2. What\'s in flight + next-week priorities');
     lines.push('3. Average confidence + any individuals reporting concerning levels');
     lines.push('4. Notable individual contributions');
+    lines.push('4b. Blockers — who needs help with what (omit if none reported)');
     lines.push('5. Personal/Me signals worth manager attention (only if concerning, otherwise omit)');
   } else {
     lines.push('Summarize the ' + dept + ' team\'s weekly HPM (Highlights/Progress/Me) submissions over the ' + gathered.label + '.');
-    lines.push('Each submission has Highlights (outcomes that moved OKRs), Progress (initiatives in flight), Me (personal context — may be sensitive), and a Confidence rating (1-5).');
+    lines.push('Each submission has Highlights (outcomes that moved OKRs), Progress (initiatives in flight), Blockers (where the person needs help — optional), Me (personal context — may be sensitive), and a Confidence rating (1-5).');
     lines.push('');
     lines.push('Provide a 150-200 word executive summary covering:');
     lines.push('1. Top 3-5 themes / wins from the team this period');
     lines.push('2. Areas of momentum and what\'s in flight');
     lines.push('3. Confidence trend — average level and any concerning patterns (sustained low or sharp drops)');
     lines.push('4. Notable individual contributions worth surfacing');
+    lines.push('4b. Recurring or unresolved blockers — who needs help with what (omit if none reported)');
     lines.push('5. Personal/Me signals worth manager attention (only if concerning, otherwise omit this section)');
   }
   lines.push('');
@@ -5786,6 +5856,7 @@ function _generateDeptHPMSummary(dept, gathered){
     lines.push('[' + e.weekKey + '] ' + e.name + ' · confidence: ' + (e.confidence||'-') + '/5');
     if(e.highlights.length) lines.push('  Highlights: ' + e.highlights.join(' | '));
     if(e.progress.length) lines.push('  Progress: ' + e.progress.join(' | '));
+    if(e.blockers && e.blockers.length) lines.push('  Blockers: ' + e.blockers.join(' | '));
     if(e.me) lines.push('  Me: ' + e.me);
   });
   var prompt = lines.join('\n');
@@ -6037,6 +6108,14 @@ function renderPerfHPMFeed(wrap, pd){
               + '<ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6">'+ent.progress.filter(function(p){return p.text;}).map(function(p){return '<li>'+esc(p.text)+(p.krId?' <span style="font-size:10px;color:var(--acc);font-family:Roboto Mono,monospace">→ '+p.krId+'</span>':'')+'</li>';}).join('')+'</ul>';
             card.appendChild(pp);
           }
+          // Blockers
+          var _bk = (ent.blockers||[]).filter(function(b){return b && b.text;});
+          if(_bk.length){
+            var bb = document.createElement('div'); bb.style.cssText = 'margin-bottom:8px;padding:8px 10px;background:rgba(239,68,68,.05);border-radius:6px;border-left:3px solid var(--red)';
+            bb.innerHTML = '<div style="font-size:10px;color:var(--red);font-weight:700;font-family:Roboto Mono,monospace;letter-spacing:.3px;margin-bottom:4px">BLOCKERS · NEEDS HELP</div>'
+              + '<ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6">'+_bk.map(function(b){return '<li>'+esc(b.text)+(b.helpFrom?' <span style="font-size:11px;color:var(--mut)">— help from: '+esc(b.helpFrom)+'</span>':'')+'</li>';}).join('')+'</ul>';
+            card.appendChild(bb);
+          }
           // Me (visibility-gated)
           if(ent.me && ent.me.text){
             var meVisible = ent.me.visibility === 'company' || isAd || x.email === me;
@@ -6093,7 +6172,7 @@ function promoteHighlightToReview(highlightText, krId){
 // Returns the user's HPM confidence trend for a given quarter cycle, for use
 // in the Review modal as a sparkline. cycle is like "Q2_2026".
 function _hpmConfidenceForQuarter(email, cycle){
-  var hpm = (typeof _loadHPM === 'function') ? (_loadHPM()[email] || {}) : {};
+  var hpm = (typeof _hpmEntriesFor === 'function') ? _hpmEntriesFor(email) : ((typeof _loadHPM === 'function') ? (_loadHPM()[email] || {}) : {});
   var match = cycle.match(/^Q(\d+)_(\d+)$/);
   if(!match) return [];
   var q = parseInt(match[1],10);
@@ -6647,6 +6726,7 @@ function renderPerfHPM(wrap, pd){
   var weekKey = _currentReportingWeek();
   var win = _hpmWindow(weekKey);
   var existing = _getMyHPM(me, weekKey) || _hpmBlankEntry(deptName);
+  if(!Array.isArray(existing.blockers) || !existing.blockers.length) existing.blockers = [{text:'', helpFrom:''}];
   var range = _weekRange(weekKey);
   var fmt = function(d){return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});};
 
@@ -6654,7 +6734,7 @@ function renderPerfHPM(wrap, pd){
   var hdr = document.createElement('div');
   hdr.style.cssText = 'margin-bottom:18px';
   hdr.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--txt);margin-bottom:4px">Weekly HPM <span style="font-size:11px;color:var(--mut);font-weight:500;font-family:Roboto Mono,monospace;margin-left:8px">'+weekKey+' &middot; '+fmt(range.monday)+' &mdash; '+fmt(range.sunday)+'</span></div>'
-    + '<div style="font-size:12px;color:var(--mut);line-height:1.55">Capture <b>Highlights</b> (outcomes that moved your OKRs), <b>Progress</b> (what\'s in flight), and <b>Me</b> (personal context). Confidence rating drives a weekly heartbeat that shows up in your Performance history and manager view.</div>';
+    + '<div style="font-size:12px;color:var(--mut);line-height:1.55">Capture <b>Highlights</b> (outcomes that moved your OKRs), <b>Progress</b> (what\'s in flight), <b>Blockers</b> (where you need help), and <b>Me</b> (personal context). Confidence rating drives a weekly heartbeat that shows up in your Performance history and manager view.</div>';
   wrap.appendChild(hdr);
 
   // Status & reminders (decommissioning banner + window-status banner) --
@@ -6817,6 +6897,70 @@ function renderPerfHPM(wrap, pd){
   form.appendChild(_buildLineSection('Highlights (Progress Toward OKRs)','What specific outcomes did you deliver last week that moved your OKRs forward? Tap \uD83D\uDD17 on a line to link it to a Key Result, promote it to your review, or remove it.',existing.highlights,'Add highlight',saveLocal));
   form.appendChild(_buildLineSection('Progress (Current Momentum)','What key initiatives, projects, or deliverables have advanced as we move into this week? Tap \uD83D\uDD17 on a line to link it to a Key Result or remove it.',existing.progress,'Add progress item',saveLocal));
 
+  // Blockers section — optional. Where does this person need help? Each line
+  // has the blocker itself plus an optional "who could help" field, so the
+  // team email can route asks to the right colleague.
+  var blkSec = document.createElement('div');
+  blkSec.style.cssText = 'margin-bottom:22px;padding-bottom:22px;border-bottom:1px solid var(--brd)';
+  blkSec.innerHTML = '<div class="hpm-sec-label" style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;flex-wrap:wrap"><div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.3px;font-family:Roboto Mono,monospace">Blockers (Where I Need Help) <span style="font-size:10px;color:var(--mut);font-weight:500;text-transform:none">optional</span></div><div style="font-size:11px;color:var(--mut)">What is slowing you down or stuck, and who could help? Leave blank if nothing is blocking you. Shared with your team in the weekly email.</div></div>';
+  var blkLines = document.createElement('div');
+  function renderBlockers(){
+    blkLines.innerHTML = '';
+    existing.blockers.forEach(function(b, idx){
+      var row = document.createElement('div');
+      row.className = 'hpm-row hpm-blk-row';
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap';
+      var bt = document.createElement('input');
+      bt.type = 'text';
+      bt.value = b.text || '';
+      bt.placeholder = idx === 0 ? 'e.g. Waiting on API credentials for the new provider integration' : '';
+      bt.style.cssText = 'flex:3;min-width:220px;padding:9px 12px;border:1px solid var(--brd);border-radius:6px;font-family:inherit;font-size:13px;color:var(--txt);background:var(--surf)';
+      bt.onchange = function(){ existing.blockers[idx].text = bt.value; saveLocal(); };
+      var hf = document.createElement('input');
+      hf.type = 'text';
+      hf.value = b.helpFrom || '';
+      hf.placeholder = 'Who could help? (optional)';
+      hf.setAttribute('list', 'hpm-blk-people');
+      hf.style.cssText = 'flex:1;min-width:150px;padding:9px 12px;border:1px solid var(--brd);border-radius:6px;font-family:inherit;font-size:12px;color:var(--txt);background:var(--surf)';
+      hf.onchange = function(){ existing.blockers[idx].helpFrom = hf.value; saveLocal(); };
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'hbtn';
+      del.style.cssText = 'flex-shrink:0;width:32px;height:32px;padding:0;border-radius:50%;font-size:13px;justify-content:center;color:var(--mut)';
+      del.innerHTML = '&times;';
+      del.title = 'Remove this blocker';
+      del.onclick = function(){ if(existing.blockers.length <= 1){ existing.blockers[0] = {text:'', helpFrom:''}; } else { existing.blockers.splice(idx, 1); } renderBlockers(); saveLocal(); };
+      row.appendChild(bt); row.appendChild(hf); row.appendChild(del);
+      blkLines.appendChild(row);
+    });
+    var addB = document.createElement('button');
+    addB.type = 'button';
+    addB.className = 'hbtn';
+    addB.style.cssText = 'font-size:12px;padding:6px 12px;margin-top:4px;color:var(--acc);border-color:var(--acc)';
+    addB.innerHTML = '+ Add blocker';
+    addB.onclick = function(){ existing.blockers.push({text:'', helpFrom:''}); renderBlockers(); saveLocal(); };
+    blkLines.appendChild(addB);
+  }
+  renderBlockers();
+  // Name suggestions for "who could help" — active colleagues + departments.
+  if(!document.getElementById('hpm-blk-people')){
+    var dl = document.createElement('datalist');
+    dl.id = 'hpm-blk-people';
+    var opts = [];
+    try {
+      Object.keys(USER_REGISTRY).forEach(function(e){
+        if(typeof ARCHIVED_USERS !== 'undefined' && ARCHIVED_USERS.indexOf(e) >= 0) return;
+        if(e === me) return;
+        opts.push(USER_REGISTRY[e].name);
+      });
+      (typeof DEPTS !== 'undefined' ? DEPTS : []).forEach(function(d){ opts.push(d + ' team'); });
+    } catch(_){}
+    opts.forEach(function(n){ var o = document.createElement('option'); o.value = n; dl.appendChild(o); });
+    document.body.appendChild(dl);
+  }
+  blkSec.appendChild(blkLines);
+  form.appendChild(blkSec);
+
   // Me section
   var meSec = document.createElement('div');
   meSec.style.cssText = 'margin-bottom:22px;padding-bottom:22px;border-bottom:1px solid var(--brd)';
@@ -6898,6 +7042,7 @@ function renderPerfHPM(wrap, pd){
     // Strip empty lines
     existing.highlights = existing.highlights.filter(function(h){return h.text && h.text.trim();});
     existing.progress = existing.progress.filter(function(p){return p.text && p.text.trim();});
+    existing.blockers = (existing.blockers||[]).filter(function(b){return b && b.text && b.text.trim();});
     existing.submittedAt = new Date().toISOString();
     existing.lastEditedAt = existing.submittedAt;
     existing.late = (win.status === 'closed-late-allowed');
@@ -6911,6 +7056,7 @@ function renderPerfHPM(wrap, pd){
     // believes they're recorded when the team-visible copy never landed.
     if(typeof RL_SRV !== 'undefined'){
       RL_SRV.pushHPM(me, weekKey, existing).then(function(r){
+        if(r && r.ok !== false){ try { _hpmVerifySubmit(me, weekKey, existing); } catch(_){} }
         if(!r || r.ok === false){
           var sessionIssue = !!(r && /session/.test(r.error||''));
           toast(sessionIssue
@@ -6986,8 +7132,9 @@ function renderPerfHPM(wrap, pd){
       var range = _weekRange(k);
       var hlCount = (h.highlights||[]).filter(function(x){return x.text;}).length;
       var prCount = (h.progress||[]).filter(function(x){return x.text;}).length;
+      var bkCount = (h.blockers||[]).filter(function(x){return x && x.text;}).length;
       card.innerHTML = '<div style="flex:1;min-width:200px"><div style="font-weight:700;color:var(--txt);font-size:13px">'+k+' <span style="color:var(--mut);font-weight:400;font-size:11px;margin-left:4px">'+fmt(range.monday)+' &mdash; '+fmt(range.sunday)+'</span>'+(h.late?' <span class="badge Critical" style="margin-left:6px">LATE</span>':'')+'</div>'
-        +'<div style="font-size:11px;color:var(--mut);margin-top:3px">'+hlCount+' highlight'+(hlCount===1?'':'s')+' &middot; '+prCount+' progress item'+(prCount===1?'':'s')+' &middot; submitted '+(h.submittedAt?new Date(h.submittedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—')+'</div></div>'
+        +'<div style="font-size:11px;color:var(--mut);margin-top:3px">'+hlCount+' highlight'+(hlCount===1?'':'s')+' &middot; '+prCount+' progress item'+(prCount===1?'':'s')+(bkCount?' &middot; <span style="color:var(--red)">'+bkCount+' blocker'+(bkCount===1?'':'s')+'</span>':'')+' &middot; submitted '+(h.submittedAt?new Date(h.submittedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—')+'</div></div>'
         +'<div style="text-align:right"><div style="font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace">CONFIDENCE</div><div style="font-size:14px;font-weight:700;color:'+(h.confidence<=2?'var(--red)':h.confidence===3?'var(--yel)':'var(--grn)')+'">★'.repeat(h.confidence||0)+'<span style="color:var(--mut)">'+'☆'.repeat(5-(h.confidence||0))+'</span></div></div>';
       wrap.appendChild(card);
     });
