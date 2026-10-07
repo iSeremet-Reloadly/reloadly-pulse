@@ -23530,13 +23530,42 @@ var TH = (function(){
   var SCOL = { 'Completed': '#7700ff', 'On track': '#0a8f5e', 'At Risk': '#c98a00', 'Off Track': '#e12416', 'Not started': '#8a909c' };
   var NAVY = '#01112e', PURPLE = '#7700ff';
   var CHARTS = [
-    { id: 'th-c1', title: 'HPM participation by week', sub: '% of expected people who submitted (leave excluded)' },
-    { id: 'th-c2', title: 'HPM participation by department', sub: 'Average across the selected weeks' },
-    { id: 'th-c3', title: 'Average confidence by week', sub: 'Self-rated, 1–5 scale' },
-    { id: 'th-c4', title: 'Blockers raised by department', sub: 'Total across the selected weeks' },
-    { id: 'th-c5', title: 'Key results by status', sub: 'All KRs in the quarter' },
-    { id: 'th-c6', title: 'OKR progress by department', sub: 'Average KR progress vs. time elapsed' }
+    { id: 'th-c1', title: 'HPM participation by week', sub: '% of expected people who submitted (leave excluded)',
+      info: 'Each week\'s submission rate: people who submitted their HPM ÷ people expected to (active staff with a department, not on approved leave). Only weeks whose HPM window has closed are shown.' },
+    { id: 'th-c2', title: 'HPM participation by department', sub: 'Average across the selected weeks',
+      info: 'Submission rate per department across all weeks in the range: total submissions ÷ total expected submissions for that team.' },
+    { id: 'th-c3', title: 'Average confidence by week', sub: 'Self-rated, 1–5 scale',
+      info: 'The average of the 1–5 confidence rating people give in their HPM each week (5 = very confident about their priorities). Only submitted HPMs count.' },
+    { id: 'th-c4', title: 'Blockers raised by department', sub: 'Total across the selected weeks',
+      info: 'How many blockers each department added to their HPMs in the range. A blocker is something a person needs help with — this shows where support is needed, not how a team is performing.' },
+    { id: 'th-c5', title: 'Key results by status', sub: 'All KRs in the quarter',
+      info: 'Number of key results in each status, as set by KR owners in the OKR Tracker. A KR at 100% progress counts as Completed. Includes company, department and individual KRs.' },
+    { id: 'th-c6', title: 'OKR progress by department', sub: 'Average KR progress vs. time elapsed',
+      info: 'Average progress of each department\'s key results. The dashed line marks how much of the quarter has passed — a bar to the left of the line is behind pace.' }
   ];
+  var INFO = {
+    participation: 'Share of expected people who submitted their weekly HPM, across the closed weeks in the range. People on approved leave aren\'t expected. The change compares with the same number of weeks just before.',
+    confidence: 'Average of the 1–5 confidence rating in every HPM submitted in the range. The change compares with the previous period.',
+    blockers: 'Total blockers added to HPMs in the range — each blocker counts once. The change compares with the previous period.',
+    okrProgress: 'Average progress across all key results in the quarter (company, department and individual). Compare it with how much of the quarter has passed.',
+    krs: 'Key results marked On track or Completed (or at 100% progress), out of all key results in the quarter.',
+    summary: 'Written automatically from the numbers on this page. "AI summary" rewrites it for an all-staff audience — check it before presenting.',
+    completed: 'Key results marked Completed or at 100% progress this quarter.',
+    risk: 'Key results their owners have marked At Risk or Off Track, lowest progress first.'
+  };
+  // Small "i" icon with a hover/tap description. Injects its CSS once.
+  function infoIcon(text, right){
+    if (!document.getElementById('th-info-css')) {
+      var st = document.createElement('style'); st.id = 'th-info-css';
+      st.textContent = '.th-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--mut);color:var(--mut);font:italic 700 9px Georgia,serif;cursor:help;margin-left:6px;vertical-align:1px;text-transform:none;letter-spacing:0;outline:none;flex:none}' +
+        '.th-i:hover,.th-i:focus{border-color:var(--acc);color:var(--acc)}' +
+        '.th-i .th-tip{display:none;position:absolute;z-index:60;top:20px;left:-10px;width:250px;background:#18181f;color:#e4e4f0;border:1px solid #333a4d;border-radius:8px;padding:9px 11px;font:400 11.5px/1.5 Helvetica,Arial,sans-serif;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.35);white-space:normal}' +
+        '.th-i.th-r .th-tip{left:auto;right:-10px}' +
+        '.th-i:hover .th-tip,.th-i:focus .th-tip{display:block}';
+      document.head.appendChild(st);
+    }
+    return '<span class="th-i' + (right ? ' th-r' : '') + '" tabindex="0" role="button" aria-label="' + esc(text) + '">i<span class="th-tip">' + esc(text) + '</span></span>';
+  }
 
   // ── dates & weeks ─────────────────────────────────────────────────────────
   function pad(n){ return n < 10 ? '0' + n : String(n); }
@@ -23688,6 +23717,7 @@ var TH = (function(){
       b.push(o.label + ' OKRs: average progress ' + o.avg + '%' + (o.elapsed != null ? ' with ' + o.elapsed + '% of the quarter elapsed' : '') + '; ' + good + ' of ' + o.total + ' KRs on track or completed, ' + bad + ' at risk or off track.');
       if (o.counts['Completed']) b.push(o.counts['Completed'] + ' key result' + (o.counts['Completed'] === 1 ? '' : 's') + ' completed so far.');
     } else b.push('No OKRs found for ' + o.label + ' yet.');
+    if (o.fallbackFrom && o.total) b[b.length - (o.counts['Completed'] ? 2 : 1)] += ' (' + o.fallbackFrom + ' OKRs are not set up yet.)';
     return b;
   }
   function summaryText(m){ return ST.ai || bullets(m).map(function(x){ return '• ' + x; }).join('\n'); }
@@ -23701,7 +23731,19 @@ var TH = (function(){
       from: from, to: to, open: wb.open,
       hpm: hpmMetrics(subs, wb.weeks),
       prev: (function(){ var pm = prevWeeks.length ? hpmMetrics(subs, prevWeeks) : null; return (pm && pm.weeks.length) ? pm : null; })(),
-      okr: okrMetrics(ST.quarter || quarterFor(to), addDays(to, 1)),
+      okr: (function(){
+        var auto = quarterFor(to), om = okrMetrics(ST.quarter || auto, addDays(to, 1));
+        if (ST.quarter || om.total) return om;
+        // Auto mode and the end date's quarter has no KRs yet (e.g. a new
+        // quarter not set up) — fall back to the latest earlier quarter with KRs.
+        var keys = quarterKeys(), v = function(k){ var p = k.split('_'); return +p[1] * 10 + +p[0][1]; };
+        for (var i = 0; i < keys.length; i++) {
+          if (v(keys[i]) >= v(auto)) continue;
+          var alt = okrMetrics(keys[i], addDays(to, 1));
+          if (alt.total) { alt.fallbackFrom = om.label; return alt; }
+        }
+        return om;
+      })(),
       blockers: blockerTexts(subs, wb.weeks)
     };
     return ST.m;
@@ -23792,16 +23834,16 @@ var TH = (function(){
     var good = o.counts['On track'] + o.counts['Completed'];
     var tone = function(d){ return d == null ? '' : d > 0 ? 'up' : d < 0 ? 'down' : ''; };
     return [
-      { l: 'HPM participation', v: h.pct == null ? '—' : h.pct + '%', s: dp == null ? h.weeks.length + ' weeks' : sgn(dp, ' pts') + ' vs. prev. period', t: tone(dp) },
-      { l: 'Avg. confidence', v: h.conf == null ? '—' : h.conf + '/5', s: dc == null ? '' : sgn(dc, '') + ' vs. prev. period', t: tone(dc) },
-      { l: 'Blockers raised', v: String(h.blockers), s: db == null ? '' : sgn(db, '') + ' vs. prev. period', t: '' },
-      { l: o.label + ' OKR progress', v: o.total ? o.avg + '%' : '—', s: o.elapsed != null ? o.elapsed + '% of quarter elapsed' : '', t: '' },
-      { l: 'KRs on track / done', v: o.total ? good + ' of ' + o.total : '—', s: o.total ? (o.counts['At Risk'] + o.counts['Off Track']) + ' at risk or off track' : '', t: '' }
+      { i: INFO.participation, l: 'HPM participation', v: h.pct == null ? '—' : h.pct + '%', s: dp == null ? h.weeks.length + ' weeks' : sgn(dp, ' pts') + ' vs. prev. period', t: tone(dp) },
+      { i: INFO.confidence, l: 'Avg. confidence', v: h.conf == null ? '—' : h.conf + '/5', s: dc == null ? '' : sgn(dc, '') + ' vs. prev. period', t: tone(dc) },
+      { i: INFO.blockers, l: 'Blockers raised', v: String(h.blockers), s: db == null ? '' : sgn(db, '') + ' vs. prev. period', t: '' },
+      { i: INFO.okrProgress, l: o.label + ' OKR progress', v: o.total ? o.avg + '%' : '—', s: o.elapsed != null ? o.elapsed + '% of quarter elapsed' : '', t: '' },
+      { i: INFO.krs, l: 'KRs on track / done', v: o.total ? good + ' of ' + o.total : '—', s: o.total ? (o.counts['At Risk'] + o.counts['Off Track']) + ' at risk or off track' : '', t: '' }
     ];
   }
-  function tileHtml(x){
+  function tileHtml(x, idx){
     return '<div style="background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:14px 16px;min-width:0">' +
-      '<div style="font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut);font-weight:700">' + esc(x.l) + '</div>' +
+      '<div style="font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut);font-weight:700;display:flex;align-items:center">' + esc(x.l) + (x.i ? infoIcon(x.i, idx >= 3) : '') + '</div>' +
       '<div style="font-size:26px;font-weight:800;color:var(--txt);margin-top:4px;line-height:1.1">' + esc(x.v) + '</div>' +
       '<div style="font-size:11px;margin-top:4px;color:' + (x.t === 'up' ? 'var(--grn)' : x.t === 'down' ? 'var(--red)' : 'var(--mut)') + '">' + esc(x.s || '') + '</div></div>';
   }
@@ -23866,23 +23908,24 @@ var TH = (function(){
     html += '<div style="font-size:12px;color:var(--mut);margin-bottom:10px">' + esc(periodLabel(m)) + ' · ' + m.hpm.weeks.length + ' closed HPM week' + (m.hpm.weeks.length === 1 ? '' : 's') +
       (m.hpm.weeks.length ? ' (' + shortWk(m.hpm.weeks[0].key) + '–' + shortWk(m.hpm.weeks[m.hpm.weeks.length - 1].key) + ')' : '') +
       (m.open.length ? ' · ' + m.open.length + ' still-open week' + (m.open.length === 1 ? '' : 's') + ' excluded' : '') +
-      ' · ' + m.hpm.people + ' people · OKRs ' + esc(o.label) + '</div>';
+      ' · ' + m.hpm.people + ' people · OKRs ' + esc(o.label) + '</div>' +
+      (o.fallbackFrom ? '<div style="font-size:12px;color:var(--yel);margin:-4px 0 10px">No OKRs set for ' + esc(o.fallbackFrom) + ' yet, so OKR figures show ' + esc(o.label) + '. Pick a quarter above to change this.</div>' : '');
     if (!m.hpm.weeks.length) html += '<div style="' + card + ';color:var(--yel);font-size:12px;margin-bottom:12px">No closed HPM weeks with submissions in this range — widen the dates.</div>';
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">' + tiles(m).map(tileHtml).join('') + '</div>';
-    html += '<div style="' + card + ';margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-size:12px;font-weight:800;color:var(--txt)">Summary' +
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">' + tiles(m).map(function(x, i){ return tileHtml(x, i); }).join('') + '</div>';
+    html += '<div style="' + card + ';margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-size:12px;font-weight:800;color:var(--txt)">Summary' + infoIcon(INFO.summary) +
       (ST.ai ? ' <span style="font-weight:600;color:var(--mut)">· AI-written, check before presenting</span>' : '') + '</div>' +
       (ST.ai ? '<button id="th-ai-reset" style="font-size:11px;background:none;border:none;color:var(--acc);cursor:pointer">Use standard summary</button>' : '') +
       '</div><div style="font-size:13px;color:var(--txt);line-height:1.65;white-space:pre-wrap;margin-top:6px">' + esc(summaryText(m)) + '</div></div>';
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:12px">' + CHARTS.map(function(c){
-      return '<div style="' + card + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><div style="font-size:12px;font-weight:800;color:var(--txt)">' + esc(c.title) + '</div><div style="font-size:11px;color:var(--mut)">' + esc(c.sub) + '</div></div>' +
+      return '<div style="' + card + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><div style="font-size:12px;font-weight:800;color:var(--txt)">' + esc(c.title) + infoIcon(c.info) + '</div><div style="font-size:11px;color:var(--mut)">' + esc(c.sub) + '</div></div>' +
         '<button data-png="' + c.id + '" title="Download this chart as a PNG" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--brd);background:var(--surf2);color:var(--txt);cursor:pointer">PNG</button></div>' +
         '<div style="position:relative;height:240px;margin-top:8px"><canvas id="' + c.id + '"></canvas></div></div>';
     }).join('') + '</div>';
     var li = function(k, extra){ return '<li style="margin-bottom:5px">' + esc(k.title) + ' <span style="color:var(--mut)">· ' + esc(k.dept) + (extra || '') + '</span></li>'; };
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:12px">' +
-      '<div style="' + card + '"><div style="font-size:12px;font-weight:800;color:var(--txt)">Completed key results (' + o.completed.length + ')</div><ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--txt);line-height:1.5">' +
+      '<div style="' + card + '"><div style="font-size:12px;font-weight:800;color:var(--txt)">Completed key results (' + o.completed.length + ')' + infoIcon(INFO.completed) + '</div><ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--txt);line-height:1.5">' +
         (o.completed.length ? o.completed.slice(0, 10).map(function(k){ return li(k); }).join('') : '<li style="color:var(--mut)">None yet</li>') + '</ul></div>' +
-      '<div style="' + card + '"><div style="font-size:12px;font-weight:800;color:var(--txt)">At risk / off track (' + o.risk.length + ')</div><ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--txt);line-height:1.5">' +
+      '<div style="' + card + '"><div style="font-size:12px;font-weight:800;color:var(--txt)">At risk / off track (' + o.risk.length + ')' + infoIcon(INFO.risk) + '</div><ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--txt);line-height:1.5">' +
         (o.risk.length ? o.risk.slice(0, 10).map(function(k){ return li(k, ' · <b style="color:' + SCOL[k.status] + '">' + k.status + '</b> · ' + k.progress + '%'); }).join('') : '<li style="color:var(--mut)">None</li>') + '</ul></div></div>';
     body.innerHTML = html;
     var cf = configs(m, false);
@@ -23895,6 +23938,7 @@ var TH = (function(){
 
   // ── export helpers ────────────────────────────────────────────────────────
   function titleOf(id){ for (var i = 0; i < CHARTS.length; i++) if (CHARTS[i].id === id) return CHARTS[i].title; return id; }
+  function infoOf(id){ for (var i = 0; i < CHARTS.length; i++) if (CHARTS[i].id === id) return CHARTS[i].info; return ''; }
   function subOf(id){ for (var i = 0; i < CHARTS.length; i++) if (CHARTS[i].id === id) return CHARTS[i].sub; return ''; }
   function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function fileBase(m){ return 'Pulse_TownHall_' + ymd(m.from) + '_to_' + ymd(m.to); }
@@ -23988,6 +24032,7 @@ var TH = (function(){
       // text lands at ~11pt on the slide.
       var bw = w, bh = h - 0.75, PW = 1100, PH = Math.round(PW * bh / bw);
       s.addImage({ data: renderPng(m, id, PW, PH, 28), x: x, y: y + 0.75, w: bw, h: bh });
+      (s._thNotes = s._thNotes || []).push(titleOf(id) + ': ' + infoOf(id));
     }
     function bulletList(s, arr, x, y, w, h, size){
       s.addText(arr.map(function(t){ return { text: t, options: { bullet: true, breakLine: true, paraSpaceAfter: 6 } }; }), { x: x, y: y, w: w, h: h, fontFace: FONT, fontSize: size || 14, color: '01112E', valign: 'top', margin: 0 });
@@ -24010,15 +24055,16 @@ var TH = (function(){
       g.addText(x.v, { x: tx + 0.22, y: 2.12, w: tw - 0.32, h: 0.6, fontFace: FONT, fontSize: 28, bold: true, color: '01112E', margin: 0 });
       g.addText(x.s || '', { x: tx + 0.22, y: 2.78, w: tw - 0.32, h: 0.45, fontFace: FONT, fontSize: 11, color: x.t === 'up' ? '0A8F5E' : x.t === 'down' ? 'E12416' : '525866', valign: 'top', margin: 0 });
     });
+    g.addNotes(tiles(m).map(function(x){ return x.l + ': ' + x.i; }).join('\n\n'));
     g.addText('Summary', { x: 0.6, y: 3.65, w: 12, h: 0.4, fontFace: FONT, fontSize: 16, bold: true, color: '01112E', margin: 0 });
     bulletList(g, b.slice(0, 7), 0.6, 4.1, 12.1, 2.85, 14);
 
     var s3 = std('HPM participation', 'Weekly check-ins');
-    chartBox(s3, 'th-c1', 0.6, 1.5, 5.95, 5.4); chartBox(s3, 'th-c2', 6.78, 1.5, 5.95, 5.4);
+    chartBox(s3, 'th-c1', 0.6, 1.5, 5.95, 5.4); chartBox(s3, 'th-c2', 6.78, 1.5, 5.95, 5.4); s3.addNotes(s3._thNotes.join('\n\n'));
     var s4 = std('Confidence & blockers', 'Weekly check-ins');
-    chartBox(s4, 'th-c3', 0.6, 1.5, 5.95, 5.4); chartBox(s4, 'th-c4', 6.78, 1.5, 5.95, 5.4);
+    chartBox(s4, 'th-c3', 0.6, 1.5, 5.95, 5.4); chartBox(s4, 'th-c4', 6.78, 1.5, 5.95, 5.4); s4.addNotes(s4._thNotes.join('\n\n'));
     var s5 = std('OKR health — ' + m.okr.label, 'Objectives & key results');
-    chartBox(s5, 'th-c5', 0.6, 1.5, 5.95, 5.4); chartBox(s5, 'th-c6', 6.78, 1.5, 5.95, 5.4);
+    chartBox(s5, 'th-c5', 0.6, 1.5, 5.95, 5.4); chartBox(s5, 'th-c6', 6.78, 1.5, 5.95, 5.4); s5.addNotes(s5._thNotes.join('\n\n'));
 
     var s6 = std('OKR highlights — ' + m.okr.label, 'Objectives & key results');
     s6.addText('Completed (' + m.okr.completed.length + ')', { x: 0.6, y: 1.5, w: 5.95, h: 0.4, fontFace: FONT, fontSize: 16, bold: true, color: '7700FF', margin: 0 });
