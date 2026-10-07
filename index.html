@@ -1314,6 +1314,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     </div>
     <div class="sb-lbl">TOOLS</div>
     <div class="ni" id="nav-perf" onclick="go('perf')"><div class="ni-l"><div class="dd" style="background:#8b5cf6"></div>Performance</div></div>
+    <div class="ni" id="nav-townhall" onclick="go('townhall')" style="display:none" title="HPM & OKR metrics for the town hall deck (admins only)"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#7700ff,#09faa3)"></div>Town Hall Metrics</div></div>
     <div class="ni" id="nav-reminders" onclick="go('reminders')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Reminders</div><div class="cnt" id="c-reminders"></div></div>
     <div class="ni" id="nav-help" onclick="showFullGuide()" title="Open the full Pulse user guide"><div class="ni-l"><div class="dd" style="background:#10b981"></div>How to Use</div></div>
     <div class="ni" id="nav-admin" onclick="go('admin')" style="display:none"><div class="ni-l"><div class="dd" style="background:var(--acc)"></div>User Management</div></div>
@@ -2371,6 +2372,7 @@ function renderUserPill(){
   var expBtn=document.getElementById('export-btn');
   if(expBtn)expBtn.style.display=currentUser.canExport?'flex':'none';
   var an=document.getElementById('nav-admin');if(an)an.style.display=isAdmin()?'flex':'none';
+  var thn=document.getElementById('nav-townhall');if(thn)thn.style.display=isAdmin()?'flex':'none';
   // Sidebar group container: show if the user has access to ANY of the three modules.
   var _canPricing = canAccessPricing();
   var _canProposals = canAccessProposals();
@@ -3520,6 +3522,7 @@ function render(){
   else if(view==='mytasks')renderMyTasks();
   else if(view==='okr')renderOKR();
   else if(view==='perf')renderPerf();
+  else if(view==='townhall')TH.render();
   else if(view==='strategy')STRAT.renderStrategy();
   else if(view==='pricing')SUP.renderPricing();
   else if(view==='proposals')PP.renderProposals();
@@ -3559,6 +3562,7 @@ var _ROUTE_ALIASES = {
   'proposals': 'proposals', 'proposal': 'proposals',
   'users': 'users', 'usermgmt': 'users', 'user-management': 'users', 'usermanagement': 'users',
   'reminders': 'reminders',
+  'townhall': 'townhall', 'town-hall': 'townhall',
   'timeline': 'timeline',
   'help': 'help'
 };
@@ -3590,6 +3594,7 @@ function go(v){
   if(v==='pricing' && !canAccessPricing()){if(typeof toast==='function')toast('Access restricted','err');return;}
   if(v==='proposals' && !canAccessProposals()){if(typeof toast==='function')toast('Access restricted','err');return;}
   if(v==='funding' && !canAccessWalletOps()){if(typeof toast==='function')toast('Access restricted','err');return;}
+  if(v==='townhall' && !isAdmin()){if(typeof toast==='function')toast('Access restricted','err');return;}
   view=v;fStatus='All';fSearch='';
   document.querySelectorAll('.ni').forEach(function(e){e.classList.remove('active');});
   var el=document.getElementById('nav-'+v);if(el)el.classList.add('active');
@@ -23508,6 +23513,546 @@ var FUND=(function(){
 <script>
 init();
 </script>
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// TOWN HALL METRICS (added 2026-10-07) — admin-only view that pulls HPM and
+// OKR metrics for a chosen date range and exports them in one click as a
+// ready-made .pptx (charts + summaries) and/or a .zip of PNG charts, for the
+// company town hall deck. Deliberately shows NO individual names anywhere —
+// only departments, counts, percentages and KR titles.
+// HPM source: Worker get_hpm_all (+ leave). OKR source: the synced
+// per-quarter blobs (loadOKRForQuarter). Charts: Chart.js (already loaded).
+// Export libs (PptxGenJS, JSZip) are lazy-loaded from jsDelivr on first click.
+// ═══════════════════════════════════════════════════════════════════════════
+var TH = (function(){
+  var ST = { preset: '4w', from: null, to: null, quarter: null, subs: null, loadedAt: 0, ai: null, m: null, loadErr: null };
+  var STATUS = ['Completed', 'On track', 'At Risk', 'Off Track', 'Not started'];
+  var SCOL = { 'Completed': '#7700ff', 'On track': '#0a8f5e', 'At Risk': '#c98a00', 'Off Track': '#e12416', 'Not started': '#8a909c' };
+  var NAVY = '#01112e', PURPLE = '#7700ff';
+  var CHARTS = [
+    { id: 'th-c1', title: 'HPM participation by week', sub: '% of expected people who submitted (leave excluded)' },
+    { id: 'th-c2', title: 'HPM participation by department', sub: 'Average across the selected weeks' },
+    { id: 'th-c3', title: 'Average confidence by week', sub: 'Self-rated, 1–5 scale' },
+    { id: 'th-c4', title: 'Blockers raised by department', sub: 'Total across the selected weeks' },
+    { id: 'th-c5', title: 'Key results by status', sub: 'All KRs in the quarter' },
+    { id: 'th-c6', title: 'OKR progress by department', sub: 'Average KR progress vs. time elapsed' }
+  ];
+
+  // ── dates & weeks ─────────────────────────────────────────────────────────
+  function pad(n){ return n < 10 ? '0' + n : String(n); }
+  function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parseYmd(s){ var p = String(s).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function addDays(d, n){ var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  function monday(d){ var x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); var dow = (x.getDay() + 6) % 7; return addDays(x, -dow); }
+  function isoWeekKey(d){
+    var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    var dn = (t.getUTCDay() + 6) % 7; t.setUTCDate(t.getUTCDate() - dn + 3);
+    var ft = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+    return t.getUTCFullYear() + '-W' + pad(1 + Math.round(((t - ft) / 86400000) / 7));
+  }
+  function fmtDate(d){ return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
+  function presetRange(p){
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    if (p === 'mtd') return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: today };
+    if (p === 'lm') return { from: new Date(today.getFullYear(), today.getMonth() - 1, 1), to: new Date(today.getFullYear(), today.getMonth(), 0) };
+    if (p === 'qtd') return { from: new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1), to: today };
+    if (p === '8w') return { from: addDays(today, -55), to: today };
+    if (p === '13w') return { from: addDays(today, -90), to: today };
+    return { from: addDays(today, -27), to: today };
+  }
+  // A week's HPM window closes Monday 23:59 of the following week — weeks
+  // still open are excluded so a half-filled week never drags the averages.
+  function weeksBetween(from, to){
+    var out = [], open = [], now = new Date();
+    for (var m = monday(from); m <= to; m = addDays(m, 7)) {
+      var closes = addDays(m, 8); // Tue 00:00 after the following Monday
+      (closes <= now ? out : open).push({ key: isoWeekKey(m), monday: new Date(m) });
+    }
+    return { weeks: out, open: open };
+  }
+
+  // ── HPM metrics ───────────────────────────────────────────────────────────
+  function roster(){
+    var out = [];
+    var reg = (typeof USER_REGISTRY === 'object' && USER_REGISTRY) ? USER_REGISTRY : {};
+    Object.keys(reg).forEach(function(em){
+      var u = reg[em] || {};
+      var arch = (typeof _rlIsArchived === 'function') ? _rlIsArchived(em, u) : u.archived === true;
+      if (arch) return;
+      if (!u.dept || DEPTS.indexOf(u.dept) < 0) return;
+      out.push({ email: em.toLowerCase(), dept: u.dept });
+    });
+    return out;
+  }
+  function onLeave(email, wk){
+    var a = ymd(wk.monday), b = ymd(addDays(wk.monday, 6));
+    var lv = (typeof _LEAVE_CACHE !== 'undefined' && Array.isArray(_LEAVE_CACHE)) ? _LEAVE_CACHE : [];
+    return lv.some(function(l){ return l && l.email && l.email.toLowerCase() === email && l.startDate <= b && l.endDate >= a; });
+  }
+  // Weeks where nobody at all submitted (e.g. before HPMs existed, or holiday
+  // shutdowns) are treated as "no data" rather than 0% participation.
+  function hpmMetrics(subs, weeks){
+    var ros = roster(), byWeek = [], dept = {};
+    weeks = weeks.filter(function(wk){ return ros.some(function(r){ var e = (subs[r.email] || {})[wk.key]; return e && e.submittedAt; }); });
+    DEPTS.forEach(function(d){ dept[d] = { exp: 0, sub: 0, blockers: 0, confSum: 0, confN: 0, people: 0 }; });
+    ros.forEach(function(r){ dept[r.dept].people++; });
+    var tot = { exp: 0, sub: 0, blockers: 0, confSum: 0, confN: 0 };
+    weeks.forEach(function(wk){
+      var w = { key: wk.key, exp: 0, sub: 0, confSum: 0, confN: 0 };
+      ros.forEach(function(r){
+        if (onLeave(r.email, wk)) return;
+        w.exp++; dept[r.dept].exp++;
+        var e = (subs[r.email] || {})[wk.key];
+        if (!e || !e.submittedAt) return;
+        w.sub++; dept[r.dept].sub++;
+        var c = Number(e.confidence);
+        if (c) { w.confSum += c; w.confN++; dept[r.dept].confSum += c; dept[r.dept].confN++; }
+        var nb = (e.blockers || []).filter(function(b){ return b && b.text; }).length;
+        dept[r.dept].blockers += nb; tot.blockers += nb;
+      });
+      tot.exp += w.exp; tot.sub += w.sub; tot.confSum += w.confSum; tot.confN += w.confN;
+      w.pct = w.exp ? Math.round(w.sub * 100 / w.exp) : null;
+      w.conf = w.confN ? Math.round(w.confSum * 10 / w.confN) / 10 : null;
+      byWeek.push(w);
+    });
+    var depts = DEPTS.filter(function(d){ return dept[d].people > 0; }).map(function(d){
+      var x = dept[d];
+      return { dept: d, pct: x.exp ? Math.round(x.sub * 100 / x.exp) : null, conf: x.confN ? Math.round(x.confSum * 10 / x.confN) / 10 : null, blockers: x.blockers, people: x.people };
+    });
+    return {
+      weeks: byWeek, depts: depts, people: ros.length,
+      pct: tot.exp ? Math.round(tot.sub * 100 / tot.exp) : null,
+      conf: tot.confN ? Math.round(tot.confSum * 10 / tot.confN) / 10 : null,
+      blockers: tot.blockers, submissions: tot.sub
+    };
+  }
+  function blockerTexts(subs, weeks){
+    var keys = weeks.map(function(w){ return w.key; }), out = [];
+    roster().forEach(function(r){ keys.forEach(function(k){
+      var e = (subs[r.email] || {})[k];
+      ((e && e.blockers) || []).forEach(function(b){ if (b && b.text) out.push({ dept: r.dept, text: b.text }); });
+    }); });
+    return out;
+  }
+
+  // ── OKR metrics ───────────────────────────────────────────────────────────
+  function quarterKeys(){
+    var ks = {};
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); var mm = k && k.match(/^rl_okr_(Q[1-4]_\d{4})$/); if (mm) ks[mm[1]] = 1; } } catch (e) {}
+    try { ks[getCurrentOKRKey()] = 1; } catch (e) {}
+    return Object.keys(ks).sort(function(a, b){ var pa = a.split('_'), pb = b.split('_'); return (+pb[1] * 10 + +pb[0][1]) - (+pa[1] * 10 + +pa[0][1]); });
+  }
+  function quarterFor(d){ return 'Q' + (Math.floor(d.getMonth() / 3) + 1) + '_' + d.getFullYear(); }
+  function qLabel(k){ return (typeof quarterLabel === 'function') ? quarterLabel(k) : String(k).replace('_', ' '); }
+  function okrMetrics(qKey, asOf){
+    var data = null; try { data = loadOKRForQuarter(qKey); } catch (e) {}
+    var res = { key: qKey, label: qLabel(qKey), total: 0, objectives: 0, counts: {}, depts: [], avg: 0, elapsed: null, completed: [], risk: [] };
+    STATUS.forEach(function(s){ res.counts[s] = 0; });
+    if (!data || !data.depts) return res;
+    var s = data.startDate ? parseYmd(data.startDate) : null, e = data.endDate ? addDays(parseYmd(data.endDate), 1) : null;
+    if (s && e && e > s) res.elapsed = Math.max(0, Math.min(100, Math.round((Math.min(asOf, e) - s) * 100 / (e - s))));
+    var sum = 0;
+    Object.keys(data.depts).forEach(function(dn){
+      var d = data.depts[dn] || {}, dsum = 0, dcount = 0;
+      (d.objectives || []).forEach(function(o){
+        res.objectives++;
+        (o.krs || []).forEach(function(kr){
+          if (!kr) return;
+          var p = Math.max(0, Math.min(100, Number(kr.progress) || 0));
+          var c = STATUS.indexOf(kr.confidence) >= 0 ? kr.confidence : 'Not started';
+          if (p >= 100 && c !== 'Off Track') c = 'Completed';
+          res.counts[c]++; res.total++; sum += p; dsum += p; dcount++;
+          if (c === 'Completed') res.completed.push({ title: kr.title || '', dept: dn });
+          if (c === 'At Risk' || c === 'Off Track') res.risk.push({ title: kr.title || '', dept: dn, status: c, progress: p });
+        });
+      });
+      if (dcount) res.depts.push({ dept: dn, avg: Math.round(dsum / dcount), krs: dcount });
+    });
+    res.avg = res.total ? Math.round(sum / res.total) : 0;
+    res.risk.sort(function(a, b){ return (b.status === 'Off Track') - (a.status === 'Off Track') || a.progress - b.progress; });
+    return res;
+  }
+
+  // ── summary ───────────────────────────────────────────────────────────────
+  function sgn(n, u){ return n == null ? '' : (n > 0 ? '+' : n < 0 ? '−' : '±') + Math.abs(n) + u; }
+  function bullets(m){
+    var h = m.hpm, p = m.prev, o = m.okr, b = [];
+    if (h.pct != null) b.push('HPM participation averaged ' + h.pct + '% across ' + h.weeks.length + ' week' + (h.weeks.length === 1 ? '' : 's') + (p && p.pct != null ? ' (' + sgn(h.pct - p.pct, ' pts') + ' vs. the previous ' + p.weeks.length + ' weeks)' : '') + '.');
+    var ds = h.depts.filter(function(d){ return d.pct != null; }).slice().sort(function(a, c){ return c.pct - a.pct; });
+    if (ds.length > 1) b.push('Highest participation: ' + ds[0].dept + ' (' + ds[0].pct + '%). Most room to grow: ' + ds[ds.length - 1].dept + ' (' + ds[ds.length - 1].pct + '%).');
+    if (h.conf != null) b.push('Average confidence was ' + h.conf + '/5' + (p && p.conf != null ? ' (' + (h.conf === p.conf ? 'unchanged' : 'previously ' + p.conf) + ')' : '') + '.');
+    if (h.blockers) { var top = h.depts.slice().sort(function(a, c){ return c.blockers - a.blockers; })[0]; b.push(h.blockers + ' blocker' + (h.blockers === 1 ? '' : 's') + ' raised' + (top && top.blockers ? ', most in ' + top.dept + ' (' + top.blockers + ')' : '') + '.'); }
+    else if (h.weeks.length) b.push('No blockers were raised in this period.');
+    if (o.total) {
+      var good = o.counts['On track'] + o.counts['Completed'], bad = o.counts['At Risk'] + o.counts['Off Track'];
+      b.push(o.label + ' OKRs: average progress ' + o.avg + '%' + (o.elapsed != null ? ' with ' + o.elapsed + '% of the quarter elapsed' : '') + '; ' + good + ' of ' + o.total + ' KRs on track or completed, ' + bad + ' at risk or off track.');
+      if (o.counts['Completed']) b.push(o.counts['Completed'] + ' key result' + (o.counts['Completed'] === 1 ? '' : 's') + ' completed so far.');
+    } else b.push('No OKRs found for ' + o.label + ' yet.');
+    return b;
+  }
+  function summaryText(m){ return ST.ai || bullets(m).map(function(x){ return '• ' + x; }).join('\n'); }
+
+  // ── compute ───────────────────────────────────────────────────────────────
+  function compute(){
+    var from = ST.from, to = ST.to, wb = weeksBetween(from, to), n = wb.weeks.length, prevWeeks = [];
+    for (var i = n; i >= 1 && n; i--) { var mon = addDays(wb.weeks[0].monday, -7 * i); prevWeeks.push({ key: isoWeekKey(mon), monday: mon }); }
+    var subs = ST.subs || {};
+    ST.m = {
+      from: from, to: to, open: wb.open,
+      hpm: hpmMetrics(subs, wb.weeks),
+      prev: (function(){ var pm = prevWeeks.length ? hpmMetrics(subs, prevWeeks) : null; return (pm && pm.weeks.length) ? pm : null; })(),
+      okr: okrMetrics(ST.quarter || quarterFor(to), addDays(to, 1)),
+      blockers: blockerTexts(subs, wb.weeks)
+    };
+    return ST.m;
+  }
+
+  // ── chart configs (shared by screen + export) ────────────────────────────
+  function theme(exp){
+    if (exp) return { txt: NAVY, mut: '#525866', grid: '#e1e4ea', bg: '#ffffff', f: exp.f, ft: exp.f + 2 };
+    var cs = getComputedStyle(document.documentElement);
+    return { txt: (cs.getPropertyValue('--txt') || '#e1e4ea').trim(), mut: (cs.getPropertyValue('--mut') || '#717784').trim(), grid: (cs.getPropertyValue('--brd') || '#37455c').trim(), bg: null, f: 11, ft: 11 };
+  }
+  // Value labels at bar ends / line points + optional "% of quarter elapsed" marker.
+  var labelPlugin = {
+    id: 'thLabels',
+    afterDatasetsDraw: function(chart){
+      var o = chart.options.plugins && chart.options.plugins.thLabels; if (!o) return;
+      var ctx = chart.ctx; ctx.save();
+      ctx.font = '600 ' + o.size + 'px Helvetica, Arial, sans-serif'; ctx.fillStyle = o.color;
+      chart.data.datasets.forEach(function(ds, di){
+        chart.getDatasetMeta(di).data.forEach(function(el, i){
+          var v = ds.data[i]; if (v == null) return;
+          if (chart.config.type === 'line' && i !== ds.data.length - 1 && !o.allPoints) return;
+          var txt = v + (o.suffix || '');
+          if (chart.options.indexAxis === 'y') { ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, el.x + 6, el.y); }
+          else { ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(txt, el.x, el.y - 8); }
+        });
+      });
+      if (o.marker != null && chart.scales.x) {
+        var x = chart.scales.x.getPixelForValue(o.marker), top = chart.chartArea.top, bot = chart.chartArea.bottom;
+        var lbl = o.marker + '% of quarter elapsed';
+        ctx.strokeStyle = o.color; ctx.setLineDash([6, 5]); ctx.lineWidth = Math.max(1.5, o.size / 10);
+        ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bot); ctx.stroke(); ctx.setLineDash([]);
+        ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillStyle = o.color;
+        ctx.fillText(lbl, Math.max(chart.chartArea.left, Math.min(x + 6, chart.chartArea.right - ctx.measureText(lbl).width)), top - 4);
+      }
+      ctx.restore();
+    }
+  };
+  var bgPlugin = { id: 'thBg', beforeDraw: function(c){ var b = c.options.plugins && c.options.plugins.thBg; if (!b) return; var x = c.ctx; x.save(); x.fillStyle = b; x.fillRect(0, 0, c.width, c.height); x.restore(); } };
+
+  function deepMerge(a, b){ Object.keys(b).forEach(function(k){ if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k] && typeof a[k] === 'object') deepMerge(a[k], b[k]); else a[k] = b[k]; }); return a; }
+  function baseOpts(t, exp, extra){
+    var o = {
+      responsive: !exp, maintainAspectRatio: false, animation: exp ? false : { duration: 300 },
+      layout: { padding: exp ? { top: Math.round(t.f * 2.2), right: Math.round(t.f * 3.6), bottom: 10, left: 10 } : { top: 20, right: 40 } },
+      plugins: { legend: { display: false }, thBg: t.bg, thLabels: { size: t.ft, color: t.txt },
+        tooltip: { enabled: !exp, backgroundColor: '#18181f', titleColor: '#e4e4f0', bodyColor: '#e4e4f0', padding: 8 } },
+      scales: {
+        x: { ticks: { color: t.mut, font: { size: t.f } }, grid: { color: t.grid }, border: { display: false } },
+        y: { ticks: { color: t.mut, font: { size: t.f } }, grid: { color: t.grid }, border: { display: false } }
+      }
+    };
+    if (exp) o.devicePixelRatio = 1;
+    return deepMerge(o, extra || {});
+  }
+  function shortWk(k){ return 'W' + String(k).split('-W')[1]; }
+  function hbar(labels, data, colors, t, exp, extra){
+    return { type: 'bar', plugins: [labelPlugin, bgPlugin],
+      data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderRadius: 4, borderSkipped: 'start', maxBarThickness: exp ? Math.round(exp.f * 2.6) : 24 }] },
+      options: baseOpts(t, exp, deepMerge({ indexAxis: 'y', scales: { y: { grid: { display: false } } } }, extra || {})) };
+  }
+  function line(labels, data, t, exp, extra){
+    return { type: 'line', plugins: [labelPlugin, bgPlugin],
+      data: { labels: labels, datasets: [{ data: data, borderColor: PURPLE, backgroundColor: PURPLE, borderWidth: exp ? Math.round(exp.f / 6) : 2, pointRadius: exp ? Math.round(exp.f / 3.5) : 4, pointHoverRadius: exp ? Math.round(exp.f / 3) : 6, tension: 0.25, spanGaps: true }] },
+      options: baseOpts(t, exp, deepMerge({ scales: { x: { offset: true } } }, extra || {})) };
+  }
+  function configs(m, exp){
+    var t = theme(exp), h = m.hpm, o = m.okr, c = {};
+    var wl = h.weeks.map(function(w){ return shortWk(w.key); });
+    var pctTicks = { stepSize: 20, maxRotation: 0, callback: function(v){ return v + '%'; } };
+    c['th-c1'] = line(wl, h.weeks.map(function(w){ return w.pct; }), t, exp, { scales: { y: { min: 0, max: 100, ticks: pctTicks } },
+      plugins: { thLabels: { suffix: '%', allPoints: h.weeks.length <= 8 }, tooltip: { callbacks: { label: function(x){ var w = h.weeks[x.dataIndex]; return x.parsed.y + '% (' + w.sub + ' of ' + w.exp + ')'; } } } } });
+    var dp = h.depts.filter(function(d){ return d.pct != null; });
+    c['th-c2'] = hbar(dp.map(function(d){ return d.dept; }), dp.map(function(d){ return d.pct; }), PURPLE, t, exp, { scales: { x: { min: 0, max: 100, ticks: pctTicks } }, plugins: { thLabels: { suffix: '%' } } });
+    c['th-c3'] = line(wl, h.weeks.map(function(w){ return w.conf; }), t, exp, { scales: { y: { min: 1, max: 5, ticks: { stepSize: 1 } } }, plugins: { thLabels: { allPoints: h.weeks.length <= 8 } } });
+    c['th-c4'] = hbar(h.depts.map(function(d){ return d.dept; }), h.depts.map(function(d){ return d.blockers; }), PURPLE, t, exp, { scales: { x: { beginAtZero: true, suggestedMax: 4, ticks: { precision: 0 } } } });
+    c['th-c5'] = hbar(STATUS, STATUS.map(function(s){ return o.counts[s] || 0; }), STATUS.map(function(s){ return SCOL[s]; }), t, exp, { scales: { x: { beginAtZero: true, suggestedMax: 4, ticks: { precision: 0 } } } });
+    c['th-c6'] = hbar(o.depts.map(function(d){ return d.dept; }), o.depts.map(function(d){ return d.avg; }), PURPLE, t, exp, { scales: { x: { min: 0, max: 100, ticks: pctTicks } }, plugins: { thLabels: { suffix: '%', marker: o.elapsed } } });
+    return c;
+  }
+
+  // ── screen render ─────────────────────────────────────────────────────────
+  function tiles(m){
+    var h = m.hpm, p = m.prev, o = m.okr;
+    var dp = (p && p.pct != null && h.pct != null) ? h.pct - p.pct : null;
+    var dc = (p && p.conf != null && h.conf != null) ? Math.round((h.conf - p.conf) * 10) / 10 : null;
+    var db = (p && p.weeks.length) ? h.blockers - p.blockers : null;
+    var good = o.counts['On track'] + o.counts['Completed'];
+    var tone = function(d){ return d == null ? '' : d > 0 ? 'up' : d < 0 ? 'down' : ''; };
+    return [
+      { l: 'HPM participation', v: h.pct == null ? '—' : h.pct + '%', s: dp == null ? h.weeks.length + ' weeks' : sgn(dp, ' pts') + ' vs. prev. period', t: tone(dp) },
+      { l: 'Avg. confidence', v: h.conf == null ? '—' : h.conf + '/5', s: dc == null ? '' : sgn(dc, '') + ' vs. prev. period', t: tone(dc) },
+      { l: 'Blockers raised', v: String(h.blockers), s: db == null ? '' : sgn(db, '') + ' vs. prev. period', t: '' },
+      { l: o.label + ' OKR progress', v: o.total ? o.avg + '%' : '—', s: o.elapsed != null ? o.elapsed + '% of quarter elapsed' : '', t: '' },
+      { l: 'KRs on track / done', v: o.total ? good + ' of ' + o.total : '—', s: o.total ? (o.counts['At Risk'] + o.counts['Off Track']) + ' at risk or off track' : '', t: '' }
+    ];
+  }
+  function tileHtml(x){
+    return '<div style="background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:14px 16px;min-width:0">' +
+      '<div style="font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut);font-weight:700">' + esc(x.l) + '</div>' +
+      '<div style="font-size:26px;font-weight:800;color:var(--txt);margin-top:4px;line-height:1.1">' + esc(x.v) + '</div>' +
+      '<div style="font-size:11px;margin-top:4px;color:' + (x.t === 'up' ? 'var(--grn)' : x.t === 'down' ? 'var(--red)' : 'var(--mut)') + '">' + esc(x.s || '') + '</div></div>';
+  }
+  function periodLabel(m){ return fmtDate(m.from) + ' – ' + fmtDate(m.to); }
+  function render(){
+    var main = document.getElementById('main'); if (!main) return;
+    if (!isAdmin()) { main.innerHTML = '<div class="ptitle">Town Hall Metrics</div><div class="psub">This view is available to Pulse admins only.</div>'; return; }
+    if (!ST.from) { var r0 = presetRange(ST.preset); ST.from = r0.from; ST.to = r0.to; }
+    var btn = 'padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--brd);background:var(--surf2);color:var(--txt)';
+    var pbtn = 'padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:var(--acc);color:var(--txt-inv)';
+    var inp = 'padding:7px 9px;border-radius:8px;border:1px solid var(--brd);background:var(--surf2);color:var(--txt);font-size:12px';
+    var presets = [['4w', 'Last 4 weeks'], ['8w', 'Last 8 weeks'], ['13w', 'Last 13 weeks'], ['mtd', 'Month to date'], ['lm', 'Last month'], ['qtd', 'Quarter to date'], ['custom', 'Custom range']];
+    main.innerHTML = '<div class="ptitle">Town Hall Metrics</div><div class="psub">HPM and OKR metrics for the town hall deck · admins only · no individual names</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0">' +
+        '<select id="th-preset" style="' + inp + '">' + presets.map(function(o){ return '<option value="' + o[0] + '"' + (ST.preset === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+        '<input type="date" id="th-from" value="' + ymd(ST.from) + '" style="' + inp + '"><span style="color:var(--mut);font-size:12px">to</span><input type="date" id="th-to" value="' + ymd(ST.to) + '" style="' + inp + '">' +
+        '<select id="th-q" title="Which quarter\'s OKRs to show" style="' + inp + '"><option value="">OKRs: quarter of end date</option>' + quarterKeys().map(function(k){ return '<option value="' + k + '"' + (ST.quarter === k ? ' selected' : '') + '>OKRs: ' + esc(qLabel(k)) + '</option>'; }).join('') + '</select>' +
+        '<button id="th-refresh" style="' + btn + '">↻ Refresh data</button>' +
+        '<span style="flex:1"></span>' +
+        '<button id="th-ai" style="' + btn + '">✨ AI summary</button>' +
+        '<button id="th-copy" style="' + btn + '">Copy summary</button>' +
+        '<button id="th-png" style="' + btn + '">⬇ Charts (.zip of PNGs)</button>' +
+        '<button id="th-pptx" style="' + pbtn + '">⬇ Town hall slides (.pptx)</button>' +
+      '</div>' +
+      '<div id="th-body"><div style="padding:40px;text-align:center;color:var(--mut);font-size:12px">Loading HPM and OKR data…</div></div>';
+    var $ = function(id){ return document.getElementById(id); };
+    $('th-preset').onchange = function(){ ST.preset = this.value; if (ST.preset !== 'custom') { var r = presetRange(ST.preset); ST.from = r.from; ST.to = r.to; } ST.ai = null; render(); };
+    $('th-from').onchange = function(){ if (this.value) { ST.from = parseYmd(this.value); ST.preset = 'custom'; ST.ai = null; render(); } };
+    $('th-to').onchange = function(){ if (this.value) { ST.to = parseYmd(this.value); ST.preset = 'custom'; ST.ai = null; render(); } };
+    $('th-q').onchange = function(){ ST.quarter = this.value || null; ST.ai = null; render(); };
+    $('th-refresh').onclick = function(){ ST.subs = null; ST.ai = null; render(); };
+    $('th-copy').onclick = function(){
+      if (!ST.m) return;
+      var txt = 'HPMs & OKRs — ' + periodLabel(ST.m) + '\n' + summaryText(ST.m);
+      try { navigator.clipboard.writeText(txt).then(function(){ toast('Summary copied'); }, function(){ toast('Copy failed', 'err'); }); } catch (e) { toast('Copy failed', 'err'); }
+    };
+    $('th-pptx').onclick = function(){ exportPptx(this); };
+    $('th-png').onclick = function(){ exportZip(this); };
+    $('th-ai').onclick = function(){ aiSummary(this); };
+    if (ST.from > ST.to) { $('th-body').innerHTML = '<div style="padding:30px;color:var(--red);font-size:12px">The start date is after the end date.</div>'; return; }
+    loadData().then(function(){ if (view === 'townhall') drawBody(); });
+  }
+  function lowerKeys(o){ var x = {}; Object.keys(o || {}).forEach(function(k){ x[k.toLowerCase()] = o[k]; }); return x; }
+  function loadData(){
+    if (ST.subs && (Date.now() - ST.loadedAt < 5 * 60000)) return Promise.resolve();
+    var p1 = (typeof RL_SRV !== 'undefined') ? RL_SRV.call('get_hpm_all') : Promise.resolve(null);
+    var p2 = (typeof RL_SRV !== 'undefined' && RL_SRV.getLeave)
+      ? RL_SRV.getLeave().then(function(r){ if (r && r.ok && Array.isArray(r.leave)) { try { _LEAVE_CACHE = r.leave; } catch (e) {} } }).catch(function(){})
+      : Promise.resolve();
+    return Promise.all([p1, p2]).then(function(res){
+      var r = res[0];
+      if (r && r.ok && r.submissions) { ST.subs = lowerKeys(r.submissions); ST.loadedAt = Date.now(); ST.loadErr = null; }
+      else { ST.loadErr = (r && r.error) || 'unavailable'; if (!ST.subs) ST.subs = lowerKeys((typeof _HPM_ALL === 'object' && _HPM_ALL) ? _HPM_ALL : {}); }
+    });
+  }
+  function drawBody(){
+    var body = document.getElementById('th-body'); if (!body) return;
+    var m = compute(), o = m.okr;
+    var card = 'background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:14px 16px;min-width:0';
+    var html = '';
+    if (ST.loadErr) html += '<div style="font-size:12px;color:var(--red);margin-bottom:10px">Couldn\'t refresh HPMs from the server (' + esc(ST.loadErr) + ') — figures may be incomplete.</div>';
+    html += '<div style="font-size:12px;color:var(--mut);margin-bottom:10px">' + esc(periodLabel(m)) + ' · ' + m.hpm.weeks.length + ' closed HPM week' + (m.hpm.weeks.length === 1 ? '' : 's') +
+      (m.hpm.weeks.length ? ' (' + shortWk(m.hpm.weeks[0].key) + '–' + shortWk(m.hpm.weeks[m.hpm.weeks.length - 1].key) + ')' : '') +
+      (m.open.length ? ' · ' + m.open.length + ' still-open week' + (m.open.length === 1 ? '' : 's') + ' excluded' : '') +
+      ' · ' + m.hpm.people + ' people · OKRs ' + esc(o.label) + '</div>';
+    if (!m.hpm.weeks.length) html += '<div style="' + card + ';color:var(--yel);font-size:12px;margin-bottom:12px">No closed HPM weeks with submissions in this range — widen the dates.</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">' + tiles(m).map(tileHtml).join('') + '</div>';
+    html += '<div style="' + card + ';margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-size:12px;font-weight:800;color:var(--txt)">Summary' +
+      (ST.ai ? ' <span style="font-weight:600;color:var(--mut)">· AI-written, check before presenting</span>' : '') + '</div>' +
+      (ST.ai ? '<button id="th-ai-reset" style="font-size:11px;background:none;border:none;color:var(--acc);cursor:pointer">Use standard summary</button>' : '') +
+      '</div><div style="font-size:13px;color:var(--txt);line-height:1.65;white-space:pre-wrap;margin-top:6px">' + esc(summaryText(m)) + '</div></div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:12px">' + CHARTS.map(function(c){
+      return '<div style="' + card + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><div style="font-size:12px;font-weight:800;color:var(--txt)">' + esc(c.title) + '</div><div style="font-size:11px;color:var(--mut)">' + esc(c.sub) + '</div></div>' +
+        '<button data-png="' + c.id + '" title="Download this chart as a PNG" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--brd);background:var(--surf2);color:var(--txt);cursor:pointer">PNG</button></div>' +
+        '<div style="position:relative;height:240px;margin-top:8px"><canvas id="' + c.id + '"></canvas></div></div>';
+    }).join('') + '</div>';
+    var li = function(k, extra){ return '<li style="margin-bottom:5px">' + esc(k.title) + ' <span style="color:var(--mut)">· ' + esc(k.dept) + (extra || '') + '</span></li>'; };
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:12px">' +
+      '<div style="' + card + '"><div style="font-size:12px;font-weight:800;color:var(--txt)">Completed key results (' + o.completed.length + ')</div><ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--txt);line-height:1.5">' +
+        (o.completed.length ? o.completed.slice(0, 10).map(function(k){ return li(k); }).join('') : '<li style="color:var(--mut)">None yet</li>') + '</ul></div>' +
+      '<div style="' + card + '"><div style="font-size:12px;font-weight:800;color:var(--txt)">At risk / off track (' + o.risk.length + ')</div><ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--txt);line-height:1.5">' +
+        (o.risk.length ? o.risk.slice(0, 10).map(function(k){ return li(k, ' · <b style="color:' + SCOL[k.status] + '">' + k.status + '</b> · ' + k.progress + '%'); }).join('') : '<li style="color:var(--mut)">None</li>') + '</ul></div></div>';
+    body.innerHTML = html;
+    var cf = configs(m, false);
+    CHARTS.forEach(function(c){ mkChart(c.id, cf[c.id]); });
+    Array.prototype.forEach.call(body.querySelectorAll('[data-png]'), function(b){
+      b.onclick = function(){ var id = b.getAttribute('data-png'); download(renderPng(m, id), fileBase(m) + '_' + slug(titleOf(id)) + '.png'); };
+    });
+    var rs = document.getElementById('th-ai-reset'); if (rs) rs.onclick = function(){ ST.ai = null; drawBody(); };
+  }
+
+  // ── export helpers ────────────────────────────────────────────────────────
+  function titleOf(id){ for (var i = 0; i < CHARTS.length; i++) if (CHARTS[i].id === id) return CHARTS[i].title; return id; }
+  function subOf(id){ for (var i = 0; i < CHARTS.length; i++) if (CHARTS[i].id === id) return CHARTS[i].sub; return ''; }
+  function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  function fileBase(m){ return 'Pulse_TownHall_' + ymd(m.from) + '_to_' + ymd(m.to); }
+  // Default export: 1600×900 PNG with fonts sized for a half-slide placement.
+  function renderPng(m, id, w, h, f){
+    var titled = !w; // standalone PNGs carry their own title; slide images don't
+    w = w || 1600; h = h || 900; f = f || 34;
+    var cv = document.createElement('canvas');
+    cv.width = w; cv.height = h; cv.style.cssText = 'position:fixed;left:-99999px;top:0;width:' + w + 'px;height:' + h + 'px';
+    document.body.appendChild(cv);
+    var cfg = configs(m, { f: f })[id];
+    if (titled) {
+      cfg.options.plugins.title = { display: true, text: titleOf(id), align: 'start', color: NAVY, font: { size: Math.round(f * 1.25), weight: 'bold' }, padding: { bottom: 4 } };
+      cfg.options.plugins.subtitle = { display: true, text: subOf(id), align: 'start', color: '#525866', font: { size: Math.round(f * 0.8) }, padding: { bottom: Math.round(f * 0.6) } };
+    }
+    var ch = new Chart(cv.getContext('2d'), cfg);
+    var url = ch.toBase64Image('image/png', 1);
+    ch.destroy(); cv.remove();
+    return url;
+  }
+  function download(href, name){
+    var a = document.createElement('a'); a.href = href; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function(){ a.remove(); if (String(href).indexOf('blob:') === 0) URL.revokeObjectURL(href); }, 2000);
+  }
+  var _libs = {};
+  function loadLib(src, globalName){
+    if (window[globalName]) return Promise.resolve(window[globalName]);
+    if (_libs[src]) return _libs[src];
+    _libs[src] = new Promise(function(res, rej){
+      var s = document.createElement('script'); s.src = src;
+      s.onload = function(){ window[globalName] ? res(window[globalName]) : rej(new Error(globalName + ' missing')); };
+      s.onerror = function(){ delete _libs[src]; rej(new Error('could not load ' + src)); };
+      document.head.appendChild(s);
+    });
+    return _libs[src];
+  }
+  function busy(btn, on, label){ if (!btn) return; if (on) { btn._t = btn.textContent; btn.textContent = label || 'Working…'; btn.disabled = true; } else { btn.textContent = btn._t || btn.textContent; btn.disabled = false; } }
+  function roundRect(x, a, b, w, h, r){ x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); }
+  function wrapText(x, s, a, b, maxW, lh){ var line = ''; String(s).split(' ').forEach(function(wd){ var t = line ? line + ' ' + wd : wd; if (x.measureText(t).width > maxW && line) { x.fillText(line, a, b); b += lh; line = wd; } else line = t; }); if (line) x.fillText(line, a, b); }
+  function kpiPng(m){
+    var w = 1600, h = 520, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    var x = cv.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, h);
+    x.fillStyle = NAVY; x.font = '800 40px Helvetica, Arial, sans-serif'; x.fillText('HPMs & OKRs — ' + periodLabel(m), 48, 80);
+    var tl = tiles(m), tw = (w - 96 - 4 * 24) / 5;
+    tl.forEach(function(t, i){
+      var tx = 48 + i * (tw + 24), ty = 140;
+      x.fillStyle = '#f4f4f6'; roundRect(x, tx, ty, tw, 300, 18); x.fill();
+      x.fillStyle = PURPLE; x.fillRect(tx, ty + 18, 8, 264);
+      x.fillStyle = '#525866'; x.font = '700 20px Helvetica, Arial, sans-serif'; wrapText(x, t.l.toUpperCase(), tx + 30, ty + 52, tw - 50, 24);
+      x.fillStyle = NAVY; x.font = '800 60px Helvetica, Arial, sans-serif'; x.fillText(t.v, tx + 30, ty + 170);
+      x.fillStyle = t.t === 'up' ? '#0a8f5e' : t.t === 'down' ? '#e12416' : '#525866'; x.font = '500 20px Helvetica, Arial, sans-serif'; wrapText(x, t.s, tx + 30, ty + 222, tw - 50, 26);
+    });
+    return cv.toDataURL('image/png');
+  }
+  function exportZip(btn){
+    if (!ST.m) return; var m = ST.m; busy(btn, true, 'Preparing charts…');
+    loadLib('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js', 'JSZip').then(function(JSZip){
+      var z = new JSZip();
+      z.file('00_key-numbers.png', kpiPng(m).split(',')[1], { base64: true });
+      CHARTS.forEach(function(c, i){ z.file(pad(i + 1) + '_' + slug(c.title) + '.png', renderPng(m, c.id).split(',')[1], { base64: true }); });
+      z.file('summary.txt', 'HPMs & OKRs — ' + periodLabel(m) + '\n\n' + summaryText(m) + '\n');
+      return z.generateAsync({ type: 'blob' });
+    }).then(function(blob){ download(URL.createObjectURL(blob), fileBase(m) + '_charts.zip'); toast('Charts downloaded'); })
+      .catch(function(e){ toast('Chart export failed: ' + (e.message || e), 'err'); })
+      .then(function(){ busy(btn, false); });
+  }
+  function exportPptx(btn){
+    if (!ST.m) return; var m = ST.m; busy(btn, true, 'Building slides…');
+    loadLib('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js', 'PptxGenJS').then(function(PptxGenJS){
+      var p = buildDeck(PptxGenJS, m);
+      return p.writeFile({ fileName: fileBase(m) + '.pptx' });
+    }).then(function(){ toast('Slides downloaded'); })
+      .catch(function(e){ toast('Slide export failed: ' + (e.message || e), 'err'); })
+      .then(function(){ busy(btn, false); });
+  }
+  function buildDeck(PptxGenJS, m){
+    var p = new PptxGenJS(); p.layout = 'LAYOUT_WIDE'; p.author = 'Reloadly Pulse'; p.title = 'HPMs & OKRs — ' + periodLabel(m);
+    var FONT = 'Arial', foot = 'Source: Pulse (pulse.reloadly.com) · generated ' + fmtDate(new Date());
+    function std(title, kicker){
+      var s = p.addSlide(); s.background = { color: 'FFFFFF' };
+      s.addShape(p.ShapeType.rect, { x: 0, y: 0, w: 13.333, h: 0.12, fill: { color: '7700FF' }, line: { color: '7700FF' } });
+      if (kicker) s.addText(kicker.toUpperCase(), { x: 0.6, y: 0.32, w: 12, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: '7700FF', charSpacing: 2, margin: 0 });
+      s.addText(title, { x: 0.6, y: 0.62, w: 12.1, h: 0.65, fontFace: FONT, fontSize: 28, bold: true, color: '01112E', margin: 0 });
+      s.addText(foot, { x: 0.6, y: 7.05, w: 12.1, h: 0.3, fontFace: FONT, fontSize: 9, color: '8A909C', margin: 0 });
+      return s;
+    }
+    function chartBox(s, id, x, y, w, h){
+      s.addText(titleOf(id), { x: x, y: y, w: w, h: 0.35, fontFace: FONT, fontSize: 15, bold: true, color: '01112E', margin: 0 });
+      s.addText(subOf(id), { x: x, y: y + 0.36, w: w, h: 0.28, fontFace: FONT, fontSize: 10.5, color: '525866', margin: 0 });
+      // Rendered at the box's own aspect ratio so the chart fills it and its
+      // text lands at ~11pt on the slide.
+      var bw = w, bh = h - 0.75, PW = 1100, PH = Math.round(PW * bh / bw);
+      s.addImage({ data: renderPng(m, id, PW, PH, 28), x: x, y: y + 0.75, w: bw, h: bh });
+    }
+    function bulletList(s, arr, x, y, w, h, size){
+      s.addText(arr.map(function(t){ return { text: t, options: { bullet: true, breakLine: true, paraSpaceAfter: 6 } }; }), { x: x, y: y, w: w, h: h, fontFace: FONT, fontSize: size || 14, color: '01112E', valign: 'top', margin: 0 });
+    }
+    var b = ST.ai ? ST.ai.split('\n').map(function(l){ return l.replace(/^\s*[•\-\*]\s*/, '').trim(); }).filter(Boolean) : bullets(m);
+
+    var t = p.addSlide(); t.background = { color: '01112E' };
+    t.addShape(p.ShapeType.rect, { x: 0.6, y: 2.55, w: 1.2, h: 0.1, fill: { color: '09FAA3' }, line: { color: '09FAA3' } });
+    t.addText('HPMs & OKRs', { x: 0.6, y: 2.8, w: 12, h: 1, fontFace: FONT, fontSize: 48, bold: true, color: 'FFFFFF', margin: 0 });
+    t.addText(periodLabel(m) + '  ·  OKRs ' + m.okr.label, { x: 0.6, y: 3.85, w: 12, h: 0.5, fontFace: FONT, fontSize: 20, color: 'C9CDD6', margin: 0 });
+    t.addText('Reloadly town hall · data from Pulse', { x: 0.6, y: 6.7, w: 12, h: 0.4, fontFace: FONT, fontSize: 12, color: '09FAA3', margin: 0 });
+
+    var g = std('At a glance', 'HPMs & OKRs · ' + periodLabel(m));
+    var tw = 2.3, gap = 0.155;
+    tiles(m).forEach(function(x, i){
+      var tx = 0.6 + i * (tw + gap);
+      g.addShape(p.ShapeType.roundRect, { x: tx, y: 1.55, w: tw, h: 1.8, fill: { color: 'F4F4F6' }, line: { color: 'F4F4F6' }, rectRadius: 0.1 });
+      g.addShape(p.ShapeType.rect, { x: tx, y: 1.7, w: 0.07, h: 1.5, fill: { color: '7700FF' }, line: { color: '7700FF' } });
+      g.addText(x.l.toUpperCase(), { x: tx + 0.22, y: 1.68, w: tw - 0.32, h: 0.42, fontFace: FONT, fontSize: 10, bold: true, color: '525866', valign: 'top', margin: 0 });
+      g.addText(x.v, { x: tx + 0.22, y: 2.12, w: tw - 0.32, h: 0.6, fontFace: FONT, fontSize: 28, bold: true, color: '01112E', margin: 0 });
+      g.addText(x.s || '', { x: tx + 0.22, y: 2.78, w: tw - 0.32, h: 0.45, fontFace: FONT, fontSize: 11, color: x.t === 'up' ? '0A8F5E' : x.t === 'down' ? 'E12416' : '525866', valign: 'top', margin: 0 });
+    });
+    g.addText('Summary', { x: 0.6, y: 3.65, w: 12, h: 0.4, fontFace: FONT, fontSize: 16, bold: true, color: '01112E', margin: 0 });
+    bulletList(g, b.slice(0, 7), 0.6, 4.1, 12.1, 2.85, 14);
+
+    var s3 = std('HPM participation', 'Weekly check-ins');
+    chartBox(s3, 'th-c1', 0.6, 1.5, 5.95, 5.4); chartBox(s3, 'th-c2', 6.78, 1.5, 5.95, 5.4);
+    var s4 = std('Confidence & blockers', 'Weekly check-ins');
+    chartBox(s4, 'th-c3', 0.6, 1.5, 5.95, 5.4); chartBox(s4, 'th-c4', 6.78, 1.5, 5.95, 5.4);
+    var s5 = std('OKR health — ' + m.okr.label, 'Objectives & key results');
+    chartBox(s5, 'th-c5', 0.6, 1.5, 5.95, 5.4); chartBox(s5, 'th-c6', 6.78, 1.5, 5.95, 5.4);
+
+    var s6 = std('OKR highlights — ' + m.okr.label, 'Objectives & key results');
+    s6.addText('Completed (' + m.okr.completed.length + ')', { x: 0.6, y: 1.5, w: 5.95, h: 0.4, fontFace: FONT, fontSize: 16, bold: true, color: '7700FF', margin: 0 });
+    bulletList(s6, m.okr.completed.length ? m.okr.completed.slice(0, 9).map(function(k){ return k.title + ' — ' + k.dept; }) : ['None yet'], 0.6, 2.0, 5.95, 4.9, 13);
+    s6.addText('At risk / off track (' + m.okr.risk.length + ')', { x: 6.78, y: 1.5, w: 5.95, h: 0.4, fontFace: FONT, fontSize: 16, bold: true, color: 'E12416', margin: 0 });
+    bulletList(s6, m.okr.risk.length ? m.okr.risk.slice(0, 9).map(function(k){ return k.title + ' — ' + k.dept + ' (' + k.status + ', ' + k.progress + '%)'; }) : ['None'], 6.78, 2.0, 5.95, 4.9, 13);
+    return p;
+  }
+
+  // ── optional AI summary (anonymised input only) ──────────────────────────
+  function aiSummary(btn){
+    if (!ST.m || typeof RL_SRV === 'undefined') return; var m = ST.m; busy(btn, true, 'Writing…');
+    var L = [];
+    L.push('Write 4-6 short bullet points for a company town hall slide summarising the period ' + periodLabel(m) + '.');
+    L.push('Audience: all employees. Tone: positive, honest and constructive. Celebrate progress, name departments not people, and say plainly where help is needed.');
+    L.push('Use only the facts below; do not invent numbers. Start each bullet with "• ". No heading, no preamble.');
+    L.push('', 'FACTS:');
+    bullets(m).forEach(function(x){ L.push('- ' + x); });
+    m.hpm.depts.forEach(function(d){ L.push('- ' + d.dept + ': participation ' + (d.pct == null ? 'n/a' : d.pct + '%') + ', confidence ' + (d.conf == null ? 'n/a' : d.conf + '/5') + ', blockers ' + d.blockers); });
+    m.okr.depts.forEach(function(d){ L.push('- OKR ' + d.dept + ': average progress ' + d.avg + '% across ' + d.krs + ' KRs'); });
+    m.okr.completed.slice(0, 8).forEach(function(k){ L.push('- Completed KR: ' + k.title + ' (' + k.dept + ')'); });
+    m.okr.risk.slice(0, 8).forEach(function(k){ L.push('- ' + k.status + ' KR: ' + k.title + ' (' + k.dept + ', ' + k.progress + '%)'); });
+    m.blockers.slice(0, 25).forEach(function(x){ L.push('- Blocker (' + x.dept + '): ' + x.text); });
+    L.push('', 'Never mention any individual person by name.');
+    RL_SRV.call('ai_summarize', { prompt: L.join('\n'), max_tokens: 450 }).then(function(r){
+      if (r && r.ok && r.text && r.text.indexOf('•') >= 0) { ST.ai = r.text.trim(); drawBody(); toast('AI summary ready — check it before presenting'); }
+      else toast('AI summary unavailable: ' + ((r && r.error) || 'no result'), 'err');
+    }).catch(function(e){ toast('AI summary failed: ' + (e.message || e), 'err'); }).then(function(){ busy(btn, false); });
+  }
+
+  return { render: render, _st: ST, _compute: compute, _buildDeck: buildDeck, _renderPng: renderPng, _kpiPng: kpiPng };
+})();
+</script>
+
 </body>
 </html>
 
