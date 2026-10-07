@@ -23580,8 +23580,24 @@ var TH = (function(){
     return t.getUTCFullYear() + '-W' + pad(1 + Math.round(((t - ft) / 86400000) / 7));
   }
   function fmtDate(d){ return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
+  // Quarter view: preset value 'q:Q3_2026' covers that whole quarter (HPM
+  // weeks AND OKRs), capped at today for the current quarter.
+  function qStart(k){ var p = k.split('_'); return new Date(+p[1], (+p[0][1] - 1) * 3, 1); }
+  function qEnd(k){ var p = k.split('_'); return new Date(+p[1], (+p[0][1]) * 3, 0); }
+  function qPrev(k){ var p = k.split('_'), q = +p[0][1] - 1, y = +p[1]; if (q < 1) { q = 4; y--; } return 'Q' + q + '_' + y; }
+  function isQuarterMode(){ return /^q:Q[1-4]_\d{4}$/.test(ST.preset); }
+  function quarterOptions(){
+    var today = new Date(), cur = quarterFor(today), ks = {}, k = cur;
+    for (var i = 0; i < 5; i++) { ks[k] = 1; k = qPrev(k); }
+    quarterKeys().forEach(function(x){ if (qStart(x) <= today) ks[x] = 1; });
+    return Object.keys(ks).sort(function(a, b){ return qStart(b) - qStart(a); }).map(function(x){
+      var done = qEnd(x) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      return ['q:' + x, qLabel(x) + (done ? ' — full quarter' : ' — to date')];
+    });
+  }
   function presetRange(p){
     var today = new Date(); today.setHours(0, 0, 0, 0);
+    if (/^q:/.test(p)) { var qk = p.slice(2), qe = qEnd(qk); return { from: qStart(qk), to: qe < today ? qe : today }; }
     if (p === 'mtd') return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: today };
     if (p === 'lm') return { from: new Date(today.getFullYear(), today.getMonth() - 1, 1), to: new Date(today.getFullYear(), today.getMonth(), 0) };
     if (p === 'qtd') return { from: new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1), to: today };
@@ -23593,7 +23609,10 @@ var TH = (function(){
   // still open are excluded so a half-filled week never drags the averages.
   function weeksBetween(from, to){
     var out = [], open = [], now = new Date();
+    // A week belongs to the range if its Thursday does (ISO rule), so
+    // back-to-back periods — e.g. Q3 then Q4 — never count the same week twice.
     for (var m = monday(from); m <= to; m = addDays(m, 7)) {
+      var th = addDays(m, 3); if (th < from || th > to) continue;
       var closes = addDays(m, 8); // Tue 00:00 after the following Monday
       (closes <= now ? out : open).push({ key: isoWeekKey(m), monday: new Date(m) });
     }
@@ -23706,7 +23725,7 @@ var TH = (function(){
   function sgn(n, u){ return n == null ? '' : (n > 0 ? '+' : n < 0 ? '−' : '±') + Math.abs(n) + u; }
   function bullets(m){
     var h = m.hpm, p = m.prev, o = m.okr, b = [];
-    if (h.pct != null) b.push('HPM participation averaged ' + h.pct + '% across ' + h.weeks.length + ' week' + (h.weeks.length === 1 ? '' : 's') + (p && p.pct != null ? ' (' + sgn(h.pct - p.pct, ' pts') + ' vs. the previous ' + p.weeks.length + ' weeks)' : '') + '.');
+    if (h.pct != null) b.push('HPM participation averaged ' + h.pct + '% across ' + h.weeks.length + ' week' + (h.weeks.length === 1 ? '' : 's') + (p && p.pct != null ? ' (' + sgn(h.pct - p.pct, ' pts') + ' vs. ' + (m.qKey ? qLabel(qPrev(m.qKey)) : 'the previous ' + p.weeks.length + ' weeks') + ')' : '') + '.');
     var ds = h.depts.filter(function(d){ return d.pct != null; }).slice().sort(function(a, c){ return c.pct - a.pct; });
     if (ds.length > 1) b.push('Highest participation: ' + ds[0].dept + ' (' + ds[0].pct + '%). Most room to grow: ' + ds[ds.length - 1].dept + ' (' + ds[ds.length - 1].pct + '%).');
     if (h.conf != null) b.push('Average confidence was ' + h.conf + '/5' + (p && p.conf != null ? ' (' + (h.conf === p.conf ? 'unchanged' : 'previously ' + p.conf) + ')' : '') + '.');
@@ -23715,7 +23734,7 @@ var TH = (function(){
     if (o.total) {
       var good = o.counts['On track'] + o.counts['Completed'], bad = o.counts['At Risk'] + o.counts['Off Track'];
       b.push(o.label + ' OKRs: average progress ' + o.avg + '%' + (o.elapsed != null ? ' with ' + o.elapsed + '% of the quarter elapsed' : '') + '; ' + good + ' of ' + o.total + ' KRs on track or completed, ' + bad + ' at risk or off track.');
-      if (o.counts['Completed']) b.push(o.counts['Completed'] + ' key result' + (o.counts['Completed'] === 1 ? '' : 's') + ' completed so far.');
+      if (o.counts['Completed']) b.push(o.counts['Completed'] + ' key result' + (o.counts['Completed'] === 1 ? '' : 's') + ' completed' + (o.elapsed === 100 ? '' : ' so far') + '.');
     } else b.push('No OKRs found for ' + o.label + ' yet.');
     if (o.fallbackFrom && o.total) b[b.length - (o.counts['Completed'] ? 2 : 1)] += ' (' + o.fallbackFrom + ' OKRs are not set up yet.)';
     return b;
@@ -23725,10 +23744,16 @@ var TH = (function(){
   // ── compute ───────────────────────────────────────────────────────────────
   function compute(){
     var from = ST.from, to = ST.to, wb = weeksBetween(from, to), n = wb.weeks.length, prevWeeks = [];
-    for (var i = n; i >= 1 && n; i--) { var mon = addDays(wb.weeks[0].monday, -7 * i); prevWeeks.push({ key: isoWeekKey(mon), monday: mon }); }
+    if (isQuarterMode()) {
+      // Quarter view compares with the whole previous quarter.
+      var pk = qPrev(ST.preset.slice(2)); prevWeeks = weeksBetween(qStart(pk), qEnd(pk)).weeks;
+    } else {
+      for (var i = n; i >= 1 && n; i--) { var mon = addDays(wb.weeks[0].monday, -7 * i); prevWeeks.push({ key: isoWeekKey(mon), monday: mon }); }
+    }
     var subs = ST.subs || {};
+    var qKey = isQuarterMode() ? ST.preset.slice(2) : null;
     ST.m = {
-      from: from, to: to, open: wb.open,
+      from: from, to: to, open: wb.open, qKey: qKey, qPartial: !!qKey && to < qEnd(qKey),
       hpm: hpmMetrics(subs, wb.weeks),
       prev: (function(){ var pm = prevWeeks.length ? hpmMetrics(subs, prevWeeks) : null; return (pm && pm.weeks.length) ? pm : null; })(),
       okr: (function(){
@@ -23830,13 +23855,14 @@ var TH = (function(){
     var h = m.hpm, p = m.prev, o = m.okr;
     var dp = (p && p.pct != null && h.pct != null) ? h.pct - p.pct : null;
     var dc = (p && p.conf != null && h.conf != null) ? Math.round((h.conf - p.conf) * 10) / 10 : null;
-    var db = (p && p.weeks.length) ? h.blockers - p.blockers : null;
+    // Blocker totals only compare like-for-like (same number of weeks).
+    var db = (p && p.weeks.length && p.weeks.length === h.weeks.length) ? h.blockers - p.blockers : null;
     var good = o.counts['On track'] + o.counts['Completed'];
     var tone = function(d){ return d == null ? '' : d > 0 ? 'up' : d < 0 ? 'down' : ''; };
     return [
-      { i: INFO.participation, l: 'HPM participation', v: h.pct == null ? '—' : h.pct + '%', s: dp == null ? h.weeks.length + ' weeks' : sgn(dp, ' pts') + ' vs. prev. period', t: tone(dp) },
-      { i: INFO.confidence, l: 'Avg. confidence', v: h.conf == null ? '—' : h.conf + '/5', s: dc == null ? '' : sgn(dc, '') + ' vs. prev. period', t: tone(dc) },
-      { i: INFO.blockers, l: 'Blockers raised', v: String(h.blockers), s: db == null ? '' : sgn(db, '') + ' vs. prev. period', t: '' },
+      { i: INFO.participation, l: 'HPM participation', v: h.pct == null ? '—' : h.pct + '%', s: dp == null ? h.weeks.length + ' weeks' : sgn(dp, ' pts') + ' vs. ' + prevLabel(m), t: tone(dp) },
+      { i: INFO.confidence, l: 'Avg. confidence', v: h.conf == null ? '—' : h.conf + '/5', s: dc == null ? '' : sgn(dc, '') + ' vs. ' + prevLabel(m), t: tone(dc) },
+      { i: INFO.blockers, l: 'Blockers raised', v: String(h.blockers), s: db == null ? '' : sgn(db, '') + ' vs. ' + prevLabel(m), t: '' },
       { i: INFO.okrProgress, l: o.label + ' OKR progress', v: o.total ? o.avg + '%' : '—', s: o.elapsed != null ? o.elapsed + '% of quarter elapsed' : '', t: '' },
       { i: INFO.krs, l: 'KRs on track / done', v: o.total ? good + ' of ' + o.total : '—', s: o.total ? (o.counts['At Risk'] + o.counts['Off Track']) + ' at risk or off track' : '', t: '' }
     ];
@@ -23847,7 +23873,12 @@ var TH = (function(){
       '<div style="font-size:26px;font-weight:800;color:var(--txt);margin-top:4px;line-height:1.1">' + esc(x.v) + '</div>' +
       '<div style="font-size:11px;margin-top:4px;color:' + (x.t === 'up' ? 'var(--grn)' : x.t === 'down' ? 'var(--red)' : 'var(--mut)') + '">' + esc(x.s || '') + '</div></div>';
   }
-  function periodLabel(m){ return fmtDate(m.from) + ' – ' + fmtDate(m.to); }
+  function periodLabel(m){
+    var d = fmtDate(m.from) + ' – ' + fmtDate(m.to);
+    if (m.qKey) return qLabel(m.qKey) + (m.qPartial ? ' (to date)' : '') + ' · ' + d;
+    return d;
+  }
+  function prevLabel(m){ return m.qKey ? qLabel(qPrev(m.qKey)) : 'prev. period'; }
   function render(){
     var main = document.getElementById('main'); if (!main) return;
     if (!isAdmin()) { main.innerHTML = '<div class="ptitle">Town Hall Metrics</div><div class="psub">This view is available to Pulse admins only.</div>'; return; }
@@ -23855,10 +23886,13 @@ var TH = (function(){
     var btn = 'padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--brd);background:var(--surf2);color:var(--txt)';
     var pbtn = 'padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:var(--acc);color:var(--txt-inv)';
     var inp = 'padding:7px 9px;border-radius:8px;border:1px solid var(--brd);background:var(--surf2);color:var(--txt);font-size:12px';
-    var presets = [['4w', 'Last 4 weeks'], ['8w', 'Last 8 weeks'], ['13w', 'Last 13 weeks'], ['mtd', 'Month to date'], ['lm', 'Last month'], ['qtd', 'Quarter to date'], ['custom', 'Custom range']];
+    var presets = [['4w', 'Last 4 weeks'], ['8w', 'Last 8 weeks'], ['13w', 'Last 13 weeks'], ['mtd', 'Month to date'], ['lm', 'Last month'], ['custom', 'Custom range']];
+    var opt = function(o){ return '<option value="' + o[0] + '"' + (ST.preset === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; };
     main.innerHTML = '<div class="ptitle">Town Hall Metrics</div><div class="psub">HPM and OKR metrics for the town hall deck · admins only · no individual names</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0">' +
-        '<select id="th-preset" style="' + inp + '">' + presets.map(function(o){ return '<option value="' + o[0] + '"' + (ST.preset === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+        '<select id="th-preset" style="' + inp + ';font-weight:700">' +
+          '<optgroup label="Quarter view (HPMs + OKRs)">' + quarterOptions().map(opt).join('') + '</optgroup>' +
+          '<optgroup label="Rolling period">' + presets.map(opt).join('') + '</optgroup></select>' +
         '<input type="date" id="th-from" value="' + ymd(ST.from) + '" style="' + inp + '"><span style="color:var(--mut);font-size:12px">to</span><input type="date" id="th-to" value="' + ymd(ST.to) + '" style="' + inp + '">' +
         '<select id="th-q" title="Which quarter\'s OKRs to show" style="' + inp + '"><option value="">OKRs: quarter of end date</option>' + quarterKeys().map(function(k){ return '<option value="' + k + '"' + (ST.quarter === k ? ' selected' : '') + '>OKRs: ' + esc(qLabel(k)) + '</option>'; }).join('') + '</select>' +
         '<button id="th-refresh" style="' + btn + '">↻ Refresh data</button>' +
@@ -23870,9 +23904,15 @@ var TH = (function(){
       '</div>' +
       '<div id="th-body"><div style="padding:40px;text-align:center;color:var(--mut);font-size:12px">Loading HPM and OKR data…</div></div>';
     var $ = function(id){ return document.getElementById(id); };
-    $('th-preset').onchange = function(){ ST.preset = this.value; if (ST.preset !== 'custom') { var r = presetRange(ST.preset); ST.from = r.from; ST.to = r.to; } ST.ai = null; render(); };
-    $('th-from').onchange = function(){ if (this.value) { ST.from = parseYmd(this.value); ST.preset = 'custom'; ST.ai = null; render(); } };
-    $('th-to').onchange = function(){ if (this.value) { ST.to = parseYmd(this.value); ST.preset = 'custom'; ST.ai = null; render(); } };
+    $('th-preset').onchange = function(){
+      var was = isQuarterMode();
+      ST.preset = this.value;
+      if (ST.preset !== 'custom') { var r = presetRange(ST.preset); ST.from = r.from; ST.to = r.to; }
+      if (isQuarterMode()) ST.quarter = ST.preset.slice(2); else if (was) ST.quarter = null;
+      ST.ai = null; render();
+    };
+    $('th-from').onchange = function(){ if (this.value) { if (isQuarterMode()) ST.quarter = null; ST.from = parseYmd(this.value); ST.preset = 'custom'; ST.ai = null; render(); } };
+    $('th-to').onchange = function(){ if (this.value) { if (isQuarterMode()) ST.quarter = null; ST.to = parseYmd(this.value); ST.preset = 'custom'; ST.ai = null; render(); } };
     $('th-q').onchange = function(){ ST.quarter = this.value || null; ST.ai = null; render(); };
     $('th-refresh').onclick = function(){ ST.subs = null; ST.ai = null; render(); };
     $('th-copy').onclick = function(){
@@ -23906,7 +23946,7 @@ var TH = (function(){
     var html = '';
     if (ST.loadErr) html += '<div style="font-size:12px;color:var(--red);margin-bottom:10px">Couldn\'t refresh HPMs from the server (' + esc(ST.loadErr) + ') — figures may be incomplete.</div>';
     html += '<div style="font-size:12px;color:var(--mut);margin-bottom:10px">' + esc(periodLabel(m)) + ' · ' + m.hpm.weeks.length + ' closed HPM week' + (m.hpm.weeks.length === 1 ? '' : 's') +
-      (m.hpm.weeks.length ? ' (' + shortWk(m.hpm.weeks[0].key) + '–' + shortWk(m.hpm.weeks[m.hpm.weeks.length - 1].key) + ')' : '') +
+      (m.hpm.weeks.length ? ' (' + shortWk(m.hpm.weeks[0].key) + (m.hpm.weeks.length > 1 ? '–' + shortWk(m.hpm.weeks[m.hpm.weeks.length - 1].key) : '') + ')' : '') +
       (m.open.length ? ' · ' + m.open.length + ' still-open week' + (m.open.length === 1 ? '' : 's') + ' excluded' : '') +
       ' · ' + m.hpm.people + ' people · OKRs ' + esc(o.label) + '</div>' +
       (o.fallbackFrom ? '<div style="font-size:12px;color:var(--yel);margin:-4px 0 10px">No OKRs set for ' + esc(o.fallbackFrom) + ' yet, so OKR figures show ' + esc(o.label) + '. Pick a quarter above to change this.</div>' : '');
@@ -23941,7 +23981,7 @@ var TH = (function(){
   function infoOf(id){ for (var i = 0; i < CHARTS.length; i++) if (CHARTS[i].id === id) return CHARTS[i].info; return ''; }
   function subOf(id){ for (var i = 0; i < CHARTS.length; i++) if (CHARTS[i].id === id) return CHARTS[i].sub; return ''; }
   function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
-  function fileBase(m){ return 'Pulse_TownHall_' + ymd(m.from) + '_to_' + ymd(m.to); }
+  function fileBase(m){ return 'Pulse_TownHall_' + (m.qKey ? m.qKey + (m.qPartial ? '_to_' + ymd(m.to) : '') : ymd(m.from) + '_to_' + ymd(m.to)); }
   // Default export: 1600×900 PNG with fonts sized for a half-slide placement.
   function renderPng(m, id, w, h, f){
     var titled = !w; // standalone PNGs carry their own title; slide images don't
@@ -24015,7 +24055,7 @@ var TH = (function(){
       .then(function(){ busy(btn, false); });
   }
   function buildDeck(PptxGenJS, m){
-    var p = new PptxGenJS(); p.layout = 'LAYOUT_WIDE'; p.author = 'Reloadly Pulse'; p.title = 'HPMs & OKRs — ' + periodLabel(m);
+    var p = new PptxGenJS(); p.layout = 'LAYOUT_WIDE'; p.author = 'Reloadly Pulse'; p.title = (m.qKey ? qLabel(m.qKey) + ' review — ' : 'HPMs & OKRs — ') + periodLabel(m);
     var FONT = 'Arial', foot = 'Source: Pulse (pulse.reloadly.com) · generated ' + fmtDate(new Date());
     function std(title, kicker){
       var s = p.addSlide(); s.background = { color: 'FFFFFF' };
@@ -24041,8 +24081,8 @@ var TH = (function(){
 
     var t = p.addSlide(); t.background = { color: '01112E' };
     t.addShape(p.ShapeType.rect, { x: 0.6, y: 2.55, w: 1.2, h: 0.1, fill: { color: '09FAA3' }, line: { color: '09FAA3' } });
-    t.addText('HPMs & OKRs', { x: 0.6, y: 2.8, w: 12, h: 1, fontFace: FONT, fontSize: 48, bold: true, color: 'FFFFFF', margin: 0 });
-    t.addText(periodLabel(m) + '  ·  OKRs ' + m.okr.label, { x: 0.6, y: 3.85, w: 12, h: 0.5, fontFace: FONT, fontSize: 20, color: 'C9CDD6', margin: 0 });
+    t.addText(m.qKey ? qLabel(m.qKey) + (m.qPartial ? ' so far' : ' in review') : 'HPMs & OKRs', { x: 0.6, y: 2.8, w: 12, h: 1, fontFace: FONT, fontSize: 48, bold: true, color: 'FFFFFF', margin: 0 });
+    t.addText(m.qKey ? 'HPMs & OKRs  ·  ' + fmtDate(m.from) + ' – ' + fmtDate(m.to) : periodLabel(m) + '  ·  OKRs ' + m.okr.label, { x: 0.6, y: 3.85, w: 12, h: 0.5, fontFace: FONT, fontSize: 20, color: 'C9CDD6', margin: 0 });
     t.addText('Reloadly town hall · data from Pulse', { x: 0.6, y: 6.7, w: 12, h: 0.4, fontFace: FONT, fontSize: 12, color: '09FAA3', margin: 0 });
 
     var g = std('At a glance', 'HPMs & OKRs · ' + periodLabel(m));
