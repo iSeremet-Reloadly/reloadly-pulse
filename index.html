@@ -1806,6 +1806,7 @@ function renderMyTasks(){
               dept: g.dept, objId: g.obj.id, objTitle: g.obj.title, objPct: objPct,
               krId: row.kr.id, krTitle: row.kr.title, krPct: pct, krConf: conf
             }));
+            okrsHtml += '<div class="okr-kr-ed" data-kr="'+esc(row.kr.id)+'" data-q="'+esc(okrQKey)+'" onclick="event.stopPropagation()"></div>';
             okrsHtml += '<div style="margin-top:8px;text-align:right"><button onclick="event.stopPropagation();mtSuggestTasksForKR(\''+suggestPayload+'\')" style="font-size:10px;padding:5px 10px;background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px">✨ SUGGEST TASKS</button></div>';
             okrsHtml += '</div>';
             okrsHtml += '</div>';
@@ -2017,6 +2018,7 @@ function _mtCreateTasksAndLink(payload, tasks){
 // Wire the collapsible My OKRs section. Idempotent — safe to call after
 // every renderMyTasks() since the toggle element is re-created each render.
 function _wireMyOKRsToggle(){
+  try { if(typeof OKRU!=='undefined') OKRU.wire(document.getElementById('my-okrs-body')); } catch(_){}
   var toggle = document.getElementById('my-okrs-toggle');
   var body = document.getElementById('my-okrs-body');
   if(!toggle || !body) return;
@@ -4118,6 +4120,8 @@ function renderOKR(){
         ['On track','At Risk','Off Track','Not started','Completed'].forEach(function(o){var oe=document.createElement('option');oe.value=o;oe.textContent=o;if(o===kr.confidence)oe.selected=true;cs.appendChild(oe);});
         cs.onchange=(function(ko,dd,kk){return function(){ko.confidence=this.value;saveOKRForQuarter(kk,dd);renderOKR();};})(kr,okrData,activeKey);
         eb.appendChild(cs);kd.appendChild(eb);
+      } else if(typeof OKRU!=='undefined' && OKRU.canEdit(kr,obj)){
+        kd.appendChild(OKRU.editor(kr,obj,activeKey));
       }
       krsDiv.appendChild(kd);
     });
@@ -4389,6 +4393,14 @@ function _renderIndividualOKRsSection(wrap, okrData, activeKey){
               delBtn.onclick = (function(dn, oid){return function(ev){ ev.stopPropagation(); okrDeleteObjective(dn, oid); };})(row.dept, row.obj.id);
               right.appendChild(delBtn);
             }
+            if(typeof OKRU!=='undefined' && typeof STRAT!=='undefined' && OKRU.canEdit(null, row.obj)){
+              var editObjBtn = document.createElement('button');
+              editObjBtn.style.cssText='background:none;border:1px solid var(--brd);color:var(--mut);cursor:pointer;font-size:10px;padding:3px 8px;border-radius:4px;line-height:1;font-family:Roboto Mono,monospace';
+              editObjBtn.textContent = '✎ edit';
+              editObjBtn.title = 'Edit this objective and its key results';
+              editObjBtn.onclick = (function(em, oid){return function(ev){ ev.stopPropagation(); STRAT.openIndividualOKRModal(em, 'IO-'+oid); };})(person.email, row.obj.id);
+              right.appendChild(editObjBtn);
+            }
             head.appendChild(right);
             objEl.appendChild(head);
             var bar = document.createElement('div');bar.style.cssText='height:3px;background:var(--surf2);border-radius:2px';
@@ -4431,8 +4443,22 @@ function _renderIndividualOKRsSection(wrap, okrData, activeKey){
                 '</div>'+
               '</div>'+
               '<div style="height:3px;background:var(--surf2);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+deptColor+';border-radius:2px"></div></div>';
+            if(typeof OKRU!=='undefined' && OKRU.canEdit(row.kr, row.obj)) krEl.appendChild(OKRU.editor(row.kr, row.obj, activeKey));
             krWrap.appendChild(krEl);
           });
+        }
+        // Self-service: anyone can add a personal objective for themselves
+        // (saved server-side into this quarter's OKRs, linked to a parent).
+        if(!isAdmin() && currentUser && String(person.email).toLowerCase() === String(currentUser.email).toLowerCase() && typeof STRAT!=='undefined'){
+          var selfRow = document.createElement('div');
+          selfRow.style.cssText = 'margin-top:12px;display:flex;gap:8px;flex-wrap:wrap';
+          var selfBtn = document.createElement('button');
+          selfBtn.className = 'hbtn';
+          selfBtn.style.cssText = 'font-size:10px;padding:6px 12px;border-color:'+(dept.color||'var(--acc)')+';color:'+(dept.color||'var(--acc)')+';font-weight:700';
+          selfBtn.textContent = '+ Add my objective';
+          selfBtn.onclick = (function(em){return function(){ STRAT.openIndividualOKRModal(em); };})(person.email);
+          selfRow.appendChild(selfBtn);
+          krWrap.appendChild(selfRow);
         }
         // Admin: "+ Add Objective for [Name]" + "+ Add KR for [Name]"
         if(isAdmin()){
@@ -9224,6 +9250,32 @@ NS._ioSave=function(personEmail,existingId){
     };
   }).filter(function(k){return k.title;});
   if(krs.length===0){toast('At least one Key Result with a title is required','err');return;}
+  if(typeof OKRU!=='undefined' && typeof RL_SRV!=='undefined'){
+    var _H=_stratHydrate(st.quarter), _pn=_H.nodes[parentId], _ex=existingId?_H.nodes[existingId]:null;
+    var _parentOkr=_pn&&_pn.sourceOkrObjId;
+    if(!_parentOkr){toast('Pick a Company or Department objective from the list','err');return;}
+    var _btn=box.querySelector('.io-foot .xl'); if(_btn){_btn.disabled=true;_btn.textContent='Saving…';}
+    OKRU.savePersonal(st.quarter,{
+      ownerEmail:personEmail, objId:(_ex&&_ex.sourceOkrObjId)||null, title:title, description:desc, parentObjectiveId:_parentOkr,
+      krs:krs.map(function(k){ var kn=k.id?_H.nodes[k.id]:null; return {id:(kn&&kn.sourceKrId)||null,title:k.title,progress:k.progress,confidence:k.confidence,baseline:k.baseline,target:k.target,unit:k.unit,direction:k.direction}; })
+    }).then(function(r){
+      if(!(r&&r.ok)){ if(_btn){_btn.disabled=false;_btn.textContent=existingId?'Save changes':'Create Individual OKR';} return; }
+      // A Strategy-only objective (pre-2026-10-09) has now moved into the OKR
+      // Tracker — drop the old graph-only copy so it isn't shown twice.
+      if(_ex && !_ex.sourceOkrObjId){
+        var an=loadNodes(), ae=loadEdges(), qn=an[st.quarter]||{}, qe=ae[st.quarter]||[];
+        var kids=qe.filter(function(e){return e.p===existingId;}).map(function(e){return e.c;});
+        delete qn[existingId]; kids.forEach(function(id){ if(qn[id]&&qn[id].userCreated) delete qn[id]; });
+        ae[st.quarter]=qe.filter(function(e){return e.p!==existingId&&e.c!==existingId&&kids.indexOf(e.c)<0;});
+        an[st.quarter]=qn; saveNodes(an); saveEdges(ae);
+        try{ if(typeof OKR_SYNC!=='undefined'&&OKR_SYNC) OKR_SYNC.push(); }catch(_){}
+      }
+      toast('Individual OKR '+(existingId?'updated':'created')+' — it now rolls up to '+(_pn.title?'"'+_pn.title.slice(0,40)+'"':'its parent'),'ok');
+      var ovEl=document.getElementById('io-modal-ov');if(ovEl){ovEl.classList.remove('open');setTimeout(function(){ovEl.remove();},250);}
+      if(typeof view!=='undefined' && view==='okr') renderOKR(); else NS.renderStrategy();
+    });
+    return;
+  }
 
   // Read store
   var allNodes=loadNodes();var allEdges=loadEdges();
@@ -9300,6 +9352,18 @@ NS._ioSave=function(personEmail,existingId){
 
 NS._ioDelete=function(ioId){
   if(!confirm('Delete this Individual Objective and all its KRs? This cannot be undone.'))return;
+  try {
+    var _sd=getState(), _nd=_stratHydrate(_sd.quarter).nodes[ioId];
+    if(_nd && _nd.sourceOkrObjId && typeof OKRU!=='undefined'){
+      OKRU.deletePersonal(_sd.quarter, _nd.sourceOkrObjId).then(function(r){
+        if(!(r&&r.ok)) return;
+        toast('Individual OKR deleted','ok');
+        var ovEl=document.getElementById('io-modal-ov');if(ovEl){ovEl.classList.remove('open');setTimeout(function(){ovEl.remove();},250);}
+        if(typeof view!=='undefined' && view==='okr') renderOKR(); else NS.renderStrategy();
+      });
+      return;
+    }
+  } catch(_){}
   var st=getState();
   var allNodes=loadNodes();var allEdges=loadEdges();
   var qNodes=allNodes[st.quarter]||{};var qEdges=allEdges[st.quarter]||[];
@@ -9318,6 +9382,10 @@ NS._ioDelete=function(ioId){
 
 NS._ioInlineProgress=function(nodeId,newPct){
   newPct=Math.min(100,Math.max(0,parseInt(newPct)||0));
+  try {
+    var _st0=getState(), _n0=(loadNodes()[_st0.quarter]||{})[nodeId];
+    if(_n0 && _n0.sourceKrId && typeof OKRU!=='undefined'){ OKRU.updateKR(_st0.quarter, _n0.sourceKrId, {progress:newPct}); return; }
+  } catch(_){}
   var st=getState();
   var allNodes=loadNodes();var allEdges=loadEdges();
   var qNodes=allNodes[st.quarter]||{};var qEdges=allEdges[st.quarter]||[];
@@ -24943,6 +25011,113 @@ var PSV = (function(){
   }
 
   return { maybePrompt: maybePrompt, open: function(){ maybePrompt(true); }, render: render, _A: A, _wb: workbookSheets, _buildXlsx: buildXlsx, _buildDeck: buildDeck, _agg: agg };
+})();
+</script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// OKR SELF-SERVICE (added 2026-10-09). Individuals can update progress /
+// confidence and mark their OWN key results complete (OKR Tracker → dept
+// view + Individual OKRs, My Tasks → My OKRs, Strategy individual view), and
+// create/edit their own personal objectives from Strategy. Every change goes
+// through the Worker (okr_update_kr / okr_save_personal / okr_delete_personal),
+// which checks ownership server-side, applies the change atomically to the
+// shared OKR doc and recomputes the roll-up: KR → personal objective →
+// linked Department objective → linked Company objective. The browser never
+// pushes the whole OKR blob for these edits, so it can't overwrite anyone
+// else's changes with a stale copy.
+// ═══════════════════════════════════════════════════════════════════════════
+var OKRU = (function(){
+  var CONF = ['Not started', 'On track', 'At Risk', 'Off Track', 'Completed'];
+  function canEdit(kr, obj){
+    if (typeof isAdmin === 'function' && isAdmin()) return true;
+    if (typeof currentUser === 'undefined' || !currentUser) return false;
+    return _okrOwnerIs(kr && kr.owner, currentUser.email, currentUser.name) || _okrOwnerIs(obj && obj.owner, currentUser.email, currentUser.name);
+  }
+  function errMsg(r){
+    var e = r && r.error;
+    if (e === 'not_your_kr' || e === 'not_allowed') return 'You can only update your own OKRs.';
+    if (e === 'no_session' || e === 'invalid_session' || e === 'expired_session' || e === 'idle_session' || e === 'auth_required') return 'Your session has expired — please sign in again.';
+    if (e === 'kr_not_found' || e === 'objective_not_found' || e === 'quarter_not_found') return 'That OKR has changed since you loaded it — refresh and try again.';
+    if (e === 'bad_parent') return 'Pick a Company or Department objective to align to.';
+    return 'Couldn\'t save (' + (e || 'network') + ').';
+  }
+  function applyQuarter(qk, qdata, updatedAt){
+    try { localStorage.setItem('rl_okr_' + qk, JSON.stringify(qdata)); } catch (e) {}
+    try { if (typeof OKR_SYNC !== 'undefined' && OKR_SYNC && OKR_SYNC.state && updatedAt) OKR_SYNC.state.lastPolledMetaAt = updatedAt; } catch (e) {}
+  }
+  function rerender(){
+    try {
+      if (view === 'okr') renderOKR();
+      else if (view === 'mytasks' && typeof renderMyTasks === 'function') renderMyTasks();
+      else if (view === 'strategy' && typeof STRAT !== 'undefined') STRAT.renderStrategy();
+      else if (typeof render === 'function') render();
+    } catch (e) {}
+  }
+  function call(action, payload){
+    if (typeof RL_SRV === 'undefined') return Promise.resolve({ ok: false, error: 'no_server' });
+    return RL_SRV.call(action, payload).catch(function(e){ return { ok: false, error: String(e && e.message || e) }; });
+  }
+  function updateKR(qk, krId, patch){
+    return call('okr_update_kr', Object.assign({ quarter: qk, krId: krId }, patch)).then(function(r){
+      if (r && r.ok) {
+        applyQuarter(qk, r.quarterData, r.updatedAt);
+        toast(r.kr && r.kr.confidence === 'Completed' ? '🎉 Key result completed — progress rolled up' : 'Saved — progress rolled up to department & company', 'ok');
+      } else toast(errMsg(r), 'err');
+      rerender(); return r;
+    });
+  }
+  function savePersonal(qk, payload){
+    return call('okr_save_personal', Object.assign({ quarter: qk }, payload)).then(function(r){
+      if (r && r.ok) applyQuarter(qk, r.quarterData, r.updatedAt); else toast(errMsg(r), 'err');
+      return r;
+    });
+  }
+  function deletePersonal(qk, objId){
+    return call('okr_delete_personal', { quarter: qk, objId: objId }).then(function(r){
+      if (r && r.ok) applyQuarter(qk, r.quarterData, r.updatedAt); else toast(errMsg(r), 'err');
+      return r;
+    });
+  }
+  // Inline editor for one KR: progress %, confidence, "Mark complete".
+  function editor(kr, obj, qk){
+    var w = document.createElement('div');
+    w.className = 'okru-ed';
+    w.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd)';
+    w.onclick = function(e){ e.stopPropagation(); };
+    var done = kr.confidence === 'Completed' || (kr.progress || 0) >= 100;
+    var lab = 'font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace';
+    var ctl = 'font-size:11px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:4px;padding:3px 6px;width:auto;flex:0 0 auto;min-width:0;margin:0;height:auto';
+    w.innerHTML = '<span style="' + lab + '">UPDATE</span>' +
+      '<input type="number" min="0" max="100" step="5" class="okru-p" aria-label="Progress percent" value="' + (kr.progress || 0) + '" style="' + ctl + ';width:58px;text-align:center"><span style="' + lab + '">%</span>' +
+      '<select class="okru-c" aria-label="Confidence" style="' + ctl + '">' + CONF.map(function(c){ return '<option' + (c === (kr.confidence || 'Not started') ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select>' +
+      '<span style="flex:1"></span>' +
+      (done ? '<span style="font-size:10px;font-weight:800;color:var(--grn)">✓ Completed</span>'
+            : '<button type="button" class="okru-done" style="font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;border:1px solid var(--grn);background:none;color:var(--grn);cursor:pointer">✓ Mark complete</button>');
+    var p = w.querySelector('.okru-p'), c = w.querySelector('.okru-c'), b = w.querySelector('.okru-done');
+    function lock(){ p.disabled = true; c.disabled = true; if (b) b.disabled = true; w.style.opacity = '.6'; }
+    p.onchange = function(){ var v = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0)); this.value = v; lock(); updateKR(qk, kr.id, { progress: v }); };
+    p.onkeydown = function(e){ if (e.key === 'Enter') { e.preventDefault(); this.blur(); } };
+    c.onchange = function(){ lock(); updateKR(qk, kr.id, { confidence: this.value }); };
+    if (b) b.onclick = function(){ lock(); updateKR(qk, kr.id, { confidence: 'Completed' }); };
+    return w;
+  }
+  function findKR(qk, krId){
+    var d = null; try { d = loadOKRForQuarter(qk); } catch (e) {}
+    if (!d || !d.depts) return null;
+    var hit = null;
+    Object.keys(d.depts).forEach(function(dn){ (d.depts[dn].objectives || []).forEach(function(o){ (o.krs || []).forEach(function(k){ if (k.id === krId) hit = { kr: k, obj: o }; }); }); });
+    return hit;
+  }
+  // Fills `.okr-kr-ed[data-kr][data-q]` placeholders (used by HTML-string views).
+  function wire(root){
+    Array.prototype.forEach.call((root || document).querySelectorAll('.okr-kr-ed[data-kr]'), function(ph){
+      if (ph._wired) return; ph._wired = true;
+      var h = findKR(ph.getAttribute('data-q'), ph.getAttribute('data-kr'));
+      if (h && canEdit(h.kr, h.obj)) ph.appendChild(editor(h.kr, h.obj, ph.getAttribute('data-q')));
+    });
+  }
+  return { canEdit: canEdit, editor: editor, wire: wire, updateKR: updateKR, savePersonal: savePersonal, deletePersonal: deletePersonal, applyQuarter: applyQuarter, errMsg: errMsg };
 })();
 </script>
 
