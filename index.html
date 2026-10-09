@@ -1315,7 +1315,9 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     <div class="sb-lbl">TOOLS</div>
     <div class="ni" id="nav-perf" onclick="go('perf')"><div class="ni-l"><div class="dd" style="background:#8b5cf6"></div>Performance</div></div>
     <div class="ni" id="nav-townhall" onclick="go('townhall')" style="display:none" title="HPM & OKR metrics for the town hall deck (admins only)"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#7700ff,#09faa3)"></div>Town Hall Metrics</div></div>
+    <div class="ni" id="nav-feedback" onclick="go('feedback')" style="display:none" title="Quarterly employee feedback on Pulse (admins only)"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#ffc107,#7700ff)"></div>Pulse Feedback &amp; Analytics</div></div>
     <div class="ni" id="nav-reminders" onclick="go('reminders')"><div class="ni-l"><div class="dd" style="background:var(--red)"></div>Reminders</div><div class="cnt" id="c-reminders"></div></div>
+    <div class="ni" id="nav-psv" onclick="PSV.open()" style="display:none" title="This quarter's 1-minute Pulse feedback survey"><div class="ni-l"><div class="dd" style="background:#ffc107"></div>Give Pulse feedback</div></div>
     <div class="ni" id="nav-help" onclick="showFullGuide()" title="Open the full Pulse user guide"><div class="ni-l"><div class="dd" style="background:#10b981"></div>How to Use</div></div>
     <div class="ni" id="nav-admin" onclick="go('admin')" style="display:none"><div class="ni-l"><div class="dd" style="background:var(--acc)"></div>User Management</div></div>
   </div>
@@ -2156,6 +2158,8 @@ function loadData(){
     try{ _ensureHPMTaskForCurrentUser(); }catch(e){}
     try{ _injectHPMBanner(); }catch(e){}
     setTimeout(function(){ try{ _hpmMaybePrompt(); }catch(e){} }, 2500);
+    // Quarterly Pulse feedback survey — waits for any HPM prompt to close first.
+    setTimeout(function(){ try{ PSV.maybePrompt(); }catch(e){} }, 4500);
   });
   // Private to-dos load independently of the leave/HPM chain above — if the
   // user is already sitting on My Tasks when this resolves, re-render so the
@@ -2373,6 +2377,7 @@ function renderUserPill(){
   if(expBtn)expBtn.style.display=currentUser.canExport?'flex':'none';
   var an=document.getElementById('nav-admin');if(an)an.style.display=isAdmin()?'flex':'none';
   var thn=document.getElementById('nav-townhall');if(thn)thn.style.display=isAdmin()?'flex':'none';
+  var fbn=document.getElementById('nav-feedback');if(fbn)fbn.style.display=isAdmin()?'flex':'none';
   // Sidebar group container: show if the user has access to ANY of the three modules.
   var _canPricing = canAccessPricing();
   var _canProposals = canAccessProposals();
@@ -3523,6 +3528,7 @@ function render(){
   else if(view==='okr')renderOKR();
   else if(view==='perf')renderPerf();
   else if(view==='townhall')TH.render();
+  else if(view==='feedback')PSV.render();
   else if(view==='strategy')STRAT.renderStrategy();
   else if(view==='pricing')SUP.renderPricing();
   else if(view==='proposals')PP.renderProposals();
@@ -3563,6 +3569,7 @@ var _ROUTE_ALIASES = {
   'users': 'users', 'usermgmt': 'users', 'user-management': 'users', 'usermanagement': 'users',
   'reminders': 'reminders',
   'townhall': 'townhall', 'town-hall': 'townhall',
+  'feedback': 'feedback', 'pulse-feedback': 'feedback',
   'timeline': 'timeline',
   'help': 'help'
 };
@@ -3595,6 +3602,7 @@ function go(v){
   if(v==='proposals' && !canAccessProposals()){if(typeof toast==='function')toast('Access restricted','err');return;}
   if(v==='funding' && !canAccessWalletOps()){if(typeof toast==='function')toast('Access restricted','err');return;}
   if(v==='townhall' && !isAdmin()){if(typeof toast==='function')toast('Access restricted','err');return;}
+  if(v==='feedback' && !isAdmin()){if(typeof toast==='function')toast('Access restricted','err');return;}
   view=v;fStatus='All';fSearch='';
   document.querySelectorAll('.ni').forEach(function(e){e.classList.remove('active');});
   var el=document.getElementById('nav-'+v);if(el)el.classList.add('active');
@@ -24136,6 +24144,805 @@ var TH = (function(){
   }
 
   return { render: render, _st: ST, _compute: compute, _buildDeck: buildDeck, _renderPng: renderPng, _kpiPng: kpiPng };
+})();
+</script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// PULSE QUARTERLY FEEDBACK SURVEY + "PULSE FEEDBACK & ANALYTICS" (2026-10-09)
+// Employee side: quarterly pop-up (server decides when; Remind Me Later = 7
+// days; completion syncs across devices), anonymous toggle (default ON).
+// Admin side: Overview / Employee Feedback / Quarterly Reports, Excel + PPT.
+// All figures come from the Worker (survey_* actions) — nothing authoritative
+// lives in localStorage. Anonymous rows reach this page already stripped of
+// identity by the Worker; nothing here can re-identify them.
+// ═══════════════════════════════════════════════════════════════════════════
+var PSV = (function(){
+  var FREQ = ['Daily', 'Several times a week', 'Once a week', 'Rarely'];
+  var TARGET = { satisfaction: 4.0, ease: 4.2, usefulness: 4.0, participation: 75 };
+  var QS = [
+    { k: 'satisfaction', t: 'How satisfied are you with your overall Pulse experience?', lo: 'Very dissatisfied', hi: 'Very satisfied' },
+    { k: 'ease', t: 'How easy is Pulse to navigate and use?', lo: 'Very difficult', hi: 'Very easy' },
+    { k: 'usefulness', t: 'How useful is Pulse for staying informed about company updates and activities?', lo: 'Not useful', hi: 'Extremely useful' }
+  ];
+  var status = null;
+
+  function isLight(){ return document.documentElement.getAttribute('data-theme') === 'light'; }
+  function css(){
+    if (document.getElementById('psv-css')) return;
+    var st = document.createElement('style'); st.id = 'psv-css';
+    st.textContent = [
+      '.psv-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px}',
+      '.psv-box{background:var(--surf);color:var(--txt);border:1px solid var(--brd);border-top:4px solid var(--acc);border-radius:14px;width:540px;max-width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 24px 70px rgba(0,0,0,.45);padding:22px 22px 18px;position:relative}',
+      '.psv-x{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--mut);font-size:20px;cursor:pointer;line-height:1;padding:4px}',
+      '.psv-kick{font-size:10px;letter-spacing:.14em;font-weight:800;color:var(--acc);text-transform:uppercase}',
+      '.psv-h{font-size:20px;font-weight:800;margin:6px 0 6px}',
+      '.psv-d{font-size:13px;color:var(--mut);line-height:1.55;margin-bottom:14px}',
+      '.psv-q{margin:14px 0 0;padding-top:14px;border-top:1px solid var(--brd)}',
+      '.psv-qt{font-size:13px;font-weight:700;line-height:1.4;margin-bottom:8px}',
+      '.psv-qt .req{color:var(--red);margin-left:2px}',
+      '.psv-stars{display:flex;gap:6px}',
+      '.psv-star{width:42px;height:42px;border-radius:10px;border:1px solid var(--brd);background:var(--surf2);color:var(--mut);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.12s;padding:0}',
+      '.psv-star.on{color:#ffc107;border-color:#ffc107;background:rgba(255,193,7,.12)}',
+      '.psv-star:focus-visible,.psv-pill:focus-visible,.psv-sw:focus-within{outline:2px solid var(--acc);outline-offset:2px}',
+      '.psv-ends{display:flex;justify-content:space-between;max-width:234px;font-size:10.5px;color:var(--mut);margin-top:5px}',
+      '.psv-pills{display:flex;flex-wrap:wrap;gap:6px}',
+      '.psv-pill{border:1px solid var(--brd);background:var(--surf2);color:var(--txt);border-radius:999px;padding:8px 13px;font-size:12px;cursor:pointer}',
+      '.psv-pill.on{border-color:var(--acc);background:var(--acc);color:var(--txt-inv);font-weight:700}',
+      '.psv-ta{width:100%;box-sizing:border-box;min-height:72px;resize:vertical;padding:10px;border-radius:8px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font:13px/1.45 inherit;font-family:inherit}',
+      '.psv-cnt{font-size:10.5px;color:var(--mut);text-align:right;margin-top:3px}',
+      '.psv-anon{margin-top:14px;padding:12px 14px;border-radius:10px;background:var(--surf2);border:1px solid var(--brd)}',
+      '.psv-sw{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:700}',
+      '.psv-sw input{position:absolute;opacity:0;width:1px;height:1px}',
+      '.psv-tr{width:38px;height:22px;border-radius:999px;background:var(--brd);position:relative;flex:none;transition:.15s}',
+      '.psv-tr:after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s}',
+      '.psv-sw input:checked + .psv-tr{background:var(--acc)}',
+      '.psv-sw input:checked + .psv-tr:after{left:19px}',
+      '.psv-mode{font-size:12px;color:var(--mut);line-height:1.5;margin-top:7px}',
+      '.psv-more{font-size:11.5px;color:var(--mut);margin-top:6px}',
+      '.psv-more summary{cursor:pointer;color:var(--acc);font-weight:600}',
+      '.psv-more ul{margin:6px 0 0;padding-left:18px;line-height:1.5}',
+      '.psv-err{font-size:12px;color:var(--red);min-height:16px;margin-top:10px}',
+      '.psv-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}',
+      '.psv-pri{flex:1;min-width:160px;border:none;border-radius:9px;padding:11px 16px;font-weight:800;font-size:13px;cursor:pointer;background:var(--acc);color:var(--txt-inv)}',
+      '.psv-pri:disabled{opacity:.45;cursor:not-allowed}',
+      '.psv-sec{border:1px solid var(--brd);border-radius:9px;padding:11px 16px;font-size:12.5px;cursor:pointer;background:none;color:var(--mut)}',
+      '@media(max-width:520px){.psv-box{padding:18px 16px 14px}.psv-h{font-size:18px}.psv-star{width:100%;flex:1}.psv-stars{max-width:none}.psv-ends{max-width:none}}',
+      // admin dashboard
+      '.pfa-tabs{display:flex;gap:4px;border-bottom:1px solid var(--brd);margin:12px 0 14px;flex-wrap:wrap}',
+      '.pfa-tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--mut);padding:9px 14px;font-size:12.5px;font-weight:700;cursor:pointer}',
+      '.pfa-tab.on{color:var(--txt);border-bottom-color:var(--acc)}',
+      '.pfa-card{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:14px 16px;min-width:0}',
+      '.pfa-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}',
+      '.pfa-grid2{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));margin-top:12px}',
+      '.pfa-k{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut);font-weight:700}',
+      '.pfa-v{font-size:26px;font-weight:800;margin-top:4px;line-height:1.1}',
+      '.pfa-s{font-size:11px;color:var(--mut);margin-top:4px;line-height:1.4}',
+      '.pfa-up{color:var(--grn)}.pfa-dn{color:var(--red)}',
+      '.pfa-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;border:1px solid var(--brd);color:var(--mut);white-space:nowrap}',
+      '.pfa-badge.ok{border-color:var(--grn);color:var(--grn)}.pfa-badge.warn{border-color:var(--yel);color:var(--yel)}',
+      '.pfa-in{padding:7px 9px;border-radius:8px;border:1px solid var(--brd);background:var(--surf2);color:var(--txt);font-size:12px}',
+      '.pfa-btn{padding:8px 13px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--brd);background:var(--surf2);color:var(--txt);white-space:nowrap}',
+      '.pfa-btn.pri{border:none;background:var(--acc);color:var(--txt-inv)}',
+      '.pfa-btn:disabled{opacity:.5;cursor:wait}',
+      '.pfa-tbl{width:100%;border-collapse:collapse;font-size:12px}',
+      '.pfa-tbl th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);padding:7px 8px;border-bottom:1px solid var(--brd);white-space:nowrap}',
+      '.pfa-tbl td{padding:8px;border-bottom:1px solid var(--brd);vertical-align:top}',
+      '.pfa-note{font-size:12px;color:var(--mut);line-height:1.5}',
+      '.pfa-scroll{overflow-x:auto}'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  // ── employee pop-up ───────────────────────────────────────────────────────
+  function deepLinked(){ try { return new URLSearchParams(location.search).get('survey') === '1'; } catch (e) { return false; } }
+  function clearDeepLink(){
+    try { var u = new URL(location.href); if (u.searchParams.has('survey')) { u.searchParams.delete('survey'); history.replaceState(null, '', u.pathname + (u.search || '') + u.hash); } } catch (e) {}
+  }
+  function updateNav(){
+    var n = document.getElementById('nav-psv'); if (n) n.style.display = (status && status.eligible && !status.completed) ? 'flex' : 'none';
+  }
+  function maybePrompt(force){
+    if (typeof currentUser === 'undefined' || !currentUser || typeof RL_SRV === 'undefined') return;
+    var deep = deepLinked();
+    RL_SRV.call('survey_status').then(function(r){
+      if (!r || !r.ok) return;
+      status = r; updateNav();
+      if (deep) clearDeepLink();
+      if (r.completed) { if (deep || force) toast('You\'ve already completed the ' + r.label + ' survey — thank you!'); return; }
+      if (!r.eligible) return;
+      if (r.show || deep || force) waitAndShow(!!(deep || force));
+    }).catch(function(){});
+  }
+  // Never stack on top of another prompt (e.g. the HPM reminder) — wait for it.
+  function waitAndShow(immediate){
+    var tries = 0;
+    (function tick(){
+      if (document.getElementById('psv-modal')) return;
+      var busy = !immediate && (document.getElementById('hpm-prompt-modal') || document.getElementById('hpm-import-modal'));
+      if (busy) { if (++tries < 400) setTimeout(tick, 3000); return; }
+      show();
+    })();
+  }
+  function show(){
+    css();
+    var ans = { satisfaction: 0, ease: 0, usefulness: 0, frequency: '', suggestion: '' }, anon = true, sending = false;
+    var ov = document.createElement('div'); ov.className = 'psv-ov'; ov.id = 'psv-modal';
+    ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-labelledby', 'psv-title');
+    var h = '<div class="psv-box"><button class="psv-x" id="psv-x" aria-label="Remind me later">×</button>' +
+      '<div class="psv-kick">' + esc((status && status.label) || '') + ' · Quarterly feedback</div>' +
+      '<div class="psv-h" id="psv-title">Help Us Improve Pulse</div>' +
+      '<div class="psv-d">We\'re continuously improving Pulse and would love your feedback. This quick survey takes less than a minute.</div>';
+    QS.forEach(function(q, i){
+      h += '<div class="psv-q"><div class="psv-qt" id="psv-l-' + q.k + '">' + (i + 1) + '. ' + esc(q.t) + '<span class="req" aria-hidden="true">*</span></div>' +
+        '<div class="psv-stars" role="radiogroup" aria-labelledby="psv-l-' + q.k + '">' +
+        [1, 2, 3, 4, 5].map(function(n){ return '<button type="button" class="psv-star" role="radio" aria-checked="false" data-q="' + q.k + '" data-v="' + n + '" aria-label="' + n + ' out of 5' + (n === 1 ? ' — ' + q.lo : n === 5 ? ' — ' + q.hi : '') + '">★</button>'; }).join('') +
+        '</div><div class="psv-ends"><span>1 · ' + esc(q.lo) + '</span><span>5 · ' + esc(q.hi) + '</span></div></div>';
+    });
+    h += '<div class="psv-q"><div class="psv-qt" id="psv-l-f">4. How frequently do you use Pulse?<span class="req" aria-hidden="true">*</span></div><div class="psv-pills" role="radiogroup" aria-labelledby="psv-l-f">' +
+      FREQ.map(function(f){ return '<button type="button" class="psv-pill" role="radio" aria-checked="false" data-f="' + esc(f) + '">' + esc(f) + '</button>'; }).join('') + '</div></div>';
+    h += '<div class="psv-q"><label class="psv-qt" for="psv-ta" style="display:block">5. What is one thing we could improve about Pulse? <span style="font-weight:400;color:var(--mut)">(optional)</span></label>' +
+      '<textarea id="psv-ta" class="psv-ta" maxlength="500" placeholder="Your suggestion…"></textarea><div class="psv-cnt" id="psv-cnt">0 / 500</div></div>';
+    h += '<div class="psv-anon"><label class="psv-sw"><input type="checkbox" id="psv-anon" checked><span class="psv-tr" aria-hidden="true"></span>Submit feedback anonymously</label>' +
+      '<div class="psv-mode" id="psv-mode" aria-live="polite"></div>' +
+      '<details class="psv-more"><summary>How is my privacy protected?</summary><ul>' +
+      '<li>Pulse records <b>that</b> you\'ve completed this quarter\'s survey, so it doesn\'t ask you again — admins only ever see a total count, not who took part.</li>' +
+      '<li>Anonymous answers are stored separately with no name, email, ID or exact time attached, and nothing links them back to you.</li>' +
+      '<li>Admins only see anonymous answers once at least 3 people have answered anonymously that quarter, and not before the day after you submit.</li>' +
+      '<li>In a small team, what you write could still hint at who you are — leave out personal details if you want to stay anonymous.</li>' +
+      '<li>You can\'t change this choice after submitting.</li></ul></details></div>';
+    h += '<div class="psv-err" id="psv-err" role="alert"></div><div class="psv-btns"><button type="button" class="psv-pri" id="psv-submit" disabled>Submit Feedback</button><button type="button" class="psv-sec" id="psv-later">Remind Me Later</button></div></div>';
+    ov.innerHTML = h;
+    document.body.appendChild(ov);
+    var $ = function(id){ return document.getElementById(id); };
+    function modeText(){
+      $('psv-mode').textContent = anon
+        ? 'Your feedback will be submitted anonymously. Your name and identity will not be visible to administrators.'
+        : 'Your feedback will be shared with your name, allowing management to follow up with you if necessary.';
+    }
+    function valid(){ return ans.satisfaction && ans.ease && ans.usefulness && ans.frequency; }
+    function refresh(){ $('psv-submit').disabled = !valid() || sending; }
+    modeText();
+    Array.prototype.forEach.call(ov.querySelectorAll('.psv-star'), function(b){
+      b.onclick = function(){
+        var q = b.getAttribute('data-q'), v = +b.getAttribute('data-v'); ans[q] = v;
+        Array.prototype.forEach.call(ov.querySelectorAll('.psv-star[data-q="' + q + '"]'), function(s){ var n = +s.getAttribute('data-v'); s.classList.toggle('on', n <= v); s.setAttribute('aria-checked', n === v ? 'true' : 'false'); });
+        refresh();
+      };
+    });
+    Array.prototype.forEach.call(ov.querySelectorAll('.psv-pill'), function(b){
+      b.onclick = function(){
+        ans.frequency = b.getAttribute('data-f');
+        Array.prototype.forEach.call(ov.querySelectorAll('.psv-pill'), function(p){ var on = p === b; p.classList.toggle('on', on); p.setAttribute('aria-checked', on ? 'true' : 'false'); });
+        refresh();
+      };
+    });
+    $('psv-ta').oninput = function(){ ans.suggestion = this.value.slice(0, 500); $('psv-cnt').textContent = this.value.length + ' / 500'; };
+    $('psv-anon').onchange = function(){ anon = this.checked; modeText(); };
+    function close(){ ov.remove(); document.removeEventListener('keydown', onKey); }
+    function later(){
+      if (sending) return;
+      close();
+      RL_SRV.call('survey_dismiss').then(function(r){ if (r && r.ok && !r.completed) toast('No problem — we\'ll remind you in 7 days.'); }).catch(function(){});
+    }
+    function onKey(e){ if (e.key === 'Escape' && document.getElementById('psv-modal')) later(); }
+    document.addEventListener('keydown', onKey);
+    $('psv-x').onclick = later; $('psv-later').onclick = later;
+    $('psv-submit').onclick = function(){
+      if (!valid() || sending) return;
+      sending = true; refresh(); $('psv-submit').textContent = 'Submitting…'; $('psv-err').textContent = '';
+      RL_SRV.call('survey_submit', { answers: ans, anonymous: anon }).then(function(r){
+        if (r && r.ok) return success(false);
+        if (r && r.error === 'already_completed') return success(true);
+        sending = false; refresh(); $('psv-submit').textContent = 'Submit Feedback';
+        $('psv-err').textContent = (r && r.error === 'invalid_answers') ? 'Please answer questions 1–4.' : 'Sorry — we couldn\'t save your feedback (' + ((r && r.error) || 'network') + '). Please try again.';
+      }).catch(function(){ sending = false; refresh(); $('psv-submit').textContent = 'Submit Feedback'; $('psv-err').textContent = 'Network problem — please try again.'; });
+    };
+    function success(already){
+      if (status) status.completed = true; updateNav();
+      ov.querySelector('.psv-box').innerHTML = '<div style="text-align:center;padding:22px 6px 8px">' +
+        '<div style="font-size:40px;line-height:1">🎉</div>' +
+        '<div class="psv-h" style="margin-top:10px">Thank you for your feedback!</div>' +
+        '<div class="psv-d" style="margin-bottom:18px">' + (already ? 'You\'ve already completed this quarter\'s survey.' : 'Your input helps us make Pulse better for everyone.') + '</div>' +
+        '<button type="button" class="psv-pri" id="psv-done" style="max-width:200px">Close</button></div>';
+      document.getElementById('psv-done').onclick = close;
+      setTimeout(function(){ if (document.getElementById('psv-modal')) close(); }, 5000);
+    }
+    setTimeout(function(){ var f = ov.querySelector('.psv-star'); if (f) f.focus(); }, 50);
+  }
+
+  // ── admin dashboard ───────────────────────────────────────────────────────
+  var A = { tab: 'overview', year: 'all', q: 'all', data: null, loadedAt: 0, err: null, privacy: 'all', search: '', onlyText: false, timer: null };
+  function fmt(v, d){ return v == null ? '—' : Number(v).toFixed(d == null ? 2 : d); }
+  function qLbl(qk){ return 'Q' + qk.slice(6) + ' ' + qk.slice(0, 4); }
+  function quarters(){ return ((A.data && A.data.quarters) || []).slice().sort(function(a, b){ return a.quarter < b.quarter ? -1 : 1; }); }
+  function selQuarters(){ return quarters().filter(function(q){ return (A.year === 'all' || q.quarter.slice(0, 4) === A.year) && (A.q === 'all' || q.quarter.slice(5) === A.q); }); }
+  function prevOf(qk){ var qs = quarters(), i = qs.map(function(q){ return q.quarter; }).indexOf(qk); return i > 0 ? qs[i - 1] : null; }
+  function scopeLabel(){
+    var qs = selQuarters();
+    if (qs.length === 1) return qs[0].label + (qs[0].live ? ' (in progress)' : '');
+    if (A.year === 'all' && A.q === 'all') return 'All quarters';
+    return (A.q !== 'all' ? A.q + ' ' : '') + (A.year === 'all' ? 'all years' : A.year);
+  }
+  // Weighted roll-up of several quarters (used for year / all-time views).
+  function agg(qs){
+    if (qs.length === 1) return qs[0];
+    var o = { responses: 0, eligible: 0, completed: 0, anonymous: 0, identified: 0, frequency: {}, suppressed: true };
+    var w = { satisfaction: [0, 0], ease: [0, 0], usefulness: [0, 0] }, fn = 0;
+    FREQ.forEach(function(f){ o.frequency[f] = 0; });
+    qs.forEach(function(q){
+      o.responses += q.responses; o.eligible += q.eligible || 0; o.completed += q.completed || 0; o.anonymous += q.anonymous; o.identified += q.identified;
+      if (!q.suppressed) {
+        ['satisfaction', 'ease', 'usefulness'].forEach(function(k){ w[k][0] += q[k] * q.responses; w[k][1] += q.responses; });
+        FREQ.forEach(function(f){ o.frequency[f] += q.frequency[f] || 0; }); fn += q.responses;
+      }
+    });
+    ['satisfaction', 'ease', 'usefulness'].forEach(function(k){ o[k] = w[k][1] ? Math.round(w[k][0] / w[k][1] * 100) / 100 : null; });
+    o.suppressed = o.satisfaction == null;
+    o.health = o.suppressed ? null : Math.round((o.satisfaction + o.ease + o.usefulness) / 3 * 100) / 100;
+    o.participation = o.eligible ? Math.round(o.completed / o.eligible * 1000) / 10 : null;
+    o.anonymousPct = o.responses ? Math.round(o.anonymous / o.responses * 1000) / 10 : null;
+    if (!fn) FREQ.forEach(function(f){ o.frequency[f] = null; });
+    return o;
+  }
+  function delta(cur, prev, unit, d){
+    if (cur == null || prev == null) return '';
+    var x = Math.round((cur - prev) * Math.pow(10, d)) / Math.pow(10, d);
+    var cls = x > 0 ? 'pfa-up' : x < 0 ? 'pfa-dn' : '';
+    return '<span class="' + cls + '">' + (x > 0 ? '▲ +' : x < 0 ? '▼ ' : '■ ') + x.toFixed(d) + unit + '</span>';
+  }
+  function targetBadge(v, t, pct){
+    if (v == null) return '';
+    return v >= t ? '<span class="pfa-badge ok">✓ Target ' + (pct ? t + '%' : t.toFixed(1)) + '</span>' : '<span class="pfa-badge warn">Target ' + (pct ? t + '%' : t.toFixed(1)) + '</span>';
+  }
+  function info(text){ return '<span title="' + esc(text) + '" style="cursor:help;color:var(--mut);font-size:11px;margin-left:4px">ⓘ</span>'; }
+
+  function render(){
+    var main = document.getElementById('main'); if (!main) return;
+    if (!isAdmin()) { main.innerHTML = '<div class="ptitle">Pulse Feedback &amp; Analytics</div><div class="psub">Available to Pulse admins only.</div>'; return; }
+    css();
+    main.innerHTML = '<div class="ptitle">Pulse Feedback &amp; Analytics</div>' +
+      '<div class="psub">Quarterly employee feedback on Pulse · admins only · anonymous answers never show who wrote them</div>' +
+      '<div id="pfa-ctl" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px"></div>' +
+      '<div class="pfa-tabs" role="tablist">' + [['overview', 'Overview'], ['feedback', 'Employee Feedback'], ['reports', 'Quarterly Reports']].map(function(t){
+        return '<button class="pfa-tab' + (A.tab === t[0] ? ' on' : '') + '" role="tab" aria-selected="' + (A.tab === t[0]) + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+      '<div id="pfa-body"><div class="pfa-note" style="padding:30px;text-align:center">Loading feedback data…</div></div>';
+    Array.prototype.forEach.call(main.querySelectorAll('.pfa-tab'), function(b){ b.onclick = function(){ A.tab = b.getAttribute('data-tab'); render(); }; });
+    load(false).then(function(){ if (view === 'feedback') draw(); });
+    if (!A.timer) A.timer = setInterval(function(){
+      if (view !== 'feedback') { clearInterval(A.timer); A.timer = null; return; }
+      if (document.hidden) return;
+      load(true).then(function(){ if (view === 'feedback' && A.tab !== 'feedback') draw(); });
+    }, 5 * 60000);
+  }
+  function load(force){
+    if (!force && A.data && Date.now() - A.loadedAt < 60000) return Promise.resolve();
+    return RL_SRV.call('survey_admin_data', { quarter: 'all' }).then(function(r){
+      if (r && r.ok) { A.data = r; A.loadedAt = Date.now(); A.err = null; }
+      else A.err = (r && r.error) || 'unavailable';
+    }).catch(function(e){ A.err = String(e && e.message || e); });
+  }
+  function controls(){
+    var ctl = document.getElementById('pfa-ctl'); if (!ctl) return;
+    var years = []; quarters().forEach(function(q){ var y = q.quarter.slice(0, 4); if (years.indexOf(y) < 0) years.push(y); });
+    ctl.innerHTML =
+      '<select id="pfa-year" class="pfa-in" aria-label="Year"><option value="all">All years</option>' + years.reverse().map(function(y){ return '<option' + (A.year === y ? ' selected' : '') + '>' + y + '</option>'; }).join('') + '</select>' +
+      '<select id="pfa-q" class="pfa-in" aria-label="Quarter"><option value="all">All quarters</option>' + ['Q1', 'Q2', 'Q3', 'Q4'].map(function(q){ return '<option' + (A.q === q ? ' selected' : '') + '>' + q + '</option>'; }).join('') + '</select>' +
+      '<button id="pfa-refresh" class="pfa-btn">↻ Refresh</button>' +
+      '<span class="pfa-note" id="pfa-upd"></span><span style="flex:1"></span>' +
+      '<button id="pfa-xlsx" class="pfa-btn">⬇ Export to Excel</button><button id="pfa-pptx" class="pfa-btn pri">⬇ Export to PowerPoint</button>';
+    document.getElementById('pfa-year').onchange = function(){ A.year = this.value; draw(); };
+    document.getElementById('pfa-q').onchange = function(){ A.q = this.value; draw(); };
+    document.getElementById('pfa-refresh').onclick = function(){ load(true).then(draw); };
+    document.getElementById('pfa-xlsx').onclick = function(){ exportXlsx(this, selQuarters()); };
+    document.getElementById('pfa-pptx').onclick = function(){ exportPptx(this, selQuarters()); };
+    var u = document.getElementById('pfa-upd'); if (u && A.loadedAt) u.textContent = 'Updated ' + new Date(A.loadedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' · refreshes every 5 min';
+  }
+  function draw(){
+    var body = document.getElementById('pfa-body'); if (!body) return;
+    if (A.err && !A.data) { body.innerHTML = '<div class="pfa-card" style="color:var(--red);font-size:12px">Couldn\'t load feedback data (' + esc(A.err) + '). Try ↻ Refresh, or sign out and back in.</div>'; return; }
+    if (!A.data) return;
+    if (A.year === 'all' && A.q === 'all' && !A._init) { A._init = true; A.year = A.data.current.slice(0, 4); A.q = A.data.current.slice(5); }
+    controls();
+    var qs = selQuarters();
+    if (!qs.length) { body.innerHTML = '<div class="pfa-card pfa-note">No survey data for ' + esc(scopeLabel()) + ' yet.</div>'; return; }
+    if (A.tab === 'feedback') body.innerHTML = feedbackHtml(qs), bindFeedback();
+    else if (A.tab === 'reports') body.innerHTML = reportsHtml(), bindReports();
+    else { body.innerHTML = overviewHtml(qs); overviewCharts(qs); }
+  }
+
+  function overviewHtml(qs){
+    var m = agg(qs), single = qs.length === 1, p = single ? prevOf(qs[0].quarter) : null;
+    var pl = p ? ' vs ' + p.label : '';
+    var t = function(k, label, v, sub, extra){ return '<div class="pfa-card"><div class="pfa-k">' + label + extra + '</div><div class="pfa-v">' + v + '</div><div class="pfa-s">' + sub + '</div></div>'; };
+    var h = '';
+    var live = single && qs[0].live;
+    h += '<div class="pfa-note" style="margin-bottom:10px">' + esc(scopeLabel()) + (single ? (live ? ' · <span class="pfa-badge">Live — quarter in progress</span>' : qs[0].final ? ' · <span class="pfa-badge ok">Final report</span>' : '') : '') +
+      ' · ' + m.responses + ' response' + (m.responses === 1 ? '' : 's') + (live ? ' · ' + esc(A.data.pendingNote) : '') + '</div>';
+    if (m.suppressed) h += '<div class="pfa-card pfa-note" style="margin-bottom:10px;border-color:var(--yel)">Scores are shown once at least ' + A.data.minGroup + ' responses are in for a quarter, to protect anonymity.</div>';
+    h += '<div class="pfa-grid">' +
+      t('sat', 'Overall satisfaction', fmt(m.satisfaction) + '<span style="font-size:14px;color:var(--mut)">/5</span>', [targetBadge(m.satisfaction, TARGET.satisfaction), delta(m.satisfaction, p && p.satisfaction, '', 2) + pl].filter(Boolean).join(' '), info('Average of Q1 (1–5 stars) across responses in the selected period.')) +
+      t('ease', 'Ease of use', fmt(m.ease) + '<span style="font-size:14px;color:var(--mut)">/5</span>', [targetBadge(m.ease, TARGET.ease), delta(m.ease, p && p.ease, '', 2) + pl].filter(Boolean).join(' '), info('Average of Q2 (1–5 stars).')) +
+      t('use', 'Platform usefulness', fmt(m.usefulness) + '<span style="font-size:14px;color:var(--mut)">/5</span>', [targetBadge(m.usefulness, TARGET.usefulness), delta(m.usefulness, p && p.usefulness, '', 2) + pl].filter(Boolean).join(' '), info('Average of Q3 (1–5 stars).')) +
+      t('health', 'Pulse Health Score', fmt(m.health) + '<span style="font-size:14px;color:var(--mut)">/5</span>', p ? delta(m.health, p.health, '', 2) + pl : 'Average of the three scores', info('(Satisfaction + Ease of use + Usefulness) ÷ 3.')) +
+      t('part', 'Survey participation', (m.participation == null ? '—' : fmt(m.participation, 1) + '%'), m.completed + ' of ' + m.eligible + ' eligible ' + targetBadge(m.participation, TARGET.participation, true) + (p ? ' ' + delta(m.participation, p.participation, ' pts', 1) : ''), info('Completed surveys ÷ eligible employees (active staff) × 100. Only a count is ever shown — never who took part.')) +
+      t('anon', 'Anonymous responses', (m.anonymousPct == null ? '—' : fmt(m.anonymousPct, 1) + '%'), m.anonymous + ' anonymous · ' + m.identified + ' identified', info('Share of responses submitted with the anonymous toggle on.')) +
+      '</div>';
+    h += '<div class="pfa-grid2">' +
+      '<div class="pfa-card"><div style="font-size:12px;font-weight:800">Usage frequency' + info('Self-reported in Q4, as % of responses.') + '</div><div class="pfa-note">How often people say they use Pulse</div><div style="position:relative;height:220px;margin-top:8px"><canvas id="pfa-c-freq"></canvas></div></div>' +
+      '<div class="pfa-card"><div style="font-size:12px;font-weight:800">Anonymous vs identified</div><div class="pfa-note">Privacy choice made by respondents</div><div style="position:relative;height:220px;margin-top:8px"><canvas id="pfa-c-anon"></canvas></div></div>' +
+      '</div>';
+    h += '<div class="pfa-grid2">' +
+      '<div class="pfa-card"><div style="font-size:12px;font-weight:800">Quarterly scores' + info('Average scores per quarter (1–5). Quarters with fewer than ' + A.data.minGroup + ' responses are left blank.') + '</div><div class="pfa-note">Satisfaction, ease of use, usefulness and Pulse Health Score</div><div style="position:relative;height:250px;margin-top:8px"><canvas id="pfa-c-trend"></canvas></div></div>' +
+      '<div class="pfa-card"><div style="font-size:12px;font-weight:800">Survey participation by quarter</div><div class="pfa-note">% of eligible employees · target ' + TARGET.participation + '%</div><div style="position:relative;height:250px;margin-top:8px"><canvas id="pfa-c-part"></canvas></div></div>' +
+      '</div>';
+    h += '<div class="pfa-card" style="margin-top:12px"><div style="font-size:12px;font-weight:800;margin-bottom:6px">Quarter-over-quarter</div><div class="pfa-scroll">' + qoqTable() + '</div></div>';
+    return h;
+  }
+  function qoqTable(){
+    var qs = quarters();
+    var rows = qs.map(function(q, i){
+      var p = i ? qs[i - 1] : null;
+      var c = function(k, d, u){ return '<td>' + (q[k] == null ? '—' : fmt(q[k], d) + (u || '')) + (p ? ' <span style="font-size:10.5px">' + delta(q[k], p[k], u === '%' ? ' pts' : '', d) + '</span>' : '') + '</td>'; };
+      return '<tr><td><b>' + esc(q.label) + '</b> ' + (q.live ? '<span class="pfa-badge">Live</span>' : q.final ? '<span class="pfa-badge ok">Final</span>' : '') + '</td>' + c('satisfaction', 2) + c('ease', 2) + c('usefulness', 2) + c('health', 2) + c('participation', 1, '%') + '<td>' + q.responses + '</td></tr>';
+    }).reverse().join('');
+    return '<table class="pfa-tbl"><thead><tr><th>Quarter</th><th>Satisfaction</th><th>Ease of use</th><th>Usefulness</th><th>Health score</th><th>Participation</th><th>Responses</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+  function pal(){ return isLight() ? ['#7700ff', '#0a8f5e', '#c98a00', '#2778c4'] : ['#9d5cff', '#0f9a70', '#b8860f', '#4a90d9']; }
+  function tc(){ var cs = getComputedStyle(document.documentElement); return { txt: (cs.getPropertyValue('--txt') || '#e1e4ea').trim(), mut: (cs.getPropertyValue('--mut') || '#717784').trim(), grid: (cs.getPropertyValue('--brd') || '#37455c').trim() }; }
+  function axes(t, y){ return { x: { ticks: { color: t.mut, font: { size: 11 } }, grid: { color: t.grid }, border: { display: false } }, y: Object.assign({ ticks: { color: t.mut, font: { size: 11 } }, grid: { color: t.grid }, border: { display: false } }, y || {}) }; }
+  function overviewCharts(qs){
+    var m = agg(qs), t = tc(), c = pal(), all = quarters();
+    var tt = { backgroundColor: '#18181f', titleColor: '#e4e4f0', bodyColor: '#e4e4f0', padding: 8 };
+    var tot = FREQ.reduce(function(s, f){ return s + (m.frequency[f] || 0); }, 0);
+    mkChart('pfa-c-freq', { type: 'bar', data: { labels: FREQ, datasets: [{ data: FREQ.map(function(f){ return tot ? Math.round((m.frequency[f] || 0) / tot * 1000) / 10 : null; }), backgroundColor: c[0], borderRadius: 4, borderSkipped: 'start', maxBarThickness: 26 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: Object.assign({ callbacks: { label: function(x){ return x.parsed.x + '% (' + (m.frequency[FREQ[x.dataIndex]] || 0) + ' people)'; } } }, tt) }, scales: axes(t, { grid: { display: false } }) } });
+    var cx = charts['pfa-c-freq']; if (cx) { cx.options.scales.x.min = 0; cx.options.scales.x.max = 100; cx.options.scales.x.ticks.callback = function(v){ return v + '%'; }; cx.update(); }
+    mkChart('pfa-c-anon', { type: 'bar', data: { labels: ['Anonymous', 'Identified'], datasets: [{ data: [m.anonymous, m.identified], backgroundColor: [c[0], c[3]], borderRadius: 4, borderSkipped: 'start', maxBarThickness: 40 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tt }, scales: axes(t, { beginAtZero: true, ticks: { precision: 0, color: t.mut } }) } });
+    var labels = all.map(function(q){ return q.label; });
+    var ser = [['Satisfaction', 'satisfaction'], ['Ease of use', 'ease'], ['Usefulness', 'usefulness'], ['Health score', 'health']];
+    mkChart('pfa-c-trend', { type: 'line', data: { labels: labels, datasets: ser.map(function(s, i){ return { label: s[0], data: all.map(function(q){ return q[s[1]]; }), borderColor: c[i], backgroundColor: c[i], borderWidth: 2, pointRadius: 5, tension: .2, spanGaps: true, borderDash: s[1] === 'health' ? [6, 4] : [] }; }) },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: t.txt, boxWidth: 12, font: { size: 11 } } }, tooltip: tt }, scales: Object.assign(axes(t, { min: 1, max: 5, ticks: { stepSize: 1, color: t.mut } }), { x: { offset: true, ticks: { color: t.mut }, grid: { color: t.grid } } }) } });
+    mkChart('pfa-c-part', { type: 'line', data: { labels: labels, datasets: [{ label: 'Participation', data: all.map(function(q){ return q.participation; }), borderColor: c[0], backgroundColor: c[0], borderWidth: 2, pointRadius: 5, tension: .2 },
+      { label: 'Target ' + TARGET.participation + '%', data: all.map(function(){ return TARGET.participation; }), borderColor: t.mut, borderDash: [5, 5], borderWidth: 1.5, pointRadius: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: t.txt, boxWidth: 12, font: { size: 11 } } }, tooltip: tt }, scales: Object.assign(axes(t, { min: 0, max: 100, ticks: { callback: function(v){ return v + '%'; }, color: t.mut } }), { x: { offset: true, ticks: { color: t.mut }, grid: { color: t.grid } } }) } });
+  }
+
+  function feedbackRows(qs){
+    var keys = qs.map(function(q){ return q.quarter; }), s = A.search.toLowerCase();
+    return (A.data.rows || []).filter(function(r){
+      if (keys.indexOf(r.quarter) < 0) return false;
+      if (A.privacy === 'anon' && !r.anonymous) return false;
+      if (A.privacy === 'ident' && r.anonymous) return false;
+      if (A.onlyText && !r.suggestion) return false;
+      if (s && (r.suggestion + ' ' + (r.name || '') + ' ' + r.frequency).toLowerCase().indexOf(s) < 0) return false;
+      return true;
+    });
+  }
+  function feedbackHtml(qs){
+    var rows = feedbackRows(qs), held = 0;
+    qs.forEach(function(q){ var shown = (A.data.rows || []).filter(function(r){ return r.quarter === q.quarter && r.anonymous; }).length; if (q.anonymous > 0 && shown === 0 && q.anonymous < A.data.minGroup) held += q.anonymous; });
+    var stars = function(n){ return '<span style="color:#ffc107;letter-spacing:1px" aria-label="' + n + ' of 5">' + '★★★★★'.slice(0, n) + '</span><span style="color:var(--brd)">' + '★★★★★'.slice(n) + '</span>'; };
+    var h = '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">' +
+      '<input id="pfa-search" class="pfa-in" type="search" placeholder="Search feedback…" value="' + esc(A.search) + '" style="min-width:220px;flex:1;max-width:360px">' +
+      '<select id="pfa-priv" class="pfa-in" aria-label="Privacy filter">' + [['all', 'All responses'], ['anon', 'Anonymous responses'], ['ident', 'Identified responses']].map(function(o){ return '<option value="' + o[0] + '"' + (A.privacy === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+      '<label class="pfa-note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="pfa-only"' + (A.onlyText ? ' checked' : '') + '>Only with written suggestions</label>' +
+      '<span class="pfa-note">' + rows.length + ' shown</span></div>';
+    if (held) h += '<div class="pfa-card pfa-note" style="margin-bottom:10px;border-color:var(--yel)">' + held + ' anonymous response' + (held === 1 ? ' is' : 's are') + ' held back until at least ' + A.data.minGroup + ' anonymous responses exist for the quarter. They already count in participation.</div>';
+    if (qs.some(function(q){ return q.live; })) h += '<div class="pfa-note" style="margin-bottom:8px">' + esc(A.data.pendingNote) + ' Order is shuffled; anonymous rows carry no name, email or date.</div>';
+    if (!rows.length) return h + '<div class="pfa-card pfa-note">No responses match these filters.</div>';
+    h += '<div class="pfa-card pfa-scroll" style="padding:4px 8px"><table class="pfa-tbl"><thead><tr><th>Quarter</th><th>Satisfaction</th><th>Ease</th><th>Usefulness</th><th>Usage</th><th style="min-width:260px">Suggestion</th><th>Privacy</th><th>Employee</th><th>Date</th></tr></thead><tbody>' +
+      rows.map(function(r){
+        return '<tr><td style="white-space:nowrap">' + esc(r.label) + '</td><td style="white-space:nowrap">' + stars(r.satisfaction) + '</td><td style="white-space:nowrap">' + stars(r.ease) + '</td><td style="white-space:nowrap">' + stars(r.usefulness) + '</td><td>' + esc(r.frequency) + '</td>' +
+          '<td style="line-height:1.45">' + (r.suggestion ? esc(r.suggestion) : '<span style="color:var(--mut)">—</span>') + '</td>' +
+          '<td>' + (r.anonymous ? '<span class="pfa-badge">Anonymous</span>' : '<span class="pfa-badge ok">Identified</span>') + '</td>' +
+          '<td>' + (r.anonymous ? '<span style="color:var(--mut)">Hidden</span>' : esc(r.name) + '<div style="font-size:10.5px;color:var(--mut)">' + esc(r.email) + '</div>') + '</td>' +
+          '<td style="white-space:nowrap">' + (r.anonymous ? esc(r.label) : esc(r.date)) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+    return h;
+  }
+  function bindFeedback(){
+    var s = document.getElementById('pfa-search');
+    if (s) { s.oninput = function(){ A.search = this.value; var pos = this.selectionStart; draw(); var n = document.getElementById('pfa-search'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }; }
+    var p = document.getElementById('pfa-priv'); if (p) p.onchange = function(){ A.privacy = this.value; draw(); };
+    var o = document.getElementById('pfa-only'); if (o) o.onchange = function(){ A.onlyText = this.checked; draw(); };
+  }
+  function reportsHtml(){
+    var qs = quarters().slice().reverse();
+    var h = '<div class="pfa-card pfa-note" style="margin-bottom:12px">Final reports are created automatically when each quarter ends: the quarter\'s data is frozen in the cloud at 23:59 UK time on its last day, so the Excel and PowerPoint files are always built from the same figures. The current quarter is shown live. You can rebuild a past quarter\'s report if its data changes.</div>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px"><label class="pfa-note" for="pfa-rq">Reporting quarter</label><select id="pfa-rq" class="pfa-in">' +
+      qs.map(function(q){ return '<option value="' + q.quarter + '">' + esc(q.label) + (q.live ? ' (in progress)' : '') + '</option>'; }).join('') + '</select>' +
+      '<button id="pfa-gen" class="pfa-btn pri">Generate report (Excel + PowerPoint)</button><button id="pfa-allx" class="pfa-btn">⬇ All quarters to Excel</button></div>';
+    h += '<div class="pfa-card pfa-scroll" style="padding:4px 8px"><table class="pfa-tbl"><thead><tr><th>Quarter</th><th>Status</th><th>Responses</th><th>Participation</th><th>Health score</th><th>Downloads</th><th></th></tr></thead><tbody>' +
+      qs.map(function(q){
+        var st = q.live ? '<span class="pfa-badge">Live — in progress</span>' : q.final ? '<span class="pfa-badge ok">Final · ' + esc(String(q.generatedAt || '').slice(0, 10)) + '</span>' : '<span class="pfa-badge warn">Not finalised</span>';
+        return '<tr><td><b>' + esc(q.label) + '</b></td><td>' + st + '</td><td>' + q.responses + '</td><td>' + (q.participation == null ? '—' : fmt(q.participation, 1) + '%') + '</td><td>' + fmt(q.health) + '</td>' +
+          '<td style="white-space:nowrap"><button class="pfa-btn" data-x="' + q.quarter + '">Excel</button> <button class="pfa-btn" data-p="' + q.quarter + '">PowerPoint</button></td>' +
+          '<td>' + (q.live ? '' : '<button class="pfa-btn" data-r="' + q.quarter + '" title="Rebuild this quarter\'s frozen report from the stored responses">' + (q.final ? 'Regenerate' : 'Finalise') + '</button>') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+    return h;
+  }
+  function byQ(qk){ return quarters().filter(function(q){ return q.quarter === qk; }); }
+  function bindReports(){
+    var body = document.getElementById('pfa-body');
+    Array.prototype.forEach.call(body.querySelectorAll('[data-x]'), function(b){ b.onclick = function(){ exportXlsx(b, byQ(b.getAttribute('data-x'))); }; });
+    Array.prototype.forEach.call(body.querySelectorAll('[data-p]'), function(b){ b.onclick = function(){ exportPptx(b, byQ(b.getAttribute('data-p'))); }; });
+    Array.prototype.forEach.call(body.querySelectorAll('[data-r]'), function(b){ b.onclick = function(){
+      var qk = b.getAttribute('data-r');
+      if (!confirmInline(b)) return;
+      busy(b, true, 'Rebuilding…');
+      RL_SRV.call('survey_report_generate', { quarter: qk }).then(function(r){
+        if (r && r.ok) { toast(qLbl(qk) + ' report rebuilt'); return load(true).then(draw); }
+        toast('Couldn\'t rebuild: ' + ((r && (r.detail || r.error)) || 'unknown'), 'err'); busy(b, false);
+      }).catch(function(e){ toast('Couldn\'t rebuild: ' + (e.message || e), 'err'); busy(b, false); });
+    }; });
+    document.getElementById('pfa-gen').onclick = function(){
+      var qk = document.getElementById('pfa-rq').value, btn = this;
+      exportXlsx(btn, byQ(qk)).then(function(){ return exportPptx(btn, byQ(qk)); });
+    };
+    document.getElementById('pfa-allx').onclick = function(){ exportXlsx(this, quarters()); };
+  }
+  // Two-click confirm without a browser dialog (dialogs block Pulse's other UI).
+  function confirmInline(b){
+    if (b._armed) { b._armed = false; return true; }
+    b._armed = true; var t = b.textContent; b.textContent = 'Click again to confirm';
+    setTimeout(function(){ if (b._armed) { b._armed = false; b.textContent = t; } }, 4000);
+    return false;
+  }
+  function busy(b, on, label){ if (!b) return; if (on) { b._t = b.textContent; b.textContent = label; b.disabled = true; } else { b.textContent = b._t || b.textContent; b.disabled = false; } }
+
+  // ── shared export helpers ────────────────────────────────────────────────
+  var _libs = {};
+  function loadLib(src, g){
+    if (window[g]) return Promise.resolve(window[g]);
+    if (_libs[src]) return _libs[src];
+    _libs[src] = new Promise(function(res, rej){ var s = document.createElement('script'); s.src = src; s.onload = function(){ window[g] ? res(window[g]) : rej(new Error(g + ' missing')); }; s.onerror = function(){ delete _libs[src]; rej(new Error('could not load ' + g)); }; document.head.appendChild(s); });
+    return _libs[src];
+  }
+  function download(blob, name){ var u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); URL.revokeObjectURL(u); }, 2000); }
+  function fileTag(qs){ return qs.length === 1 ? qs[0].quarter : (qs.length ? qs[0].quarter + '_to_' + qs[qs.length - 1].quarter : 'all'); }
+  function rowsFor(qs){ var ks = qs.map(function(q){ return q.quarter; }); return (A.data.rows || []).filter(function(r){ return ks.indexOf(r.quarter) >= 0; }); }
+  function trendRows(upTo){ var all = quarters(); return upTo ? all.filter(function(q){ return q.quarter <= upTo; }) : all; }
+
+  // Suggestion themes — simple, transparent keyword matching (no AI), so
+  // every theme shown is backed by actual comments.
+  var THEMES = [
+    ['Navigation & ease of use', /navigat|find (things|it|stuff)|menu|confus|intuitive|simpl|clutter|layout|\bux\b|\bui\b|design|too many (tabs|clicks)/i],
+    ['Speed & performance', /slow|speed|fast(er)?|load|lag|performance|lag/i],
+    ['Mobile experience', /mobile|phone|\bapp\b|responsive|tablet/i],
+    ['Notifications & reminders', /notif|remind|e-?mail|slack|alert/i],
+    ['HPM check-ins', /\bhpm|check-?in|weekly update/i],
+    ['OKRs & goals', /\bokr|goal|key result|objective/i],
+    ['Tasks', /\btask|to-?do/i],
+    ['Reports & dashboards', /report|dashboard|chart|export|metric|analytics/i],
+    ['Search & filters', /search|filter/i],
+    ['Guidance & training', /guide|training|onboard|tutorial|how to|help (page|section|docs)|instructions/i],
+    ['Bugs & reliability', /bug|error|crash|broken|sync|log ?out|log ?in|sign ?in|glitch/i]
+  ];
+  function themes(texts){
+    return THEMES.map(function(t){ return { name: t[0], n: texts.filter(function(x){ return t[1].test(x); }).length }; }).filter(function(t){ return t.n > 0; }).sort(function(a, b){ return b.n - a.n; });
+  }
+  // Comments for slides: never names/emails; drop any comment that mentions a
+  // colleague's name or an email address; only shown with ≥ minGroup comments.
+  function safeComments(rows){
+    var names = [];
+    try { Object.keys(USER_REGISTRY || {}).forEach(function(em){ String((USER_REGISTRY[em] || {}).name || '').split(/\s+/).forEach(function(p){ p = p.replace(/[^A-Za-zÀ-ÿ'-]/g, ''); if (p.length >= 3) names.push(p.toLowerCase()); }); }); } catch (e) {}
+    var texts = rows.map(function(r){ return String(r.suggestion || '').trim(); }).filter(function(t){ return t.length >= 15; });
+    if (texts.length < (A.data.minGroup || 3)) return { list: [], total: texts.length };
+    var ok = texts.filter(function(t){
+      if (/@|https?:\/\//i.test(t)) return false;
+      var words = t.toLowerCase().match(/[a-zà-ÿ'-]+/g) || [];
+      return !words.some(function(w){ return names.indexOf(w) >= 0; });
+    }).filter(function(t){ return t.length <= 220; });
+    var seen = {}, out = [];
+    ok.forEach(function(t){ var k = t.toLowerCase(); if (!seen[k] && out.length < 5) { seen[k] = 1; out.push(t); } });
+    return { list: out, total: texts.length };
+  }
+  function observations(m, qs){
+    var o = [], tot = FREQ.reduce(function(s, f){ return s + (m.frequency[f] || 0); }, 0);
+    if (m.participation != null) o.push(fmt(m.participation, 1) + '% of eligible employees took part (target ' + TARGET.participation + '%).');
+    if (tot) {
+      var reg = (m.frequency['Daily'] || 0) + (m.frequency['Several times a week'] || 0);
+      o.push(Math.round(reg / tot * 100) + '% use Pulse daily or several times a week; ' + Math.round((m.frequency['Rarely'] || 0) / tot * 100) + '% use it rarely.');
+    }
+    if (m.anonymousPct != null) o.push(fmt(m.anonymousPct, 0) + '% of respondents chose to answer anonymously.');
+    var p = qs.length === 1 ? prevOf(qs[0].quarter) : null;
+    if (p && p.participation != null && m.participation != null) o.push('Participation ' + (m.participation >= p.participation ? 'up' : 'down') + ' ' + Math.abs(Math.round((m.participation - p.participation) * 10) / 10) + ' pts vs ' + p.label + '.');
+    return o;
+  }
+  function improvementAreas(m, th){
+    var out = [];
+    [['Overall satisfaction', 'satisfaction'], ['Ease of use', 'ease'], ['Platform usefulness', 'usefulness']].forEach(function(x){
+      if (m[x[1]] != null && m[x[1]] < TARGET[x[1]]) out.push(x[0] + ' is ' + fmt(m[x[1]]) + '/5, below the ' + TARGET[x[1]].toFixed(1) + ' target.');
+    });
+    if (m.participation != null && m.participation < TARGET.participation) out.push('Participation is ' + fmt(m.participation, 1) + '%, below the ' + TARGET.participation + '% target.');
+    th.slice(0, 2).forEach(function(t){ if (t.n >= 2) out.push('"' + t.name + '" came up in ' + t.n + ' suggestions.'); });
+    return out;
+  }
+
+  // ── Excel: minimal hand-built .xlsx (styled cells + native line charts) ───
+  function x(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ''); }
+  function colL(i){ var s = ''; i++; while (i) { var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; }
+  var XS = { title: 1, sub: 2, head: 3, txt: 4, wrap: 5, num2: 6, pct: 7, int: 8, label: 9, d2: 10, dpct: 11, ctr: 12 };
+  function stylesXml(){
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<numFmts count="4"><numFmt numFmtId="164" formatCode="0.00"/><numFmt numFmtId="165" formatCode="0.0&quot;%&quot;"/><numFmt numFmtId="166" formatCode="+0.00;-0.00;0.00"/><numFmt numFmtId="167" formatCode="+0.0&quot; pts&quot;;-0.0&quot; pts&quot;;0.0&quot; pts&quot;"/></numFmts>' +
+      '<fonts count="5"><font><sz val="10"/><color rgb="FF01112E"/><name val="Arial"/></font><font><b/><sz val="16"/><color rgb="FF01112E"/><name val="Arial"/></font><font><i/><sz val="9"/><color rgb="FF525866"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FF01112E"/><name val="Arial"/></font></fonts>' +
+      '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF7700FF"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF4F4F6"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+      '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFE1E4EA"/></left><right style="thin"><color rgb="FFE1E4EA"/></right><top style="thin"><color rgb="FFE1E4EA"/></top><bottom style="thin"><color rgb="FFE1E4EA"/></bottom><diagonal/></border></borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="13">' +
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+      '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+      '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+      '<xf numFmtId="0" fontId="3" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>' +
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>' +
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' +
+      '<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="top"/></xf>' +
+      '<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="top"/></xf>' +
+      '<xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="top"/></xf>' +
+      '<xf numFmtId="0" fontId="4" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>' +
+      '<xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="top"/></xf>' +
+      '<xf numFmtId="167" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="top"/></xf>' +
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>' +
+      '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  }
+  function cellXml(ref, c){
+    if (c == null || c === '') return '';
+    if (typeof c !== 'object') c = { v: c };
+    var s = c.s ? ' s="' + XS[c.s] + '"' : '';
+    if (c.v == null || c.v === '') return '<c r="' + ref + '"' + s + '/>';
+    if (typeof c.v === 'number' && isFinite(c.v)) return '<c r="' + ref + '"' + s + '><v>' + c.v + '</v></c>';
+    return '<c r="' + ref + '"' + s + ' t="inlineStr"><is><t xml:space="preserve">' + x(c.v) + '</t></is></c>';
+  }
+  function sheetXml(sh, drawingRid){
+    var rows = sh.rows.map(function(r, ri){
+      var ht = sh.heights && sh.heights[ri] ? ' ht="' + sh.heights[ri] + '" customHeight="1"' : '';
+      return '<row r="' + (ri + 1) + '"' + ht + '>' + r.map(function(c, ci){ return cellXml(colL(ci) + (ri + 1), c); }).join('') + '</row>';
+    }).join('');
+    var pane = sh.freeze ? '<sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="' + (sh.freeze - 1) + '" topLeftCell="A' + sh.freeze + '" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' : '<sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews>';
+    var cols = '<cols>' + sh.cols.map(function(w, i){ return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>'; }).join('') + '</cols>';
+    var merges = sh.merges && sh.merges.length ? '<mergeCells count="' + sh.merges.length + '">' + sh.merges.map(function(m){ return '<mergeCell ref="' + m + '"/>'; }).join('') + '</mergeCells>' : '';
+    var af = sh.autofilter ? '<autoFilter ref="' + sh.autofilter + '"/>' : '';
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      pane + '<sheetFormatPr defaultRowHeight="15"/>' + cols + '<sheetData>' + rows + '</sheetData>' + af + merges +
+      '<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>' +
+      (drawingRid ? '<drawing r:id="' + drawingRid + '"/>' : '') + '</worksheet>';
+  }
+  function chartXml(ch, sheetName){
+    var ref = function(col, r1, r2){ return "'" + sheetName.replace(/'/g, "''") + "'!$" + col + '$' + r1 + ':$' + col + '$' + r2; };
+    var n = ch.cats.length, r1 = ch.firstRow, r2 = ch.firstRow + n - 1;
+    var catCache = '<c:strCache><c:ptCount val="' + n + '"/>' + ch.cats.map(function(c, i){ return '<c:pt idx="' + i + '"><c:v>' + x(c) + '</c:v></c:pt>'; }).join('') + '</c:strCache>';
+    var ser = ch.series.map(function(s, i){
+      var vals = '<c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="' + n + '"/>' + s.vals.map(function(v, j){ return v == null ? '' : '<c:pt idx="' + j + '"><c:v>' + v + '</c:v></c:pt>'; }).join('') + '</c:numCache>';
+      return '<c:ser><c:idx val="' + i + '"/><c:order val="' + i + '"/><c:tx><c:strRef><c:f>\'' + sheetName + '\'!$' + s.col + '$' + (ch.firstRow - 1) + '</c:f><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>' + x(s.name) + '</c:v></c:pt></c:strCache></c:strRef></c:tx>' +
+        '<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="' + s.color + '"/></a:solidFill>' + (s.dash ? '<a:prstDash val="dash"/>' : '') + '<a:round/></a:ln></c:spPr>' +
+        '<c:marker><c:symbol val="circle"/><c:size val="7"/><c:spPr><a:solidFill><a:srgbClr val="' + s.color + '"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:marker>' +
+        '<c:cat><c:strRef><c:f>' + ref(ch.catCol, r1, r2) + '</c:f>' + catCache + '</c:strRef></c:cat>' +
+        '<c:val><c:numRef><c:f>' + ref(s.col, r1, r2) + '</c:f>' + vals + '</c:numRef></c:val><c:smooth val="0"/></c:ser>';
+    }).join('');
+    var txt = '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"><a:solidFill><a:srgbClr val="525866"/></a:solidFill><a:latin typeface="Arial"/></a:defRPr></a:pPr><a:endParaRPr lang="en-GB"/></a:p></c:txPr>';
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:roundedCorners val="0"/>' +
+      '<c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="1200" b="1"/></a:pPr><a:r><a:rPr lang="en-GB" sz="1200" b="1"><a:solidFill><a:srgbClr val="01112E"/></a:solidFill><a:latin typeface="Arial"/></a:rPr><a:t>' + x(ch.title) + '</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/>' +
+      '<c:plotArea><c:layout/><c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>' + ser + '<c:marker val="1"/><c:axId val="5001"/><c:axId val="5002"/></c:lineChart>' +
+      '<c:catAx><c:axId val="5001"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/><c:spPr><a:ln><a:solidFill><a:srgbClr val="E1E4EA"/></a:solidFill></a:ln></c:spPr>' + txt + '<c:crossAx val="5002"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/></c:catAx>' +
+      '<c:valAx><c:axId val="5002"/><c:scaling><c:orientation val="minMax"/>' + (ch.max != null ? '<c:max val="' + ch.max + '"/>' : '') + (ch.min != null ? '<c:min val="' + ch.min + '"/>' : '') + '</c:scaling><c:delete val="0"/><c:axPos val="l"/><c:majorGridlines><c:spPr><a:ln><a:solidFill><a:srgbClr val="E1E4EA"/></a:solidFill></a:ln></c:spPr></c:majorGridlines><c:numFmt formatCode="' + x(ch.fmt || 'General') + '" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/><c:spPr><a:ln><a:noFill/></a:ln></c:spPr>' + txt + '<c:crossAx val="5001"/><c:crosses val="autoZero"/><c:crossBetween val="between"/>' + (ch.major ? '<c:majorUnit val="' + ch.major + '"/>' : '') + '</c:valAx></c:plotArea>' +
+      '<c:legend><c:legendPos val="b"/><c:overlay val="0"/>' + txt + '</c:legend><c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart>' +
+      '<c:spPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr></c:chartSpace>';
+  }
+  function anchorXml(a, rid, id, name){
+    return '<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>' + a[0] + '</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>' + a[1] + '</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>' + a[2] + '</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>' + a[3] + '</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>' +
+      '<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="' + id + '" name="' + x(name) + '"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" r:id="' + rid + '"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>';
+  }
+  function buildXlsx(JSZip, sheets){
+    var z = new JSZip(), ct = [], wbRels = [], wbSheets = [], chartN = 0, drawN = 0;
+    sheets.forEach(function(sh, i){
+      var n = i + 1, drawRid = null;
+      if (sh.charts && sh.charts.length) {
+        drawN++; drawRid = 'rId1';
+        var dRels = [], anchors = '';
+        sh.charts.forEach(function(ch, j){
+          chartN++;
+          z.file('xl/charts/chart' + chartN + '.xml', chartXml(ch, sh.name));
+          ct.push('<Override PartName="/xl/charts/chart' + chartN + '.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>');
+          dRels.push('<Relationship Id="rId' + (j + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart' + chartN + '.xml"/>');
+          anchors += anchorXml(ch.anchor, 'rId' + (j + 1), j + 2, ch.title);
+        });
+        z.file('xl/drawings/drawing' + drawN + '.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' + anchors + '</xdr:wsDr>');
+        z.file('xl/drawings/_rels/drawing' + drawN + '.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + dRels.join('') + '</Relationships>');
+        z.file('xl/worksheets/_rels/sheet' + n + '.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing' + drawN + '.xml"/></Relationships>');
+        ct.push('<Override PartName="/xl/drawings/drawing' + drawN + '.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>');
+      }
+      z.file('xl/worksheets/sheet' + n + '.xml', sheetXml(sh, drawRid));
+      ct.push('<Override PartName="/xl/worksheets/sheet' + n + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>');
+      wbRels.push('<Relationship Id="rId' + n + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + n + '.xml"/>');
+      wbSheets.push('<sheet name="' + x(sh.name) + '" sheetId="' + n + '" r:id="rId' + n + '"/>');
+    });
+    var defNames = sheets.map(function(sh, i){ return sh.autofilter ? '<definedName name="_xlnm._FilterDatabase" localSheetId="' + i + '" hidden="1">\'' + x(sh.name) + '\'!$' + sh.autofilter.replace(':', ':$').replace(/([A-Z]+)(\d+)/g, '$1$$$2') + '</definedName>' : ''; }).join('');
+    wbRels.push('<Relationship Id="rId' + (sheets.length + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>');
+    z.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' + ct.join('') + '</Types>');
+    z.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>');
+    z.file('docProps/core.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Reloadly Pulse — Quarterly Employee Feedback</dc:title><dc:creator>Reloadly Pulse</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">' + new Date().toISOString().slice(0, 19) + 'Z</dcterms:created></cp:coreProperties>');
+    z.file('docProps/app.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Reloadly Pulse</Application></Properties>');
+    z.file('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>' + wbSheets.join('') + '</sheets>' + (defNames ? '<definedNames>' + defNames + '</definedNames>' : '') + '</workbook>');
+    z.file('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + wbRels.join('') + '</Relationships>');
+    z.file('xl/styles.xml', stylesXml());
+    return z.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+  function nz(v){ return v == null ? '' : v; }
+  function workbookSheets(qs){
+    var gen = new Date().toLocaleString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' UK time';
+    var scope = qs.length === 1 ? qs[0].label : qs[0].label + ' – ' + qs[qs.length - 1].label;
+    // Sheet 1 — Executive summary (one column per quarter)
+    var hdr = [{ v: 'Metric', s: 'head' }].concat(qs.map(function(q){ return { v: q.label + (q.live ? ' (in progress)' : q.final ? ' (final)' : ''), s: 'head' }; })).concat([{ v: 'Target', s: 'head' }]);
+    var line = function(lbl, k, st, tgt){ return [{ v: lbl, s: 'label' }].concat(qs.map(function(q){ var v = typeof k === 'function' ? k(q) : q[k]; return { v: v == null ? 'n/a' : v, s: v == null ? 'ctr' : st }; })).concat([{ v: tgt == null ? '' : tgt, s: tgt == null ? 'txt' : st }]); };
+    var s1 = [[{ v: 'Reloadly Pulse — Quarterly Employee Feedback', s: 'title' }], [{ v: 'Executive summary · ' + scope + ' · generated ' + gen, s: 'sub' }], [], hdr,
+      line('Reporting quarter', function(q){ return 'Q' + q.quarter.slice(6); }, 'ctr'),
+      line('Reporting year', function(q){ return q.quarter.slice(0, 4); }, 'ctr'),
+      line('Total eligible employees', 'eligible', 'int'),
+      line('Total survey responses', 'responses', 'int'),
+      line('Participation rate', 'participation', 'pct', TARGET.participation),
+      line('Overall satisfaction (/5)', 'satisfaction', 'num2', TARGET.satisfaction),
+      line('Ease of use (/5)', 'ease', 'num2', TARGET.ease),
+      line('Platform usefulness (/5)', 'usefulness', 'num2', TARGET.usefulness),
+      line('Pulse Health Score (/5)', 'health', 'num2'),
+      line('Anonymous responses', 'anonymousPct', 'pct'),
+      [], [{ v: 'Notes', s: 'label' }],
+      [{ v: '• Pulse Health Score = (Satisfaction + Ease of use + Usefulness) ÷ 3.', s: 'sub' }],
+      [{ v: '• Participation = completed surveys ÷ eligible employees (active staff) × 100.', s: 'sub' }],
+      [{ v: '• Scores show "n/a" for quarters with fewer than ' + A.data.minGroup + ' responses, to protect anonymity.', s: 'sub' }],
+      [{ v: '• Anonymous responses never include a name, email or exact date.', s: 'sub' }]];
+    // Sheet 2 — responses
+    var rows = rowsFor(qs);
+    var s2 = [[{ v: 'Survey responses · ' + scope, s: 'title' }], [{ v: 'Anonymous responses are shown without any identity; identity is included only where the employee chose to share it. Generated ' + gen, s: 'sub' }], [],
+      ['Reporting quarter', 'Satisfaction', 'Ease of use', 'Usefulness', 'Usage frequency', 'Written feedback', 'Anonymous?', 'Employee name', 'Employee email', 'Submission date'].map(function(h){ return { v: h, s: 'head' }; })];
+    rows.forEach(function(r){ s2.push([{ v: r.label, s: 'txt' }, { v: r.satisfaction, s: 'int' }, { v: r.ease, s: 'int' }, { v: r.usefulness, s: 'int' }, { v: r.frequency, s: 'txt' }, { v: r.suggestion || '', s: 'wrap' }, { v: r.anonymous ? 'Anonymous' : 'Identified', s: 'ctr' }, { v: r.anonymous ? '' : r.name, s: 'txt' }, { v: r.anonymous ? '' : r.email, s: 'txt' }, { v: r.anonymous ? r.label : r.date, s: 'ctr' }]); });
+    var held = qs.reduce(function(s, q){ var shown = rows.filter(function(r){ return r.quarter === q.quarter && r.anonymous; }).length; return s + (shown ? 0 : q.anonymous); }, 0);
+    if (held) s2.push([], [{ v: held + ' anonymous response(s) withheld until at least ' + A.data.minGroup + ' anonymous responses exist for the quarter (counted in all totals).', s: 'sub' }]);
+    // Sheet 3 — trends (+ native charts)
+    var tq = trendRows(qs[qs.length - 1].quarter);
+    var s3 = [[{ v: 'Quarterly trends', s: 'title' }], [{ v: 'Historical quarterly scores, participation and quarter-over-quarter change · generated ' + gen, s: 'sub' }], [],
+      ['Quarter', 'Satisfaction', 'Δ QoQ', 'Ease of use', 'Δ QoQ', 'Usefulness', 'Δ QoQ', 'Pulse Health Score', 'Δ QoQ', 'Participation', 'Δ QoQ', 'Responses', 'Eligible'].map(function(h){ return { v: h, s: 'head' }; })];
+    tq.forEach(function(q, i){
+      var p = i ? tq[i - 1] : null, d = function(k){ return p && q[k] != null && p[k] != null ? Math.round((q[k] - p[k]) * 100) / 100 : null; };
+      s3.push([{ v: q.label, s: 'label' }, { v: nz(q.satisfaction), s: 'num2' }, { v: nz(d('satisfaction')), s: 'd2' }, { v: nz(q.ease), s: 'num2' }, { v: nz(d('ease')), s: 'd2' }, { v: nz(q.usefulness), s: 'num2' }, { v: nz(d('usefulness')), s: 'd2' }, { v: nz(q.health), s: 'num2' }, { v: nz(d('health')), s: 'd2' }, { v: nz(q.participation), s: 'pct' }, { v: nz(d('participation')), s: 'dpct' }, { v: q.responses, s: 'int' }, { v: q.eligible, s: 'int' }]);
+    });
+    var cats = tq.map(function(q){ return q.label; }), fr = 5, last = 4 + tq.length;
+    var charts = [
+      { title: 'Quarterly scores (out of 5)', cats: cats, firstRow: fr, catCol: 'A', min: 1, max: 5, major: 1, fmt: '0.0', anchor: [0, last + 1, 7, last + 21],
+        series: [{ name: 'Satisfaction', col: 'B', color: '7700FF', vals: tq.map(function(q){ return q.satisfaction; }) }, { name: 'Ease of use', col: 'D', color: '0A8F5E', vals: tq.map(function(q){ return q.ease; }) }, { name: 'Usefulness', col: 'F', color: 'C98A00', vals: tq.map(function(q){ return q.usefulness; }) }, { name: 'Pulse Health Score', col: 'H', color: '2778C4', dash: true, vals: tq.map(function(q){ return q.health; }) }] },
+      { title: 'Survey participation (%)', cats: cats, firstRow: fr, catCol: 'A', min: 0, max: 100, major: 25, fmt: '0"%"', anchor: [7, last + 1, 13, last + 21],
+        series: [{ name: 'Participation', col: 'J', color: '7700FF', vals: tq.map(function(q){ return q.participation; }) }] }
+    ];
+    // Sheet 4 — suggestions
+    var sug = rows.filter(function(r){ return r.suggestion; });
+    var s4 = [[{ v: 'Employee suggestions · ' + scope, s: 'title' }], [{ v: '"What is one thing we could improve about Pulse?" · generated ' + gen, s: 'sub' }], [],
+      ['Suggestion', 'Reporting quarter', 'Anonymous?', 'Employee name'].map(function(h){ return { v: h, s: 'head' }; })];
+    sug.forEach(function(r){ s4.push([{ v: r.suggestion, s: 'wrap' }, { v: r.label, s: 'txt' }, { v: r.anonymous ? 'Anonymous' : 'Identified', s: 'ctr' }, { v: r.anonymous ? '' : r.name, s: 'txt' }]); });
+    if (!sug.length) s4.push([{ v: 'No written suggestions for this period.', s: 'sub' }]);
+    return [
+      { name: 'Executive Summary', cols: [32].concat(qs.map(function(){ return 18; })).concat([12]), rows: s1, freeze: 5 },
+      { name: 'Survey Responses', cols: [16, 12, 12, 12, 22, 60, 13, 22, 30, 15], rows: s2, freeze: 5, autofilter: rows.length ? 'A4:J' + (4 + rows.length) : null },
+      { name: 'Quarterly Trends', cols: [14, 12, 9, 12, 9, 12, 9, 17, 9, 13, 11, 11, 10], rows: s3, freeze: 5, charts: tq.length ? charts : [] },
+      { name: 'Employee Suggestions', cols: [80, 18, 13, 24], rows: s4, freeze: 5, autofilter: sug.length ? 'A4:D' + (4 + sug.length) : null }
+    ];
+  }
+  function exportXlsx(btn, qs){
+    if (!A.data || !qs.length) { toast('Nothing to export for this selection', 'err'); return Promise.resolve(); }
+    busy(btn, true, 'Building Excel…');
+    return loadLib('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js', 'JSZip').then(function(JSZip){
+      return buildXlsx(JSZip, workbookSheets(qs));
+    }).then(function(blob){ download(blob, 'Pulse_Feedback_' + fileTag(qs) + '.xlsx'); toast('Excel report downloaded'); })
+      .catch(function(e){ toast('Excel export failed: ' + (e.message || e), 'err'); })
+      .then(function(){ busy(btn, false); });
+  }
+
+  // ── PowerPoint (PptxGenJS, native editable charts, never any names) ──────
+  function buildDeck(PptxGenJS, qs){
+    var p = new PptxGenJS(); p.layout = 'LAYOUT_WIDE'; p.author = 'Reloadly Pulse'; p.title = 'Reloadly Pulse - Quarterly Employee Feedback';
+    var F = 'Arial', NAVY = '01112E', PUR = '7700FF', MUT = '525866', m = agg(qs), single = qs.length === 1, prev = single ? prevOf(qs[0].quarter) : null;
+    var scope = single ? qs[0].label + (qs[0].live ? ' (in progress)' : '') : qs[0].label + ' – ' + qs[qs.length - 1].label;
+    var foot = 'Reloadly Pulse · ' + scope + ' · generated ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    function std(title, kicker){
+      var s = p.addSlide(); s.background = { color: 'FFFFFF' };
+      s.addShape(p.ShapeType.rect, { x: 0, y: 0, w: 13.333, h: 0.12, fill: { color: PUR }, line: { color: PUR } });
+      s.addText(kicker.toUpperCase(), { x: 0.6, y: 0.32, w: 12, h: 0.3, fontFace: F, fontSize: 11, bold: true, color: PUR, charSpacing: 2, margin: 0 });
+      s.addText(title, { x: 0.6, y: 0.62, w: 12.1, h: 0.65, fontFace: F, fontSize: 28, bold: true, color: NAVY, margin: 0 });
+      s.addText(foot, { x: 0.6, y: 7.05, w: 12.1, h: 0.3, fontFace: F, fontSize: 9, color: '8A909C', margin: 0 });
+      return s;
+    }
+    function tile(s, x0, y0, w, h, label, value, sub, subColor){
+      s.addShape(p.ShapeType.roundRect, { x: x0, y: y0, w: w, h: h, fill: { color: 'F4F4F6' }, line: { color: 'F4F4F6' }, rectRadius: 0.1 });
+      s.addShape(p.ShapeType.rect, { x: x0, y: y0 + 0.15, w: 0.07, h: h - 0.3, fill: { color: PUR }, line: { color: PUR } });
+      s.addText(label.toUpperCase(), { x: x0 + 0.22, y: y0 + 0.14, w: w - 0.32, h: 0.35, fontFace: F, fontSize: 10, bold: true, color: MUT, margin: 0, valign: 'top' });
+      s.addText(value, { x: x0 + 0.22, y: y0 + 0.5, w: w - 0.32, h: 0.7, fontFace: F, fontSize: 32, bold: true, color: NAVY, margin: 0 });
+      if (sub) s.addText(sub, { x: x0 + 0.22, y: y0 + h - 0.55, w: w - 0.32, h: 0.4, fontFace: F, fontSize: 11, color: subColor || MUT, margin: 0, valign: 'top' });
+    }
+    function bullets(s, arr, x0, y0, w, h, size){
+      s.addText(arr.map(function(t){ return { text: t, options: { bullet: true, breakLine: true, paraSpaceAfter: 6 } }; }), { x: x0, y: y0, w: w, h: h, fontFace: F, fontSize: size || 14, color: NAVY, valign: 'top', margin: 0 });
+    }
+    var na = 'n/a', sc = function(v){ return v == null ? na : fmt(v) + '/5'; };
+    var dTxt = function(cur, pv, unit, d){ if (cur == null || pv == null) return null; var v = Math.round((cur - pv) * Math.pow(10, d)) / Math.pow(10, d); return (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(d) + unit + ' vs ' + prev.label; };
+    var dCol = function(cur, pv){ return cur != null && pv != null ? (cur > pv ? '0A8F5E' : cur < pv ? 'E12416' : MUT) : MUT; };
+    // 1. Overview
+    var s1 = p.addSlide(); s1.background = { color: NAVY };
+    s1.addShape(p.ShapeType.rect, { x: 0.6, y: 1.25, w: 1.2, h: 0.1, fill: { color: '09FAA3' }, line: { color: '09FAA3' } });
+    s1.addText('Reloadly Pulse - Quarterly Employee Feedback', { x: 0.6, y: 1.5, w: 12, h: 0.9, fontFace: F, fontSize: 36, bold: true, color: 'FFFFFF', margin: 0 });
+    s1.addText(single ? 'Q' + qs[0].quarter.slice(6) + ' · ' + qs[0].quarter.slice(0, 4) + (qs[0].live ? ' (in progress)' : '') : scope, { x: 0.6, y: 2.45, w: 12, h: 0.5, fontFace: F, fontSize: 20, color: 'C9CDD6', margin: 0 });
+    [['Eligible employees', String(m.eligible)], ['Survey participants', String(m.completed)], ['Participation rate', m.participation == null ? na : fmt(m.participation, 1) + '%']].forEach(function(k, i){
+      var x0 = 0.6 + i * 4.1;
+      s1.addShape(p.ShapeType.roundRect, { x: x0, y: 3.9, w: 3.8, h: 1.9, fill: { color: '132747' }, line: { color: '37455C' }, rectRadius: 0.1 });
+      s1.addText(k[0].toUpperCase(), { x: x0 + 0.3, y: 4.1, w: 3.3, h: 0.35, fontFace: F, fontSize: 11, bold: true, color: '9AA3B5', margin: 0 });
+      s1.addText(k[1], { x: x0 + 0.3, y: 4.5, w: 3.3, h: 0.9, fontFace: F, fontSize: 44, bold: true, color: 'FFFFFF', margin: 0 });
+    });
+    s1.addText('Target participation: ' + TARGET.participation + '%', { x: 0.6, y: 6.2, w: 12, h: 0.35, fontFace: F, fontSize: 12, color: '09FAA3', margin: 0 });
+    // 2. Satisfaction
+    var s2 = std('Employee satisfaction', 'How employees rate Pulse');
+    [['Overall satisfaction', 'satisfaction'], ['Ease of use', 'ease'], ['Platform usefulness', 'usefulness'], ['Pulse Health Score', 'health']].forEach(function(k, i){
+      var v = m[k[1]], tg = TARGET[k[1]], dv = prev ? dTxt(v, prev[k[1]], '', 2) : null;
+      tile(s2, 0.6 + i * 3.08, 1.5, 2.88, 1.95, k[0], sc(v), dv || (tg ? 'Target ' + tg.toFixed(1) : 'Average of the three scores'), dv ? dCol(v, prev[k[1]]) : MUT);
+    });
+    if (m.suppressed) s2.addText('Scores need at least ' + A.data.minGroup + ' responses per quarter to be shown, to protect anonymity.', { x: 0.6, y: 3.65, w: 12, h: 0.4, fontFace: F, fontSize: 13, color: 'C98A00', margin: 0 });
+    else s2.addChart(p.ChartType.bar, [{ name: 'Score', labels: ['Usefulness', 'Ease of use', 'Overall satisfaction'], values: [m.usefulness, m.ease, m.satisfaction] }, { name: 'Target', labels: ['Usefulness', 'Ease of use', 'Overall satisfaction'], values: [TARGET.usefulness, TARGET.ease, TARGET.satisfaction] }],
+      { x: 0.6, y: 3.65, w: 12.1, h: 3.3, barDir: 'bar', barGrouping: 'clustered', chartColors: [PUR, 'C9CDD6'], valAxisMinVal: 0, valAxisMaxVal: 5, valAxisMajorUnit: 1, showValue: true, dataLabelFormatCode: '0.00', dataLabelFontSize: 11, catAxisLabelFontSize: 12, valAxisLabelFontSize: 10, showLegend: true, legendPos: 'b', legendFontSize: 11, valGridLine: { color: 'E1E4EA', size: 0.5 }, catAxisLineShow: false, valAxisLineShow: false, barGapWidthPct: 60 });
+    // 3. Quarterly performance
+    var s3 = std('Quarterly performance', 'Trends over time');
+    var tq = trendRows(qs[qs.length - 1].quarter), cats = tq.map(function(q){ return q.label; });
+    var lineOpts = { showLegend: true, legendPos: 'b', legendFontSize: 11, catAxisLabelFontSize: 11, valAxisLabelFontSize: 10, valGridLine: { color: 'E1E4EA', size: 0.5 }, lineSize: 3, lineDataSymbolSize: 9, catAxisLineShow: false, valAxisLineShow: false };
+    s3.addText('Scores (out of 5)', { x: 0.6, y: 1.45, w: 6, h: 0.35, fontFace: F, fontSize: 15, bold: true, color: NAVY, margin: 0 });
+    s3.addChart(p.ChartType.line, [['Satisfaction', 'satisfaction'], ['Ease of use', 'ease'], ['Usefulness', 'usefulness'], ['Pulse Health Score', 'health']].map(function(k){ return { name: k[0], labels: cats, values: tq.map(function(q){ return q[k[1]] == null ? null : q[k[1]]; }) }; }),
+      Object.assign({ x: 0.6, y: 1.85, w: 6.1, h: 4.5, chartColors: [PUR, '0A8F5E', 'C98A00', '2778C4'], valAxisMinVal: 1, valAxisMaxVal: 5, valAxisMajorUnit: 1, displayBlanksAs: 'gap' }, lineOpts));
+    s3.addText('Survey participation (%)', { x: 6.95, y: 1.45, w: 6, h: 0.35, fontFace: F, fontSize: 15, bold: true, color: NAVY, margin: 0 });
+    s3.addChart(p.ChartType.line, [{ name: 'Participation', labels: cats, values: tq.map(function(q){ return q.participation; }) }, { name: 'Target', labels: cats, values: tq.map(function(){ return TARGET.participation; }) }],
+      Object.assign({ x: 6.95, y: 1.85, w: 5.8, h: 4.5, chartColors: [PUR, 'A0A6B2'], valAxisMinVal: 0, valAxisMaxVal: 100, valAxisMajorUnit: 25, showValue: false }, lineOpts));
+    var qoq = [];
+    if (prev) {
+      [['Satisfaction', 'satisfaction', '', 2], ['Ease of use', 'ease', '', 2], ['Usefulness', 'usefulness', '', 2], ['Health score', 'health', '', 2], ['Participation', 'participation', ' pts', 1]].forEach(function(k){ var t = dTxt(m[k[1]], prev[k[1]], k[2], k[3]); if (t) qoq.push(k[0] + ' ' + t); });
+    }
+    s3.addText(tq.length < 2 ? 'Trend lines build up from next quarter — this is the first quarter with survey data.' : (qoq.length ? 'Quarter-over-quarter: ' + qoq.join(' · ') : ''), { x: 0.6, y: 6.45, w: 12.1, h: 0.45, fontFace: F, fontSize: 11.5, color: MUT, margin: 0 });
+    // 4. Engagement
+    var s4 = std('Employee engagement', 'Participation & usage');
+    tile(s4, 0.6, 1.5, 3.9, 1.7, 'Survey participation', m.participation == null ? na : fmt(m.participation, 1) + '%', m.completed + ' of ' + m.eligible + ' eligible · target ' + TARGET.participation + '%');
+    tile(s4, 0.6, 3.4, 3.9, 1.7, 'Answered anonymously', m.anonymousPct == null ? na : fmt(m.anonymousPct, 0) + '%', m.anonymous + ' anonymous · ' + m.identified + ' identified');
+    var tot = FREQ.reduce(function(s, f){ return s + (m.frequency[f] || 0); }, 0);
+    s4.addText('How often employees use Pulse', { x: 4.9, y: 1.45, w: 7.8, h: 0.35, fontFace: F, fontSize: 15, bold: true, color: NAVY, margin: 0 });
+    if (tot) s4.addChart(p.ChartType.bar, [{ name: '% of responses', labels: FREQ.slice().reverse(), values: FREQ.slice().reverse().map(function(f){ return Math.round((m.frequency[f] || 0) / tot * 1000) / 10; }) }],
+      { x: 4.9, y: 1.85, w: 7.8, h: 3.3, barDir: 'bar', chartColors: [PUR], valAxisMinVal: 0, valAxisMaxVal: 100, showValue: true, dataLabelFormatCode: '0"%"', dataLabelFontSize: 11, catAxisLabelFontSize: 12, valAxisHidden: true, valGridLine: { style: 'none' }, catAxisLineShow: false, showLegend: false, barGapWidthPct: 50 });
+    else s4.addText('Usage breakdown is shown once at least ' + A.data.minGroup + ' responses are in.', { x: 4.9, y: 1.9, w: 7.8, h: 0.4, fontFace: F, fontSize: 13, color: MUT, margin: 0 });
+    s4.addText('Key observations', { x: 0.6, y: 5.35, w: 12, h: 0.35, fontFace: F, fontSize: 15, bold: true, color: NAVY, margin: 0 });
+    bullets(s4, observations(m, qs).slice(0, 4), 0.6, 5.75, 12.1, 1.25, 13);
+    // 5. Feedback
+    var s5 = std('Employee feedback', 'What employees would improve');
+    var rows = rowsFor(qs), texts = rows.map(function(r){ return r.suggestion; }).filter(Boolean), th = themes(texts), cm = safeComments(rows);
+    s5.addText('Common improvement themes', { x: 0.6, y: 1.45, w: 6, h: 0.35, fontFace: F, fontSize: 15, bold: true, color: NAVY, margin: 0 });
+    if (th.length && texts.length >= A.data.minGroup) s5.addChart(p.ChartType.bar, [{ name: 'Suggestions', labels: th.slice(0, 5).map(function(t){ return t.name; }).reverse(), values: th.slice(0, 5).map(function(t){ return t.n; }).reverse() }],
+      { x: 0.6, y: 1.85, w: 6.1, h: 2.6, barDir: 'bar', chartColors: [PUR], showValue: true, dataLabelFontSize: 11, catAxisLabelFontSize: 11, valAxisHidden: true, valGridLine: { style: 'none' }, catAxisLineShow: false, showLegend: false, barGapWidthPct: 50 });
+    else s5.addText(texts.length ? 'Not enough written suggestions to group into themes yet.' : 'No written suggestions this period.', { x: 0.6, y: 1.9, w: 6, h: 0.4, fontFace: F, fontSize: 13, color: MUT, margin: 0 });
+    s5.addText('Based on ' + texts.length + ' written suggestion' + (texts.length === 1 ? '' : 's') + ' · keyword-matched, a suggestion can count towards more than one theme', { x: 0.6, y: 4.5, w: 6.1, h: 0.3, fontFace: F, fontSize: 9.5, color: MUT, margin: 0 });
+    s5.addText('Key areas requiring improvement', { x: 0.6, y: 4.95, w: 6.1, h: 0.35, fontFace: F, fontSize: 15, bold: true, color: NAVY, margin: 0 });
+    var ia = improvementAreas(m, th);
+    bullets(s5, ia.length ? ia : ['All scores are at or above target this period.'], 0.6, 5.35, 6.1, 1.6, 12.5);
+    s5.addText('Selected employee comments (anonymised)', { x: 6.95, y: 1.45, w: 5.8, h: 0.35, fontFace: F, fontSize: 15, bold: true, color: NAVY, margin: 0 });
+    if (cm.list.length) cm.list.forEach(function(c, i){
+      var y0 = 1.9 + i * 1.0;
+      s5.addShape(p.ShapeType.rect, { x: 6.95, y: y0, w: 0.06, h: 0.8, fill: { color: PUR }, line: { color: PUR } });
+      s5.addText('“' + c + '”', { x: 7.15, y: y0, w: 5.6, h: 0.85, fontFace: F, fontSize: 12, italic: true, color: NAVY, valign: 'top', margin: 0, fit: 'shrink' });
+    });
+    else s5.addText(cm.total ? 'Comments are only shown once at least ' + A.data.minGroup + ' written suggestions are in, to protect anonymity.' : 'No written comments this period.', { x: 6.95, y: 1.9, w: 5.8, h: 0.6, fontFace: F, fontSize: 13, color: MUT, margin: 0 });
+    s5.addNotes('All comments are shown without names. Comments that mention a colleague by name or include an email address are left out. Themes are counted by keyword matching on the written suggestions.');
+    return p;
+  }
+  function exportPptx(btn, qs){
+    if (!A.data || !qs.length) { toast('Nothing to export for this selection', 'err'); return Promise.resolve(); }
+    busy(btn, true, 'Building slides…');
+    return loadLib('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js', 'PptxGenJS').then(function(P){
+      return buildDeck(P, qs).writeFile({ fileName: 'Pulse_Feedback_' + fileTag(qs) + '.pptx' });
+    }).then(function(){ toast('PowerPoint downloaded'); })
+      .catch(function(e){ toast('PowerPoint export failed: ' + (e.message || e), 'err'); })
+      .then(function(){ busy(btn, false); });
+  }
+
+  return { maybePrompt: maybePrompt, open: function(){ maybePrompt(true); }, render: render, _A: A, _wb: workbookSheets, _buildXlsx: buildXlsx, _buildDeck: buildDeck, _agg: agg };
 })();
 </script>
 
