@@ -18739,6 +18739,11 @@ var FUND=(function(){
       var exact = cands.filter(function(p){return strs(p).some(sameSet);});
       if(exact.length === 1) return exact[0];
       if(exact.length > 1) return null;
+      // Exact sub-wallet name match whose currency disagrees with Bender's
+      // label (2026-10-23: LAfrica Gambie reported XOF, wallet is GMD) —
+      // the configured row wins; its currency is stored below.
+      var exactSub = rows.filter(function(p){return p.subKey && String(p.subKey).trim().toLowerCase() === wd.trim().toLowerCase();});
+      if(exactSub.length === 1) return exactSub[0];
       var sib = {}; rows.forEach(function(p){ flat(strs(p)).forEach(function(t){sib[t]=true;}); });
       var best = [], bestScore = 0;
       cands.forEach(function(p){
@@ -18776,7 +18781,12 @@ var FUND=(function(){
         var key = found.subKey ? (String(found.benderId) + '::' + found.subKey) : (found.benderId != null ? String(found.benderId) : found.name);
         snap.balances[key] = {
           local: w.amount,
-          currency: w.currency,
+          // Trust the sub-wallet's configured currency when Bender's label
+          // disagrees on an exact subKey match (mirrors worker storedCurrency).
+          currency: (found.subKey && found.currency && w.currency &&
+                     String(found.currency).toUpperCase() !== String(w.currency).toUpperCase() &&
+                     String(found.subKey).trim().toLowerCase() === String(w.description||'').trim().toLowerCase())
+                    ? String(found.currency).toUpperCase() : w.currency,
           enteredAt: new Date().toISOString(),
           source: 'hourly-airtime-report'
         };
@@ -19338,7 +19348,8 @@ var FUND=(function(){
       var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : String(p.benderId);
       snap.balances[key]={
         local:r.amount,
-        currency:(r.currency||p.currency||'USD').toUpperCase(),
+        // Exact sub-wallet hit with a mislabelled Bender currency → trust the row
+        currency:((p.subKey && p.currency && r.currency && desc && String(p.subKey).toUpperCase()===desc.toUpperCase()) ? p.currency : (r.currency||p.currency||'USD')).toUpperCase(),
         enteredAt:new Date().toISOString(),
         source:'bulk-parse'
       };
