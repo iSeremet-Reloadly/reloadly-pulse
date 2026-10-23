@@ -20251,6 +20251,55 @@ var FUND=(function(){
       };
     });
 
+    // === SERVICE FILTER + SEARCH (2026-10-23) ===
+    // Same look/behaviour as the Daily Pull tab. Service filter narrows rows
+    // first, so the status chip counts below reflect the chosen service.
+    var fcSvc = (NS.loadUI().forecastServiceFilter || 'all');
+    var fcSvcCounts = {all: rows.length, airtime:0, gift_card:0, utility:0, swype:0};
+    rows.forEach(function(r){(r.provider.services||[]).forEach(function(sv){if(fcSvcCounts[sv]!=null)fcSvcCounts[sv]++;});});
+    if(fcSvc !== 'all') rows = rows.filter(function(r){return (r.provider.services||[]).indexOf(fcSvc) >= 0;});
+    var fcSvcRow = document.createElement('div');
+    fcSvcRow.style.cssText = 'display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center';
+    fcSvcRow.innerHTML = '<span style="font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-right:4px">SERVICE</span>';
+    [{v:'all',l:'All'},{v:'airtime',l:'Airtime',c:'#22d3ee'},{v:'gift_card',l:'Gift card',c:'#f59e0b'},{v:'utility',l:'Utility',c:'#10b981'},{v:'swype',l:'Swype',c:'#a78bfa'}].forEach(function(opt){
+      var btn = document.createElement('button');
+      var active = fcSvc === opt.v;
+      btn.style.cssText = 'background:'+(active?(opt.c||'var(--acc)'):'var(--surf2)')+';color:'+(active?'#fff':'var(--mut)')+';border:1px solid '+(active?(opt.c||'var(--acc)'):'var(--brd)')+';border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px';
+      btn.innerHTML = opt.l + ' <span style="background:rgba(0,0,0,.15);border-radius:3px;padding:1px 5px;margin-left:4px;font-size:10px">'+fcSvcCounts[opt.v]+'</span>';
+      btn.onclick = function(){var u=NS.loadUI(); u.forecastServiceFilter=opt.v; NS.saveUI(u); NS.renderFunding();};
+      fcSvcRow.appendChild(btn);
+    });
+    host.appendChild(fcSvcRow);
+
+    var fcSearch = (NS.loadUI().forecastSearch || '');
+    var fcSearchRow = document.createElement('div');
+    fcSearchRow.style.cssText = 'display:flex;gap:8px;align-items:center;margin:4px 0 12px;flex-wrap:nowrap';
+    var fcSearchLbl = document.createElement('span');
+    fcSearchLbl.style.cssText = 'font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-right:4px;flex-shrink:0';
+    fcSearchLbl.textContent = 'SEARCH';
+    fcSearchRow.appendChild(fcSearchLbl);
+    var fcSearchWrap = document.createElement('div');
+    fcSearchWrap.style.cssText = 'position:relative;flex:1;max-width:380px';
+    var fcSearchInput = document.createElement('input');
+    fcSearchInput.type = 'text';
+    fcSearchInput.id = 'fund-forecast-search';
+    fcSearchInput.placeholder = 'Search supplier, wallet, currency, ID...';
+    fcSearchInput.value = fcSearch;
+    fcSearchInput.style.cssText = 'width:100%;padding:7px 30px 7px 12px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box;outline:none';
+    fcSearchInput.onfocus = function(){this.style.borderColor = 'var(--acc)';};
+    fcSearchInput.onblur = function(){this.style.borderColor = 'var(--brd)';};
+    fcSearchWrap.appendChild(fcSearchInput);
+    var fcClearBtn = document.createElement('button');
+    fcClearBtn.innerHTML = '×';
+    fcClearBtn.title = 'Clear search';
+    fcClearBtn.style.cssText = 'position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--mut);cursor:pointer;font-size:18px;line-height:1;padding:0 6px;font-weight:700;display:none';
+    fcSearchWrap.appendChild(fcClearBtn);
+    fcSearchRow.appendChild(fcSearchWrap);
+    var fcSearchCount = document.createElement('span');
+    fcSearchCount.style.cssText = 'font-family:Roboto Mono,monospace;font-size:11px;color:var(--mut);font-weight:600;margin-left:6px';
+    fcSearchRow.appendChild(fcSearchCount);
+    host.appendChild(fcSearchRow);
+
     // Sort + filter UI
     var ctlBar = document.createElement('div');
     ctlBar.style.cssText='display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap';
@@ -20381,6 +20430,9 @@ var FUND=(function(){
       var tr = document.createElement('tr');
       var p = r.provider;
       var ccy = r.currency;
+      tr.dataset.fcrow = '1';
+      tr.dataset.haystack = [p.displayName, p.name, p.subKey, p.benderId, ccy, p.currency, p.mode, (p.services||[]).join(' ').replace(/_/g,' ')]
+        .filter(function(v){return v!=null && v!=='';}).join(' ').toLowerCase();
       function rateCell(rate){
         if(!rate || !rate.dailyAvg) return '<td class="mut" style="text-align:right">—</td>';
         var burnDays = rate.burnDays || 0;
@@ -20400,7 +20452,7 @@ var FUND=(function(){
     });
     if(!rows.length){
       var trE = document.createElement('tr');
-      var tdE = document.createElement('td'); tdE.colSpan=8; tdE.style.cssText='text-align:center;padding:30px;color:var(--mut)';
+      var tdE = document.createElement('td'); tdE.colSpan=5+selectedWindows.length; tdE.style.cssText='text-align:center;padding:30px;color:var(--mut)';
       tdE.textContent='No providers match this filter.';
       trE.appendChild(tdE); tb.appendChild(trE);
     }
@@ -20417,6 +20469,36 @@ var FUND=(function(){
     });
     tw.appendChild(tbl);
     host.appendChild(tw);
+
+    // In-place search filter — toggles row display, no re-render (keeps focus).
+    var fcNoMatch = document.createElement('tr');
+    fcNoMatch.style.display = 'none';
+    fcNoMatch.innerHTML = '<td colspan="'+(5+selectedWindows.length)+'" style="text-align:center;padding:24px;color:var(--mut)">No suppliers match your search.</td>';
+    tb.appendChild(fcNoMatch);
+    function _fcApplyFilter(q){
+      var qq = (q||'').trim().toLowerCase();
+      var terms = qq ? qq.split(/\s+/) : [];
+      var trs = tb.querySelectorAll('tr[data-fcrow]');
+      var shown = 0;
+      for(var i=0;i<trs.length;i++){
+        var hay = trs[i].dataset.haystack || '';
+        var ok = terms.every(function(t){return hay.indexOf(t) >= 0;});
+        trs[i].style.display = ok ? '' : 'none';
+        if(ok) shown++;
+      }
+      fcNoMatch.style.display = (qq && trs.length && !shown) ? '' : 'none';
+      fcSearchCount.textContent = qq ? (shown + ' of ' + trs.length + ' shown') : '';
+      fcClearBtn.style.display = qq ? '' : 'none';
+    }
+    var _fcPersistTimer = null;
+    function _fcPersist(val){
+      if(_fcPersistTimer) clearTimeout(_fcPersistTimer);
+      _fcPersistTimer = setTimeout(function(){var u=NS.loadUI(); u.forecastSearch=val; NS.saveUI(u);}, 600);
+    }
+    fcSearchInput.addEventListener('input', function(){ _fcApplyFilter(this.value); _fcPersist(this.value); });
+    fcSearchInput.addEventListener('keydown', function(e){ if(e.key==='Escape'){ this.value=''; _fcApplyFilter(''); _fcPersist(''); } });
+    fcClearBtn.onclick = function(){ fcSearchInput.value=''; _fcApplyFilter(''); _fcPersist(''); fcSearchInput.focus(); };
+    _fcApplyFilter(fcSearch);
   }
 
   function _renderDaily(host){
