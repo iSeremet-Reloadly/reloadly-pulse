@@ -18195,7 +18195,7 @@ var FUND=(function(){
   // ═════════════════════════════════════════════════════════════════════════
   // Fields the team curates (synced across users). Structural identifiers
   // (benderId, name, subKey) are never overwritten on merge.
-  NS.REGISTRY_SYNC_FIELDS = ['displayName','mode','services','billingType','paymentTerms','cycleDays','applyDays','portalUrl','isActive','swypeId','entityType','currency','notes'];
+  NS.REGISTRY_SYNC_FIELDS = ['displayName','mode','services','billingType','paymentTerms','cycleDays','applyDays','portalUrl','isActive','swypeId','entityType','currency','notes','cpExclude','cpExcludeNote'];
   NS.SYNC = {pulling:false, pushing:false, lastPullAt:0, lastPushAt:0, status:'idle', message:'', updatedBy:'', updatedAt:''};
   // Normalised compound key for syncing/deduping providers across browsers.
   // Trim + lowercase to avoid near-miss duplicates like "Lafrica Mobile Burkina"
@@ -19797,14 +19797,24 @@ var FUND=(function(){
     var snaps = NS.loadSnapshots();
     var topups = NS.loadTopupHistory();
     var recentCutoff = Date.now() - 24*3600000;
+    var svc = opts.service && opts.service !== 'all' ? opts.service : null;
     var registry = NS.loadRegistry().filter(function(p){
       return p.isActive!==false && p.billingType!=='postpaid' && p.entityType!=='product_float' &&
-             Array.isArray(p.services) && p.services.length>0;
+             Array.isArray(p.services) && p.services.length>0 &&
+             (!svc || p.services.indexOf(svc) >= 0);
     });
 
-    var rows = [], excluded = [];
+    var rows = [], excluded = [], manual = [];
     registry.forEach(function(p){
       var key = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
+      if(p.cpExclude){
+        // Excluded by an admin (e.g. SVS — the customer holds the funds).
+        // Shared via the registry so every admin sees the same plan.
+        manual.push({provider:p, key:key, name:p.displayName||p.name,
+          services:(p.services||[]).map(function(s){return _CP_SVC[s]||s;}).join(', '),
+          note:p.cpExcludeNote||''});
+        return;
+      }
       var f = NS.computeForecast(key, p);
       // Typical daily burn: 7-day average, falling back to 3D then 30D.
       var src = (f.sevenDay.dailyAvg>0 && f.sevenDay) || (f.threeDay.dailyAvg>0 && f.threeDay) || (f.thirtyDay.dailyAvg>0 && f.thirtyDay) || null;
@@ -19889,7 +19899,7 @@ var FUND=(function(){
     });
     tot.shortfallSurvival = Math.max(0, tot.survivalNeed - cash);
     tot.shortfallTarget = Math.max(0, tot.targetNeed - cash);
-    return {rows:rows, excluded:excluded, totals:tot, fxDate:fxDate, survival:survival, target:target};
+    return {rows:rows, excluded:excluded, manual:manual, totals:tot, fxDate:fxDate, survival:survival, target:target, service:svc||'all'};
   };
 
   function _renderCashPriority(host){
@@ -19902,10 +19912,32 @@ var FUND=(function(){
     var survival = [1,2,3].indexOf(ui.cpSurvival) >= 0 ? ui.cpSurvival : 2;
     var target = [3,5,7,14].indexOf(ui.cpTarget) >= 0 ? ui.cpTarget : 7;
     if(target < survival) target = survival;
-    var res = NS.computeCashPriority({cash:cash, survivalDays:survival, targetDays:target});
+    var CP_SVCS = [{v:'all',l:'All'},{v:'airtime',l:'Airtime',c:'#22d3ee'},{v:'gift_card',l:'Gift Cards',c:'#f59e0b'},{v:'swype',l:'Swype',c:'#a78bfa'}];
+    var service = CP_SVCS.some(function(o){return o.v===ui.cpService;}) ? ui.cpService : 'all';
+    var res = NS.computeCashPriority({cash:cash, survivalDays:survival, targetDays:target, service:service});
     var T = res.totals;
 
     function tip(t){return ' <span class="th-info" data-tip="'+_cpEsc(t)+'">i</span>';}
+    // Include / exclude a supplier from Cash Priority. Saved on the registry
+    // row (cpExclude / cpExcludeNote) so it syncs to every admin.
+    function setExcluded(key, on){
+      var reg = NS.loadRegistry();
+      var row = reg.find(function(p){
+        var k = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
+        return k === key;
+      });
+      if(!row) return;
+      if(on){
+        var note = window.prompt('Exclude ' + (row.displayName||row.name) + ' from Cash Priority?\nOptional reason (e.g. "Customer holds the funds"):', row.cpExcludeNote || '');
+        if(note === null) return; // cancelled
+        row.cpExclude = true; row.cpExcludeNote = String(note).trim();
+      } else {
+        row.cpExclude = false; row.cpExcludeNote = '';
+      }
+      NS.saveRegistry(reg);
+      if(typeof toast === 'function') toast((on?'Excluded ':'Included ') + (row.displayName||row.name) + ' — synced to all admins', 'ok');
+      NS.renderFunding();
+    }
     function pills(label, opts, val, key, help){
       var row = document.createElement('div');
       row.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap';
@@ -19931,6 +19963,24 @@ var FUND=(function(){
     var csvBtn = document.createElement('button'); csvBtn.className='fund-btn'; csvBtn.innerHTML='⬇ Export CSV';
     acts.appendChild(copyBtn); acts.appendChild(csvBtn); hdr.appendChild(acts);
     host.appendChild(hdr);
+
+    // Service buttons — scope the whole allocation to one service.
+    var svcRow = document.createElement('div');
+    svcRow.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px';
+    svcRow.innerHTML = '<span style="font-family:Roboto Mono,monospace;font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-right:4px">SERVICE'
+      + tip('Limits the view AND the allocation to one service — e.g. enter the cash set aside for gift cards and pick Gift Cards. Suppliers serving several services (e.g. CY_SEND, CellPay) appear under each.') + '</span>';
+    CP_SVCS.forEach(function(opt){
+      var n = opt.v === service ? (res.rows.length + res.excluded.length)
+            : NS.computeCashPriority({cash:0, survivalDays:survival, targetDays:target, service:opt.v}).rows.length + NS.computeCashPriority({cash:0, survivalDays:survival, targetDays:target, service:opt.v}).excluded.length;
+      var on = opt.v === service;
+      var b = document.createElement('button');
+      b.style.cssText = 'background:'+(on?(opt.c||'var(--acc)'):'var(--surf2)')+';color:'+(on?(opt.c?'#fff':'var(--txt-inv)'):'var(--mut)')+';border:1px solid '+(on?(opt.c||'var(--acc)'):'var(--brd)')+';border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px';
+      b.innerHTML = opt.l + ' <span style="background:rgba(0,0,0,.15);border-radius:3px;padding:1px 6px;margin-left:4px;font-size:10px">'+n+'</span>';
+      b.title = n + ' supplier' + (n===1?'':'s') + ' needing funding or a check';
+      b.onclick = function(){var u=NS.loadUI(); u.cpService=opt.v; NS.saveUI(u); NS.renderFunding();};
+      svcRow.appendChild(b);
+    });
+    host.appendChild(svcRow);
 
     // Controls
     var ctl = document.createElement('div');
@@ -19990,7 +20040,7 @@ var FUND=(function(){
       + '<th style="text-align:right">KEEP-ALIVE'+tip('Top-up needed to reach the survival window plus lead time.')+'</th>'
       + '<th style="text-align:right">TO TARGET'+tip('Top-up needed to reach the target cover plus lead time.')+'</th>'
       + '<th style="text-align:right">ALLOCATE'+tip('What this cash plan sends. Local-currency equivalent underneath.')+'</th>'
-      + '<th style="text-align:right">COVER AFTER</th><th>DECISION</th></tr></thead>';
+      + '<th style="text-align:right">COVER AFTER</th><th>DECISION</th><th></th></tr></thead>';
     var tb = document.createElement('tbody');
     var cum = 0;
     res.rows.forEach(function(r, i){
@@ -20011,13 +20061,15 @@ var FUND=(function(){
         + '<td class="num">'+_cpUsdFmt(r.targetUSD)+'<div style="font-size:9px;color:var(--mut)">Σ '+_cpUsdFmt(cum)+'</div></td>'
         + '<td class="num" style="font-weight:800">'+(r.allocUSD?_cpUsdFmt(r.allocUSD)+(r.currency!=='USD'?'<div style="font-size:9px;color:var(--mut);font-weight:400">≈ '+Math.round(r.allocLocal).toLocaleString()+' '+_cpEsc(r.currency)+'</div>':''):'<span class="mut">—</span>')+'</td>'
         + '<td class="num">'+(cash?_cpDays(r.coverAfter):'<span class="mut">—</span>')+'</td>'
-        + '<td><span style="display:inline-block;padding:3px 8px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:.4px;font-family:Roboto Mono,monospace;color:'+dec.c+';background:'+dec.bg+'">'+dec.t+'</span></td>';
+        + '<td><span style="display:inline-block;padding:3px 8px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:.4px;font-family:Roboto Mono,monospace;color:'+dec.c+';background:'+dec.bg+'">'+dec.t+'</span></td>'
+        + '<td style="text-align:right"><button class="fund-btn-mini" data-cpx="'+_cpEsc(r.key)+'" title="Exclude from Cash Priority (e.g. customer holds the funds). Synced to all admins.">Exclude</button></td>';
       tb.appendChild(tr);
     });
     if(!res.rows.length){
-      tb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--mut)">No supplier needs funding to reach a '+target+'-day cover. 🎉</td></tr>';
+      tb.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--mut)">No supplier needs funding to reach a '+target+'-day cover. 🎉</td></tr>';
     }
     tbl.appendChild(tb); tw.appendChild(tbl); host.appendChild(tw);
+    tb.querySelectorAll('button[data-cpx]').forEach(function(b){ b.onclick = function(){ setExcluded(this.getAttribute('data-cpx'), true); }; });
 
     // Excluded / verify-first list
     if(res.excluded.length){
@@ -20031,10 +20083,24 @@ var FUND=(function(){
       host.appendChild(ex);
     }
 
+    // Suppliers excluded by an admin
+    if(res.manual.length){
+      var mx = document.createElement('div');
+      mx.style.cssText = 'margin-top:12px;padding:12px 14px;background:var(--surf2);border:1px solid var(--brd);border-radius:8px';
+      mx.innerHTML = '<div style="font-family:Roboto Mono,monospace;font-size:10px;font-weight:700;color:var(--mut);letter-spacing:.5px;margin-bottom:8px">EXCLUDED BY ADMIN ('+res.manual.length+')'
+        + tip('Left out of the allocation on purpose — e.g. SVS, where the customer keeps the funds in the wallet. Click Include to bring a supplier back. Shared with every admin.') + '</div>'
+        + res.manual.map(function(r){
+            return '<div style="display:flex;gap:10px;justify-content:space-between;align-items:center;font-size:11px;padding:5px 0;border-top:1px solid var(--brd)"><span><b>'+_cpEsc(r.name)+'</b> <span class="mut">· '+_cpEsc(r.services)+(r.note?' · '+_cpEsc(r.note):'')+'</span></span>'
+              + '<button class="fund-btn-mini" data-cpi="'+_cpEsc(r.key)+'">Include</button></div>';
+          }).join('');
+      host.appendChild(mx);
+      mx.querySelectorAll('button[data-cpi]').forEach(function(b){ b.onclick = function(){ setExcluded(this.getAttribute('data-cpi'), false); }; });
+    }
+
     // Copy summary — plain text for Slack / email
     copyBtn.onclick = function(){
       var L = [];
-      L.push('Supplier funding — cash priority (' + new Date().toISOString().slice(0,10) + ')');
+      L.push('Supplier funding — cash priority' + (service!=='all' ? ' · ' + (CP_SVCS.filter(function(o){return o.v===service;})[0]||{}).l : '') + ' (' + new Date().toISOString().slice(0,10) + ')');
       L.push('Cash available: ' + _cpUsdFmt(cash) + ' | Keep-alive need ('+survival+'d): ' + _cpUsdFmt(T.survivalNeed) + ' | Target need ('+target+'d): ' + _cpUsdFmt(T.targetNeed));
       L.push('Allocated: ' + _cpUsdFmt(T.allocated) + ' | Shortfall vs target: ' + _cpUsdFmt(T.shortfallTarget) + (T.shortfallSurvival>0 ? ' | SHORT OF KEEP-ALIVE BY ' + _cpUsdFmt(T.shortfallSurvival) : ''));
       if(T.atRiskCount) L.push('Outage risk: ' + T.atRiskCount + ' supplier(s), ' + _cpUsdFmt(T.atRiskBurnUSD) + '/day of volume');
@@ -20046,6 +20112,7 @@ var FUND=(function(){
           + ' · ' + _cpDays(r.daysLeft) + ' left → ' + _cpDays(r.coverAfter) + (r.outageRisk ? ' · OUTAGE RISK' : ''));
       });
       if(res.excluded.length) L.push('', 'Check first (not allocated): ' + res.excluded.map(function(r){return r.name;}).join(', '));
+      if(res.manual.length) L.push('Excluded: ' + res.manual.map(function(r){return r.name + (r.note ? ' (' + r.note + ')' : '');}).join(', '));
       navigator.clipboard.writeText(L.join('\n')).then(function(){
         copyBtn.innerHTML = '✓ Copied'; setTimeout(function(){copyBtn.innerHTML='⎘ Copy summary';}, 2000);
       });
@@ -20059,9 +20126,10 @@ var FUND=(function(){
           isFinite(r.coverAfter)?r.coverAfter.toFixed(1):'inf', cash?r.decision:'', r.outageRisk?'yes':''].join(','));
       });
       res.excluded.forEach(function(r){ lines.push(['', c(r.name), c(r.services), r.currency, '', '', '', '', r.burnUSD!=null?r.burnUSD.toFixed(2):'', '', '', '', '', '', 'not allocated', c(r.reason)].join(',')); });
+      res.manual.forEach(function(r){ lines.push(['', c(r.name), c(r.services), '', '', '', '', '', '', '', '', '', '', '', 'excluded', c(r.note||'excluded by admin')].join(',')); });
       var blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8'});
       var url = URL.createObjectURL(blob); var a = document.createElement('a');
-      a.href = url; a.download = 'cash-priority-' + new Date().toISOString().slice(0,10) + '.csv';
+      a.href = url; a.download = 'cash-priority-' + (service!=='all' ? service.replace('_','-') + '-' : '') + new Date().toISOString().slice(0,10) + '.csv';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function(){URL.revokeObjectURL(url);}, 1000);
     };
