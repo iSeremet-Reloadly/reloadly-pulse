@@ -5596,9 +5596,10 @@ if(typeof window !== 'undefined'){ setTimeout(_rl_srv_bootstrap, 800); }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // WEEKLY HPM (Highlights / Progress / Me)
-// Per-user weekly check-in keyed by ISO week. Submission window opens Friday
-// 09:00 of the week being reported and closes Monday 23:59 of the following
-// week. Late submissions accepted with a Late badge. Each Highlight and
+// Per-user weekly check-in keyed by ISO week. Submission window opens Thursday
+// 09:00 of the week being reported and is due Friday 23:59 of the same week
+// (changed 2026-10-23; was Fri-open / Mon-close). Late submissions — e.g. over
+// the weekend — are accepted with a Late badge and still make Monday's summary. Each Highlight and
 // Progress line can be linked to a specific KR. Me section has manager-only
 // vs company-wide visibility toggle.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5725,13 +5726,13 @@ function _weekRange(weekKey){
   return {monday: monday, sunday: sunday};
 }
 // Which week should the user be reporting on right now?
-// Mon-Thu: report on the previous week (which is now "closing" via the Monday window).
-// Fri-Sun: report on the current week.
+// Mon-Wed: report on the previous week (closed — late submissions allowed).
+// Thu-Sun: report on the current week.
 function _currentReportingWeek(today){
   today = today || new Date();
   var dow = today.getDay(); // Sun=0, Mon=1, ..., Fri=5
-  if(dow >= 5 || dow === 0){
-    // Fri / Sat / Sun → this week
+  if(dow >= 4 || dow === 0){
+    // Thu / Fri / Sat / Sun → this week
     return _isoWeek(today);
   }
   // Mon / Tue / Wed / Thu → previous week
@@ -5739,22 +5740,32 @@ function _currentReportingWeek(today){
   return _isoWeek(prev);
 }
 // Submission window for a given report week:
-//   Opens: Friday 09:00 LOCAL of the report week
-//   Closes (on-time): Monday 23:59 LOCAL of the following week
+//   Opens: Thursday 00:00 LOCAL of the report week (the Thu email lands 08:00-09:00
+//   UK depending on DST, so the form must already be open by then)
+//   Closes (on-time): Friday 23:59 LOCAL of the same week
+// One-off grace for the changeover week: 2026-W43 had already been announced
+// as "closes Monday 23:59", so it stays on-time until Monday's 08:00 summary.
+var HPM_WINDOW_OVERRIDES = { '2026-W43': { closeDaysAfterMonday: 7, closeH: 8, closeM: 0, closeS: 0 } };
 function _hpmWindow(weekKey){
   var r = _weekRange(weekKey);
-  // r.monday is UTC; build local-time Friday 09:00 of report week
-  var friday = new Date(r.monday); friday.setDate(r.monday.getUTCDate() + 4);
-  friday.setHours(9, 0, 0, 0);
-  // Monday 23:59 of next week
-  var closeMon = new Date(r.monday); closeMon.setDate(r.monday.getUTCDate() + 7);
-  closeMon.setHours(23, 59, 59, 999);
+  // r.monday is UTC; build local-time Thursday 00:00 of report week
+  var opens = new Date(r.monday); opens.setDate(r.monday.getUTCDate() + 3);
+  opens.setHours(0, 0, 0, 0);
+  // Friday 23:59 of the same week
+  var closes = new Date(r.monday); closes.setDate(r.monday.getUTCDate() + 4);
+  closes.setHours(23, 59, 59, 999);
+  var ov = HPM_WINDOW_OVERRIDES[weekKey];
+  if(ov){ closes = new Date(r.monday); closes.setDate(r.monday.getUTCDate() + ov.closeDaysAfterMonday); closes.setHours(ov.closeH, ov.closeM, ov.closeS, 0); }
   var now = new Date();
   var status;
-  if(now < friday) status = 'pre-open';
-  else if(now <= closeMon) status = 'open';
+  if(now < opens) status = 'pre-open';
+  else if(now <= closes) status = 'open';
   else status = 'closed-late-allowed';
-  return {opensAt: friday, closesAt: closeMon, status: status, now: now};
+  return {opensAt: opens, closesAt: closes, status: status, now: now};
+}
+function _hpmCloseLabel(win){
+  try { return win.closesAt.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'})+' at '+win.closesAt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
+  catch(e){ return 'Friday at 23:59'; }
 }
 
 function _hpmBlankEntry(department){
@@ -6451,13 +6462,13 @@ function _ensureHPMTaskForCurrentUser(){
   if(!data[dept]) data[dept] = [];
   var taskId = 'hpm-'+me+'-'+weekKey;
   if(data[dept].find(function(t){return t.id === taskId;})) return; // already there
-  // Due date: Monday EOD of week after the report week (matches the close).
+  // Due date: Friday of the report week (matches the close).
   var dueDateStr;
   try {
     var range = _weekRange(weekKey);
-    var dueMonday = new Date(range.monday);
-    dueMonday.setUTCDate(range.monday.getUTCDate() + 7);
-    dueDateStr = dueMonday.toISOString().slice(0,10);
+    var dueFriday = new Date(range.monday);
+    dueFriday.setUTCDate(range.monday.getUTCDate() + 4);
+    dueDateStr = dueFriday.toISOString().slice(0,10);
   } catch(e){ dueDateStr = ''; }
   data[dept].push({
     id: taskId,
@@ -6502,7 +6513,7 @@ function _renderHPMNotificationBanner(){
   banner.title = 'Open Weekly HPM form';
   var headline = isLate
     ? '<b style="color:'+col+'">'+icon+' Late HPM</b> — week '+weekKey+' submission window has closed. Submitting now flags it as <b>Late</b>.'
-    : '<b style="color:'+col+'">'+icon+' Weekly HPM not submitted</b> — closes Monday 23:59 ('+weekKey+').';
+    : '<b style="color:'+col+'">'+icon+' Weekly HPM not submitted</b> — due '+_hpmCloseLabel(win)+' ('+weekKey+').';
   banner.innerHTML = '<div style="flex:1;min-width:200px">'+headline+'</div>'
     + '<a style="color:'+col+';text-decoration:none;font-weight:700;font-size:12px;border:1px solid '+col+';border-radius:6px;padding:5px 12px">Submit now →</a>';
   banner.onclick = function(){
@@ -6566,7 +6577,7 @@ function _hpmShowPrompt(info){
   box.innerHTML = '<div style="font-size:11px;letter-spacing:.12em;font-weight:700;color:'+col+'">'+(info.isLate?'LATE HPM':'WEEKLY HPM')+' · '+esc(info.weekKey)+'</div>'
     + '<div style="font-size:18px;font-weight:800;margin:8px 0 6px">'+(first?esc(first)+', your':'Your')+' HPM '+(info.isLate?'is overdue':'is due')+'</div>'
     + '<div style="font-size:13px;color:var(--mut);line-height:1.55;margin-bottom:16px">'
-    + (info.isLate ? 'The window has closed — submitting now still counts, but it\'s marked late.' : 'Takes about 5 minutes: highlights, progress and how you\'re feeling'+(closes?' — <b style="color:var(--txt)">'+closes+'</b> (Mon 23:59)':'')+'.')
+    + (info.isLate ? 'The window has closed — submitting now still counts, but it\'s marked late.' : 'Takes about 5 minutes: highlights, progress and how you\'re feeling'+(closes?' — <b style="color:var(--txt)">'+closes+'</b> ('+_hpmCloseLabel(info)+')':'')+'.')
     + '</div>'
     + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
     + '<button id="hpm-prompt-go" class="gate-btn" style="flex:1;min-width:150px;margin:0">Submit my HPM →</button>'
@@ -6811,10 +6822,10 @@ function renderPerfHPM(wrap, pd){
   var statusText, bgCol;
   if(win.status === 'pre-open'){
     bgCol = 'rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);color:var(--acc)';
-    statusText = '<b>Opens Friday '+win.opensAt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' at 09:00</b> &middot; you can preview the form below but submission isn\'t accepted yet.';
+    statusText = '<b>Opens Thursday '+win.opensAt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+'</b> &middot; you can preview the form below but submission isn\'t accepted yet.';
   } else if(win.status === 'open'){
     bgCol = 'rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.35);color:var(--grn)';
-    statusText = '<b>● Open</b> &middot; closes Monday '+win.closesAt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' at 23:59. After that, submissions are still accepted but marked <b>Late</b>.';
+    statusText = '<b>● Open</b> &middot; due '+_hpmCloseLabel(win)+'. After that (e.g. over the weekend), submissions are still accepted but marked <b>Late</b>.';
   } else {
     bgCol = 'rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.4);color:var(--yel)';
     statusText = '<b>Window closed</b> for '+weekKey+' &middot; you can still submit but it will be flagged <b>Late</b> on the manager dashboard.';
@@ -7075,7 +7086,7 @@ function renderPerfHPM(wrap, pd){
       return;
     }
     if(win.status === 'pre-open'){
-      alert('The submission window for '+weekKey+' opens on Friday at 09:00. You can preview the form before then but submissions aren\'t accepted yet.');
+      alert('The submission window for '+weekKey+' opens on Thursday. You can preview the form before then but submissions aren\'t accepted yet.');
       return;
     }
     // Strip empty lines
@@ -23775,7 +23786,8 @@ var TH = (function(){
     if (p === '13w') return { from: addDays(today, -90), to: today };
     return { from: addDays(today, -27), to: today };
   }
-  // A week's HPM window closes Monday 23:59 of the following week — weeks
+  // A week's HPM is due Friday 23:59; weekend (late) submissions count until
+  // the Monday morning summary, so a week is final from Monday 08:00 — weeks
   // still open are excluded so a half-filled week never drags the averages.
   function weeksBetween(from, to){
     var out = [], open = [], now = new Date();
@@ -23783,7 +23795,7 @@ var TH = (function(){
     // back-to-back periods — e.g. Q3 then Q4 — never count the same week twice.
     for (var m = monday(from); m <= to; m = addDays(m, 7)) {
       var th = addDays(m, 3); if (th < from || th > to) continue;
-      var closes = addDays(m, 8); // Tue 00:00 after the following Monday
+      var closes = addDays(m, 7); closes.setHours(8, 0, 0, 0); // Mon 08:00 after the report week
       (closes <= now ? out : open).push({ key: isoWeekKey(m), monday: new Date(m) });
     }
     return { weeks: out, open: open };
