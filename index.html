@@ -19729,7 +19729,7 @@ var FUND=(function(){
 
     // Tabs
     var tabBar=document.createElement('div');tabBar.className='fund-tabbar';
-    [{id:'daily',l:'Daily Pull'},{id:'forecast',l:'Forecast'},{id:'recs',l:'Fund Now'}].concat((typeof isAdmin==='function'&&isAdmin())?[{id:'cashprio',l:'Cash Priority'}]:[]).concat([{id:'bender0930',l:'09:30 Bender'},{id:'history',l:'History'},{id:'registry',l:'Providers'}]).forEach(function(t){
+    [{id:'daily',l:'Daily Pull'},{id:'forecast',l:'Forecast'},{id:'recs',l:'Fund Now'}].concat((NS.canSeeCashPriority&&NS.canSeeCashPriority())?[{id:'cashprio',l:'Cash Priority'}]:[]).concat([{id:'bender0930',l:'09:30 Bender'},{id:'history',l:'History'},{id:'registry',l:'Providers'}]).forEach(function(t){
       var b=document.createElement('button');b.className='fund-tab'+(t.id===ui.tab?' active':'');b.textContent=t.l;
       b.onclick=function(){ui.tab=t.id;NS.saveUI(ui);NS.renderFunding();};
       tabBar.appendChild(b);
@@ -19775,6 +19775,14 @@ var FUND=(function(){
     return v.toFixed(v < 10 ? 1 : 0) + 'd';
   }
   var _CP_SVC = {airtime:'Airtime', gift_card:'Gift card', utility:'Utility', swype:'Swype'};
+  // Who can open Cash Priority: all admins + this allow-list (non-admins who
+  // need the funding view without full admin rights). Added David 2026-10-23.
+  var CASH_PRIORITY_USERS = ['dbassey@reloadly.com'];
+  NS.canSeeCashPriority = function(){
+    if(typeof isAdmin === 'function' && isAdmin()) return true;
+    var em = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) ? String(currentUser.email).toLowerCase() : '';
+    return !!em && CASH_PRIORITY_USERS.indexOf(em) >= 0;
+  };
 
   NS.computeCashPriority = function(opts){
     opts = opts || {};
@@ -19903,8 +19911,8 @@ var FUND=(function(){
   };
 
   function _renderCashPriority(host){
-    if(typeof isAdmin === 'function' && !isAdmin()){
-      host.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mut)">Cash Priority is available to admins only.</div>';
+    if(!NS.canSeeCashPriority()){
+      host.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mut)">Cash Priority is available to admins and named finance users only.</div>';
       return;
     }
     var ui = NS.loadUI();
