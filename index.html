@@ -5745,7 +5745,8 @@ function _currentReportingWeek(today){
 //   Closes (on-time): Friday 23:59 LOCAL of the same week
 // One-off grace for the changeover week: 2026-W43 had already been announced
 // as "closes Monday 23:59", so it stays on-time until Monday's 08:00 summary.
-var HPM_WINDOW_OVERRIDES = { '2026-W43': { closeDaysAfterMonday: 7, closeH: 8, closeM: 0, closeS: 0 } };
+// 2026-10-26: W43 grace extended to Mon 26 Oct 23:59 (team given today to submit).
+var HPM_WINDOW_OVERRIDES = { '2026-W43': { closeDaysAfterMonday: 7, closeH: 23, closeM: 59, closeS: 59 } };
 function _hpmWindow(weekKey){
   var r = _weekRange(weekKey);
   // r.monday is UTC; build local-time Thursday 00:00 of report week
@@ -18707,7 +18708,11 @@ var FUND=(function(){
           });
           if(ccyMatch) return ccyMatch;
         }
-        // (c) no confident signal — unmatched
+        // (c) 2026-11-02: exactly one row without a sub-wallet is the
+        // provider's own row (duplicate import added e.g. KUMQUAT/"Kumquat").
+        var plainRows = matches.filter(function(p){return !p.subKey;});
+        if(plainRows.length === 1) return plainRows[0];
+        // (d) no confident signal — unmatched
         return null;
       }
       // 2. Multi-wallet providers — 2026-10-22 rewrite (mirrors worker.js
@@ -18749,7 +18754,19 @@ var FUND=(function(){
       }
       var exact = cands.filter(function(p){return strs(p).some(sameSet);});
       if(exact.length === 1) return exact[0];
-      if(exact.length > 1) return null;
+      if(exact.length > 1){
+        // 2026-11-02 (mirrors worker pickAmongDuplicates): duplicate rows for
+        // the same wallet → subKey equal to Bender's label; then active rows;
+        // then first row if they all share one currency; else unmatched.
+        var wl = wd.trim().toLowerCase();
+        var exSub = exact.filter(function(p){return p.subKey && String(p.subKey).trim().toLowerCase() === wl;});
+        if(exSub.length === 1) return exSub[0];
+        var act = exact.filter(function(p){return p.isActive !== false;});
+        var pool = act.length ? act : exact;
+        if(pool.length === 1) return pool[0];
+        var cset = {}; pool.forEach(function(p){cset[String(p.currency||'').toUpperCase()]=1;});
+        return Object.keys(cset).length === 1 ? pool[0] : null;
+      }
       // Exact sub-wallet name match whose currency disagrees with Bender's
       // label (2026-10-23: LAfrica Gambie reported XOF, wallet is GMD) —
       // the configured row wins; its currency is stored below.
