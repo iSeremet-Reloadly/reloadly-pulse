@@ -861,7 +861,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .tm-board-col-h{display:flex;align-items:center;justify-content:space-between;padding:0 4px 10px 4px;border-bottom:1px solid var(--brd);margin-bottom:10px}
 .tm-board-col-label{font-size:11px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;letter-spacing:.8px}
 .tm-board-col-count{font-size:11px;color:var(--mut);font-family:Roboto Mono,monospace}
-.tm-board-list{display:flex;flex-direction:column;gap:6px}
+.tm-board-list{display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 260px);overflow-y:auto;overscroll-behavior:contain;padding-right:2px}
 .tm-board-card{background:var(--surf2);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .12s}
 .tm-board-card:hover{border-color:var(--mut)}
 .tm-board-card-h{display:flex;align-items:center;gap:6px;margin-bottom:6px}
@@ -896,6 +896,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
   .tm-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .tm-tab{white-space:nowrap;flex-shrink:0}
   .tm-board{grid-template-columns:1fr;gap:8px}
+  .tm-board-list{max-height:60vh}
   .tm-card-right{flex-direction:column;align-items:flex-end;gap:4px}
   .tm-card-due,.tm-card-prog{min-width:0}
   .tm-drawer{width:100%;padding:20px}
@@ -13098,7 +13099,10 @@ function tmRenderBoard(host, st){
     c.innerHTML='<div class="tm-board-col-h"><span class="tm-board-col-label">'+col.toUpperCase()+'</span><span class="tm-board-col-count">'+colTasks.length+'</span></div>';
     var list=document.createElement('div');list.className='tm-board-list';
     list.dataset.status = col;
-    colTasks.slice(0,20).forEach(function(t){
+    // 2026-11-04: show every task; each column scrolls on its own (was capped at 20
+    // with a non-clickable "+ N more"). Done: most recently completed first.
+    if(col==='Done') colTasks.sort(function(a,b){return String(b.completedAt||b.lastUpdated||'').localeCompare(String(a.completedAt||a.lastUpdated||''));});
+    colTasks.forEach(function(t){
       var h=tmHealth(t);
       var pri=(t.priority||'Planned').toLowerCase().replace(/ /g,'-');
       var card=document.createElement('div');card.className='tm-board-card';
@@ -13121,11 +13125,6 @@ function tmRenderBoard(host, st){
       });
       list.appendChild(card);
     });
-    if(colTasks.length>20){
-      var more=document.createElement('div');more.className='tm-board-more';
-      more.textContent='+ '+(colTasks.length-20)+' more';
-      list.appendChild(more);
-    }
     c.appendChild(list);
     board.appendChild(c);
   });
