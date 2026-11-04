@@ -1445,41 +1445,181 @@ function okrSetParentObjective(deptName, objectiveId, parentObjectiveId){
   saveOKRForQuarter(key, d);
   renderOKR();
 }
-// Roll-up: recompute every objective's progress from own KRs + linked children.
-// Personal objective progress feeds its parent Dept objective; Dept objective
-// progress feeds its parent Company objective. Runs bottom-up over 3 passes so
-// changes at the leaves propagate all the way to Company in one call.
-function _recalcAllObjectiveProgress(d){
-  if(!d || !d.depts) return;
-  var allObjs = [];
-  Object.keys(d.depts).forEach(function(dn){
-    (d.depts[dn].objectives||[]).forEach(function(o){ allObjs.push({dept:dn, obj:o}); });
+// ── OKR weighted roll-up core (2026-11-04) ───────────────────────────────
+// Shared by index.html (var OKRW) and the Worker (_okrRollup). Keep both
+// copies identical in behaviour.
+// Tasks → KR: a KR with linked tasks = Σ(task weight × status credit) ÷ Σ weight.
+// KR → KR: a KR with no tasks but with KRs that "contribute to" it
+//   (kr.parentKrId) = weighted average of those KRs (kr.contribWeight).
+// Otherwise the KR keeps its manual progress. kr.measure==='manual' forces manual.
+// Objective = weighted average of its own KRs (kr.weight) plus linked child
+//   objectives (child.weight) — a child objective whose KRs already feed KRs
+//   via parentKrId is NOT counted again at objective level.
+var OKRW_CREDIT = { 'Not Started': 0, 'In Progress': 50, 'Blocked': 0, 'Under Review': 75, 'Done': 100 };
+function okrwNum(v, d) { var n = parseFloat(v); return (isFinite(n) && n > 0) ? n : d; }
+function okrwTaskW(t) { var w = parseInt(t && t.weight, 10); return (w >= 1 && w <= 5) ? w : 1; }
+function okrwRollup(q, tasks, links, useTasks) {
+  if (!q || !q.depts) return;
+  var objs = [], krIdx = {};
+  Object.keys(q.depts).forEach(function (dn) {
+    (q.depts[dn].objectives || []).forEach(function (o) {
+      objs.push(o);
+      (o.krs || []).forEach(function (k) { if (k && k.id) krIdx[k.id] = { kr: k, obj: o }; });
+    });
   });
-  function ownKRAvg(o){
-    var ks = o.krs||[]; if(!ks.length) return null;
-    return Math.round(ks.reduce(function(s,k){return s+(parseInt(k.progress,10)||0);},0)/ks.length);
-  }
-  function childrenOf(objId){
-    return allObjs.filter(function(r){ return r.obj.parentObjectiveId===objId; }).map(function(r){return r.obj;});
-  }
-  // Iterate several passes so leaf → mid → root propagation stabilises.
-  for(var pass=0; pass<4; pass++){
-    allObjs.forEach(function(r){
-      var o = r.obj;
-      var parts = [];
-      var krAvg = ownKRAvg(o);
-      if(krAvg !== null) parts.push(krAvg);
-      childrenOf(o.id).forEach(function(child){
-        var cp = parseInt(child.progress,10);
-        if(!isNaN(cp)) parts.push(cp);
+  var byKR = {};
+  if (useTasks && tasks && typeof tasks === 'object') {
+    var linkOf = {};
+    Object.keys(links || {}).forEach(function (kid) { (links[kid] || []).forEach(function (tid) { if (!linkOf[tid]) linkOf[tid] = kid; }); });
+    Object.keys(tasks).forEach(function (dk) {
+      var arr = tasks[dk]; if (!Array.isArray(arr)) return;
+      arr.forEach(function (t) {
+        if (!t || !t.id) return;
+        var kid = t.linkedKRId || linkOf[t.id] || '';
+        if (!kid || !krIdx[kid]) return;
+        (byKR[kid] = byKR[kid] || []).push(t);
       });
-      if(parts.length){
-        o.progress = Math.round(parts.reduce(function(s,x){return s+x;},0)/parts.length);
-      } else if(o.progress == null){
-        o.progress = 0;
-      }
     });
   }
+  var kids = {};
+  Object.keys(krIdx).forEach(function (id) {
+    var k = krIdx[id].kr, p = k.parentKrId;
+    if (p && p !== id && krIdx[p] && krIdx[p].obj !== krIdx[id].obj) (kids[p] = kids[p] || []).push(k);
+  });
+  var feedsViaKR = function (o) { return (o.krs || []).some(function (k) { return k && k.parentKrId && krIdx[k.parentKrId]; }); };
+  function setAuto(k, pct, src, n) {
+    var v = Math.max(0, Math.min(100, Math.round(pct)));
+    k.progress = v; k.progressSource = src; k.progressInputs = n;
+    if (v >= 100 && k.confidence !== 'Off Track') k.confidence = 'Completed';
+    else if (v < 100 && k.confidence === 'Completed') k.confidence = 'On track';
+    else if (v > 0 && (!k.confidence || k.confidence === 'Not started')) k.confidence = 'On track';
+  }
+  for (var pass = 0; pass < 6; pass++) {
+    Object.keys(krIdx).forEach(function (id) {
+      var k = krIdx[id].kr;
+      if (k.measure === 'manual') { k.progressSource = 'manual'; delete k.progressInputs; return; }
+      var ts = byKR[id];
+      if (ts && ts.length) {
+        var sw = 0, sp = 0;
+        ts.forEach(function (t) { var w = okrwTaskW(t); var c = OKRW_CREDIT[t.status]; sw += w; sp += w * (c == null ? 0 : c); });
+        setAuto(k, sw ? sp / sw : 0, 'tasks', ts.length); return;
+      }
+      if (!useTasks && k.progressSource === 'tasks') return; // no task data here: keep stored value
+      var ch = kids[id];
+      if (ch && ch.length) {
+        var cw = 0, cp = 0;
+        ch.forEach(function (c) { var w = okrwNum(c.contribWeight, 1); cw += w; cp += w * (parseInt(c.progress, 10) || 0); });
+        setAuto(k, cw ? cp / cw : 0, 'krs', ch.length); return;
+      }
+      k.progressSource = 'manual'; delete k.progressInputs;
+    });
+    objs.forEach(function (o) {
+      var sw = 0, sp = 0;
+      (o.krs || []).forEach(function (k) { var w = okrwNum(k.weight, 1); sw += w; sp += w * (parseInt(k.progress, 10) || 0); });
+      objs.forEach(function (c) {
+        if (c.parentObjectiveId !== o.id || c === o || feedsViaKR(c)) return;
+        var cp = parseInt(c.progress, 10); if (isNaN(cp)) return;
+        var w = okrwNum(c.weight, 1); sw += w; sp += w * cp;
+      });
+      if (sw) o.progress = Math.round(sp / sw); else if (o.progress == null) o.progress = 0;
+    });
+  }
+}
+
+// ── OKRW: UI helpers for weighted OKR roll-up (2026-11-04) ───────────────
+var OKRW = (function(){
+  var core = { rollup: okrwRollup, credit: OKRW_CREDIT };
+  function tasks(){ try { return window.data || null; } catch (e) { return null; } }
+  function links(){ try { return window.OKR_LINKS || JSON.parse(localStorage.getItem('rl_okr_links') || '{}'); } catch (e) { return {}; } }
+  function isCurrent(key){ try { return !!key && key === getCurrentOKRKey(); } catch (e) { return false; } }
+  function recalc(d, key){ okrwRollup(d, tasks(), links(), isCurrent(key)); }
+  function isAuto(kr){ return kr && (kr.progressSource === 'tasks' || kr.progressSource === 'krs'); }
+  function srcLabel(kr){
+    if (!kr) return '';
+    if (kr.progressSource === 'tasks') return '⚙ from ' + (kr.progressInputs || 0) + ' task' + (kr.progressInputs === 1 ? '' : 's');
+    if (kr.progressSource === 'krs') return '⇡ from ' + (kr.progressInputs || 0) + ' linked KR' + (kr.progressInputs === 1 ? '' : 's');
+    return kr.measure === 'manual' ? '✎ manual' : '';
+  }
+  function findKR(d, id){
+    var hit = null; if (!d || !d.depts || !id) return null;
+    Object.keys(d.depts).forEach(function(dn){ (d.depts[dn].objectives || []).forEach(function(o){ (o.krs || []).forEach(function(k){ if (k.id === id) hit = { kr: k, obj: o, dept: dn }; }); }); });
+    return hit;
+  }
+  // KRs this KR may feed: personal KR → department KRs; department KR → Company KRs.
+  function parentOptions(d, kr, obj, deptName){
+    var out = []; if (!d || !d.depts) return out;
+    var personal = !!String(obj.owner || '').trim();
+    Object.keys(d.depts).forEach(function(dn){
+      (d.depts[dn].objectives || []).forEach(function(o){
+        if (o === obj || String(o.owner || '').trim()) return;
+        if (personal && dn === 'Company') return;
+        if (!personal && (dn !== 'Company' || deptName === 'Company')) return;
+        (o.krs || []).forEach(function(k){ if (k.id !== kr.id) out.push({ id: k.id, label: k.id + ' — ' + String(k.title || '').slice(0, 60), dept: dn }); });
+      });
+    });
+    return out;
+  }
+  function decorate(el, kr, d){
+    if (!el || !kr) return;
+    var s = srcLabel(kr);
+    if (s) { var b = document.createElement('span'); b.style.cssText = 'font-size:9px;color:var(--acc2);background:rgba(108,99,255,.12);padding:1px 6px;border-radius:3px'; b.textContent = s; b.title = kr.progressSource === 'tasks' ? 'Progress = sum of (task weight × status credit) ÷ total task weight' : (kr.progressSource === 'krs' ? 'Progress = weighted average of the KRs that contribute to this one' : 'Progress is entered by hand'); el.appendChild(b); }
+    if (kr.parentKrId) { var f = document.createElement('span'); f.style.cssText = 'font-size:9px;color:var(--mut)'; f.textContent = '→ feeds ' + kr.parentKrId + ((okrwNum(kr.contribWeight, 1) !== 1) ? ' ×' + okrwNum(kr.contribWeight, 1) : ''); el.appendChild(f); }
+    if (okrwNum(kr.weight, 1) !== 1) { var w = document.createElement('span'); w.style.cssText = 'font-size:9px;color:var(--mut)'; w.textContent = 'weight ' + okrwNum(kr.weight, 1); el.appendChild(w); }
+  }
+  var lab = 'font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace';
+  var ctl = 'font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:3px;padding:2px 4px';
+  function numInput(val, onset){
+    var i = document.createElement('input'); i.type = 'number'; i.min = '0.5'; i.max = '10'; i.step = '0.5'; i.value = okrwNum(val, 1); i.style.cssText = ctl + ';width:48px;text-align:center';
+    i.onchange = function(){ var v = okrwNum(this.value, 1); v = Math.min(10, v); this.value = v; onset(v); }; return i;
+  }
+  function span(t, css){ var s = document.createElement('span'); s.style.cssText = css || lab; s.textContent = t; return s; }
+  // Admin-only weighting bar under a KR: weight, measure, feeds-into KR, contribution weight.
+  function adminBar(kr, obj, d, key, deptName){
+    var bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px';
+    function save(){ try { saveOKRForQuarter(key, d); } catch (e) {} try { renderOKR(); } catch (e) {} }
+    bar.appendChild(span('Weight:'));
+    bar.appendChild(numInput(kr.weight, function(v){ if (v === 1) delete kr.weight; else kr.weight = v; save(); }));
+    bar.appendChild(span('Measure:'));
+    var ms = document.createElement('select'); ms.style.cssText = ctl;
+    [['', 'Auto (tasks / linked KRs)'], ['manual', 'Manual / metric']].forEach(function(o){ var e = document.createElement('option'); e.value = o[0]; e.textContent = o[1]; if ((kr.measure || '') === o[0]) e.selected = true; ms.appendChild(e); });
+    ms.onchange = function(){ if (this.value) kr.measure = this.value; else delete kr.measure; save(); };
+    bar.appendChild(ms);
+    var opts = parentOptions(d, kr, obj, deptName);
+    if (opts.length) {
+      bar.appendChild(span('Feeds KR:'));
+      var ps = document.createElement('select'); ps.style.cssText = ctl + ';max-width:220px';
+      var none = document.createElement('option'); none.value = ''; none.textContent = '— none —'; ps.appendChild(none);
+      opts.forEach(function(o){ var e = document.createElement('option'); e.value = o.id; e.textContent = '[' + o.dept.slice(0, 4).toUpperCase() + '] ' + o.label; if (kr.parentKrId === o.id) e.selected = true; ps.appendChild(e); });
+      ps.onchange = function(){ if (this.value) kr.parentKrId = this.value; else { delete kr.parentKrId; delete kr.contribWeight; } save(); };
+      bar.appendChild(ps);
+      if (kr.parentKrId) {
+        bar.appendChild(span('Contribution ×'));
+        bar.appendChild(numInput(kr.contribWeight, function(v){ if (v === 1) delete kr.contribWeight; else kr.contribWeight = v; save(); }));
+      }
+    }
+    return bar;
+  }
+  function objWeightInput(obj, d, key){
+    var w = document.createElement('span'); w.style.cssText = 'display:inline-flex;align-items:center;gap:4px';
+    w.appendChild(span('weight'));
+    w.appendChild(numInput(obj.weight, function(v){ if (v === 1) delete obj.weight; else obj.weight = v; try { saveOKRForQuarter(key, d); } catch (e) {} try { renderOKR(); } catch (e) {} }));
+    w.title = 'How much this objective counts in its department / parent objective';
+    return w;
+  }
+  function deptPct(objs){
+    var sw = 0, sp = 0; (objs || []).forEach(function(o){ var w = okrwNum(o.weight, 1); sw += w; sp += w * (o.progress || 0); });
+    return sw ? Math.round(sp / sw) : 0;
+  }
+  return { core: core, recalc: recalc, isAuto: isAuto, srcLabel: srcLabel, decorate: decorate, adminBar: adminBar, objWeightInput: objWeightInput, deptPct: deptPct, parentOptions: parentOptions, findKR: findKR, taskWeight: okrwTaskW };
+})();
+
+// Roll-up (2026-11-04): weighted. Tasks → KR, KR → KR (parentKrId), KR + child
+// objectives → objective. Task roll-up only applies to the current quarter,
+// because tasks link to KR ids of the live quarter. Logic lives in OKRW.
+function _recalcAllObjectiveProgress(d, key){
+  if(!d || !d.depts) return;
+  OKRW.recalc(d, key);
 }
 // Find every objective whose parentObjectiveId points at this objective.
 // Used to render the "↓ Linked from" cascade list under Company + Dept cards.
@@ -1540,7 +1680,7 @@ function saveOKRForQuarter(key,data){
   // Propagate progress up the parent chain before persisting so a leaf change
   // (e.g. a personal KR bumped by the owner) is reflected in the linked Dept
   // and Company objective %s on the very same save + sync round-trip.
-  try { _recalcAllObjectiveProgress(data); } catch(_){}
+  try { _recalcAllObjectiveProgress(data, key); } catch(_){}
   localStorage.setItem('rl_okr_'+key,JSON.stringify(data));
   // Push the whole OKR blob so every teammate sees the change within ~30s.
   // OKR_SYNC.getLocal() collects every rl_okr_QX_YYYY key each push.
@@ -2739,7 +2879,7 @@ function _initOKRSync(){
           if(k && /^rl_okr_Q[1-4]_\d{4}$/.test(k)){
             var d = JSON.parse(localStorage.getItem(k));
             if(d && typeof _recalcAllObjectiveProgress === 'function'){
-              _recalcAllObjectiveProgress(d);
+              _recalcAllObjectiveProgress(d, k.replace(/^rl_okr_/,''));
               localStorage.setItem(k, JSON.stringify(d));
             }
           }
@@ -3880,6 +4020,7 @@ function renderOKR(){
   if(!currentUser)return;
   var activeKey=getActiveOKRKey();
   var okrData=loadOKRForQuarter(activeKey);
+  if(okrData&&okrData.depts){try{var _wb=JSON.stringify(okrData);_recalcAllObjectiveProgress(okrData,activeKey);var _wa=JSON.stringify(okrData);if(_wa!==_wb)localStorage.setItem('rl_okr_'+activeKey,_wa);}catch(_){}}
   var main=document.getElementById('main');if(!main)return;
   var wrap=document.createElement('div');
   // ── Header: title + quarter switcher ─────────────────────────────────────
@@ -3941,7 +4082,7 @@ function renderOKR(){
     // Dept card % averages only DEPT-LEVEL objectives (personal ones live
     // under Individual OKRs and shouldn't inflate/deflate the dept number).
     var _dl=(dept.objectives||[]).filter(function(o){return !((o.owner||'').trim());});
-    var pct=Math.round(_dl.reduce(function(s,o){return s+(o.progress||0);},0)/Math.max(1,_dl.length));
+    var pct=OKRW.deptPct(_dl);
     var active=d===df;var card=document.createElement('div');card.style.cssText='flex:1;min-width:0;background:var(--surf);border:1px solid '+(active?dept.color:'var(--brd)')+';border-radius:10px;padding:14px 18px;cursor:pointer'+(active?';background:var(--surf2)':'');card.innerHTML='<div style="font-size:9px;color:'+dept.color+';font-family:Roboto Mono,monospace;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+dept.icon+' '+d.toUpperCase()+'</div><div style="font-size:22px;font-weight:700">'+pct+'<span style="font-size:12px">%</span></div><div style="margin-top:6px;height:4px;background:var(--surf2);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+dept.color+';border-radius:2px"></div></div><div style="font-size:9px;color:var(--mut);margin-top:3px;font-family:Roboto Mono,monospace">overall</div>';card.onclick=(function(dd){return function(){setOKRDept(dd);};})(d);row.appendChild(card);});
   wrap.appendChild(row);
   var dlRow=document.createElement('div');
@@ -3988,6 +4129,7 @@ function renderOKR(){
     // OBJECTIVE badge — purple, universal across all depts. Pairs with the
     // green "KEY RESULT" badge on KRs so the card type is legible at a glance.
     oid.innerHTML='<span style="background:#6c63ff;color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;letter-spacing:.6px">OBJECTIVE</span><span>'+obj.id+'</span>';
+    if(isAdmin()){try{oid.appendChild(OKRW.objWeightInput(obj,okrData,activeKey));}catch(_){}}
     var otl=document.createElement('div');otl.style.cssText='font-size:14px;font-weight:700';otl.textContent=obj.title;
     if(isAdmin()){otl.contentEditable='true';otl.style.outline='none';otl.style.borderBottom='1px dashed transparent';otl.onfocus=function(){this.style.borderBottomColor='var(--acc)';};otl.onblur=(function(o,k,d){return function(){this.style.borderBottomColor='transparent';o.title=this.textContent.trim();saveOKRForQuarter(k,d);};})(obj,activeKey,okrData);}
     otd.appendChild(oid);otd.appendChild(otl);
@@ -4045,6 +4187,7 @@ function renderOKR(){
       var kid2=document.createElement('div');kid2.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:2px;display:flex;align-items:center;gap:6px';
       // KEY RESULT badge — teal/green, distinct from the purple OBJECTIVE badge.
       kid2.innerHTML='<span style="background:#09faa3;color:#0a2e1c;font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;letter-spacing:.6px">KEY RESULT</span><span>'+kr.id+'</span>';
+      try{OKRW.decorate(kid2,kr,okrData);}catch(_){}
       ktd.appendChild(kid2);
       var ktl=document.createElement('div');ktl.style.cssText='font-size:12px;color:var(--txt)';ktl.textContent=kr.title;
       if(isAdmin()){ktl.contentEditable='true';ktl.style.outline='none';ktl.style.borderBottom='1px dashed transparent';ktl.onfocus=function(){this.style.borderBottomColor='var(--acc2)';};ktl.onblur=(function(k2,key2,d2){return function(){this.style.borderBottomColor='transparent';k2.title=this.textContent.trim();saveOKRForQuarter(key2,d2);};})(kr,activeKey,okrData);}
@@ -4113,6 +4256,7 @@ function renderOKR(){
         // objective %s. No manual computation needed here.
         pi.onchange=(function(ko,oo,dd,kk){return function(){var v=Math.min(100,Math.max(0,parseInt(this.value)||0));this.value=v;ko.progress=v;saveOKRForQuarter(kk,dd);renderOKR();};})(kr,obj,okrData,activeKey);
         eb.appendChild(pi);
+        if(OKRW.isAuto(kr)){pi.disabled=true;pi.style.opacity='.5';pi.title='Calculated automatically ('+OKRW.srcLabel(kr)+'). Set Measure to Manual to type a %.';}
         var ps=document.createElement('span');ps.style.cssText='font-size:9px;color:var(--mut)';ps.textContent='%';eb.appendChild(ps);
         var sp2=document.createElement('div');sp2.style.cssText='flex:1';eb.appendChild(sp2);
         var cl2=document.createElement('span');cl2.style.cssText='font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace';cl2.textContent='Confidence:';eb.appendChild(cl2);
@@ -4120,6 +4264,7 @@ function renderOKR(){
         ['On track','At Risk','Off Track','Not started','Completed'].forEach(function(o){var oe=document.createElement('option');oe.value=o;oe.textContent=o;if(o===kr.confidence)oe.selected=true;cs.appendChild(oe);});
         cs.onchange=(function(ko,dd,kk){return function(){ko.confidence=this.value;saveOKRForQuarter(kk,dd);renderOKR();};})(kr,okrData,activeKey);
         eb.appendChild(cs);kd.appendChild(eb);
+        try{kd.appendChild(OKRW.adminBar(kr,obj,okrData,activeKey,df));}catch(_){}
       } else if(typeof OKRU!=='undefined' && OKRU.canEdit(kr,obj)){
         kd.appendChild(OKRU.editor(kr,obj,activeKey));
       }
@@ -4656,7 +4801,7 @@ function openLinkTaskModal(krId,krTitle){
   var ld=document.createElement('div');ld.style.cssText='overflow-y:auto;flex:1';
   if(!allTasks.length){ld.innerHTML='<div style="color:var(--mut);font-size:12px;text-align:center;padding:20px">No tasks yet.</div>';}
   else{var tbl=document.createElement('table');tbl.style.cssText='width:100%;border-collapse:collapse;font-size:11px';tbl.innerHTML='<thead><tr style="color:var(--mut);font-family:Roboto Mono,monospace;font-size:9px"><th style="text-align:left;padding:6px 8px">ID</th><th style="text-align:left;padding:6px 8px">TASK</th><th style="text-align:left;padding:6px 8px">DEPT</th><th style="text-align:left;padding:6px 8px">STATUS</th><th style="text-align:center;padding:6px 8px">LINK</th></tr></thead><tbody></tbody>';var tb=tbl.querySelector('tbody');allTasks.forEach(function(t){var il=linked.indexOf(t.id)>-1,c2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};var tr=document.createElement('tr');tr.style.cssText='border-bottom:1px solid var(--brd)';tr.innerHTML='<td style="padding:6px 8px;font-family:Roboto Mono,monospace;color:var(--mut)">'+t.id+'</td><td style="padding:6px 8px">'+t.name+'</td><td style="padding:6px 8px"><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+c2.col+'22;color:'+c2.col+'">'+c2.p+'</span></td><td style="padding:6px 8px;color:var(--mut)">'+t.status+'</td><td style="padding:6px 8px;text-align:center"><input type="checkbox" '+(il?'checked':'')+' style="cursor:pointer;width:14px;height:14px"></td>';tr.querySelector('input').dataset.taskId=t.id;tb.appendChild(tr);});ld.appendChild(tbl);}
-  box.appendChild(ld);var fd=document.createElement('div');fd.style.cssText='display:flex;justify-content:flex-end;gap:8px;margin-top:16px';var canB=document.createElement('button');canB.className='hbtn';canB.textContent='Cancel';canB.onclick=okrModalClose;var savB=document.createElement('button');savB.className='hbtn xl';savB.textContent='Save Links';savB.onclick=function(){var ch=Array.from(box.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.dataset.taskId;});OKR_LINKS[krId]=ch;localStorage.setItem('rl_okr_links',JSON.stringify(OKR_LINKS));okrModalClose();logEntry('Updated OKR links for '+krId,'edit');autoSave();renderOKR();};fd.appendChild(canB);fd.appendChild(savB);box.appendChild(fd);overlay.appendChild(box);document.body.appendChild(overlay);
+  box.appendChild(ld);var fd=document.createElement('div');fd.style.cssText='display:flex;justify-content:flex-end;gap:8px;margin-top:16px';var canB=document.createElement('button');canB.className='hbtn';canB.textContent='Cancel';canB.onclick=okrModalClose;var savB=document.createElement('button');savB.className='hbtn xl';savB.textContent='Save Links';savB.onclick=function(){var ch=Array.from(box.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.dataset.taskId;});OKR_LINKS[krId]=ch;Object.keys(data).forEach(function(d){(data[d]||[]).forEach(function(t){if(!t||!(t.assignee||'').trim())return;var on=ch.indexOf(t.id)>-1;if(on&&t.linkedKRId!==krId){if(t.linkedKRId&&OKR_LINKS[t.linkedKRId]){OKR_LINKS[t.linkedKRId]=OKR_LINKS[t.linkedKRId].filter(function(x){return x!==t.id;});}t.linkedKRId=krId;t.lastUpdated=new Date().toISOString();}else if(!on&&t.linkedKRId===krId){t.linkedKRId='';t.lastUpdated=new Date().toISOString();}});});localStorage.setItem('rl_okr_links',JSON.stringify(OKR_LINKS));okrModalClose();logEntry('Updated OKR links for '+krId,'edit');autoSave();renderOKR();};fd.appendChild(canB);fd.appendChild(savB);box.appendChild(fd);overlay.appendChild(box);document.body.appendChild(overlay);
 }
 function showOKRLinkedTasks(krId){
   var links=OKR_LINKS[krId]||[];if(!links.length)return;
@@ -13156,6 +13301,8 @@ function tmOpenDrawer(t, dept){
       '<div class="tm-progress-cell"><input class="tm-drawer-field" type="number" min="0" max="100" data-f="progress" value="'+(t.progress||0)+'"><span class="tm-pct">%</span></div>'+
       '<label>LINK TO OKR</label>'+
       '<div class="tm-kr-cell" id="tm-kr-cell"></div>'+
+      '<label title="How much this task counts towards its key result">OKR WEIGHT</label>'+
+      '<select class="tm-drawer-field" data-f="weight" title="1 = small task, 5 = critical to the key result">'+[1,2,3,4,5].map(function(w){return '<option value="'+w+'"'+(OKRW.taskWeight(t)===w?' selected':'')+'>'+w+(w===1?' · small':w===5?' · critical':'')+'</option>';}).join('')+'</select>'+
     '</div>'+
     '<div class="tm-notes-block">'+
       '<div class="tm-section-label">NOTES</div>'+
@@ -25579,6 +25726,7 @@ var OKRU = (function(){
     if (e === 'no_session' || e === 'invalid_session' || e === 'expired_session' || e === 'idle_session' || e === 'auth_required') return 'Your session has expired — please sign in again.';
     if (e === 'kr_not_found' || e === 'objective_not_found' || e === 'quarter_not_found') return 'That OKR has changed since you loaded it — refresh and try again.';
     if (e === 'bad_parent') return 'Pick a Company or Department objective to align to.';
+    if (e === 'bad_parent_kr') return 'That key result can\'t be linked here.';
     return 'Couldn\'t save (' + (e || 'network') + ').';
   }
   function applyQuarter(qk, qdata, updatedAt){
@@ -25634,6 +25782,26 @@ var OKRU = (function(){
       (done ? '<span style="font-size:10px;font-weight:800;color:var(--grn)">✓ Completed</span>'
             : '<button type="button" class="okru-done" style="font-size:10px;font-weight:800;padding:5px 10px;border-radius:6px;border:1px solid var(--grn);background:none;color:var(--grn);cursor:pointer">✓ Mark complete</button>');
     var p = w.querySelector('.okru-p'), c = w.querySelector('.okru-c'), b = w.querySelector('.okru-done');
+    var auto = (typeof OKRW !== 'undefined') && OKRW.isAuto(kr);
+    if (auto) {
+      p.disabled = true; p.style.opacity = '.5'; p.title = 'Calculated automatically (' + OKRW.srcLabel(kr) + ')';
+      if (b) { b.remove(); b = null; }
+      var al = document.createElement('span'); al.style.cssText = lab + ';color:var(--acc2)'; al.textContent = OKRW.srcLabel(kr);
+      p.nextSibling.parentNode.insertBefore(al, p.nextSibling.nextSibling);
+    }
+    if (typeof OKRW !== 'undefined' && String(obj && obj.owner || '').trim()) {
+      var qd = null; try { qd = loadOKRForQuarter(qk); } catch (e) {}
+      var fh = qd && OKRW.findKR(qd, kr.id);
+      var po = fh ? OKRW.parentOptions(qd, fh.kr, fh.obj, fh.dept) : [];
+      if (po.length) {
+        var fr = document.createElement('div'); fr.style.cssText = 'display:flex;align-items:center;gap:6px;flex-basis:100%;margin-top:4px';
+        fr.innerHTML = '<span style="' + lab + '">FEEDS DEPT KR</span>';
+        var fs = document.createElement('select'); fs.setAttribute('aria-label', 'Department key result this feeds'); fs.style.cssText = ctl + ';max-width:260px';
+        fs.innerHTML = '<option value="">— none —</option>' + po.map(function(o){ return '<option value="' + esc(o.id) + '"' + (kr.parentKrId === o.id ? ' selected' : '') + '>' + esc(o.label) + '</option>'; }).join('');
+        fs.onchange = function(){ fs.disabled = true; updateKR(qk, kr.id, { parentKrId: this.value }); };
+        fr.appendChild(fs); w.appendChild(fr);
+      }
+    }
     function lock(){ p.disabled = true; c.disabled = true; if (b) b.disabled = true; w.style.opacity = '.6'; }
     p.onchange = function(){ var v = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0)); this.value = v; lock(); updateKR(qk, kr.id, { progress: v }); };
     p.onkeydown = function(e){ if (e.key === 'Enter') { e.preventDefault(); this.blur(); } };
