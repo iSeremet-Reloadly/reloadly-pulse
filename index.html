@@ -1458,7 +1458,12 @@ function okrSetParentObjective(deptName, objectiveId, parentObjectiveId){
 var OKRW_CREDIT = { 'Not Started': 0, 'In Progress': 50, 'Blocked': 0, 'Under Review': 75, 'Done': 100 };
 function okrwNum(v, d) { var n = parseFloat(v); return (isFinite(n) && n > 0) ? n : d; }
 function okrwTaskW(t) { var w = parseInt(t && t.weight, 10); return (w >= 1 && w <= 5) ? w : 1; }
-function okrwRollup(q, tasks, links, useTasks) {
+// Quarter tag (2026-11-04): a task counts only towards the quarter it was
+// linked in (t.linkedKRQuarter, e.g. 'Q4_2026'); untagged legacy links fall
+// back to the quarter of the task's due date. KR ids repeat every quarter.
+function okrwDueQ(t) { var m = /^(\d{4})-(\d{2})/.exec(String((t && t.due) || '')); return m ? ('Q' + (Math.floor((+m[2] - 1) / 3) + 1) + '_' + m[1]) : ''; }
+function okrwTaskQ(t) { return (t && t.linkedKRQuarter) || okrwDueQ(t) || ''; }
+function okrwRollup(q, tasks, links, useTasks, qKey) {
   if (!q || !q.depts) return;
   var objs = [], krIdx = {};
   Object.keys(q.depts).forEach(function (dn) {
@@ -1477,6 +1482,7 @@ function okrwRollup(q, tasks, links, useTasks) {
         if (!t || !t.id) return;
         var kid = t.linkedKRId || linkOf[t.id] || '';
         if (!kid || !krIdx[kid]) return;
+        if (qKey) { var tq = okrwTaskQ(t); if (tq && tq !== qKey) return; }
         (byKR[kid] = byKR[kid] || []).push(t);
       });
     });
@@ -1532,7 +1538,28 @@ var OKRW = (function(){
   function tasks(){ try { return window.data || null; } catch (e) { return null; } }
   function links(){ try { return window.OKR_LINKS || JSON.parse(localStorage.getItem('rl_okr_links') || '{}'); } catch (e) { return {}; } }
   function isCurrent(key){ try { return !!key && key === getCurrentOKRKey(); } catch (e) { return false; } }
-  function recalc(d, key){ okrwRollup(d, tasks(), links(), isCurrent(key)); }
+  function recalc(d, key){ okrwRollup(d, tasks(), links(), isCurrent(key), key || ''); }
+  function activeQ(){ try { return getActiveOKRKey(); } catch (e) { try { return getCurrentQuarter(); } catch (e2) { return ''; } } }
+  // Stamp the quarter on a task the moment it is (re)linked to a KR.
+  function stampOne(t, q){ if (!t) return; if (t.linkedKRId) { t.linkedKRQuarter = q || activeQ(); t.linkedKRSig = t.linkedKRId; } else { delete t.linkedKRQuarter; delete t.linkedKRSig; } }
+  // Before every task push: tag any link that has no tag yet (legacy links use
+  // the due-date quarter, otherwise the quarter being viewed) and re-tag links
+  // that changed through a path that didn't stamp them.
+  function stamp(all){
+    if (!all || typeof all !== 'object') return;
+    var lk = links(), linkOf = {};
+    Object.keys(lk || {}).forEach(function(kid){ (lk[kid] || []).forEach(function(tid){ if (!linkOf[tid]) linkOf[tid] = kid; }); });
+    Object.keys(all).forEach(function(dk){ (Array.isArray(all[dk]) ? all[dk] : []).forEach(function(t){
+      if (!t) return;
+      if (!t.linkedKRId && linkOf[t.id]) t.linkedKRId = linkOf[t.id];
+      if (!t.linkedKRId) { delete t.linkedKRQuarter; delete t.linkedKRSig; return; }
+      if (t.linkedKRSig === t.linkedKRId && t.linkedKRQuarter) return;
+      if (!t.linkedKRSig) t.linkedKRQuarter = t.linkedKRQuarter || okrwDueQ(t) || activeQ();
+      else t.linkedKRQuarter = activeQ();
+      t.linkedKRSig = t.linkedKRId;
+    }); });
+  }
+  function qLabel(t){ var q = t && t.linkedKRQuarter; return q ? q.replace('_', ' ') : ''; }
   function isAuto(kr){ return kr && (kr.progressSource === 'tasks' || kr.progressSource === 'krs'); }
   function srcLabel(kr){
     if (!kr) return '';
@@ -1611,7 +1638,7 @@ var OKRW = (function(){
     var sw = 0, sp = 0; (objs || []).forEach(function(o){ var w = okrwNum(o.weight, 1); sw += w; sp += w * (o.progress || 0); });
     return sw ? Math.round(sp / sw) : 0;
   }
-  return { core: core, recalc: recalc, isAuto: isAuto, srcLabel: srcLabel, decorate: decorate, adminBar: adminBar, objWeightInput: objWeightInput, deptPct: deptPct, parentOptions: parentOptions, findKR: findKR, taskWeight: okrwTaskW };
+  return { core: core, recalc: recalc, stamp: stamp, stampOne: stampOne, qLabel: qLabel, taskQ: okrwTaskQ, isAuto: isAuto, srcLabel: srcLabel, decorate: decorate, adminBar: adminBar, objWeightInput: objWeightInput, deptPct: deptPct, parentOptions: parentOptions, findKR: findKR, taskWeight: okrwTaskW };
 })();
 
 // Roll-up (2026-11-04): weighted. Tasks → KR, KR → KR (parentKrId), KR + child
@@ -3043,6 +3070,7 @@ function _initFreshnessLoop(){
 }
 
 function autoSave(){
+  try{ if(typeof OKRW!=='undefined') OKRW.stamp(data); }catch(_){}
   localStorage.setItem('rl_tasks_v4',JSON.stringify(data));
   localStorage.setItem('rl_log_v1',JSON.stringify(actLog.slice(-200)));
   // Push to shared KV (debounced 2s)
@@ -4801,7 +4829,7 @@ function openLinkTaskModal(krId,krTitle){
   var ld=document.createElement('div');ld.style.cssText='overflow-y:auto;flex:1';
   if(!allTasks.length){ld.innerHTML='<div style="color:var(--mut);font-size:12px;text-align:center;padding:20px">No tasks yet.</div>';}
   else{var tbl=document.createElement('table');tbl.style.cssText='width:100%;border-collapse:collapse;font-size:11px';tbl.innerHTML='<thead><tr style="color:var(--mut);font-family:Roboto Mono,monospace;font-size:9px"><th style="text-align:left;padding:6px 8px">ID</th><th style="text-align:left;padding:6px 8px">TASK</th><th style="text-align:left;padding:6px 8px">DEPT</th><th style="text-align:left;padding:6px 8px">STATUS</th><th style="text-align:center;padding:6px 8px">LINK</th></tr></thead><tbody></tbody>';var tb=tbl.querySelector('tbody');allTasks.forEach(function(t){var il=linked.indexOf(t.id)>-1,c2=CFG[t.dept]||{p:t.dept.slice(0,3).toUpperCase(),col:'#888'};var tr=document.createElement('tr');tr.style.cssText='border-bottom:1px solid var(--brd)';tr.innerHTML='<td style="padding:6px 8px;font-family:Roboto Mono,monospace;color:var(--mut)">'+t.id+'</td><td style="padding:6px 8px">'+t.name+'</td><td style="padding:6px 8px"><span style="font-size:9px;padding:2px 6px;border-radius:3px;background:'+c2.col+'22;color:'+c2.col+'">'+c2.p+'</span></td><td style="padding:6px 8px;color:var(--mut)">'+t.status+'</td><td style="padding:6px 8px;text-align:center"><input type="checkbox" '+(il?'checked':'')+' style="cursor:pointer;width:14px;height:14px"></td>';tr.querySelector('input').dataset.taskId=t.id;tb.appendChild(tr);});ld.appendChild(tbl);}
-  box.appendChild(ld);var fd=document.createElement('div');fd.style.cssText='display:flex;justify-content:flex-end;gap:8px;margin-top:16px';var canB=document.createElement('button');canB.className='hbtn';canB.textContent='Cancel';canB.onclick=okrModalClose;var savB=document.createElement('button');savB.className='hbtn xl';savB.textContent='Save Links';savB.onclick=function(){var ch=Array.from(box.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.dataset.taskId;});OKR_LINKS[krId]=ch;Object.keys(data).forEach(function(d){(data[d]||[]).forEach(function(t){if(!t||!(t.assignee||'').trim())return;var on=ch.indexOf(t.id)>-1;if(on&&t.linkedKRId!==krId){if(t.linkedKRId&&OKR_LINKS[t.linkedKRId]){OKR_LINKS[t.linkedKRId]=OKR_LINKS[t.linkedKRId].filter(function(x){return x!==t.id;});}t.linkedKRId=krId;t.lastUpdated=new Date().toISOString();}else if(!on&&t.linkedKRId===krId){t.linkedKRId='';t.lastUpdated=new Date().toISOString();}});});localStorage.setItem('rl_okr_links',JSON.stringify(OKR_LINKS));okrModalClose();logEntry('Updated OKR links for '+krId,'edit');autoSave();renderOKR();};fd.appendChild(canB);fd.appendChild(savB);box.appendChild(fd);overlay.appendChild(box);document.body.appendChild(overlay);
+  box.appendChild(ld);var fd=document.createElement('div');fd.style.cssText='display:flex;justify-content:flex-end;gap:8px;margin-top:16px';var canB=document.createElement('button');canB.className='hbtn';canB.textContent='Cancel';canB.onclick=okrModalClose;var savB=document.createElement('button');savB.className='hbtn xl';savB.textContent='Save Links';savB.onclick=function(){var ch=Array.from(box.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.dataset.taskId;});OKR_LINKS[krId]=ch;Object.keys(data).forEach(function(d){(data[d]||[]).forEach(function(t){if(!t||!(t.assignee||'').trim())return;var on=ch.indexOf(t.id)>-1;if(on&&t.linkedKRId!==krId){if(t.linkedKRId&&OKR_LINKS[t.linkedKRId]){OKR_LINKS[t.linkedKRId]=OKR_LINKS[t.linkedKRId].filter(function(x){return x!==t.id;});}t.linkedKRId=krId;try{OKRW.stampOne(t);}catch(_){}t.lastUpdated=new Date().toISOString();}else if(!on&&t.linkedKRId===krId){t.linkedKRId='';t.lastUpdated=new Date().toISOString();}});});localStorage.setItem('rl_okr_links',JSON.stringify(OKR_LINKS));okrModalClose();logEntry('Updated OKR links for '+krId,'edit');autoSave();renderOKR();};fd.appendChild(canB);fd.appendChild(savB);box.appendChild(fd);overlay.appendChild(box);document.body.appendChild(overlay);
 }
 function showOKRLinkedTasks(krId){
   var links=OKR_LINKS[krId]||[];if(!links.length)return;
@@ -12180,6 +12208,7 @@ function tmKROptions(selected){
 }
 // Sync linkedKRId to/from rl_okr_links (bidirectional with OKR Tracker)
 function tmSyncKRLink(taskId, oldKRId, newKRId){
+  try{ Object.keys(data).forEach(function(d){ (data[d]||[]).forEach(function(t){ if(t && t.id===taskId && typeof OKRW!=='undefined') OKRW.stampOne(t); }); }); }catch(_){}
   try{
     var links=JSON.parse(localStorage.getItem('rl_okr_links')||'{}');
     if(oldKRId && links[oldKRId]){
@@ -12223,7 +12252,9 @@ function tmState(){
     dept:s.dept||(currentUser&&currentUser.dept?currentUser.dept:'All'),
     expanded:s.expanded||{},
     quickOpen:!!s.quickOpen,
-    grouping:s.grouping||'owner'
+    grouping:s.grouping||'owner',
+    // 2026-11-04: was missing, so the "Show archived" toggle never took effect.
+    showArchived:!!s.showArchived
   };
 }
 function tmSetState(patch){
@@ -12979,7 +13010,7 @@ function tmRenderCard(t){
       '<div class="tm-card-meta">'+
         '<span>'+esc(t.assignee||'unassigned')+'</span>'+
         '<span class="tm-card-id">'+t.id+'</span>'+
-        (t.linkedKRId?'<span class="tm-link-chip" title="Linked to '+esc(t.linkedKRId)+'">🎯 '+esc(t.linkedKRId)+'</span>':'')+
+        (t.linkedKRId?'<span class="tm-link-chip" title="Linked to '+esc(t.linkedKRId)+(t.linkedKRQuarter?' ('+esc(OKRW.qLabel(t))+' OKRs)':'')+'">🎯 '+(t.linkedKRQuarter?esc(t.linkedKRQuarter.split('_')[0])+' · ':'')+esc(t.linkedKRId)+'</span>':'')+
       '</div>'+
     '</div>'+
     '<div class="tm-card-right">'+
@@ -13285,7 +13316,8 @@ function tmOpenDrawer(t, dept){
       return '<div class="tm-linked-block">'+
         '<div class="tm-section-label">LINKED OKR</div>'+
         '<div class="tm-linked-chain">🎯 <strong>'+esc(kr.id)+'</strong> '+esc(kr.title)+'</div>'+
-        '<div class="tm-linked-up">↑ Contributes to '+esc(kr.objectiveTitle)+' · '+esc(kr.dept)+'</div>'+
+        '<div class="tm-linked-up">↑ Contributes to '+esc(kr.objectiveTitle)+' · '+esc(kr.dept)+(t.linkedKRQuarter?' · '+esc(OKRW.qLabel(t))+' OKRs':'')+'</div>'+
+        ((OKRW.taskQ(t) && OKRW.taskQ(t)!==getCurrentOKRKey())?'<div class="tm-linked-up" style="color:var(--yel)">⚠ Linked in '+esc(OKRW.taskQ(t).replace("_"," "))+' — doesn\'t count towards this quarter. Re-pick the KR to move it.</div>':'')+
       '</div>';
     })()+
     '<div class="tm-drawer-form">'+
