@@ -3087,7 +3087,9 @@ function autoSave(){
   // no-op when its sync engine hasn't booted yet.
   if(ACT_LOG_SYNC) ACT_LOG_SYNC.push();
   if(USER_REG_SYNC) USER_REG_SYNC.push();
-  if(OKR_SYNC) OKR_SYNC.push();
+  // 2026-11-05: only admins push the OKR doc from a task save (a stale copy
+  // in a teammate's browser used to overwrite everyone's OKRs).
+  if(OKR_SYNC && typeof isAdmin==='function' && isAdmin()) OKR_SYNC.push();
   if(RM_SYNC) RM_SYNC.push();
   if(PERF_SYNC) PERF_SYNC.push();
   updCnts();
