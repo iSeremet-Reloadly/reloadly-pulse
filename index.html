@@ -1463,6 +1463,7 @@ function okrwTaskW(t) { var w = parseInt(t && t.weight, 10); return (w >= 1 && w
 // linked in (t.linkedKRQuarter, e.g. 'Q4_2026'); untagged legacy links fall
 // back to the quarter of the task's due date. KR ids repeat every quarter.
 function okrwDueQ(t) { var m = /^(\d{4})-(\d{2})/.exec(String((t && t.due) || '')); return m ? ('Q' + (Math.floor((+m[2] - 1) / 3) + 1) + '_' + m[1]) : ''; }
+function okrwQStart(k) { var m = /^Q([1-4])_(\d{4})$/.exec(String(k || '')); if (!m) return ''; var mm = (+m[1] - 1) * 3 + 1; return m[2] + '-' + (mm < 10 ? '0' : '') + mm + '-01'; }
 function okrwTaskQ(t) { return (t && t.linkedKRQuarter) || okrwDueQ(t) || ''; }
 function okrwRollup(q, tasks, links, useTasks, qKey) {
   if (!q || !q.depts) return;
@@ -1483,7 +1484,11 @@ function okrwRollup(q, tasks, links, useTasks, qKey) {
         if (!t || !t.id) return;
         var kid = t.linkedKRId || linkOf[t.id] || '';
         if (!kid || !krIdx[kid]) return;
-        if (qKey) { var tq = okrwTaskQ(t); if (tq && tq !== qKey) return; }
+        if (qKey) {
+          var tq = okrwTaskQ(t); if (tq && tq !== qKey) return;
+          // Work completed before this quarter started can't count towards it.
+          var qs = okrwQStart(qKey); if (qs && t.status === 'Done' && t.completedAt && String(t.completedAt).slice(0, 10) < qs) return;
+        }
         (byKR[kid] = byKR[kid] || []).push(t);
       });
     });
