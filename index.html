@@ -869,6 +869,69 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 .tm-board-card-meta{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace}
 .tm-board-more{font-size:11px;color:var(--mut);text-align:center;padding:6px;font-family:Roboto Mono,monospace}
 
+/* ── Tasks Manager (2026-11-13): unified Team / My scope + 5 views ── */
+.tm-wrap.tmx-wrap{max-width:1360px}
+.tmx-hdr{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.tmx-acts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
+.tmx-act{display:inline-flex;align-items:center;gap:6px;background:var(--surf);border:1px solid var(--brd);color:var(--txt);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.tmx-act:hover{border-color:var(--acc);color:var(--acc)}
+.tmx-ai{font-size:8px;font-weight:800;padding:2px 6px;border-radius:10px;background:var(--acc);color:#fff;font-family:Roboto Mono,monospace;letter-spacing:.4px;vertical-align:middle}
+.tmx-badge{font-size:9px;font-weight:800;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:8px;background:var(--red);color:#fff;padding:0 4px}
+.tmx-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.tmx-seg{display:inline-flex;background:var(--surf2);border:1px solid var(--brd);border-radius:9px;padding:3px;gap:2px}
+.tmx-seg-b{background:none;border:none;color:var(--mut);font-size:12px;font-weight:600;padding:6px 12px;border-radius:7px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.tmx-seg-b:hover{color:var(--txt)}
+.tmx-seg-b.active{background:var(--surf);color:var(--txt);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.tmx-search{width:auto!important;flex:0 1 280px;margin:0!important;padding:7px 10px;border:1px solid var(--brd);border-radius:8px;background:var(--bg);color:var(--txt);font-size:12px;min-width:220px;font-family:inherit}
+.tmx-arch{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--mut);cursor:pointer;font-family:Roboto Mono,monospace;white-space:nowrap}
+.tm-board.tmx-board{grid-template-columns:repeat(3,minmax(240px,1fr))}
+.tmx-blocked{font-size:8px;font-weight:800;padding:1px 6px;border-radius:3px;background:rgba(239,68,68,.15);color:#ef4444;font-family:Roboto Mono,monospace}
+.tmx-calnav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tmx-caltitle{font-size:15px;font-weight:800;min-width:150px;text-align:center}
+.tmx-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid var(--brd);border-radius:10px;overflow:hidden;background:var(--brd);gap:1px}
+.tmx-cal-dow{background:var(--surf2);font-size:10px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;padding:6px 8px;letter-spacing:.6px}
+.tmx-cal-cell{background:var(--surf);min-height:104px;padding:5px 6px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.tmx-cal-cell.out{opacity:.45}
+.tmx-cal-cell.wkend{background:var(--surf2)}
+.tmx-cal-cell.today{box-shadow:inset 0 0 0 2px var(--acc)}
+.tmx-cal-num{font-size:11px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace}
+.tmx-cal-cell.today .tmx-cal-num{color:var(--acc)}
+.tmx-chip{font-size:10px;line-height:1.3;padding:3px 6px;border-radius:4px;background:var(--surf2);border:1px solid var(--brd);border-left:3px solid var(--acc);color:var(--txt);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tmx-chip:hover{border-color:var(--mut)}
+.tmx-chip.done{text-decoration:line-through;opacity:.6}
+.tmx-more{font-size:9px;color:var(--acc);cursor:pointer;font-family:Roboto Mono,monospace}
+.tmx-gantt{border:1px solid var(--brd);border-radius:10px;overflow:auto;max-height:calc(100vh - 300px);background:var(--surf)}
+.tmx-g-row{display:flex;min-width:max-content;border-bottom:1px solid var(--brd)}
+.tmx-g-lbl{position:sticky;left:0;z-index:2;width:260px;min-width:260px;background:var(--surf);border-right:1px solid var(--brd);padding:6px 10px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;box-sizing:border-box}
+.tmx-g-tl{position:relative;height:30px;flex-shrink:0}
+.tmx-g-head{position:sticky;top:0;z-index:3;background:var(--surf2)}
+.tmx-g-head .tmx-g-lbl{background:var(--surf2);font-size:9px;font-weight:700;color:var(--mut);font-family:Roboto Mono,monospace;cursor:default;display:flex;align-items:flex-end}
+.tmx-g-head .tmx-g-tl{height:36px}
+.tmx-g-day{position:absolute;bottom:4px;text-align:center;font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace}
+.tmx-g-day.wk{opacity:.55}
+.tmx-g-day.td{color:var(--acc);font-weight:800}
+.tmx-g-mon{position:absolute;bottom:14px;left:2px;font-size:9px;font-weight:800;color:var(--txt);white-space:nowrap}
+.tmx-g-grp .tmx-g-lbl{font-size:10px;font-weight:800;color:var(--acc);font-family:Roboto Mono,monospace;text-transform:uppercase;letter-spacing:.5px;background:var(--surf2)}
+.tmx-g-grp .tmx-g-tl{height:24px;background:var(--surf2)}
+.tmx-g-wk{position:absolute;top:0;bottom:0;background:rgba(127,127,127,.07)}
+.tmx-g-today{position:absolute;top:0;bottom:0;width:2px;background:var(--acc);opacity:.7}
+.tmx-g-bar{position:absolute;top:5px;height:20px;border:1px solid;border-radius:5px;overflow:hidden;cursor:pointer;box-sizing:border-box}
+.tmx-g-bar.ov{box-shadow:0 0 0 2px rgba(239,68,68,.6)}
+.tmx-g-fill{position:absolute;left:0;top:0;bottom:0;opacity:.35}
+.tmx-g-bar span{position:relative;font-size:10px;line-height:18px;padding:0 6px;white-space:nowrap;color:var(--txt)}
+.tmx-table select.tmx-st{font-size:10px;font-family:Roboto Mono,monospace;background:var(--bg);border:1px solid var(--brd);color:var(--txt);border-radius:4px;padding:2px 4px}
+.tmx-modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;display:flex;align-items:flex-start;justify-content:center;padding:5vh 12px;overflow-y:auto}
+.tmx-modal{background:var(--surf);border:1px solid var(--brd);border-radius:14px;width:880px;max-width:96vw;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.tmx-modal-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 22px;border-bottom:1px solid var(--brd)}
+.tmx-modal-t{font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
+.tmx-modal-s{font-size:11px;color:var(--mut);margin-top:4px;line-height:1.5}
+.tmx-modal-x{background:var(--surf2);border:1px solid var(--brd);color:var(--mut);width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;flex-shrink:0}
+.tmx-modal-b{padding:6px 22px 22px}
+.tmx-modal-b #tm-meeting-sec{margin-top:10px!important;background:none!important;border:none!important;box-shadow:none!important;padding:0!important}
+.okrw-adv-t{font-size:9px;font-family:Roboto Mono,monospace;background:none;border:1px dashed var(--brd);color:var(--mut);border-radius:4px;padding:2px 8px;cursor:pointer;margin-top:6px}
+.okrw-adv-t:hover{color:var(--txt);border-color:var(--mut)}
+@media(max-width:900px){.tm-board.tmx-board{grid-template-columns:1fr}.tmx-search{min-width:0;flex:1}.tmx-g-lbl{width:150px;min-width:150px}.tmx-cal-cell{min-height:70px}}
+
 /* Drawer */
 .tm-drawer-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9900;display:flex;align-items:stretch;justify-content:flex-end}
 .tm-drawer{width:480px;max-width:96vw;background:var(--surf);border-left:1px solid var(--brd);padding:28px 32px;overflow-y:auto;box-shadow:-8px 0 32px rgba(0,0,0,.45);position:relative}
@@ -1293,8 +1356,7 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
     
     <div class="ni" id="nav-strategy" onclick="go('strategy')"><div class="ni-l"><div class="dd" style="background:linear-gradient(45deg,var(--acc),var(--grn))"></div>Strategy</div></div>
     <div class="ni" id="nav-okr" onclick="go('okr')"><div class="ni-l"><div class="dd" style="background:var(--acc2)"></div>OKR Tracker</div></div>
-    <div class="ni" id="nav-mytasks-v2" onclick="go('mytasks')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#22d3ee,#6c63ff)"></div>My Tasks</div><div class="cnt" id="c-mytasks-v2"></div></div>
-    <div class="ni" id="nav-tasks" onclick="go('tasks')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#6c63ff)"></div>Team Tasks</div><div class="cnt" id="c-tasks"></div></div>
+    <div class="ni" id="nav-tasks" onclick="go('tasks')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#6c63ff)"></div>Tasks Manager</div><div class="cnt" id="c-mytasks-v2" title="Your open tasks"></div></div>
     <div class="ni" id="nav-roadmaps" onclick="go('roadmaps')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f59e0b,#ec4899)"></div>Roadmaps</div></div>
     <!-- Legacy dept tabs (hidden, routes still work) -->
     <div class="ni" id="nav-Management" onclick="go('Management')" style="display:none"></div>
@@ -1607,9 +1669,21 @@ var OKRW = (function(){
   }
   function span(t, css){ var s = document.createElement('span'); s.style.cssText = css || lab; s.textContent = t; return s; }
   // Admin-only weighting bar under a KR: weight, measure, feeds-into KR, contribution weight.
+  // 2026-11-13: collapsed by default; open state survives re-renders per KR.
+  var advOpen = {};
   function adminBar(kr, obj, d, key, deptName){
+    var outer = document.createElement('div');
+    var tg = document.createElement('button'); tg.type = 'button'; tg.className = 'okrw-adv-t';
+    var bits = [];
+    if (okrwNum(kr.weight, 1) !== 1) bits.push('weight ' + okrwNum(kr.weight, 1));
+    bits.push(kr.measure === 'manual' ? 'manual' : 'auto');
+    if (kr.parentKrId) bits.push('→ ' + kr.parentKrId + ((okrwNum(kr.contribWeight, 1) !== 1) ? ' ×' + okrwNum(kr.contribWeight, 1) : ''));
+    function lbl(){ tg.textContent = '⚙ Weighting & links · ' + bits.join(' · ') + ' ' + (advOpen[kr.id] ? '▾' : '▸'); }
+    lbl();
     var bar = document.createElement('div');
-    bar.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px';
+    bar.style.cssText = 'display:' + (advOpen[kr.id] ? 'flex' : 'none') + ';align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px';
+    tg.onclick = function(){ advOpen[kr.id] = !advOpen[kr.id]; bar.style.display = advOpen[kr.id] ? 'flex' : 'none'; lbl(); };
+    outer.appendChild(tg); outer.appendChild(bar);
     function save(){ try { saveOKRForQuarter(key, d); } catch (e) {} try { renderOKR(); } catch (e) {} }
     bar.appendChild(span('Weight:'));
     bar.appendChild(numInput(kr.weight, function(v){ if (v === 1) delete kr.weight; else kr.weight = v; save(); }));
@@ -1631,7 +1705,7 @@ var OKRW = (function(){
         bar.appendChild(numInput(kr.contribWeight, function(v){ if (v === 1) delete kr.contribWeight; else kr.contribWeight = v; save(); }));
       }
     }
-    return bar;
+    return outer;
   }
   function objWeightInput(obj, d, key){
     var w = document.createElement('span'); w.style.cssText = 'display:inline-flex;align-items:center;gap:4px';
@@ -1836,7 +1910,151 @@ var data={Management:[],Operations:[],Finance:[],Engineering:[]};
 var actLog=[];
 var view='dashboard',fStatus='All',fSearch='',charts={},toastT,asTimer;
 
+// 2026-11-13: My Tasks lives inside Tasks Manager now (My tasks scope). Kept
+// as the entry point because private to-dos / AI suggestions call it.
 function renderMyTasks(){
+  if(!currentUser||!data)return;
+  if(typeof view!=='undefined' && (view==='tasks' || view==='mytasks')){
+    if(view==='mytasks'){ try{ tmSetState({scope:'my'}); }catch(_){} view='tasks'; }
+    renderTasksV2();
+  }
+}
+// My OKRs tree (was the collapsible section at the bottom of My Tasks).
+// 2026-11-13: shown from the 🎯 My OKRs button in Tasks Manager.
+function _myOKRsHtml(){
+  if(!currentUser||!data) return '';
+  var myName=currentUser.name;
+  var okrsHtml = '';
+  try {
+    var okrQKey = (typeof getCurrentOKRKey === 'function') ? getCurrentOKRKey() : ((typeof getActiveOKRKey === 'function') ? getActiveOKRKey() : null);
+    var okrDataMine = okrQKey && (typeof loadOKRForQuarter === 'function') ? loadOKRForQuarter(okrQKey) : null;
+    if(okrDataMine && okrDataMine.depts){
+      var myTaskIds = {};
+      DEPTS.forEach(function(d){
+        (data[d]||[]).forEach(function(t){
+          if((t.assignee||'').trim() === myName) myTaskIds[t.id] = true;
+        });
+      });
+      var okrLinks = (typeof OKR_LINKS !== 'undefined' && OKR_LINKS) ? OKR_LINKS : {};
+      // Ownership-only: My OKRs shows KRs where this user is the assigned
+      // Owner. Contributor mode (linked-task participation) was surfacing too
+      // much noise. Team-wide behavior is the same since the KR.owner field
+      // itself is synced through OKR_SYNC — every teammate sees their own
+      // owned KRs here consistently.
+      var myKRs = [];
+      Object.keys(okrDataMine.depts).forEach(function(dName){
+        var dept = okrDataMine.depts[dName];
+        (dept.objectives||[]).forEach(function(obj){
+          (obj.krs||[]).forEach(function(kr){
+            if(_okrOwnerIs(kr.owner, currentUser && currentUser.email, myName)){
+              myKRs.push({
+                dept: dName, deptColor: dept.color || 'var(--acc)',
+                obj: obj, kr: kr,
+                why: 'owner'
+              });
+            }
+          });
+        });
+      });
+
+      // Collapse state persists per-user so once expanded it stays expanded.
+      var okrsOpen = true;
+      var chev = okrsOpen ? '▾' : '▸';
+      var count = myKRs.length;
+
+      okrsHtml += '<div style="margin:24px 0 22px;background:var(--surf);border:1px solid var(--brd);border-radius:10px;overflow:hidden">';
+      okrsHtml += '<div id="my-okrs-toggle" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;user-select:none">';
+      okrsHtml += '<div style="display:flex;align-items:center;gap:10px">';
+      okrsHtml += '<span style="font-size:14px;color:var(--acc)">'+chev+'</span>';
+      okrsHtml += '<span style="font-size:12px;font-weight:700">🎯 My OKRs</span>';
+      okrsHtml += '<span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">'+(typeof quarterLabel==='function'?quarterLabel(okrQKey):okrQKey)+' · '+count+' KR'+(count===1?'':'s')+'</span>';
+      okrsHtml += '</div>';
+      okrsHtml += '<a href="#/okr" onclick="event.stopPropagation();event.preventDefault();go(\'okr\');" style="font-size:10px;color:var(--mut);text-decoration:none;font-family:Roboto Mono,monospace">Open OKR Tracker →</a>';
+      okrsHtml += '</div>';
+
+      okrsHtml += '<div id="my-okrs-body" style="'+(okrsOpen?'':'display:none;')+'padding:0 16px 16px">';
+      if(!myKRs.length){
+        okrsHtml += '<div style="padding:20px;background:var(--surf2);border:1px dashed var(--brd);border-radius:8px;text-align:center;color:var(--mut);font-size:11px">You aren\'t on any key result this quarter. Ask an admin in <strong>OKR Tracker</strong> to add you as owner, or link one of your tasks to a KR from the task drawer.</div>';
+      } else {
+        // Group KRs by parent objective so we can draw a tree per objective:
+        // the objective sits as the root node, its KRs hang below connected
+        // by an L-shaped line.
+        var groups = {};
+        var groupOrder = [];
+        myKRs.forEach(function(row){
+          var gKey = row.dept + '|' + row.obj.id;
+          if(!groups[gKey]){
+            groups[gKey] = { dept: row.dept, deptColor: row.deptColor, obj: row.obj, krs: [] };
+            groupOrder.push(gKey);
+          }
+          groups[gKey].krs.push(row);
+        });
+
+        okrsHtml += '<div style="display:grid;gap:24px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">';
+        groupOrder.forEach(function(gKey){
+          var g = groups[gKey];
+          var objPct = g.obj.progress || 0;
+          okrsHtml += '<div style="display:flex;flex-direction:column">';
+          // Objective (root) node
+          okrsHtml += '<div style="align-self:flex-start;background:var(--surf2);border:2px solid '+g.deptColor+';border-radius:12px;padding:10px 16px;cursor:pointer;max-width:100%;box-shadow:0 2px 8px rgba(0,0,0,0.12)" onclick="localStorage.setItem(\'rl_okr_dept\',\''+g.dept+'\');go(\'okr\')">';
+          okrsHtml += '<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:3px">'+g.obj.id+' · '+g.dept+'</div>';
+          okrsHtml += '<div style="font-size:13px;font-weight:700;color:var(--txt);line-height:1.3">'+esc(g.obj.title)+'</div>';
+          okrsHtml += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
+          okrsHtml += '<div style="flex:1;height:4px;background:var(--bg);border-radius:2px"><div style="width:'+objPct+'%;height:100%;background:'+g.deptColor+';border-radius:2px"></div></div>';
+          okrsHtml += '<div style="font-size:11px;font-weight:800;color:'+g.deptColor+'">'+objPct+'%</div>';
+          okrsHtml += '</div>';
+          okrsHtml += '</div>';
+          // KR branches — each has an L-shaped connector line from the parent
+          okrsHtml += '<div style="margin-left:24px;padding-top:4px">';
+          g.krs.forEach(function(row, idx){
+            var conf = row.kr.confidence || 'Not started';
+            var cc = conf==='On track'?'var(--grn)':conf==='At Risk'?'var(--yel)':conf==='Off Track'?'var(--red)':conf==='Completed'?'var(--acc)':'var(--mut)';
+            var pct = row.kr.progress || 0;
+            var isLast = idx === g.krs.length - 1;
+            // Connector: vertical line from top (continuing from parent) +
+            // horizontal stub to the KR box. Last child gets a shortened
+            // vertical line so it doesn't dangle below.
+            okrsHtml += '<div style="position:relative;padding-left:28px;'+(isLast?'':'padding-bottom:12px')+'">';
+            // Vertical trunk line
+            okrsHtml += '<div style="position:absolute;left:0;top:'+(isLast?'0':'0')+';'+(isLast?'height:20px':'bottom:0')+';width:2px;background:'+g.deptColor+';opacity:0.4"></div>';
+            // Horizontal stub
+            okrsHtml += '<div style="position:absolute;left:0;top:18px;width:24px;height:2px;background:'+g.deptColor+';opacity:0.4"></div>';
+            // KR node
+            okrsHtml += '<div style="background:var(--surf2);border:1px solid var(--brd);border-left:3px solid '+g.deptColor+';border-radius:8px;padding:10px 14px;cursor:pointer;margin-top:'+(idx===0?'8px':'12px')+'" onclick="localStorage.setItem(\'rl_okr_dept\',\''+g.dept+'\');go(\'okr\')">';
+            okrsHtml += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">';
+            okrsHtml += '<div style="flex:1;min-width:0">';
+            okrsHtml += '<div style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace;margin-bottom:2px">'+row.kr.id+' · '+row.why+'</div>';
+            okrsHtml += '<div style="font-size:11px;color:var(--txt);line-height:1.3">'+esc(row.kr.title)+'</div>';
+            okrsHtml += '</div>';
+            okrsHtml += '<div style="text-align:right;flex-shrink:0;min-width:60px">';
+            okrsHtml += '<div style="font-size:14px;font-weight:800;color:'+g.deptColor+'">'+pct+'<span style="font-size:9px">%</span></div>';
+            okrsHtml += '<div style="font-size:8px;font-weight:700;color:'+cc+';font-family:Roboto Mono,monospace;margin-top:1px">'+conf+'</div>';
+            okrsHtml += '</div>';
+            okrsHtml += '</div>';
+            okrsHtml += '<div style="height:3px;background:var(--bg);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+g.deptColor+';border-radius:2px"></div></div>';
+            // ✨ AI: Suggest tasks — payload carries all context the recommender needs.
+            // stopPropagation prevents the parent onclick (which navigates to OKR view) from firing.
+            var suggestPayload = encodeURIComponent(JSON.stringify({
+              dept: g.dept, objId: g.obj.id, objTitle: g.obj.title, objPct: objPct,
+              krId: row.kr.id, krTitle: row.kr.title, krPct: pct, krConf: conf
+            }));
+            okrsHtml += '<div class="okr-kr-ed" data-kr="'+esc(row.kr.id)+'" data-q="'+esc(okrQKey)+'" onclick="event.stopPropagation()"></div>';
+            okrsHtml += '<div style="margin-top:8px;text-align:right"><button onclick="event.stopPropagation();mtSuggestTasksForKR(\''+suggestPayload+'\')" style="font-size:10px;padding:5px 10px;background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-family:Roboto Mono,monospace;letter-spacing:.3px">✨ SUGGEST TASKS</button></div>';
+            okrsHtml += '</div>';
+            okrsHtml += '</div>';
+          });
+          okrsHtml += '</div>';
+          okrsHtml += '</div>';
+        });
+        okrsHtml += '</div>';
+      }
+      okrsHtml += '</div>';
+      okrsHtml += '</div>';
+    }
+  } catch(_){}
+  return okrsHtml;
+}
+function _legacyRenderMyTasks(){
   if(!currentUser||!data)return;
   var myName=currentUser.name;
   var all=[];
@@ -2118,6 +2336,7 @@ function _mtRenderSuggestModal(payload, suggestions){
     html += '<input type="checkbox" data-i="'+i+'" checked style="width:16px;height:16px;flex-shrink:0;margin-top:2px;cursor:pointer">';
     html += '<div style="flex:1;min-width:0">';
     html += '<div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:4px">'+esc(s.title)+'</div>';
+    html += '<div style="display:flex;align-items:center;gap:6px;margin:2px 0 6px" onclick="event.preventDefault();event.stopPropagation()"><span style="font-size:9px;color:var(--mut);font-family:Roboto Mono,monospace">OWNER</span><select data-owner="'+i+'" style="font-size:11px;padding:3px 6px;border:1px solid var(--brd);border-radius:5px;background:var(--bg);color:var(--txt)">'+tmAssigneeOptions(currentUser?(currentUser.name||currentUser.email):'')+'</select></div>';
     html += '<div style="font-size:10px;color:var(--mut);line-height:1.4;margin-bottom:6px">'+esc(s.why)+'</div>';
     html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
     var priColors = {Critical:'var(--red)',High:'var(--yel)',Medium:'var(--acc)',Low:'var(--mut)'};
@@ -2130,7 +2349,7 @@ function _mtRenderSuggestModal(payload, suggestions){
   html += '<div style="font-size:10px;color:var(--mut)"><a id="mt-sg-none" style="color:var(--acc);cursor:pointer;text-decoration:underline">select none</a> · <a id="mt-sg-all" style="color:var(--acc);cursor:pointer;text-decoration:underline">select all</a></div>';
   html += '<div style="display:flex;gap:8px">';
   html += '<button id="mt-sg-cancel" style="padding:9px 16px;background:var(--surf2);color:var(--txt);border:1px solid var(--brd);border-radius:6px;cursor:pointer;font-size:12px">Cancel</button>';
-  html += '<button id="mt-sg-add" style="padding:9px 20px;background:var(--acc);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">+ Add selected to My Tasks</button>';
+  html += '<button id="mt-sg-add" style="padding:9px 20px;background:var(--acc);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">+ Create selected tasks</button>';
   html += '</div></div>';
   box.innerHTML = html;
   overlay.appendChild(box);
@@ -2142,7 +2361,11 @@ function _mtRenderSuggestModal(payload, suggestions){
   box.querySelector('#mt-sg-all').onclick = function(){ box.querySelectorAll('#mt-sg-list input[type=checkbox]').forEach(function(cb){cb.checked=true;}); };
   box.querySelector('#mt-sg-none').onclick = function(){ box.querySelectorAll('#mt-sg-list input[type=checkbox]').forEach(function(cb){cb.checked=false;}); };
   box.querySelector('#mt-sg-add').onclick = function(){
-    var picks = Array.from(box.querySelectorAll('#mt-sg-list input[type=checkbox]:checked')).map(function(cb){ return suggestions[parseInt(cb.dataset.i,10)]; });
+    var picks = Array.from(box.querySelectorAll('#mt-sg-list input[type=checkbox]:checked')).map(function(cb){
+      var s = suggestions[parseInt(cb.dataset.i,10)];
+      var os = box.querySelector('select[data-owner="'+cb.dataset.i+'"]');
+      return Object.assign({}, s, { owner: os ? os.value : '' });
+    });
     if(!picks.length){ toast('Select at least one','warn'); return; }
     _mtCreateTasksAndLink(payload, picks);
     close();
@@ -2158,22 +2381,27 @@ function _mtCreateTasksAndLink(payload, tasks){
   // assigned to the current user anyway, so file them under the user's own
   // real department instead of the literal "Company" label. Department-level
   // OKRs already pass a real dept in payload.dept, so this is a no-op for them.
-  var targetDept = CFG[payload.dept] ? payload.dept : ((currentUser && CFG[currentUser.dept]) ? currentUser.dept : 'Management');
-  if(!data[targetDept]) data[targetDept] = [];
   var created = [];
   tasks.forEach(function(t){
+    var owner = (t.owner !== undefined) ? t.owner : (currentUser ? (currentUser.name||currentUser.email) : '');
+    var ownerDept = '';
+    try { Object.keys(USER_REGISTRY||{}).forEach(function(em){ if((USER_REGISTRY[em]||{}).name === owner) ownerDept = USER_REGISTRY[em].dept; }); } catch(_){}
+    var targetDept = CFG[payload.dept] ? payload.dept : (CFG[ownerDept] ? ownerDept : ((currentUser && CFG[currentUser.dept]) ? currentUser.dept : 'Management'));
+    if(!data[targetDept]) data[targetDept] = [];
     var newTask = {
       id: nextId(targetDept),
       name: t.title,
       status: 'Not Started',
       priority: t.priority,
-      assignee: currentUser ? (currentUser.name||currentUser.email) : '',
+      assignee: owner,
       due: t.due || '',
+      linkedKRId: payload.krId || '',
       progress: 0,
       notes: 'AI-suggested for '+payload.krId+' · '+payload.krTitle + (t.why?('\n\nWhy: '+t.why):''),
       createdAt: new Date().toISOString()
     };
     data[targetDept].push(newTask);
+    try { if(typeof OKRW!=='undefined') OKRW.stampOne(newTask); } catch(_){}
     created.push(newTask.id);
   });
   // Link every created task to the KR so it counts toward KR completion.
@@ -3781,6 +4009,8 @@ function go(v){
   if(v==='funding' && !canAccessWalletOps()){if(typeof toast==='function')toast('Access restricted','err');return;}
   if(v==='townhall' && !isAdmin()){if(typeof toast==='function')toast('Access restricted','err');return;}
   if(v==='feedback' && !isAdmin()){if(typeof toast==='function')toast('Access restricted','err');return;}
+  // 2026-11-13: My Tasks merged into Tasks Manager (My tasks scope).
+  if(v==='mytasks'){ try{ tmSetState({scope:'my'}); }catch(_){} v='tasks'; }
   view=v;fStatus='All';fSearch='';
   document.querySelectorAll('.ni').forEach(function(e){e.classList.remove('active');});
   var el=document.getElementById('nav-'+v);if(el)el.classList.add('active');
@@ -4301,7 +4531,7 @@ function renderOKR(){
         cs.onchange=(function(ko,dd,kk){return function(){ko.confidence=this.value;saveOKRForQuarter(kk,dd);renderOKR();};})(kr,okrData,activeKey);
         eb.appendChild(cs);kd.appendChild(eb);
         try{kd.appendChild(OKRW.adminBar(kr,obj,okrData,activeKey,df));}catch(_){}
-      } else if(typeof OKRU!=='undefined' && OKRU.canEdit(kr,obj)){
+      } else if(typeof OKRU!=='undefined' && OKRU.canUpdate(kr,obj)){
         kd.appendChild(OKRU.editor(kr,obj,activeKey));
       }
       krsDiv.appendChild(kd);
@@ -4624,7 +4854,7 @@ function _renderIndividualOKRsSection(wrap, okrData, activeKey){
                 '</div>'+
               '</div>'+
               '<div style="height:3px;background:var(--surf2);border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+deptColor+';border-radius:2px"></div></div>';
-            if(typeof OKRU!=='undefined' && OKRU.canEdit(row.kr, row.obj)) krEl.appendChild(OKRU.editor(row.kr, row.obj, activeKey));
+            if(typeof OKRU!=='undefined' && OKRU.canUpdate(row.kr, row.obj)) krEl.appendChild(OKRU.editor(row.kr, row.obj, activeKey));
             krWrap.appendChild(krEl);
           });
         }
@@ -6969,6 +7199,173 @@ function _parseAndImportHPMCSV(raw){
   return {imported: imported, skipped: skipped, users: Object.keys(usersSeen).length};
 }
 
+
+// ── HPM ✨ Suggest from my tasks (2026-11-13) ─────────────────────────────
+// Drafts Highlights / Progress / Blockers / Me from the tasks the person
+// moved during the reporting week. AI (Workers AI via ai_summarize) writes the
+// wording; if the AI call fails we fall back to a plain task-based draft.
+// Nothing is saved until the person ticks lines and presses "Add to my HPM".
+function _hpmTaskActivity(weekKey){
+  var r = _weekRange(weekKey);
+  var from = new Date(r.monday.getUTCFullYear(), r.monday.getUTCMonth(), r.monday.getUTCDate());
+  var to = new Date(r.sunday.getUTCFullYear(), r.sunday.getUTCMonth(), r.sunday.getUTCDate(), 23, 59, 59);
+  function inWeek(s){ if(!s) return false; var d = new Date(s); return !isNaN(d) && d >= from && d <= to; }
+  var mine = (typeof tmGetMyTasks === 'function') ? tmGetMyTasks({ dept:'All', showArchived:true }) : [];
+  var out = { done:[], moved:[], blocked:[], inflight:[] };
+  mine.forEach(function(t){
+    if(t._autoCreated) return; // "Submit Weekly HPM" reminder tasks aren't work
+    var s = t.status || 'Not Started';
+    if(s === 'Done'){ if(inWeek(t.completedAt || t.archivedAt || t.lastUpdated)) out.done.push(t); return; }
+    if(s === 'Blocked'){ out.blocked.push(t); return; }
+    if(inWeek(t.lastUpdated) || inWeek(t.createdAt)) out.moved.push(t);
+    else if(s === 'In Progress') out.inflight.push(t);
+  });
+  return out;
+}
+function _hpmFallbackDraft(act){
+  function kr(t){ return t.linkedKRId || null; }
+  return {
+    highlights: act.done.map(function(t){ return { text: 'Completed: ' + t.name, krId: kr(t) }; }),
+    progress: act.moved.concat(act.inflight).map(function(t){ return { text: t.name + ' — ' + (t.status === 'Not Started' ? 'kicked off' : (t.progress ? t.progress + '% done' : 'in progress')), krId: kr(t) }; }),
+    blockers: act.blocked.map(function(t){ return { text: t.name + ' is blocked', helpFrom: '' }; }),
+    me: ''
+  };
+}
+function _hpmAISuggest(weekKey, onApply){
+  var act = _hpmTaskActivity(weekKey);
+  var all = act.done.concat(act.moved, act.blocked, act.inflight);
+  if(!all.length){ toast('No tasks moved this week — update your tasks in Tasks Manager first','warn'); return; }
+  var krIds = {}; try { _allKRsForPicker().forEach(function(o){ krIds[o.krId] = true; }); } catch(_){}
+  var byId = {}; all.forEach(function(t){ byId[t.id] = t; });
+  function line(t, tag){
+    return '- [' + tag + '] ' + t.id + ' | ' + t.name + ' | status: ' + (t.status||'Not Started') + (t.progress ? ' | ' + t.progress + '%' : '') +
+      (t.linkedKRId ? ' | KR ' + t.linkedKRId : '') + (t.due ? ' | due ' + String(t.due).slice(0,10) : '') +
+      (t.notes ? ' | notes: ' + String(t.notes).replace(/\s+/g,' ').slice(0,160) : '');
+  }
+  var lines = [];
+  act.done.forEach(function(t){ lines.push(line(t,'COMPLETED THIS WEEK')); });
+  act.moved.forEach(function(t){ lines.push(line(t,'UPDATED THIS WEEK')); });
+  act.inflight.forEach(function(t){ lines.push(line(t,'IN FLIGHT')); });
+  act.blocked.forEach(function(t){ lines.push(line(t,'BLOCKED')); });
+  var prompt =
+'You help an employee write their weekly HPM check-in (Highlights, Progress, Me) from their task activity. Return ONLY a JSON object, no prose, no markdown fences.\n\n'+
+'TASKS (week ' + weekKey + '):\n' + lines.slice(0,40).join('\n') + '\n\n'+
+'Write:\n'+
+'  highlights: 1-5 outcome statements for COMPLETED work (past tense, specific, max 140 chars each)\n'+
+'  progress: 1-5 statements for work UPDATED / IN FLIGHT (what moved and what is next, max 140 chars each)\n'+
+'  blockers: one per BLOCKED task (what is stuck, max 140 chars); helpFrom = person or team if obvious from notes, else ""\n'+
+'  me: one or two first-person sentences about focus and workload this week (no feelings or health — keep it factual)\n'+
+'Each highlight / progress item lists the task IDs it is based on in "taskIds". Never invent work that is not in the list.\n\n'+
+'FORMAT:\n{"highlights":[{"text":"...","taskIds":["OPS-012"]}],"progress":[{"text":"...","taskIds":["OPS-014"]}],"blockers":[{"text":"...","helpFrom":"","taskIds":["OPS-020"]}],"me":"..."}\n\nJSON:';
+  var loader = document.createElement('div');
+  loader.id = 'hpm-ai-loader';
+  loader.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center';
+  loader.innerHTML = '<div style="background:var(--surf);padding:26px 32px;border-radius:12px;text-align:center;font-family:Roboto Mono,monospace"><div style="width:32px;height:32px;border:3px solid var(--brd);border-top-color:var(--acc);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px"></div><div style="font-size:12px;color:var(--mut)">Drafting your HPM from ' + all.length + ' task' + (all.length===1?'':'s') + '…</div></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
+  document.body.appendChild(loader);
+  function done(draft, viaAI){ var l = document.getElementById('hpm-ai-loader'); if(l) l.remove(); _hpmAIReviewModal(draft, viaAI, all.length, onApply); }
+  function mapKR(ids){ var k = null; (ids||[]).some(function(id){ var t = byId[String(id).trim()]; if(t && t.linkedKRId && krIds[t.linkedKRId]){ k = t.linkedKRId; return true; } return false; }); return k; }
+  if(typeof RL_SRV === 'undefined' || !RL_SRV.call){ done(_hpmFallbackDraft(act), false); return; }
+  RL_SRV.call('ai_summarize', { prompt: prompt, max_tokens: 1100, model: '@cf/meta/llama-3.1-70b-instruct' }).then(function(r){
+    if(!r || !r.ok) throw new Error((r && r.error) || 'ai_failed');
+    var raw = String(r.text||'').trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+    var p = null; try { p = JSON.parse(raw); } catch(_){ var a = raw.indexOf('{'), b = raw.lastIndexOf('}'); if(a >= 0 && b > a){ try { p = JSON.parse(raw.slice(a, b+1)); } catch(__){} } }
+    if(!p || typeof p !== 'object') throw new Error('unparseable');
+    function arr(x){ return Array.isArray(x) ? x : []; }
+    function txt(x){ return String((x && (x.text || x.title)) || (typeof x === 'string' ? x : '')).trim().slice(0, 300); }
+    var draft = {
+      highlights: arr(p.highlights).map(function(x){ return { text: txt(x), krId: mapKR(x && x.taskIds) }; }).filter(function(x){ return x.text; }),
+      progress: arr(p.progress).map(function(x){ return { text: txt(x), krId: mapKR(x && x.taskIds) }; }).filter(function(x){ return x.text; }),
+      blockers: arr(p.blockers).map(function(x){ return { text: txt(x), helpFrom: String((x && x.helpFrom) || '').slice(0, 80) }; }).filter(function(x){ return x.text; }),
+      me: String(p.me || '').trim().slice(0, 600)
+    };
+    if(!draft.highlights.length && !draft.progress.length && !draft.blockers.length) throw new Error('empty');
+    done(draft, true);
+  }).catch(function(){ done(_hpmFallbackDraft(act), false); });
+}
+function _hpmAIReviewModal(draft, viaAI, nTasks, onApply){
+  var ov = document.createElement('div');
+  ov.id = 'hpm-ai-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:5vh 12px;overflow-y:auto';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:22px 24px;width:720px;max-width:96vw;box-shadow:0 24px 80px rgba(0,0,0,.5)';
+  var inp = 'flex:1;min-width:0;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;font-family:inherit;font-size:12px;color:var(--txt);background:var(--bg)';
+  var h = '<div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:6px"><div><div style="font-size:9px;font-family:Roboto Mono,monospace;color:var(--mut);letter-spacing:.6px">✨ ' + (viaAI ? 'AI DRAFT' : 'DRAFT FROM YOUR TASKS') + ' · ' + nTasks + ' TASK' + (nTasks===1?'':'S') + '</div><div style="font-size:16px;font-weight:800;margin-top:3px">Suggested HPM lines</div></div><button id="hpm-ai-x" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">×</button></div>';
+  h += '<div style="font-size:11px;color:var(--mut);margin-bottom:14px;line-height:1.5">' + (viaAI ? '' : 'AI was unavailable, so this is a plain draft built from your task list. ') + 'Edit any line, untick what you don\'t want, then add them to your HPM. Nothing is submitted until you press Submit on the form.</div>';
+  function sec(key, label, items, withHelp){
+    if(!items.length) return '';
+    var s = '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:800;color:var(--navy);font-family:Roboto Mono,monospace;letter-spacing:.3px;margin-bottom:6px">' + label + '</div>';
+    items.forEach(function(it, i){
+      s += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" checked data-k="' + key + '" data-i="' + i + '" style="width:15px;height:15px;flex-shrink:0">' +
+        '<input type="text" data-t="' + key + '" data-i="' + i + '" value="' + esc(it.text) + '" style="' + inp + '">' +
+        (withHelp ? '<input type="text" data-h="' + i + '" value="' + esc(it.helpFrom || '') + '" placeholder="Who could help?" style="' + inp + ';flex:0 0 150px">' : '') +
+        (it.krId ? '<span class="tm-link-chip" title="Linked key result">🎯 ' + esc(it.krId) + '</span>' : '') + '</div>';
+    });
+    return s + '</div>';
+  }
+  h += sec('highlights', 'HIGHLIGHTS', draft.highlights) + sec('progress', 'PROGRESS', draft.progress) + sec('blockers', 'BLOCKERS', draft.blockers, true);
+  if(draft.me) h += '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:800;color:var(--navy);font-family:Roboto Mono,monospace;margin-bottom:6px;display:flex;align-items:center;gap:8px"><input type="checkbox" checked id="hpm-ai-me-on" style="width:15px;height:15px">ME</div><textarea id="hpm-ai-me" style="width:100%;min-height:60px;box-sizing:border-box;' + inp + '">' + esc(draft.me) + '</textarea></div>';
+  h += '<div style="display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid var(--brd)"><button id="hpm-ai-cancel" class="hbtn" style="padding:8px 16px">Cancel</button><button id="hpm-ai-apply" style="padding:8px 18px;background:var(--acc);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">Add to my HPM</button></div>';
+  box.innerHTML = h;
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  function close(){ ov.remove(); }
+  ov.onclick = function(e){ if(e.target === ov) close(); };
+  box.querySelector('#hpm-ai-x').onclick = close;
+  box.querySelector('#hpm-ai-cancel').onclick = close;
+  box.querySelector('#hpm-ai-apply').onclick = function(){
+    var picked = { highlights:[], progress:[], blockers:[], me:'' };
+    ['highlights','progress','blockers'].forEach(function(k){
+      box.querySelectorAll('input[type=checkbox][data-k="' + k + '"]').forEach(function(cb){
+        if(!cb.checked) return;
+        var i = +cb.getAttribute('data-i');
+        var t = (box.querySelector('input[data-t="' + k + '"][data-i="' + i + '"]').value || '').trim();
+        if(!t) return;
+        if(k === 'blockers'){ var hf = box.querySelector('input[data-h="' + i + '"]'); picked.blockers.push({ text: t, helpFrom: hf ? hf.value.trim() : '' }); }
+        else picked[k].push({ text: t, krId: draft[k][i].krId || null });
+      });
+    });
+    var meOn = box.querySelector('#hpm-ai-me-on');
+    if(meOn && meOn.checked) picked.me = (box.querySelector('#hpm-ai-me').value || '').trim();
+    var n = picked.highlights.length + picked.progress.length + picked.blockers.length + (picked.me ? 1 : 0);
+    if(!n){ toast('Nothing selected','warn'); return; }
+    close();
+    onApply(picked);
+    toast('Added ' + n + ' line' + (n===1?'':'s') + ' — review and submit when ready','ok');
+  };
+}
+// Merge picked lines into an HPM entry (empty placeholder lines are replaced).
+function _hpmMergeDraft(existing, picked){
+  function keep(list){ return (list || []).filter(function(x){ return x && x.text && String(x.text).trim(); }); }
+  existing.highlights = keep(existing.highlights).concat(picked.highlights);
+  existing.progress = keep(existing.progress).concat(picked.progress);
+  existing.blockers = keep(existing.blockers).concat(picked.blockers);
+  if(!existing.highlights.length) existing.highlights = [{ text:'', krId:null }];
+  if(!existing.progress.length) existing.progress = [{ text:'', krId:null }];
+  if(!existing.blockers.length) existing.blockers = [{ text:'', helpFrom:'' }];
+  if(picked.me){
+    existing.me = existing.me || { text:'', visibility:'company' };
+    existing.me.text = existing.me.text && existing.me.text.trim() ? existing.me.text.trim() + '\n' + picked.me : picked.me;
+  }
+  return existing;
+}
+function _hpmAISuggestBar(weekKey, existing, onChanged){
+  var bar = document.createElement('div');
+  bar.className = 'hpm-ai-bar';
+  bar.style.cssText = 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;margin:-4px 0 20px;background:linear-gradient(135deg,rgba(108,99,255,.10),rgba(108,99,255,.02));border:1px solid rgba(108,99,255,.35);border-radius:10px';
+  var act = _hpmTaskActivity(weekKey);
+  var n = act.done.length + act.moved.length + act.blocked.length + act.inflight.length;
+  bar.innerHTML = '<div style="flex:1;min-width:200px"><div style="font-size:12px;font-weight:700;color:var(--txt)">✨ Draft from my tasks</div><div style="font-size:11px;color:var(--mut);margin-top:2px">' +
+    (n ? act.done.length + ' completed · ' + (act.moved.length + act.inflight.length) + ' in progress · ' + act.blocked.length + ' blocked this week — AI suggests Highlights, Progress, Blockers and Me for you to edit.' : 'No task activity this week yet — update your tasks in Tasks Manager and AI can draft this for you.') + '</div></div>';
+  var b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = '✨ Suggest with AI';
+  b.disabled = !n;
+  b.style.cssText = 'font-size:11px;padding:8px 14px;background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:' + (n ? 'pointer' : 'not-allowed') + ';opacity:' + (n ? '1' : '.5') + ';font-family:Roboto Mono,monospace';
+  b.onclick = function(){ _hpmAISuggest(weekKey, function(picked){ _hpmMergeDraft(existing, picked); onChanged(); }); };
+  bar.appendChild(b);
+  return bar;
+}
+
 var _hpmInfoOpen = false;
 function renderPerfHPM(wrap, pd){
   var me = currentUser.email;
@@ -7047,6 +7444,7 @@ function renderPerfHPM(wrap, pd){
   deptRow.innerHTML = '<div><div style="font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;font-family:Roboto Mono,monospace">DEPARTMENT</div><div style="font-size:14px;font-weight:600;color:var(--txt);margin-top:3px">'+esc(deptName||'(not set)')+'</div></div>'
     + (existing.submittedAt ? '<div style="text-align:right"><div style="font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;font-family:Roboto Mono,monospace">LAST SUBMITTED</div><div style="font-size:12px;color:var(--txt);margin-top:3px">'+new Date(existing.submittedAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+(_hpmEntryLate(weekKey, existing)?' <span class="badge Critical">LATE</span>':'')+'</div></div>' : '');
   form.appendChild(deptRow);
+  try { form.appendChild(_hpmAISuggestBar(weekKey, existing, function(){ saveLocal(); wrap.innerHTML=''; renderPerfHPM(wrap, pd); })); } catch(_){}
 
   // KR picker — built once, reused per line via clone
   var krOptions = _allKRsForPicker();
@@ -12247,22 +12645,28 @@ function tmBackfillLinks(){
 
 function tmState(){
   var s=tmLoadUI();
-  // Tasks defaults to the team-wide Board so it doesn't duplicate "My Tasks"
-  // in the sidebar (which renders the per-user list). Legacy 'my' values from
-  // older sessions get coerced to 'board' since the My Work tab is gone.
-  var tab = s.tab || 'board';
-  // Coerce legacy or removed-tab values to 'board' so users who had one of
-  // these selected before don't land on an empty content area.
-  var validTabs = ['board','team'];
-  if(validTabs.indexOf(tab) < 0) tab = 'board';
+  // 2026-11-13 Tasks Manager: Team tasks + My tasks merged into one page.
+  //   scope: 'team' | 'my'      view: list | board | calendar | gantt | table
+  // Legacy 'tab' values ('board' / 'team' / 'my') are migrated on read.
+  var scope = s.scope==='my' ? 'my' : (s.scope==='team' ? 'team' : (s.tab==='my' ? 'my' : 'team'));
+  var vw = s.view;
+  var validViews = ['list','board','calendar','gantt','table'];
+  if(validViews.indexOf(vw) < 0) vw = (s.tab==='team' || s.tab==='my') ? 'list' : 'board';
   return {
-    tab: tab,
-    dept:s.dept||(currentUser&&currentUser.dept?currentUser.dept:'All'),
+    scope: scope,
+    view: vw,
+    tab: vw,
+    dept: s.dept||'All',
     expanded:s.expanded||{},
     quickOpen:!!s.quickOpen,
     grouping:s.grouping||'owner',
     // 2026-11-04: was missing, so the "Show archived" toggle never took effect.
-    showArchived:!!s.showArchived
+    showArchived:!!s.showArchived,
+    search: s.search||'',
+    calMonth: s.calMonth||'',
+    ganttStart: s.ganttStart||'',
+    sortKey: s.sortKey||'due',
+    sortDir: s.sortDir==='desc'?'desc':'asc'
   };
 }
 function tmSetState(patch){
@@ -12341,8 +12745,8 @@ function tmGetMyTasks(st){
 }
 
 // ── Counts for status strip ────────────────────────────────────────────
-function tmCounts(st, scope){
-  var src=scope==='mine'?tmGetMyTasks(st):tmGetTasks(st);
+function tmCounts(st){
+  var src=tmScopeTasks(Object.assign({}, st, {showArchived:false}));
   var open=src.filter(function(t){return t.status!=='Done';});
   var today=open.filter(function(t){return tmHealth(t)==='soon' && t.due && (new Date(t.due).toDateString()===new Date().toDateString());});
   var overdue=open.filter(function(t){return tmHealth(t)==='overdue';});
@@ -12362,95 +12766,220 @@ function goMyTasks(){
   go('tasks');
 }
 
-function renderTasksV2(){
-  var main=document.getElementById('main');if(!main)return;main.innerHTML='';
-  var st=tmState();
-  var wrap=document.createElement('div');wrap.className='tm-wrap';
+// Scope-aware task list used by every Tasks Manager view (2026-11-13).
+// Returns copies (with .dept) — always resolve the real task before editing
+// (tmFindTask / tmOpenDrawer do this).
+function tmScopeTasks(st, includeArchived){
+  var s2 = Object.assign({}, st, { showArchived: !!(includeArchived || st.showArchived) });
+  var list = st.scope === 'my' ? tmGetMyTasks(s2) : tmGetTasks(s2);
+  var q = String(st.search || '').trim().toLowerCase();
+  if(q){
+    list = list.filter(function(t){
+      return [t.name, t.id, t.assignee, t.dept, t.linkedKRId, t.priority, t.status].join(' ').toLowerCase().indexOf(q) >= 0;
+    });
+  }
+  return list;
+}
+// Find the REAL task object in data (not a render copy).
+function tmFindTask(id, deptHint){
+  if(!id) return null;
+  if(deptHint && data[deptHint]){
+    var a = data[deptHint].find(function(x){ return x.id === id; });
+    if(a) return { t: a, dept: deptHint };
+  }
+  for(var i=0;i<DEPTS.length;i++){
+    var f = (data[DEPTS[i]]||[]).find(function(x){ return x.id === id; });
+    if(f) return { t: f, dept: DEPTS[i] };
+  }
+  return null;
+}
+// Single place for status changes from Board / Table / Calendar so the
+// Done ⇄ archive rules stay identical to the drawer.
+function tmSetTaskStatus(id, dept, newStatus){
+  var hit = tmFindTask(id, dept);
+  if(!hit){ toast('Task not found','err'); return false; }
+  var t = hit.t;
+  if((t.status||'Not Started') === newStatus) return false;
+  var oldStatus = t.status || 'Not Started';
+  t.status = newStatus;
+  t.lastUpdated = new Date().toISOString();
+  if(newStatus === 'Done'){
+    if(!t.completedAt) t.completedAt = t.lastUpdated;
+    t.archived = true; t.archivedAt = t.lastUpdated;
+    t.progress = 100;
+  } else {
+    if(t.completedAt) delete t.completedAt;
+    if(t.archived){ delete t.archived; delete t.archivedAt; }
+  }
+  try { autoSave(); } catch(_){}
+  try { logEntry(t.id+' moved '+oldStatus+' → '+newStatus,'edit'); } catch(_){}
+  toast(t.id+' → '+newStatus,'ok');
+  return true;
+}
+function tmYMD(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function tmParseYMD(s){
+  if(!s) return null;
+  var m = String(s).slice(0,10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return null;
+  return new Date(+m[1], +m[2]-1, +m[3]);
+}
+function tmStatusColor(t){
+  var s = t.status || 'Not Started';
+  if(s === 'Done') return '#10b981';
+  if(s === 'Blocked') return '#ef4444';
+  if(s === 'Not Started') return '#94a3b8';
+  return '#6c63ff';
+}
 
-  // Header: title + "+ New task" button. Department selector removed —
-  // Tasks now always show every department in one unified view, so users
-  // don't have to flip between departments to see who's working on what.
-  // Force state to "All" so cached per-department filters from old sessions
-  // don't accidentally hide tasks.
+function renderTasksV2(){
+  var main=document.getElementById('main');if(!main)return;
+  var st=tmState();
   if(st.dept !== 'All'){ tmSetState({dept:'All'}); st = tmState(); }
-  var hdr=document.createElement('div');hdr.className='tm-hdr';
-  // Team-view identity: purple accent + explicit TEAM badge so users can
-  // tell at a glance this is the shared cross-department view, not their
-  // personal My Tasks page (which uses green + first-name greeting).
+  // Keep the search box focused across re-renders while typing.
+  var ae = document.activeElement, searchFocus = ae && ae.id === 'tm-search', caret = searchFocus ? ae.selectionStart : 0;
+  main.innerHTML='';
+  var isMy = st.scope === 'my';
+  var wrap=document.createElement('div');wrap.className='tm-wrap tmx-wrap';
+
+  // ── Header: title + actions (Meeting → Actions, My OKRs, New task) ──
+  var firstName = (currentUser && currentUser.name ? currentUser.name : '').split(' ')[0];
+  var hdr=document.createElement('div');hdr.className='tmx-hdr';
   hdr.innerHTML =
-    '<div style="display:flex;align-items:center;gap:14px">'+
-      '<div style="width:44px;height:44px;border-radius:11px;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 12px rgba(108,99,255,0.35);flex-shrink:0">👥</div>'+
-      '<div>'+
-        '<div style="font-size:18px;font-weight:800;letter-spacing:-0.3px;display:flex;align-items:center;gap:10px">Team Tasks <span style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--acc);color:#fff;font-family:Roboto Mono,monospace">SHARED</span></div>'+
-        '<div style="font-size:11px;color:var(--mut);margin-top:2px">Every task across every department — the shared team view</div>'+
+    '<div style="display:flex;align-items:center;gap:14px;min-width:0">'+
+      '<div style="width:44px;height:44px;border-radius:11px;background:'+(isMy?'var(--grn)':'var(--acc)')+';display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">'+(isMy?'🎯':'👥')+'</div>'+
+      '<div style="min-width:0">'+
+        '<div style="font-size:18px;font-weight:800;letter-spacing:-0.3px">Tasks Manager</div>'+
+        '<div style="font-size:11px;color:var(--mut);margin-top:2px">'+(isMy ? esc((firstName?firstName+'’s':'Your')+' tasks — just what’s assigned to you') : 'Every task across every department')+'</div>'+
       '</div>'+
     '</div>';
+  var acts=document.createElement('div');acts.className='tmx-acts';
+  var mBtn=document.createElement('button');mBtn.className='tmx-act';mBtn.id='tm-meeting-btn';
+  mBtn.innerHTML='📋 Meeting → Actions <span class="tmx-ai">AI</span>'+((window._tmMeeting&&window._tmMeeting.drafts&&window._tmMeeting.drafts.length)?' <span class="tmx-badge">'+window._tmMeeting.drafts.length+'</span>':'');
+  mBtn.title='Paste meeting notes — AI extracts action items you can assign as tasks';
+  mBtn.onclick=function(){ tmOpenMeetingModal(); };
+  acts.appendChild(mBtn);
+  var oBtn=document.createElement('button');oBtn.className='tmx-act';oBtn.id='tm-myokrs-btn';
+  oBtn.innerHTML='🎯 My OKRs';
+  oBtn.title='Key results you own this quarter — update progress or get AI task suggestions';
+  oBtn.onclick=function(){ tmOpenMyOKRsModal(); };
+  acts.appendChild(oBtn);
   var newBtn=document.createElement('button');newBtn.className='tm-new-btn';
   newBtn.innerHTML='<span style="font-size:16px;line-height:1;font-weight:700">+</span> New task <kbd>N</kbd>';
   newBtn.onclick=function(){tmOpenNewTaskModal();};
   newBtn.setAttribute('title','New task (press N)');
-  hdr.appendChild(newBtn);
-  // Show Archived toggle — Done tasks disappear from active views by default.
-  var archLbl = document.createElement('label');
-  archLbl.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:10px;color:var(--mut);cursor:pointer;margin-left:10px;font-family:Roboto Mono,monospace';
-  archLbl.innerHTML = '<input type="checkbox" '+(st.showArchived?'checked':'')+' style="cursor:pointer;margin:0"> Show archived';
-  archLbl.title = 'Include tasks that were auto-archived when moved to Done';
-  archLbl.querySelector('input').onchange = function(){
-    tmSetState({showArchived: this.checked});
-    renderTasksV2();
-  };
-  hdr.appendChild(archLbl);
+  acts.appendChild(newBtn);
+  hdr.appendChild(acts);
   wrap.appendChild(hdr);
 
-  // Status strip
-  var scope=st.tab==='my'?'mine':'all';
-  var counts=tmCounts(st, scope);
+  // ── Toolbar: scope toggle · view switcher · search · archived ──
+  var bar=document.createElement('div');bar.className='tmx-bar';
+  var seg=document.createElement('div');seg.className='tmx-seg';seg.setAttribute('role','tablist');
+  [{id:'team',label:'👥 Team tasks'},{id:'my',label:'🎯 My tasks'}].forEach(function(o){
+    var b=document.createElement('button');b.className='tmx-seg-b'+(st.scope===o.id?' active':'');
+    b.textContent=o.label;b.setAttribute('data-scope',o.id);
+    b.onclick=function(){ if(st.scope===o.id) return; tmSetState({scope:o.id}); renderTasksV2(); };
+    seg.appendChild(b);
+  });
+  bar.appendChild(seg);
+  var vs=document.createElement('div');vs.className='tmx-seg tmx-views';
+  [{id:'list',label:'☰ List'},{id:'board',label:'▦ Board'},{id:'calendar',label:'📅 Calendar'},{id:'gantt',label:'▬ Gantt'},{id:'table',label:'⊞ Table'}].forEach(function(o){
+    var b=document.createElement('button');b.className='tmx-seg-b'+(st.view===o.id?' active':'');
+    b.textContent=o.label;b.setAttribute('data-view',o.id);
+    b.onclick=function(){ if(st.view===o.id) return; tmSetState({view:o.id, tab:o.id}); renderTasksV2(); };
+    vs.appendChild(b);
+  });
+  bar.appendChild(vs);
+  var sp=document.createElement('div');sp.style.flex='1';bar.appendChild(sp);
+  var srch=document.createElement('input');srch.id='tm-search';srch.className='tmx-search';srch.type='search';
+  srch.placeholder='Search tasks, owners, IDs…';srch.value=st.search||'';
+  var srchT=null;
+  srch.oninput=function(){ var v=this.value; clearTimeout(srchT); srchT=setTimeout(function(){ tmSetState({search:v}); renderTasksV2(); },250); };
+  bar.appendChild(srch);
+  var archLbl = document.createElement('label');archLbl.className='tmx-arch';
+  archLbl.innerHTML = '<input type="checkbox" '+(st.showArchived?'checked':'')+' style="cursor:pointer;margin:0"> Show archived';
+  archLbl.title = 'Include tasks that were auto-archived when moved to Done';
+  archLbl.querySelector('input').onchange = function(){ tmSetState({showArchived: this.checked}); renderTasksV2(); };
+  bar.appendChild(archLbl);
+  wrap.appendChild(bar);
+
+  // ── Status strip ──
+  var counts=tmCounts(st);
   var strip=document.createElement('div');strip.className='tm-strip';
   strip.innerHTML=
-    '<span class="tm-strip-item"><strong>'+counts.open+'</strong> tasks</span>'+
+    '<span class="tm-strip-item"><strong>'+counts.open+'</strong> open</span>'+
     '<span class="tm-strip-sep">·</span>'+
-    '<span class="tm-strip-item"><strong>'+counts.today+'</strong> today</span>'+
+    '<span class="tm-strip-item"><strong>'+counts.today+'</strong> due today</span>'+
     '<span class="tm-strip-sep">·</span>'+
     '<span class="tm-strip-item tm-strip-overdue"><strong>'+counts.overdue+'</strong> overdue</span>'+
     '<span class="tm-strip-sep">·</span>'+
-    '<span class="tm-strip-item tm-strip-blocked"><strong>'+counts.blocked+'</strong> blocked</span>';
+    '<span class="tm-strip-item tm-strip-blocked"><strong>'+counts.blocked+'</strong> blocked</span>'+
+    (st.search?'<span class="tm-strip-sep">·</span><span class="tm-strip-item">filtered by “'+esc(st.search)+'”</span>':'');
   wrap.appendChild(strip);
 
-  // Tabs
-  var isManager=currentUser&&(currentUser.isAdmin||(currentUser.systemRole==='manager'||currentUser.systemRole==='admin'));
-  // Only ship tabs whose view is actually built. Timeline / Calendar /
-  // Manager placeholders were removed — they showed "ships in Phase X"
-  // messages that felt like dead ends. Bring them back when the view
-  // exists for real.
-  var tabs=[
-    {id:'board',label:'Board'},
-    {id:'team',label:'Team'},
-  ];
-  var tabBar=document.createElement('div');tabBar.className='tm-tabs';
-  tabs.forEach(function(t){
-    var b=document.createElement('button');b.className='tm-tab'+(t.id===st.tab?' active':'');
-    b.textContent=t.label;
-    b.onclick=function(){tmSetState({tab:t.id});renderTasksV2();};
-    tabBar.appendChild(b);
-  });
-  wrap.appendChild(tabBar);
-
-  // Content
-  var content=document.createElement('div');content.className='tm-content';
+  var content=document.createElement('div');content.className='tm-content';content.id='tm-content';
   wrap.appendChild(content);
-  // Board is the canonical default. Team is the other real view. Anything
-  // else (including legacy 'my' / 'timeline' / 'calendar' / 'manager' saved
-  // in browser state) falls through to Board so users don't hit blank space.
-  if(st.tab==='team') tmRenderTeam(content, st);
-  else tmRenderBoard(content, st);
-
-  // Meeting → Actions extractor — paste meeting notes / Slack thread / email
-  // at the bottom of Tasks and let the AI propose action items the user can
-  // edit and bulk-create. Lives at the bottom so it doesn't crowd the main
-  // task views but is one scroll away.
-  tmRenderMeetingExtractor(wrap);
+  if(st.view==='board') tmRenderBoard(content, st);
+  else if(st.view==='calendar') tmRenderCalendar(content, st);
+  else if(st.view==='gantt') tmRenderGantt(content, st);
+  else if(st.view==='table') tmRenderTable(content, st);
+  else if(isMy) tmRenderMyList(content, st);
+  else tmRenderTeam(content, st);
 
   main.appendChild(wrap);
+  if(isMy && st.view==='list'){ try { _wirePrivateTodosToggle(); } catch(_){} }
+  if(searchFocus){ var s2=document.getElementById('tm-search'); if(s2){ s2.focus(); try{ s2.setSelectionRange(caret,caret); }catch(_){} } }
+  try { if(document.getElementById('tm-okr-modal')) tmRefreshMyOKRsModal(); } catch(_){}
+}
+
+// My tasks › List: personal action items + focus card + grouped list.
+function tmRenderMyList(host, st){
+  try {
+    var pw=document.createElement('div');
+    pw.innerHTML=_renderPrivateTodosWidget(_PRIVATE_TASKS, false, null);
+    host.appendChild(pw);
+  } catch(_){}
+  tmRenderMyWork(host, st);
+}
+
+// ── Modals: Meeting → Actions and My OKRs (moved into the header) ──
+function tmModalShell(id, title, sub, z){
+  var old=document.getElementById(id); if(old) old.remove();
+  var ov=document.createElement('div');ov.id=id;ov.className='tmx-modal-ov';
+  if(z) ov.style.zIndex=z;
+  var box=document.createElement('div');box.className='tmx-modal';
+  box.innerHTML='<div class="tmx-modal-h"><div><div class="tmx-modal-t">'+title+'</div>'+(sub?'<div class="tmx-modal-s">'+sub+'</div>':'')+'</div><button class="tmx-modal-x" aria-label="Close">×</button></div><div class="tmx-modal-b"></div>';
+  ov.appendChild(box);
+  function close(){ ov.remove(); document.removeEventListener('keydown', onEsc); }
+  function onEsc(e){ if(e.key==='Escape' && !document.getElementById('mt-suggest-modal') && !document.getElementById('tm-drawer-ov')) close(); }
+  document.addEventListener('keydown', onEsc);
+  ov.onclick=function(e){ if(e.target===ov) close(); };
+  box.querySelector('.tmx-modal-x').onclick=close;
+  document.body.appendChild(ov);
+  return { ov: ov, body: box.querySelector('.tmx-modal-b'), close: close };
+}
+function tmOpenMeetingModal(){
+  var m=tmModalShell('tm-meeting-modal','📋 Meeting → Actions <span class="tmx-ai">AI</span>','Paste meeting notes, a Slack thread or an email — AI extracts action items you can edit, assign and create as tasks.');
+  m.body.setAttribute('data-modal','1');
+  window._tmMeeting.expanded = true;
+  tmRenderMeetingExtractor(m.body);
+  var ta=document.getElementById('tm-meeting-input'); if(ta && !ta.value) ta.focus();
+}
+function tmOpenMyOKRsModal(){
+  var q=(typeof getCurrentOKRKey==='function')?getCurrentOKRKey():'';
+  var m=tmModalShell('tm-okr-modal','🎯 My OKRs', (typeof quarterLabel==='function'&&q?quarterLabel(q)+' · ':'')+'Key results you own — update progress, mark complete or get AI task suggestions.', 9000);
+  // Clicking an objective / KR card navigates to OKR Tracker — close first.
+  m.body.addEventListener('click', function(e){ var el=e.target.closest && e.target.closest('[onclick*="go("]'); if(el && !e.target.closest('button,select,input')) setTimeout(m.close,0); }, true);
+  tmRefreshMyOKRsModal();
+}
+function tmRefreshMyOKRsModal(){
+  var ov=document.getElementById('tm-okr-modal'); if(!ov) return;
+  var body=ov.querySelector('.tmx-modal-b'); if(!body) return;
+  var html='';
+  try { html=_myOKRsHtml(); } catch(e){ html=''; }
+  body.innerHTML = html || '<div style="padding:20px;color:var(--mut);font-size:12px;text-align:center">No OKR data for this quarter yet.</div>';
+  try { if(typeof OKRU!=='undefined') OKRU.wire(body); } catch(_){}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -12464,6 +12993,8 @@ window._tmMeeting = window._tmMeeting || { input:'', source:'', drafts:[], expan
 
 function tmRenderMeetingExtractor(wrap){
   var state = window._tmMeeting;
+  var inModal = !!(wrap && wrap.getAttribute && wrap.getAttribute('data-modal') === '1');
+  if(inModal) state.expanded = true;
   var sec = document.createElement('div');
   sec.id = 'tm-meeting-sec';
   // Coloured panel — accent border + soft tinted background to lift it off
@@ -12487,7 +13018,7 @@ function tmRenderMeetingExtractor(wrap){
     state.expanded = !state.expanded;
     tmRefreshMeetingSection();
   };
-  sec.appendChild(hdr);
+  if(!inModal) sec.appendChild(hdr);
 
   if(state.expanded){
     var body = document.createElement('div');
@@ -12700,6 +13231,7 @@ function tmRenderDraftCard(d, idx){
 function tmRemoveDraft(idx){
   window._tmMeeting.drafts.splice(idx, 1);
   tmRefreshMeetingSection();
+  try { if(typeof view!=='undefined' && view==='tasks') renderTasksV2(); } catch(_){}
 }
 
 function tmCreateDraftAsTask(d){
@@ -12738,6 +13270,7 @@ function tmCreateAllDrafts(){
   if(n>0){
     window._tmMeeting.drafts = [];
     renderTasksV2();
+    tmRefreshMeetingSection();
   }
   return n;
 }
@@ -12895,7 +13428,7 @@ txt+'\n\n'+
 
 // ── MY WORK TAB ────────────────────────────────────────────────────────
 function tmRenderMyWork(host, st){
-  var tasks=tmGetMyTasks(st).filter(function(t){return t.status!=='Done';});
+  var tasks=tmScopeTasks(st).filter(function(t){return t.status!=='Done';});
 
   // FOCUS CARD
   var ranked=tasks.map(function(t){return {t:t, score:tmFocusScore(t)};}).sort(function(a,b){return b.score-a.score;});
@@ -13045,7 +13578,7 @@ function tmDueLabel(t){
 
 // ── TEAM TAB ───────────────────────────────────────────────────────────
 function tmRenderTeam(host, st){
-  var tasks=tmGetTasks(st).filter(function(t){return t.status!=='Done';});
+  var tasks=tmScopeTasks(st).filter(function(t){return t.status!=='Done';});
   // Grouping picker
   var picker=document.createElement('div');picker.className='tm-grouping';
   picker.innerHTML='<span class="tm-grouping-label">Group by</span>';
@@ -13091,134 +13624,295 @@ function tmRenderTeam(host, st){
   }
 }
 
-// ── BOARD TAB (Kanban) ─────────────────────────────────────────────────
+// ── BOARD (Kanban) — To do · In progress · Complete (2026-11-13) ───────
+// Blocked tasks sit in "In progress" with a red BLOCKED badge. Complete shows
+// the last 14 days of finished work even though Done tasks auto-archive;
+// "Show archived" shows every completed task.
+var TM_BOARD_COLS = [
+  { id:'todo', label:'To do',       drop:'Not Started', color:'#94a3b8' },
+  { id:'prog', label:'In progress', drop:'In Progress', color:'#6c63ff' },
+  { id:'done', label:'Complete',    drop:'Done',        color:'#10b981' }
+];
+function tmBoardColOf(t){
+  var s = t.status || 'Not Started';
+  if(s === 'Done') return 'done';
+  if(s === 'Not Started') return 'todo';
+  return 'prog';
+}
 function tmRenderBoard(host, st){
-  var tasks=tmGetTasks(st);
-  // Keep all 4 columns visible so drag-to-Done still works as an "archive"
-  // gesture. When archived is off (default), the Done column shows an empty
-  // state prompt so users know completed items moved to Archive.
-  var cols = ['Not Started','In Progress','Blocked','Done'];
-  var board=document.createElement('div');board.className='tm-board';
-  cols.forEach(function(col){
-    var colTasks=tasks.filter(function(t){return (t.status||'Not Started')===col;});
-    var c=document.createElement('div');c.className='tm-board-col';
-    c.dataset.status = col;
-    c.innerHTML='<div class="tm-board-col-h"><span class="tm-board-col-label">'+col.toUpperCase()+'</span><span class="tm-board-col-count">'+colTasks.length+'</span></div>';
-    var list=document.createElement('div');list.className='tm-board-list';
-    list.dataset.status = col;
-    // 2026-11-04: show every task; each column scrolls on its own (was capped at 20
-    // with a non-clickable "+ N more"). Done: most recently completed first.
-    if(col==='Done') colTasks.sort(function(a,b){return String(b.completedAt||b.lastUpdated||'').localeCompare(String(a.completedAt||a.lastUpdated||''));});
+  var tasks = tmScopeTasks(st);
+  var recentDone = null;
+  if(!st.showArchived){
+    var cutoff = Date.now() - 14*86400000;
+    recentDone = tmScopeTasks(st, true).filter(function(t){
+      return t.status === 'Done' && new Date(t.completedAt || t.archivedAt || t.lastUpdated || 0).getTime() >= cutoff;
+    });
+  }
+  var board=document.createElement('div');board.className='tm-board tmx-board';
+  TM_BOARD_COLS.forEach(function(col){
+    var colTasks = (col.id === 'done' && recentDone) ? recentDone : tasks.filter(function(t){ return tmBoardColOf(t) === col.id; });
+    if(col.id === 'done') colTasks.sort(function(a,b){return String(b.completedAt||b.lastUpdated||'').localeCompare(String(a.completedAt||a.lastUpdated||''));});
+    else colTasks.sort(function(a,b){ return String(a.due||'9999').localeCompare(String(b.due||'9999')); });
+    var c=document.createElement('div');c.className='tm-board-col';c.dataset.col=col.id;
+    c.style.borderTop='3px solid '+col.color;
+    c.innerHTML='<div class="tm-board-col-h"><span class="tm-board-col-label">'+col.label.toUpperCase()+'</span><span class="tm-board-col-count">'+colTasks.length+'</span></div>';
+    var list=document.createElement('div');list.className='tm-board-list';list.dataset.col=col.id;
     colTasks.forEach(function(t){
       var h=tmHealth(t);
       var pri=(t.priority||'Planned').toLowerCase().replace(/ /g,'-');
       var card=document.createElement('div');card.className='tm-board-card';
-      card.draggable = true;
-      card.dataset.taskId = t.id;
-      card.dataset.dept = t.dept || '';
-      card.innerHTML='<div class="tm-board-card-h">'+tmHealthDot(h)+'<span class="tm-card-id">'+t.id+'</span></div>'+
+      card.draggable = true; card.dataset.taskId = t.id; card.dataset.dept = t.dept || '';
+      card.innerHTML='<div class="tm-board-card-h">'+tmHealthDot(h)+'<span class="tm-card-id">'+esc(t.id)+'</span>'+
+          (t.status==='Blocked'?'<span class="tmx-blocked">BLOCKED</span>':'')+
+          '<span style="flex:1"></span><span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">'+(col.id==='done'?'✓':tmDueLabel(t))+'</span></div>'+
         '<div class="tm-board-card-title">'+esc(t.name)+'</div>'+
-        '<div class="tm-board-card-meta"><span class="tm-pri pri-'+pri+'">'+esc(t.priority||'')+'</span><span>'+esc(t.assignee||'')+'</span></div>';
+        '<div class="tm-board-card-meta"><span class="tm-pri pri-'+pri+'">'+esc(t.priority||'')+'</span><span>'+esc(t.assignee||'unassigned')+'</span>'+
+          (t.linkedKRId?'<span class="tm-link-chip">🎯 '+esc(t.linkedKRId)+'</span>':'')+'</div>'+
+        ((t.progress&&col.id==='prog')?'<div style="height:3px;background:var(--bg);border-radius:2px;margin-top:8px"><div style="width:'+Math.min(100,t.progress)+'%;height:100%;background:var(--acc);border-radius:2px"></div></div>':'');
       card.onclick=function(){tmOpenDrawer(t, t.dept);};
-      // HTML5 drag-and-drop wiring — payload is "taskId|dept" so drop knows
-      // where to find + update the task.
       card.addEventListener('dragstart', function(e){
         e.dataTransfer.setData('text/plain', t.id + '|' + (t.dept||''));
         e.dataTransfer.effectAllowed = 'move';
         card.classList.add('tm-dragging');
       });
-      card.addEventListener('dragend', function(){
-        card.classList.remove('tm-dragging');
-      });
+      card.addEventListener('dragend', function(){ card.classList.remove('tm-dragging'); });
       list.appendChild(card);
     });
+    if(!colTasks.length){
+      var em=document.createElement('div');em.className='tm-board-more';
+      em.textContent = col.id==='done' ? 'Nothing completed in the last 14 days' : 'Drop tasks here';
+      list.appendChild(em);
+    }
     c.appendChild(list);
+    if(col.id === 'done' && recentDone){
+      var ft=document.createElement('div');ft.className='tm-board-more';ft.textContent='Last 14 days · tick “Show archived” for all';
+      c.appendChild(ft);
+    }
     board.appendChild(c);
   });
-  // Board-level drag handlers via event delegation. Attaching on the board
-  // (not per-column) is critical: when the cursor hovers over a card inside
-  // a column, dragover fires on the card, and if the card doesn't call
-  // preventDefault the browser treats the drop as "not allowed". Delegating
-  // catches every dragover regardless of which child element is under the
-  // cursor.
+  // Delegated drag & drop on the board (see 2026-11-04 notes: delegation is
+  // what keeps drops over child cards working).
   board.addEventListener('dragover', function(e){
     e.preventDefault();
     if(e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-    var col = e.target.closest('.tm-board-list');
-    // Clear stale hover from any other column, then mark this one.
-    board.querySelectorAll('.tm-board-list.tm-drop-hover').forEach(function(l){
-      if(l !== col) l.classList.remove('tm-drop-hover');
-    });
+    var col = e.target.closest('.tm-board-col');
+    board.querySelectorAll('.tm-board-col.tm-drop-hover').forEach(function(l){ if(l !== col) l.classList.remove('tm-drop-hover'); });
     if(col) col.classList.add('tm-drop-hover');
   });
   board.addEventListener('dragleave', function(e){
-    // Only clear hover if we've left the board entirely.
-    if(!board.contains(e.relatedTarget)){
-      board.querySelectorAll('.tm-board-list.tm-drop-hover').forEach(function(l){ l.classList.remove('tm-drop-hover'); });
-    }
+    if(!board.contains(e.relatedTarget)) board.querySelectorAll('.tm-drop-hover').forEach(function(l){ l.classList.remove('tm-drop-hover'); });
   });
   board.addEventListener('drop', function(e){
     e.preventDefault();
-    board.querySelectorAll('.tm-board-list.tm-drop-hover').forEach(function(l){ l.classList.remove('tm-drop-hover'); });
-    var col = e.target.closest('.tm-board-list');
-    if(!col) return;
-    var payload = e.dataTransfer.getData('text/plain');
-    if(!payload) return;
+    board.querySelectorAll('.tm-drop-hover').forEach(function(l){ l.classList.remove('tm-drop-hover'); });
+    var col = e.target.closest('.tm-board-col'); if(!col) return;
+    var payload = e.dataTransfer.getData('text/plain'); if(!payload) return;
     var parts = payload.split('|');
-    var taskId = parts[0], dept = parts[1];
-    var newStatus = col.dataset.status;
-    var t = (data[dept]||[]).find(function(x){return x.id===taskId;});
-    if(!t){
-      for(var i=0;i<DEPTS.length;i++){
-        var found = (data[DEPTS[i]]||[]).find(function(x){return x.id===taskId;});
-        if(found){ t = found; dept = DEPTS[i]; break; }
-      }
-    }
-    if(!t){ toast('Task not found','err'); return; }
-    if((t.status||'Not Started') === newStatus){ return; }
-    var oldStatus = t.status;
-    t.status = newStatus;
-    t.lastUpdated = new Date().toISOString();
-    if(newStatus === 'Done' && !t.completedAt) t.completedAt = t.lastUpdated;
-    if(newStatus !== 'Done' && t.completedAt) delete t.completedAt;
-    // Auto-archive on Done. Un-archive if moved back out of Done.
-    if(newStatus === 'Done'){ t.archived = true; t.archivedAt = t.lastUpdated; }
-    else if(t.archived){ delete t.archived; delete t.archivedAt; }
-    try { autoSave(); } catch(_){}
-    try { logEntry(t.id+' moved '+oldStatus+' → '+newStatus,'edit'); } catch(_){}
-    toast(t.id+' → '+newStatus,'ok');
-    renderTasksV2();
+    var def = TM_BOARD_COLS.filter(function(c){ return c.id === col.dataset.col; })[0]; if(!def) return;
+    var hit = tmFindTask(parts[0], parts[1]); if(!hit) { toast('Task not found','err'); return; }
+    if(tmBoardColOf(hit.t) === def.id) return; // e.g. Blocked dropped back into In progress
+    if(tmSetTaskStatus(hit.t.id, hit.dept, def.drop)) renderTasksV2();
   });
-  // One-time style injection for drop hover + dragging appearance.
   if(!document.getElementById('tm-board-dnd-style')){
     var st2=document.createElement('style');st2.id='tm-board-dnd-style';
-    st2.textContent =
-      '.tm-drop-hover{background:rgba(108,99,255,.10)!important;outline:2px dashed var(--acc);outline-offset:-4px;border-radius:8px;transition:background .1s}'+
-      '.tm-dragging{opacity:.4;transform:rotate(-1deg)}'+
-      // Cards should not be a drop target themselves — pointer-events:none
-      // during a drag would kill the click handler, so we let dragover
-      // bubble up to the board (delegated handler above catches it).
-      '.tm-board-list{min-height:60px}';
+    st2.textContent='.tm-drop-hover{background:rgba(108,99,255,.10)!important;outline:2px dashed var(--acc);outline-offset:-4px;transition:background .1s}.tm-dragging{opacity:.4;transform:rotate(-1deg)}.tm-board-list{min-height:60px}';
     document.head.appendChild(st2);
   }
   host.appendChild(board);
 }
 
-// ── TIMELINE / CALENDAR placeholders ───────────────────────────────────
-function tmRenderTimeline(host, st){
-  var p=document.createElement('div');p.className='tm-placeholder';
-  p.innerHTML='<div class="tm-empty-ic">⏳</div>Timeline view ships in Phase 4. For now use <strong>Board</strong> for status flow or <strong>My Work</strong> for today’s focus.';
-  host.appendChild(p);
-}
+// ── CALENDAR — month grid by due date; drag a task to reschedule ───────
 function tmRenderCalendar(host, st){
-  var p=document.createElement('div');p.className='tm-placeholder';
-  p.innerHTML='<div class="tm-empty-ic">📅</div>Calendar view ships in Phase 9. For now use <strong>My Work</strong> for today/this week.';
-  host.appendChild(p);
+  var tasks = tmScopeTasks(st);
+  var undated = tasks.filter(function(t){ return !tmParseYMD(t.due); });
+  var base = st.calMonth ? tmParseYMD(st.calMonth + '-01') : null;
+  if(!base){ base = new Date(); }
+  base = new Date(base.getFullYear(), base.getMonth(), 1);
+  var y = base.getFullYear(), m = base.getMonth();
+  function setMonth(d){ tmSetState({ calMonth: d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0') }); renderTasksV2(); }
+
+  var nav=document.createElement('div');nav.className='tmx-calnav';
+  nav.innerHTML='<button class="tm-btn" data-n="-1">‹</button><div class="tmx-caltitle">'+base.toLocaleDateString('en-GB',{month:'long',year:'numeric'})+'</div><button class="tm-btn" data-n="1">›</button><button class="tm-btn" data-n="0">Today</button>'+
+    '<span style="flex:1"></span><span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">Drag a task onto a day to change its due date'+(undated.length?' · '+undated.length+' without a due date':'')+'</span>';
+  nav.querySelectorAll('button').forEach(function(b){ b.onclick=function(){ var n=+b.getAttribute('data-n'); setMonth(n===0?new Date():new Date(y, m+n, 1)); }; });
+  host.appendChild(nav);
+
+  var byDay = {};
+  tasks.forEach(function(t){ var d=tmParseYMD(t.due); if(!d) return; var k=tmYMD(d); (byDay[k]=byDay[k]||[]).push(t); });
+  var grid=document.createElement('div');grid.className='tmx-cal';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(function(d){ var h=document.createElement('div');h.className='tmx-cal-dow';h.textContent=d;grid.appendChild(h); });
+  var start = new Date(y, m, 1); start.setDate(1 - ((start.getDay()+6)%7));
+  var end = new Date(y, m+1, 0); var endPad = new Date(end); endPad.setDate(end.getDate() + (6 - (end.getDay()+6)%7));
+  var todayK = tmYMD(new Date());
+  for(var d = new Date(start); d <= endPad; d.setDate(d.getDate()+1)){
+    var k = tmYMD(d);
+    var cell=document.createElement('div');
+    cell.className='tmx-cal-cell'+(d.getMonth()!==m?' out':'')+(k===todayK?' today':'')+((d.getDay()===0||d.getDay()===6)?' wkend':'');
+    cell.dataset.day=k;
+    cell.innerHTML='<div class="tmx-cal-num">'+d.getDate()+'</div>';
+    var list = (byDay[k]||[]).slice().sort(function(a,b){ return (a.status==='Done')-(b.status==='Done'); });
+    var expanded = !!(window._tmCalExpand && window._tmCalExpand[k]);
+    var max = expanded ? list.length : 3;
+    list.slice(0,max).forEach(function(t){
+      var chip=document.createElement('div');chip.className='tmx-chip'+(t.status==='Done'?' done':'');
+      chip.style.borderLeftColor=tmStatusColor(t);
+      chip.draggable=true;
+      chip.title=t.id+' · '+t.name+' · '+(t.assignee||'unassigned')+' · '+(t.status||'');
+      chip.textContent=(st.scope==='team'&&t.assignee?t.assignee.split(' ')[0]+': ':'')+t.name;
+      chip.onclick=function(e){ e.stopPropagation(); tmOpenDrawer(t, t.dept); };
+      chip.addEventListener('dragstart', function(e){ e.dataTransfer.setData('text/plain', t.id+'|'+(t.dept||'')); e.dataTransfer.effectAllowed='move'; });
+      cell.appendChild(chip);
+    });
+    if(list.length > 3){
+      var more=document.createElement('div');more.className='tmx-more';
+      more.textContent = expanded ? 'show less' : '+'+(list.length-3)+' more';
+      (function(key){ more.onclick=function(e){ e.stopPropagation(); window._tmCalExpand=window._tmCalExpand||{}; window._tmCalExpand[key]=!window._tmCalExpand[key]; renderTasksV2(); }; })(k);
+      cell.appendChild(more);
+    }
+    grid.appendChild(cell);
+  }
+  grid.addEventListener('dragover', function(e){ e.preventDefault(); var c=e.target.closest('.tmx-cal-cell'); grid.querySelectorAll('.tm-drop-hover').forEach(function(x){ if(x!==c) x.classList.remove('tm-drop-hover'); }); if(c) c.classList.add('tm-drop-hover'); });
+  grid.addEventListener('drop', function(e){
+    e.preventDefault();
+    grid.querySelectorAll('.tm-drop-hover').forEach(function(x){ x.classList.remove('tm-drop-hover'); });
+    var c=e.target.closest('.tmx-cal-cell'); if(!c) return;
+    var p=(e.dataTransfer.getData('text/plain')||'').split('|');
+    var hit=tmFindTask(p[0], p[1]); if(!hit) return;
+    if(String(hit.t.due||'').slice(0,10) === c.dataset.day) return;
+    hit.t.due = c.dataset.day; hit.t.lastUpdated = new Date().toISOString();
+    try { autoSave(); } catch(_){}
+    try { logEntry(hit.t.id+' due → '+c.dataset.day,'edit'); } catch(_){}
+    toast(hit.t.id+' due '+c.dataset.day,'ok');
+    renderTasksV2();
+  });
+  host.appendChild(grid);
 }
-function tmRenderManager(host, st){
-  var p=document.createElement('div');p.className='tm-placeholder';
-  p.innerHTML='<div class="tm-empty-ic">📊</div>Manager analytics ships in Phase 6. Charts currently live on the legacy department boards (accessible from your Dashboard).';
-  host.appendChild(p);
+
+// ── GANTT — start date → due date bars over a 6-week window ────────────
+function tmRenderGantt(host, st){
+  var DAYW = 26, DAYS = 42;
+  var today = new Date(); today.setHours(0,0,0,0);
+  var ws = tmParseYMD(st.ganttStart);
+  if(!ws){ ws = new Date(today); ws.setDate(ws.getDate() - 7 - ((ws.getDay()+6)%7)); }
+  var we = new Date(ws); we.setDate(ws.getDate() + DAYS - 1);
+  function shift(days){ var n=new Date(ws); n.setDate(n.getDate()+days); tmSetState({ganttStart: tmYMD(n)}); renderTasksV2(); }
+
+  var rows = [], hidden = 0, undated = 0;
+  tmScopeTasks(st).forEach(function(t){
+    var s = tmParseYMD(t.startDate) || tmParseYMD(t.createdAt) || null;
+    var e = tmParseYMD(t.due) || null;
+    if(!s && !e){ undated++; return; }
+    if(!s) s = e; if(!e) e = s;
+    if(e < s){ var x = s; s = e; e = x; }
+    if(e < ws || s > we){ hidden++; return; }
+    rows.push({ t: t, s: s, e: e });
+  });
+  var groupKey = st.scope === 'team' ? function(r){ return r.t.assignee || 'Unassigned'; } : function(r){ return r.t.status || 'Not Started'; };
+  rows.sort(function(a,b){ var g = String(groupKey(a)).localeCompare(String(groupKey(b))); return g || (a.s - b.s) || (a.e - b.e); });
+
+  var nav=document.createElement('div');nav.className='tmx-calnav';
+  nav.innerHTML='<button class="tm-btn" data-n="-14">‹ 2 weeks</button><button class="tm-btn" data-n="0">Today</button><button class="tm-btn" data-n="14">2 weeks ›</button>'+
+    '<div class="tmx-caltitle" style="margin-left:8px">'+ws.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' – '+we.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</div>'+
+    '<span style="flex:1"></span><span style="font-size:10px;color:var(--mut);font-family:Roboto Mono,monospace">Bar = start date → due date'+(hidden?' · '+hidden+' outside this window':'')+(undated?' · '+undated+' undated':'')+'</span>';
+  nav.querySelectorAll('button').forEach(function(b){ b.onclick=function(){ var n=+b.getAttribute('data-n'); if(n===0){ tmSetState({ganttStart:''}); renderTasksV2(); } else shift(n); }; });
+  host.appendChild(nav);
+
+  var g=document.createElement('div');g.className='tmx-gantt';
+  var tlW = DAYS*DAYW;
+  var hdrH = '<div class="tmx-g-row tmx-g-head"><div class="tmx-g-lbl">'+(st.scope==='team'?'OWNER / TASK':'STATUS / TASK')+'</div><div class="tmx-g-tl" style="width:'+tlW+'px">';
+  for(var i=0;i<DAYS;i++){
+    var d=new Date(ws); d.setDate(ws.getDate()+i);
+    var wk = d.getDay()===0||d.getDay()===6, isT = d.getTime()===today.getTime();
+    hdrH += '<div class="tmx-g-day'+(wk?' wk':'')+(isT?' td':'')+'" style="left:'+(i*DAYW)+'px;width:'+DAYW+'px">'+
+      (d.getDate()===1||i===0?'<div class="tmx-g-mon">'+d.toLocaleDateString('en-GB',{month:'short'})+'</div>':'')+d.getDate()+'</div>';
+  }
+  hdrH += '</div></div>';
+  g.innerHTML = hdrH;
+  var todayOff = Math.round((today - ws)/86400000);
+  function bg(){
+    var h='';
+    for(var i=0;i<DAYS;i++){ var d=new Date(ws); d.setDate(ws.getDate()+i); if(d.getDay()===0||d.getDay()===6) h+='<div class="tmx-g-wk" style="left:'+(i*DAYW)+'px;width:'+DAYW+'px"></div>'; }
+    if(todayOff>=0 && todayOff<DAYS) h+='<div class="tmx-g-today" style="left:'+(todayOff*DAYW+DAYW/2)+'px"></div>';
+    return h;
+  }
+  var lastG = null;
+  rows.forEach(function(r){
+    var gk = groupKey(r);
+    if(gk !== lastG){
+      lastG = gk;
+      var gh=document.createElement('div');gh.className='tmx-g-row tmx-g-grp';
+      gh.innerHTML='<div class="tmx-g-lbl">'+esc(gk)+'</div><div class="tmx-g-tl" style="width:'+tlW+'px">'+bg()+'</div>';
+      g.appendChild(gh);
+    }
+    var t = r.t;
+    var s = r.s < ws ? ws : r.s, e = r.e > we ? we : r.e;
+    var left = Math.round((s - ws)/86400000)*DAYW + 2;
+    var width = (Math.round((e - s)/86400000)+1)*DAYW - 4;
+    var ov = tmHealth(t)==='overdue';
+    var row=document.createElement('div');row.className='tmx-g-row';
+    row.innerHTML='<div class="tmx-g-lbl" title="'+esc(t.id+' · '+t.name)+'"><span class="tm-card-id">'+esc(t.id)+'</span> '+esc(t.name)+'</div>'+
+      '<div class="tmx-g-tl" style="width:'+tlW+'px">'+bg()+
+        '<div class="tmx-g-bar'+(ov?' ov':'')+'" style="left:'+left+'px;width:'+Math.max(width,10)+'px;background:'+tmStatusColor(t)+'33;border-color:'+tmStatusColor(t)+'" title="'+esc(t.name+' · '+(t.assignee||'unassigned')+' · '+(t.status||'')+' · '+tmYMD(r.s)+' → '+tmYMD(r.e))+'">'+
+          '<div class="tmx-g-fill" style="width:'+(t.status==='Done'?100:Math.min(100,t.progress||0))+'%;background:'+tmStatusColor(t)+'"></div>'+
+          '<span>'+esc(st.scope==='team'?t.name:(t.assignee?t.assignee.split(' ')[0]+' · ':'')+t.name)+'</span></div>'+
+      '</div>';
+    row.querySelector('.tmx-g-lbl').onclick=function(){ tmOpenDrawer(t, t.dept); };
+    row.querySelector('.tmx-g-bar').onclick=function(){ tmOpenDrawer(t, t.dept); };
+    g.appendChild(row);
+  });
+  if(!rows.length){
+    var em=document.createElement('div');em.className='tm-empty';em.innerHTML='<div class="tm-empty-ic">▬</div>No dated tasks in this window.';
+    host.appendChild(g); host.appendChild(em); return;
+  }
+  host.appendChild(g);
+}
+
+// ── TABLE — sortable, inline status ────────────────────────────────────
+function tmRenderTable(host, st){
+  var tasks = tmScopeTasks(st);
+  var cols = [
+    {k:'id',l:'ID'},{k:'name',l:'Task'},{k:'assignee',l:'Owner'},{k:'dept',l:'Dept'},{k:'status',l:'Status'},
+    {k:'priority',l:'Priority'},{k:'startDate',l:'Start'},{k:'due',l:'Due'},{k:'progress',l:'Progress'},{k:'linkedKRId',l:'OKR'}
+  ];
+  var sk = st.sortKey, dir = st.sortDir === 'desc' ? -1 : 1;
+  var priRank = {}; (typeof TM_PRIORITIES!=='undefined'?TM_PRIORITIES:[]).forEach(function(p,i){ priRank[p]=i; });
+  tasks.sort(function(a,b){
+    var va = a[sk], vb = b[sk];
+    if(sk==='progress'){ va=+va||0; vb=+vb||0; }
+    else if(sk==='priority'){ va=priRank[va]!=null?priRank[va]:99; vb=priRank[vb]!=null?priRank[vb]:99; }
+    else { va=String(va||(sk==='due'||sk==='startDate'?'9999':'')).toLowerCase(); vb=String(vb||(sk==='due'||sk==='startDate'?'9999':'')).toLowerCase(); }
+    return va<vb?-dir:va>vb?dir:0;
+  });
+  var wrap=document.createElement('div');wrap.className='tw tmx-table';
+  var h='<table><thead><tr>';
+  cols.forEach(function(c){ h+='<th data-k="'+c.k+'" style="cursor:pointer;white-space:nowrap">'+c.l+(sk===c.k?(dir>0?' ▲':' ▼'):'')+'</th>'; });
+  h+='</tr></thead><tbody>';
+  tasks.forEach(function(t,i){
+    var ov = tmHealth(t)==='overdue';
+    var pct = t.status==='Done'?100:(t.progress||0);
+    h+='<tr data-i="'+i+'" style="cursor:pointer">'+
+      '<td class="tid">'+esc(t.id)+'</td>'+
+      '<td><strong>'+esc(t.name)+'</strong></td>'+
+      '<td>'+esc(t.assignee||'—')+'</td>'+
+      '<td><span style="font-size:9px;font-family:Roboto Mono,monospace">'+esc((CFG[t.dept]&&CFG[t.dept].p)||t.dept||'')+'</span></td>'+
+      '<td><select class="tmx-st" data-i="'+i+'">'+TM_STATUSES.map(function(s){ return '<option'+((t.status||'Not Started')===s?' selected':'')+'>'+s+'</option>'; }).join('')+'</select></td>'+
+      '<td><span class="tm-pri pri-'+esc(String(t.priority||'').toLowerCase().replace(/ /g,'-'))+'">'+esc(t.priority||'')+'</span></td>'+
+      '<td>'+esc(String(t.startDate||'').slice(0,10)||'—')+'</td>'+
+      '<td style="'+(ov?'color:var(--red);font-weight:600':'')+'">'+esc(String(t.due||'').slice(0,10)||'—')+'</td>'+
+      '<td><div style="display:flex;align-items:center;gap:6px"><div style="width:60px;height:5px;background:var(--surf2);border-radius:3px"><div style="width:'+pct+'%;height:100%;background:var(--acc);border-radius:3px"></div></div><span style="font-size:9px;color:var(--mut)">'+pct+'%</span></div></td>'+
+      '<td>'+(t.linkedKRId?'<span class="tm-link-chip">🎯 '+esc(t.linkedKRId)+'</span>':'')+'</td>'+
+    '</tr>';
+  });
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+  wrap.querySelectorAll('th[data-k]').forEach(function(th){ th.onclick=function(){ var k=th.getAttribute('data-k'); tmSetState({sortKey:k, sortDir:(sk===k&&dir>0)?'desc':'asc'}); renderTasksV2(); }; });
+  wrap.querySelectorAll('tbody tr').forEach(function(tr){ tr.onclick=function(e){ if(e.target.closest('select')) return; var t=tasks[+tr.getAttribute('data-i')]; tmOpenDrawer(t, t.dept); }; });
+  wrap.querySelectorAll('select.tmx-st').forEach(function(sel){
+    sel.onclick=function(e){ e.stopPropagation(); };
+    sel.onchange=function(){ var t=tasks[+sel.getAttribute('data-i')]; if(tmSetTaskStatus(t.id, t.dept, sel.value)) renderTasksV2(); };
+  });
+  if(!tasks.length){ var em=document.createElement('div');em.className='tm-empty';em.innerHTML='<div class="tm-empty-ic">◯</div>No tasks in this scope.'; host.appendChild(em); return; }
+  host.appendChild(wrap);
 }
 
 // ── TASK DRAWER ────────────────────────────────────────────────────────
@@ -13299,6 +13993,10 @@ function tmOpenNewTaskModal(){
 }
 
 function tmOpenDrawer(t, dept){
+  // 2026-11-13 fix: views pass render copies ({...task, dept}); editing the copy
+  // meant owner / status / due changes were never saved. Always edit the real task.
+  var _real = t && tmFindTask(t.id, dept || t.dept);
+  if(_real){ t = _real.t; dept = _real.dept; }
   var ov=document.getElementById('tm-drawer-ov');
   if(!ov){
     ov=document.createElement('div');ov.id='tm-drawer-ov';ov.className='tm-drawer-ov';
@@ -13378,7 +14076,8 @@ function tmOpenDrawer(t, dept){
       }
       try { autoSave(); } catch(_){}
       try { logEntry(t.id+' '+f+' → '+v,'edit'); } catch(_){}
-      toast('Saved','ok');
+      toast(f==='assignee' ? (t.id+' reassigned to '+(v||'unassigned')) : 'Saved','ok');
+      if(f === 'assignee' && typeof view !== 'undefined' && view === 'tasks'){ try { renderTasksV2(); } catch(_){} }
       // For status changes on the Board tab, re-render immediately so the
       // card jumps to the new column without needing a manual refresh.
       if(f === 'status' && typeof view !== 'undefined' && view === 'tasks'){
@@ -25758,9 +26457,12 @@ var OKRU = (function(){
     if (typeof currentUser === 'undefined' || !currentUser) return false;
     return _okrOwnerIs(kr && kr.owner, currentUser.email, currentUser.name) || _okrOwnerIs(obj && obj.owner, currentUser.email, currentUser.name);
   }
+  // 2026-11-13: any signed-in colleague can update a KR's progress/confidence
+  // (server allows it too). Feeds-KR / structure changes stay owner/admin.
+  function canUpdate(kr, obj){ return typeof currentUser !== 'undefined' && !!currentUser; }
   function errMsg(r){
     var e = r && r.error;
-    if (e === 'not_your_kr' || e === 'not_allowed') return 'You can only update your own OKRs.';
+    if (e === 'not_your_kr' || e === 'not_allowed') return 'Only the owner or an admin can change how this OKR is linked.';
     if (e === 'no_session' || e === 'invalid_session' || e === 'expired_session' || e === 'idle_session' || e === 'auth_required') return 'Your session has expired — please sign in again.';
     if (e === 'kr_not_found' || e === 'objective_not_found' || e === 'quarter_not_found') return 'That OKR has changed since you loaded it — refresh and try again.';
     if (e === 'bad_parent') return 'Pick a Company or Department objective to align to.';
@@ -25774,7 +26476,7 @@ var OKRU = (function(){
   function rerender(){
     try {
       if (view === 'okr') renderOKR();
-      else if (view === 'mytasks' && typeof renderMyTasks === 'function') renderMyTasks();
+      else if ((view === 'mytasks' || view === 'tasks') && typeof renderTasksV2 === 'function') renderTasksV2();
       else if (view === 'strategy' && typeof STRAT !== 'undefined') STRAT.renderStrategy();
       else if (typeof render === 'function') render();
     } catch (e) {}
@@ -25827,12 +26529,24 @@ var OKRU = (function(){
       var al = document.createElement('span'); al.style.cssText = lab + ';color:var(--acc2)'; al.textContent = OKRW.srcLabel(kr);
       p.nextSibling.parentNode.insertBefore(al, p.nextSibling.nextSibling);
     }
-    if (typeof OKRW !== 'undefined' && String(obj && obj.owner || '').trim()) {
+    // 2026-11-13: owner/admin can switch an auto KR to a typed % (and back).
+    if (canEdit(kr, obj) && (auto || kr.measure === 'manual')) {
+      var mb = document.createElement('button'); mb.type = 'button'; mb.className = 'okrw-adv-t'; mb.style.marginTop = '0';
+      mb.textContent = auto ? '✎ Set % manually' : '⚙ Back to auto';
+      mb.title = auto ? 'Stop rolling this KR up from tasks / linked KRs and type the % yourself' : 'Roll this KR up from its linked tasks / KRs again';
+      mb.onclick = function(){ lock(); mb.disabled = true; updateKR(qk, kr.id, { measure: auto ? 'manual' : '' }); };
+      c.parentNode.insertBefore(mb, c.nextSibling);
+    }
+    if (typeof OKRW !== 'undefined' && String(obj && obj.owner || '').trim() && canEdit(kr, obj)) {
       var qd = null; try { qd = loadOKRForQuarter(qk); } catch (e) {}
       var fh = qd && OKRW.findKR(qd, kr.id);
       var po = fh ? OKRW.parentOptions(qd, fh.kr, fh.obj, fh.dept) : [];
       if (po.length) {
-        var fr = document.createElement('div'); fr.style.cssText = 'display:flex;align-items:center;gap:6px;flex-basis:100%;margin-top:4px';
+        var ft = document.createElement('button'); ft.type = 'button'; ft.className = 'okrw-adv-t'; ft.style.flexBasis = 'auto';
+        ft.textContent = '⚙ Link to dept KR ' + (kr.parentKrId ? '· → ' + kr.parentKrId + ' ' : '') + '▸';
+        var fbreak = document.createElement('div'); fbreak.style.cssText = 'flex-basis:100%;height:0'; w.appendChild(fbreak); w.appendChild(ft);
+        var fr = document.createElement('div'); fr.style.cssText = 'display:none;align-items:center;gap:6px;flex-basis:100%;margin-top:4px';
+        ft.onclick = function(){ var o = fr.style.display !== 'none'; fr.style.display = o ? 'none' : 'flex'; ft.textContent = ft.textContent.replace(/[▸▾]$/, o ? '▸' : '▾'); };
         fr.innerHTML = '<span style="' + lab + '">FEEDS DEPT KR</span>';
         var fs = document.createElement('select'); fs.setAttribute('aria-label', 'Department key result this feeds'); fs.style.cssText = ctl + ';max-width:260px';
         fs.innerHTML = '<option value="">— none —</option>' + po.map(function(o){ return '<option value="' + esc(o.id) + '"' + (kr.parentKrId === o.id ? ' selected' : '') + '>' + esc(o.label) + '</option>'; }).join('');
@@ -25859,10 +26573,10 @@ var OKRU = (function(){
     Array.prototype.forEach.call((root || document).querySelectorAll('.okr-kr-ed[data-kr]'), function(ph){
       if (ph._wired) return; ph._wired = true;
       var h = findKR(ph.getAttribute('data-q'), ph.getAttribute('data-kr'));
-      if (h && canEdit(h.kr, h.obj)) ph.appendChild(editor(h.kr, h.obj, ph.getAttribute('data-q')));
+      if (h && canUpdate(h.kr, h.obj)) ph.appendChild(editor(h.kr, h.obj, ph.getAttribute('data-q')));
     });
   }
-  return { canEdit: canEdit, editor: editor, wire: wire, updateKR: updateKR, savePersonal: savePersonal, deletePersonal: deletePersonal, applyQuarter: applyQuarter, errMsg: errMsg };
+  return { canEdit: canEdit, canUpdate: canUpdate, editor: editor, wire: wire, updateKR: updateKR, savePersonal: savePersonal, deletePersonal: deletePersonal, applyQuarter: applyQuarter, errMsg: errMsg };
 })();
 </script>
 
