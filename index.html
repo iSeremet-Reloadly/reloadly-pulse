@@ -8553,6 +8553,21 @@ NS.hydrateFromOKR = function(){
     // (which is prefixed "DO-OPS-1" or "CO-CO-1"). Filled during the first
     // pass, consumed after all objectives are typed.
     var sourceIdToNode = {};
+    // 2026-11-13: KR id → owning objective id, used to derive objective links
+    // from KR "feeds" links (kr.parentKrId) when parentObjectiveId isn't set.
+    var krToObj = {};
+    Object.keys(okr.depts).forEach(function(dn0){ (okr.depts[dn0].objectives||[]).forEach(function(o0){ (o0.krs||[]).forEach(function(k0){ if(k0 && k0.id) krToObj[k0.id] = o0.id; }); }); });
+    function _effParentObj(obj){
+      if(obj.parentObjectiveId) return obj.parentObjectiveId;
+      var tally = {}, best = null, bestN = 0;
+      (obj.krs||[]).forEach(function(k){
+        var po = k && k.parentKrId ? krToObj[k.parentKrId] : null;
+        if(!po || po === obj.id) return;
+        tally[po] = (tally[po]||0) + 1;
+        if(tally[po] > bestN){ bestN = tally[po]; best = po; }
+      });
+      return best;
+    }
     Object.keys(okr.depts).forEach(function(deptName){
       var dept = okr.depts[deptName];
       var isCompany = (deptName === 'Company');
@@ -8610,6 +8625,7 @@ NS.hydrateFromOKR = function(){
             // was assigned stayed anonymous forever. Refresh it every pass.
             if((qnodes[kid].ownerName||'') !== (kr.owner||'')){ qnodes[kid].ownerName = kr.owner||''; changed = true; }
           }
+          if((qnodes[kid].parentKrId||null) !== (kr.parentKrId||null)){ qnodes[kid].parentKrId = kr.parentKrId||null; changed = true; }
           var ek = nid+'|'+kid;
           if(!edgeSeen[ek]){ qedges.push({p:nid,c:kid,w:1.0,pr:true}); edgeSeen[ek] = 1; changed = true; }
         });
@@ -8622,9 +8638,10 @@ NS.hydrateFromOKR = function(){
     // parent link contradicts them (i.e. the DO now cascades from a different CO).
     Object.keys(okr.depts).forEach(function(deptName){
       (okr.depts[deptName].objectives||[]).forEach(function(obj){
-        if(!obj.parentObjectiveId) return;
+        var effParent = _effParentObj(obj);
+        if(!effParent) return;
         var childNid = sourceIdToNode[obj.id];
-        var parentNid = sourceIdToNode[obj.parentObjectiveId];
+        var parentNid = sourceIdToNode[effParent];
         if(!childNid || !parentNid) return;
         // Drop any existing edges pointing INTO this child from a different parent
         // (leftover from the old auto-cascade guess).
@@ -11881,11 +11898,15 @@ function _mmRenderChainSvg(host,nodesMap,edges,focus){
   var directKRs=edges.filter(function(e){return e.p===rootCO.id;}).map(function(e){return nodesMap[e.c];}).filter(function(n){return n&&n.type==='KeyResult';});
 
   // For each DO, find owners of KRs/IOs underneath
+  // 2026-11-13: KR "feeds" index — child KR nodes by the KR id they feed.
+  var feeders={};
+  Object.keys(nodesMap).forEach(function(id){ var kn=nodesMap[id]; if(kn&&kn.type==='KeyResult'&&kn.parentKrId){ (feeders[kn.parentKrId]=feeders[kn.parentKrId]||[]).push(id); } });
   function ownersFor(rootId){
     var stack=[rootId],seen={},owners={};
     while(stack.length){
       var id=stack.pop();if(seen[id])continue;seen[id]=1;
       var n=nodesMap[id];
+      if(n&&n.type==='KeyResult'&&n.sourceKrId&&feeders[n.sourceKrId]) feeders[n.sourceKrId].forEach(function(fid){ stack.push(fid); });
       if(n&&(n.type==='KeyResult'||n.type==='IndividualObjective')){
         var o=n.ownerEmail||n.ownerName||'';
         if(o){
@@ -11922,6 +11943,9 @@ function _mmRenderChainSvg(host,nodesMap,edges,focus){
   });
   Object.values(personMap).forEach(function(pp){ pp.nodeCount = pp.nodes.length; delete pp._nodeIds; });
   var persons=Object.values(personMap);
+  var _doIdx={}; deptWithOwners.forEach(function(dw,i){ _doIdx[dw.dept.id]=i; });
+  function _pIdx(pp){ var m=99; Object.keys(pp.deptIds).forEach(function(id){ if(_doIdx[id]!=null && _doIdx[id]<m) m=_doIdx[id]; }); return m; }
+  persons.sort(function(a,b){ return (_pIdx(a)-_pIdx(b)) || String(a.name).localeCompare(String(b.name)); });
   if(memberKey){
     var match=persons.filter(isMatch);
     var others=persons.filter(function(o){return !isMatch(o);});
@@ -11935,7 +11959,8 @@ function _mmRenderChainSvg(host,nodesMap,edges,focus){
   // === Layout ===
   // Widen the canvas when a person is expanded so the KR column has room
   // without being clipped by pan/zoom bounds.
-  var W = expandedPerson ? 2000 : 1500, H = 900;
+  var _need = Math.max(persons.length*74, deptWithOwners.length*100) + 140;
+  var W = expandedPerson ? 2000 : 1500, H = Math.max(900, _need);
   var pad=40;
   var colX = expandedPerson ? {CO:220, DO:720, IND:1200, KR:1720} : {CO:240,DO:760,IND:1260};
   var coBoxW=380,coBoxH=120;
@@ -11987,7 +12012,7 @@ function _mmRenderChainSvg(host,nodesMap,edges,focus){
     empI.textContent='○ No KR owners under these Department Objectives';
     panG.appendChild(empI);
   }
-  var maxVisible=Math.min(persons.length,14);
+  var maxVisible=persons.length;
   var visiblePersons=persons.slice(0,maxVisible);
   var indTotal=visiblePersons.length*indBoxH+(visiblePersons.length-1)*10;
   var indStartY=H/2-indTotal/2+indBoxH/2;
