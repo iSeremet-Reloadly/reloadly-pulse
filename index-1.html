@@ -1027,6 +1027,11 @@ body,[data-theme="light"] input,[data-theme="light"] select{transition:backgroun
 
 /* Notes block - full width below the form grid */
 .tm-notes-block{margin-bottom:24px}
+.tmx-sub-chip{font-size:calc(9px*var(--fs,1));font-weight:700;padding:1px 6px;border-radius:3px;background:rgba(108,99,255,.14);color:var(--acc);font-family:Roboto Mono,monospace;white-space:nowrap}
+.tmx-sub-chip.all{background:rgba(16,185,129,.15);color:#10b981}
+.tmx-sub-chip.mine{background:rgba(245,158,11,.15);color:#f59e0b}
+.tmx-sub-row{padding:6px 8px;border:1px solid var(--brd);border-radius:6px;margin-bottom:5px;background:var(--surf2)}
+.tmx-sub-row.done{opacity:.75}
 .tm-notes-area{width:100%;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);border-radius:8px;padding:12px 14px;font-size:calc(13px*var(--fs,1));font-family:inherit;outline:none;min-height:140px;resize:vertical;box-sizing:border-box;line-height:1.5}
 .tm-notes-area:focus{border-color:var(--acc)}
 .tm-notes-area::placeholder{color:var(--mut)}
@@ -7221,7 +7226,7 @@ function _hpmTaskActivity(weekKey){
   var from = new Date(r.monday.getUTCFullYear(), r.monday.getUTCMonth(), r.monday.getUTCDate());
   var to = new Date(r.sunday.getUTCFullYear(), r.sunday.getUTCMonth(), r.sunday.getUTCDate(), 23, 59, 59);
   function inWeek(s){ if(!s) return false; var d = new Date(s); return !isNaN(d) && d >= from && d <= to; }
-  var mine = (typeof tmGetMyTasks === 'function') ? tmGetMyTasks({ dept:'All', showArchived:true }) : [];
+  var mine = (typeof tmGetMyTasks === 'function') ? tmGetMyTasks({ dept:'All', showArchived:true, ownOnly:true }) : [];
   var out = { done:[], moved:[], blocked:[], inflight:[] };
   mine.forEach(function(t){
     if(t._autoCreated) return; // "Submit Weekly HPM" reminder tasks aren't work
@@ -12794,7 +12799,9 @@ function tmGetMyTasks(st){
   var me=currentUser.email, name=currentUser.name, firstName=(name||'').split(' ')[0];
   return tmGetTasks(st).filter(function(t){
     var a=(t.assignee||'').trim();
-    return a===name || a===me || a.toLowerCase()===(name||'').toLowerCase() || a===firstName;
+    if(a===name || a===me || a.toLowerCase()===(name||'').toLowerCase() || a===firstName) return true;
+    // 2026-11-13: parent tasks where I own an open sub-task (not for HPM drafts).
+    return !(st && st.ownOnly) && typeof tmMySubOpen==='function' && tmMySubOpen(t) > 0;
   });
 }
 
@@ -13605,6 +13612,8 @@ function tmRenderCard(t){
       '<div class="tm-card-meta">'+
         '<span>'+esc(t.assignee||'unassigned')+'</span>'+
         '<span class="tm-card-id">'+t.id+'</span>'+
+        tmSubChip(t)+
+        ((tmMySubOpen(t)&&!tmIsMeName(t.assignee))?'<span class="tmx-sub-chip mine">↳ '+tmMySubOpen(t)+' sub-task'+(tmMySubOpen(t)===1?'':'s')+' for you</span>':'')+
         (t.linkedKRId?'<span class="tm-link-chip" title="Linked to '+esc(t.linkedKRId)+(t.linkedKRQuarter?' ('+esc(OKRW.qLabel(t))+' OKRs)':'')+'">🎯 '+(t.linkedKRQuarter?esc(t.linkedKRQuarter.split('_')[0])+' · ':'')+esc(t.linkedKRId)+'</span>':'')+
       '</div>'+
     '</div>'+
@@ -13721,7 +13730,7 @@ function tmRenderBoard(host, st){
           '<span style="flex:1"></span><span style="font-size:calc(10px*var(--fs,1));color:var(--mut);font-family:Roboto Mono,monospace">'+(col.id==='done'?'✓':tmDueLabel(t))+'</span></div>'+
         '<div class="tm-board-card-title">'+esc(t.name)+'</div>'+
         '<div class="tm-board-card-meta"><span class="tm-pri pri-'+pri+'">'+esc(t.priority||'')+'</span><span>'+esc(t.assignee||'unassigned')+'</span>'+
-          (t.linkedKRId?'<span class="tm-link-chip">🎯 '+esc(t.linkedKRId)+'</span>':'')+'</div>'+
+          tmSubChip(t)+(t.linkedKRId?'<span class="tm-link-chip">🎯 '+esc(t.linkedKRId)+'</span>':'')+'</div>'+
         ((t.progress&&col.id==='prog')?'<div style="height:3px;background:var(--bg);border-radius:2px;margin-top:8px"><div style="width:'+Math.min(100,t.progress)+'%;height:100%;background:var(--acc);border-radius:2px"></div></div>':'');
       card.onclick=function(){tmOpenDrawer(t, t.dept);};
       card.addEventListener('dragstart', function(e){
@@ -13946,7 +13955,7 @@ function tmRenderTable(host, st){
     var pct = t.status==='Done'?100:(t.progress||0);
     h+='<tr data-i="'+i+'" style="cursor:pointer">'+
       '<td class="tid">'+esc(t.id)+'</td>'+
-      '<td><strong>'+esc(t.name)+'</strong></td>'+
+      '<td><strong>'+esc(t.name)+'</strong> '+tmSubChip(t)+'</td>'+
       '<td>'+esc(t.assignee||'—')+'</td>'+
       '<td><span style="font-size:calc(9px*var(--fs,1));font-family:Roboto Mono,monospace">'+esc((CFG[t.dept]&&CFG[t.dept].p)||t.dept||'')+'</span></td>'+
       '<td><select class="tmx-st" data-i="'+i+'">'+TM_STATUSES.map(function(s){ return '<option'+((t.status||'Not Started')===s?' selected':'')+'>'+s+'</option>'; }).join('')+'</select></td>'+
@@ -14046,6 +14055,111 @@ function tmOpenNewTaskModal(){
   nameInp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();create();}});
 }
 
+
+// ── Sub-tasks (2026-11-13) ───────────────────────────────────────────────
+// Stored on the parent task: t.subtasks = [{id,name,done,assignee,due,createdAt,doneAt,doneBy}].
+// Parent progress follows sub-task completion when there are sub-tasks. A
+// parent shows in someone's "My tasks" when they own an open sub-task.
+function tmSubList(t){ return Array.isArray(t && t.subtasks) ? t.subtasks : []; }
+function tmSubCounts(t){ var l = tmSubList(t), d = l.filter(function(s){ return s && s.done; }).length; return { done: d, total: l.length }; }
+function tmSubChip(t){
+  var c = tmSubCounts(t); if(!c.total) return '';
+  var all = c.done === c.total;
+  return '<span class="tmx-sub-chip'+(all?' all':'')+'" title="'+c.done+' of '+c.total+' sub-tasks done">☑ '+c.done+'/'+c.total+'</span>';
+}
+function tmIsMeName(a){
+  if(!currentUser) return false;
+  a = String(a||'').trim(); if(!a) return false;
+  var name = currentUser.name||'', first = name.split(' ')[0];
+  return a === name || a === currentUser.email || a.toLowerCase() === name.toLowerCase() || a === first;
+}
+function tmMySubOpen(t){ return tmSubList(t).filter(function(s){ return s && !s.done && tmIsMeName(s.assignee); }).length; }
+// Keep parent progress in step with sub-tasks (only when it has sub-tasks).
+function tmSubSyncProgress(t){
+  var c = tmSubCounts(t);
+  if(!c.total) return;
+  if(t.status === 'Done') return;
+  t.progress = Math.round(100 * c.done / c.total);
+}
+function tmSubSave(t, msg){
+  t.lastUpdated = new Date().toISOString();
+  tmSubSyncProgress(t);
+  try { autoSave(); } catch(_){}
+  if(msg){ try { logEntry(t.id+' '+msg,'edit'); } catch(_){} }
+  try { if(typeof view !== 'undefined' && view === 'tasks') renderTasksV2(); } catch(_){}
+}
+function tmRenderSubtasks(host, t, box){
+  if(!host) return;
+  var list = tmSubList(t);
+  var c = tmSubCounts(t);
+  var pct = c.total ? Math.round(100*c.done/c.total) : 0;
+  var ctl = 'font-size:calc(11px*var(--fs,1));padding:4px 6px;border:1px solid var(--brd);border-radius:5px;background:var(--bg);color:var(--txt);font-family:inherit;margin:0;width:auto;height:auto';
+  host.innerHTML =
+    '<div class="tm-section-label" style="display:flex;align-items:center;gap:8px">SUB-TASKS'+(c.total?' <span style="color:var(--txt)">'+c.done+'/'+c.total+'</span>':'')+'</div>'+
+    (c.total?'<div style="height:4px;background:var(--surf2);border-radius:2px;margin:-4px 0 10px"><div style="width:'+pct+'%;height:100%;background:var(--grn);border-radius:2px"></div></div>':'')+
+    '<div class="tmx-sub-list"></div>'+
+    '<div class="tmx-sub-add" style="display:flex;gap:6px;margin-top:8px">'+
+      '<input type="text" class="tmx-sub-new" placeholder="+ Add a sub-task and press Enter" style="'+ctl+';flex:1;min-width:0;padding:7px 9px">'+
+      '<button type="button" class="tm-btn tmx-sub-addbtn" style="padding:6px 12px">Add</button>'+
+    '</div>';
+  var lw = host.querySelector('.tmx-sub-list');
+  list.forEach(function(s, i){
+    var row = document.createElement('div');
+    row.className = 'tmx-sub-row'+(s.done?' done':'');
+    row.innerHTML =
+      '<div style="display:flex;align-items:center;gap:6px">'+
+        '<input type="checkbox" class="tmx-sub-cb" '+(s.done?'checked':'')+' title="Mark done" style="width:16px;height:16px;flex-shrink:0;margin:0;cursor:pointer">'+
+        '<input type="text" class="tmx-sub-name" value="'+esc(s.name||'')+'" style="'+ctl+';flex:1;min-width:0;border-color:transparent;background:transparent;font-size:calc(12px*var(--fs,1))'+(s.done?';text-decoration:line-through;opacity:.6':'')+'">'+
+        '<button type="button" class="tmx-sub-del" title="Delete sub-task" style="background:none;border:none;color:var(--mut);cursor:pointer;font-size:calc(15px*var(--fs,1));padding:0 4px">×</button>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:6px;margin:4px 0 0 22px">'+
+        '<select class="tmx-sub-owner" title="Owner" style="'+ctl+';flex:1;min-width:0">'+tmAssigneeOptions(s.assignee||'')+'</select>'+
+        '<input type="date" class="tmx-sub-due" value="'+esc(s.due||'')+'" title="Due date" style="'+ctl+';flex:0 0 140px">'+
+        (s.done&&s.doneBy?'<span style="font-size:calc(9px*var(--fs,1));color:var(--mut);font-family:Roboto Mono,monospace;white-space:nowrap">✓ '+esc(String(s.doneBy).split(' ')[0])+'</span>':'')+
+      '</div>';
+    row.querySelector('.tmx-sub-cb').onchange = function(){
+      s.done = this.checked;
+      if(s.done){ s.doneAt = new Date().toISOString(); s.doneBy = currentUser ? currentUser.name : ''; } else { delete s.doneAt; delete s.doneBy; }
+      tmSubSave(t, 'sub-task '+(s.done?'done':'reopened')+': '+s.name);
+      var cc = tmSubCounts(t);
+      if(s.done && cc.total && cc.done === cc.total && t.status !== 'Done') toast('All sub-tasks done — set the task to Done when you\'re ready','ok');
+      tmSubRefresh(host, t, box);
+    };
+    row.querySelector('.tmx-sub-name').onchange = function(){
+      var v = this.value.trim(); if(!v){ this.value = s.name; return; }
+      s.name = v; tmSubSave(t, 'sub-task renamed');
+    };
+    row.querySelector('.tmx-sub-name').onkeydown = function(e){ if(e.key === 'Enter'){ e.preventDefault(); this.blur(); } };
+    row.querySelector('.tmx-sub-owner').onchange = function(){ s.assignee = this.value; tmSubSave(t, 'sub-task "'+s.name+'" → '+(this.value||'unassigned')); toast('Sub-task assigned to '+(this.value||'nobody'),'ok'); };
+    row.querySelector('.tmx-sub-due').onchange = function(){ s.due = this.value; tmSubSave(t, 'sub-task due '+(this.value||'—')); };
+    row.querySelector('.tmx-sub-del').onclick = function(){
+      if(!confirm('Delete sub-task "'+(s.name||'')+'"?')) return;
+      t.subtasks.splice(i, 1);
+      if(!t.subtasks.length) delete t.subtasks;
+      tmSubSave(t, 'sub-task deleted: '+s.name);
+      tmSubRefresh(host, t, box);
+    };
+    lw.appendChild(row);
+  });
+  var inp = host.querySelector('.tmx-sub-new');
+  function add(){
+    var v = (inp.value||'').trim(); if(!v) return;
+    if(!Array.isArray(t.subtasks)) t.subtasks = [];
+    t.subtasks.push({ id: 'st-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), name: v, done: false, assignee: t.assignee||'', due: '', createdAt: new Date().toISOString() });
+    tmSubSave(t, 'sub-task added: '+v);
+    tmSubRefresh(host, t, box, true);
+  }
+  inp.onkeydown = function(e){ if(e.key === 'Enter'){ e.preventDefault(); add(); } };
+  host.querySelector('.tmx-sub-addbtn').onclick = add;
+}
+// Re-draw the sub-task block and keep the drawer's Progress box in sync (the
+// drawer Save button writes every [data-f] field back).
+function tmSubRefresh(host, t, box, refocus){
+  tmRenderSubtasks(host, t, box);
+  try { var p = box && box.querySelector('[data-f="progress"]'); if(p && tmSubCounts(t).total) p.value = t.progress || 0; } catch(_){}
+  if(refocus){ var n = host.querySelector('.tmx-sub-new'); if(n) n.focus(); }
+}
+
 function tmOpenDrawer(t, dept){
   // 2026-11-13 fix: views pass render copies ({...task, dept}); editing the copy
   // meant owner / status / due changes were never saved. Always edit the real task.
@@ -14082,7 +14196,7 @@ function tmOpenDrawer(t, dept){
       '<label>OWNER</label>'+
       '<select class="tm-drawer-field" data-f="assignee">'+tmAssigneeOptions(t.assignee||'')+'</select>'+
       '<label>PRIORITY</label>'+
-      '<select class="tm-drawer-field" data-f="priority">'+TM_PRIORITIES.map(function(p){return '<option'+(t.priority===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select>'+
+      '<select class="tm-drawer-field" data-f="priority">'+((t.priority&&TM_PRIORITIES.indexOf(t.priority)<0)?'<option selected>'+esc(t.priority)+'</option>':'')+TM_PRIORITIES.map(function(p){return '<option'+(t.priority===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select>'+
       '<label>DUE DATE</label>'+
       '<input class="tm-drawer-field" type="date" data-f="due" value="'+(t.due||'')+'">'+
       '<label>STATUS</label>'+
@@ -14094,6 +14208,7 @@ function tmOpenDrawer(t, dept){
       '<label title="How much this task counts towards its key result">OKR WEIGHT</label>'+
       '<select class="tm-drawer-field" data-f="weight" title="1 = small task, 5 = critical to the key result">'+[1,2,3,4,5].map(function(w){return '<option value="'+w+'"'+(OKRW.taskWeight(t)===w?' selected':'')+'>'+w+(w===1?' · small':w===5?' · critical':'')+'</option>';}).join('')+'</select>'+
     '</div>'+
+    '<div class="tm-sub-block" id="tm-sub-block" style="margin-bottom:22px"></div>'+
     '<div class="tm-notes-block">'+
       '<div class="tm-section-label">NOTES</div>'+
       '<textarea class="tm-notes-area" data-f="notes" placeholder="Add notes, context, blockers...">'+esc(t.notes||'')+'</textarea>'+
@@ -14104,6 +14219,7 @@ function tmOpenDrawer(t, dept){
     '</div>';
   ov.appendChild(box);
 
+  try { tmRenderSubtasks(box.querySelector('#tm-sub-block'), t, box); } catch(_){}
   // Mount KR picker into its cell
   var pickerCell=box.querySelector('#tm-kr-cell');
   var pendingKR=t.linkedKRId||'';
