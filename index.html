@@ -21240,6 +21240,9 @@ var FUND=(function(){
   // lets the user drill into any date to see wallet-level balances.
   // ═══════════════════════════════════════════════════════════════════════════
   NS._benderState = NS._benderState || { snapshots: null, loading: false, error: null, selectedDate: null, lastFetched: 0 };
+  function _b930Reason(r){
+    return r==='bender_failed' ? 'BENDER FAILED' : r==='not_in_report' ? 'NOT IN BENDER REPORT' : r==='manual' ? 'MANUAL / PORTAL' : r==='blank' ? 'BLANK' : '';
+  }
   function _renderBender0930(host){
     var s = NS._benderState;
     host.innerHTML = '';
@@ -21356,7 +21359,7 @@ var FUND=(function(){
       row.innerHTML =
         '<div style="font-size:calc(12px*var(--fs,1));font-weight:700">' + sn.date + '</div>' +
         '<div style="font-size:calc(9px*var(--fs,1));color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">' +
-          sn.balanceCount + ' wallets · ' + when + ' BST' +
+          sn.balanceCount + (sn.dailyPullCount ? '/' + sn.dailyPullCount : '') + ' wallets · ' + when + ' BST' +
         '</div>';
       listBox.appendChild(row);
     });
@@ -21370,9 +21373,10 @@ var FUND=(function(){
     var byKey = {}; // full providerKey → entry
     var byBenderId = {}; // benderId → [entry, ...] to detect collisions
     reg.forEach(function(p){
-      if(p == null || p.benderId == null) return;
-      var k = p.subKey ? String(p.benderId)+'::'+p.subKey : String(p.benderId);
-      byKey[k] = p;
+      if(p == null) return;
+      var k = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
+      if(!byKey[k] || (byKey[k].isActive===false && p.isActive!==false)) byKey[k] = p;
+      if(p.benderId == null) return;
       // Registry entries WITHOUT subKey compete for the bare "benderId" key —
       // that's where mislabelling comes from. Track collisions.
       var bid = String(p.benderId);
@@ -21394,9 +21398,22 @@ var FUND=(function(){
     keys.forEach(function(k){
       var name = resolveName(k);
       var b = sel.balances[k] || {};
-      var row = { key: k, name: name, currency: b.currency||'', amount: b.local };
+      var row = { key: k, name: name, currency: b.currency||'', amount: (typeof b.local==='number'?b.local:null), reason: b.missing ? (b.reason||'not_in_report') : (typeof b.local==='number' ? '' : 'blank') };
       if(name) matched.push(row); else unmatched.push(row);
     });
+    // Every supplier on the Daily Pull (active registry rows) is listed here,
+    // even when Bender returned 0 or nothing — older snapshots that predate the
+    // server-side fill are completed from the current registry.
+    var _seenDP = {};
+    reg.forEach(function(p){
+      if(!p || p.isActive===false) return;
+      var k = p.subKey ? (String(p.benderId)+'::'+p.subKey) : (p.benderId!=null?String(p.benderId):p.name);
+      if(!k || _seenDP[k]) return; _seenDP[k] = 1;
+      if(sel.balances && sel.balances[k]) return;
+      matched.push({ key: k, name: p.displayName || p.name || k, currency: p.currency||'', amount: null,
+        reason: (p.mode==='chat_payments') ? 'not_in_report' : ((p.benderId==null || (p.mode && p.mode!=='bender')) ? 'manual' : 'not_in_report') });
+    });
+    var _blankCount = matched.filter(function(r){ return r.amount === null; }).length;
     matched.sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
     unmatched.sort(function(a,b){ return a.key.localeCompare(b.key); });
 
@@ -21424,14 +21441,14 @@ var FUND=(function(){
     var when2 = sel.capturedAt ? new Date(sel.capturedAt).toLocaleString('en-GB',{timeZone:'Europe/London'}) : '—';
     dhdr.innerHTML =
       '<div>' +
-        '<div style="font-size:calc(12px*var(--fs,1));font-weight:800">' + sel.date + ' — ' + matched.length + ' matched · ' + unmatched.length + ' unmatched</div>' +
+        '<div style="font-size:calc(12px*var(--fs,1));font-weight:800">' + sel.date + ' — ' + matched.length + ' Daily Pull suppliers · ' + (matched.length - _blankCount) + ' with Bender balance · ' + _blankCount + ' blank · ' + unmatched.length + ' unmatched</div>' +
         '<div style="font-size:calc(9px*var(--fs,1));color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">Captured ' + when2 + ' BST</div>' +
       '</div>';
     var copyBtn = document.createElement('button');copyBtn.className='fund-btn';copyBtn.style.cssText='font-size:calc(9px*var(--fs,1));padding:4px 10px';copyBtn.innerHTML='📋 Copy TSV';
     copyBtn.onclick = function(){
-      var rows = [['WALLET','MATCHED NAME','CURRENCY','BALANCE','BENDER KEY']];
-      matched.forEach(function(r){ rows.push([r.name||'', r.name||'', r.currency, typeof r.amount==='number'?r.amount:'', r.key]); });
-      unmatched.forEach(function(r){ rows.push([r.key, '(unmatched)', r.currency, typeof r.amount==='number'?r.amount:'', r.key]); });
+      var rows = [['WALLET','MATCHED NAME','CURRENCY','BALANCE','BENDER KEY','NOTE']];
+      matched.forEach(function(r){ rows.push([r.name||'', r.name||'', r.currency, typeof r.amount==='number'?r.amount:'', r.key, _b930Reason(r.reason)]); });
+      unmatched.forEach(function(r){ rows.push([r.key, '(unmatched)', r.currency, typeof r.amount==='number'?r.amount:'', r.key, '']); });
       var tsv = rows.map(function(r){ return r.join('\t'); }).join('\n');
       try { navigator.clipboard.writeText(tsv).then(function(){ toast('Copied '+(matched.length+unmatched.length)+' rows','ok'); }); } catch(_){ toast('Copy failed','err'); }
     };
@@ -21466,15 +21483,18 @@ var FUND=(function(){
     var tb = tbl.querySelector('tbody');
     if(matched.length){
       var mHdr = document.createElement('tr');
-      mHdr.innerHTML = '<td colspan="4" style="padding:6px 14px;background:rgba(74,222,128,.08);font-size:calc(9px*var(--fs,1));font-weight:700;color:var(--grn);font-family:Roboto Mono,monospace">MATCHED (' + matched.length + ')</td>';
+      mHdr.innerHTML = '<td colspan="4" style="padding:6px 14px;background:rgba(74,222,128,.08);font-size:calc(9px*var(--fs,1));font-weight:700;color:var(--grn);font-family:Roboto Mono,monospace">DAILY PULL SUPPLIERS (' + matched.length + ')' + (_blankCount ? ' · ' + _blankCount + ' with no Bender balance shown as —' : '') + '</td>';
       tb.appendChild(mHdr);
     }
     matched.forEach(function(r, idx){
       var tr = document.createElement('tr');
       tr.style.cssText = 'border-bottom:1px solid var(--brd)'+(idx%2===0?'':';background:rgba(255,255,255,.02)');
-      var amt = typeof r.amount === 'number' ? r.amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+      var amt = typeof r.amount === 'number' ? r.amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '<span style="color:var(--mut)">—</span>';
+      var _rs = _b930Reason(r.reason);
       tr.innerHTML =
-        '<td style="padding:8px 14px;font-weight:600">' + r.name + '</td>' +
+        '<td style="padding:8px 14px;font-weight:600' + (r.amount===null?';color:var(--mut)':'') + '">' + r.name +
+          (_rs ? ' <span style="font-size:calc(8px*var(--fs,1));font-weight:700;padding:1px 6px;border-radius:3px;margin-left:4px;font-family:Roboto Mono,monospace;' + (r.reason==='bender_failed'?'background:rgba(255,107,107,.12);color:var(--red)':(r.reason==='manual'?'background:rgba(108,99,255,.14);color:var(--acc)':'background:rgba(251,191,36,.12);color:var(--yel)')) + '">' + _rs + '</span>' : '') +
+        '</td>' +
         '<td style="padding:8px 14px;font-family:Roboto Mono,monospace;color:var(--mut)">' + r.currency + '</td>' +
         '<td style="padding:8px 14px;text-align:right;font-family:Roboto Mono,monospace;font-weight:600">' + amt + '</td>' +
         '<td style="padding:8px 14px;text-align:right;font-family:Roboto Mono,monospace;font-size:calc(9px*var(--fs,1));color:var(--mut)">' + r.key + '</td>';
