@@ -21241,7 +21241,7 @@ var FUND=(function(){
   // ═══════════════════════════════════════════════════════════════════════════
   NS._benderState = NS._benderState || { snapshots: null, loading: false, error: null, selectedDate: null, lastFetched: 0 };
   function _b930Reason(r){
-    return r==='bender_failed' ? 'BENDER FAILED' : r==='not_in_report' ? 'NOT IN BENDER REPORT' : r==='manual' ? 'MANUAL / PORTAL' : r==='blank' ? 'BLANK' : '';
+    return r==='bender_failed' ? 'BENDER FAILED' : r==='not_in_report' ? 'NOT IN BENDER REPORT' : r==='manual' ? 'MANUAL / PORTAL' : r==='blank' ? 'BLANK' : r==='daily_pull' ? 'DAILY PULL' : '';
   }
   function _renderBender0930(host){
     var s = NS._benderState;
@@ -21413,6 +21413,20 @@ var FUND=(function(){
       matched.push({ key: k, name: p.displayName || p.name || k, currency: p.currency||'', amount: null,
         reason: (p.mode==='chat_payments') ? 'not_in_report' : ((p.benderId==null || (p.mode && p.mode!=='bender')) ? 'manual' : 'not_in_report') });
     });
+    // Suppliers Bender didn't return (manual / portal / failed / not in report):
+    // use the balance entered on the Daily Pull for the same date, if any.
+    var _dpSnap = (NS.loadSnapshots() || []).find(function(x){ return x && x.date === sel.date; });
+    var _dpBal = (_dpSnap && _dpSnap.balances) || {};
+    var _dpCount = 0;
+    matched.forEach(function(r){
+      if(r.amount !== null) return;
+      var d = _dpBal[r.key];
+      var v = d ? (typeof d.local === 'number' ? d.local : (d.local !== '' && d.local != null && isFinite(+d.local) ? +d.local : null)) : null;
+      if(v === null) return;
+      r.amount = v; r.fromDailyPull = true; r.dpReason = r.reason; r.reason = 'daily_pull';
+      if(!r.currency && d.currency) r.currency = d.currency;
+      _dpCount++;
+    });
     var _blankCount = matched.filter(function(r){ return r.amount === null; }).length;
     matched.sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
     unmatched.sort(function(a,b){ return a.key.localeCompare(b.key); });
@@ -21441,7 +21455,7 @@ var FUND=(function(){
     var when2 = sel.capturedAt ? new Date(sel.capturedAt).toLocaleString('en-GB',{timeZone:'Europe/London'}) : '—';
     dhdr.innerHTML =
       '<div>' +
-        '<div style="font-size:calc(12px*var(--fs,1));font-weight:800">' + sel.date + ' — ' + matched.length + ' Daily Pull suppliers · ' + (matched.length - _blankCount) + ' with Bender balance · ' + _blankCount + ' blank · ' + unmatched.length + ' unmatched</div>' +
+        '<div style="font-size:calc(12px*var(--fs,1));font-weight:800">' + sel.date + ' — ' + matched.length + ' Daily Pull suppliers · ' + (matched.length - _blankCount) + ' with balance' + (_dpCount ? ' (' + _dpCount + ' from Daily Pull)' : '') + ' · ' + _blankCount + ' blank · ' + unmatched.length + ' unmatched</div>' +
         '<div style="font-size:calc(9px*var(--fs,1));color:var(--mut);font-family:Roboto Mono,monospace;margin-top:2px">Captured ' + when2 + ' BST</div>' +
       '</div>';
     var copyBtn = document.createElement('button');copyBtn.className='fund-btn';copyBtn.style.cssText='font-size:calc(9px*var(--fs,1));padding:4px 10px';copyBtn.innerHTML='📋 Copy TSV';
@@ -21493,7 +21507,7 @@ var FUND=(function(){
       var _rs = _b930Reason(r.reason);
       tr.innerHTML =
         '<td style="padding:8px 14px;font-weight:600' + (r.amount===null?';color:var(--mut)':'') + '">' + r.name +
-          (_rs ? ' <span style="font-size:calc(8px*var(--fs,1));font-weight:700;padding:1px 6px;border-radius:3px;margin-left:4px;font-family:Roboto Mono,monospace;' + (r.reason==='bender_failed'?'background:rgba(255,107,107,.12);color:var(--red)':(r.reason==='manual'?'background:rgba(108,99,255,.14);color:var(--acc)':'background:rgba(251,191,36,.12);color:var(--yel)')) + '">' + _rs + '</span>' : '') +
+          (_rs ? ' <span style="font-size:calc(8px*var(--fs,1));font-weight:700;padding:1px 6px;border-radius:3px;margin-left:4px;font-family:Roboto Mono,monospace;' + (r.reason==='daily_pull'?'background:rgba(74,222,128,.12);color:var(--grn)':r.reason==='bender_failed'?'background:rgba(255,107,107,.12);color:var(--red)':(r.reason==='manual'?'background:rgba(108,99,255,.14);color:var(--acc)':'background:rgba(251,191,36,.12);color:var(--yel)')) + '">' + _rs + '</span>' : '') +
         '</td>' +
         '<td style="padding:8px 14px;font-family:Roboto Mono,monospace;color:var(--mut)">' + r.currency + '</td>' +
         '<td style="padding:8px 14px;text-align:right;font-family:Roboto Mono,monospace;font-weight:600">' + amt + '</td>' +
