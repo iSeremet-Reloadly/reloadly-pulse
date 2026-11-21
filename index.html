@@ -1368,6 +1368,7 @@ function rlCycleFontScale(){var o=['1','1.15','1.3'],c=document.documentElement.
   <div class="sb-backdrop" id="sb-backdrop" onclick="_toggleMobileNav(false)"></div>
   <div class="sb">
     <div class="sb-lbl">OVERVIEW</div>
+    <div class="ni" id="nav-home" onclick="go('home')" title="Your starting point: tasks, OKRs, HPM and the playbook"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#09faa3,#7700ff)"></div>Home</div></div>
     <div class="ni active" id="nav-dashboard" onclick="go('dashboard')"><div class="ni-l"><div class="dd" style="background:var(--mut)"></div>Dashboard</div></div>
     
     <div class="ni" id="nav-strategy" onclick="go('strategy')"><div class="ni-l"><div class="dd" style="background:linear-gradient(45deg,var(--acc),var(--grn))"></div>Strategy</div></div>
@@ -2574,9 +2575,9 @@ function loadData(){
   ];}
   autoSave();updCnts();
   try{tmMigrateAll();tmBackfillLinks();}catch(e){console.warn('tm migrate',e);}
-  if(currentUser&&!currentUser.canViewAll){view=currentUser.dept;}
-  // Default view: Tasks for everyone unless explicitly overridden
-  if(view==='dashboard')view='tasks';
+  // 2026-11-21: everyone lands on Home after sign-in (a shared #/link still
+  // wins — _applyHashRoute runs right after this).
+  view='home';
   try{STRAT.migrate();}catch(e){console.warn('STRAT migrate failed',e);}
   render();
   // HPM auto-task + nag banner: if the user is mid-window and hasn't
@@ -2587,9 +2588,11 @@ function loadData(){
   _refreshLeaveCache().catch(function(){}).then(function(){
     try{ _ensureHPMTaskForCurrentUser(); }catch(e){}
     try{ _injectHPMBanner(); }catch(e){}
-    setTimeout(function(){ try{ _hpmMaybePrompt(); }catch(e){} }, 2500);
+    // Walkthroughs first (new joiners / first sign-in); HPM prompt + survey wait for them.
+    try{ PTOUR.boot(); }catch(e){}
+    setTimeout(function(){ try{ PTOUR.after(function(){ try{ _hpmMaybePrompt(); }catch(e){} }); }catch(e){ try{ _hpmMaybePrompt(); }catch(_){} } }, 2500);
     // Quarterly Pulse feedback survey — waits for any HPM prompt to close first.
-    setTimeout(function(){ try{ PSV.maybePrompt(); }catch(e){} }, 4500);
+    setTimeout(function(){ try{ PTOUR.after(function(){ setTimeout(function(){ try{ PSV.maybePrompt(); }catch(e){} }, 2000); }); }catch(e){ try{ PSV.maybePrompt(); }catch(_){} } }, 4500);
   });
   // Private to-dos load independently of the leave/HPM chain above — if the
   // user is already sitting on My Tasks when this resolves, re-render so the
@@ -3951,7 +3954,8 @@ function _renderAdminUsers(){
   });
 }
 function render(){
-  if(view==='tasks')renderTasksV2();
+  if(view==='home')HOME.render();
+  else if(view==='tasks')renderTasksV2();
   else if(view==='roadmaps'){ view='dashboard'; renderDash(); }
   else if(view==='dashboard')renderDash();
   else if(view==='log')renderLog();
@@ -3979,6 +3983,7 @@ function render(){
       if(ex) ex.remove();
     }
   } catch(e){}
+  try { if(window.PTOUR) PTOUR.onView(view); } catch(e){}
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Hash-based deep-linking. Writing `location.hash = '#/okr'` when the user
@@ -3991,6 +3996,7 @@ function render(){
 // ─────────────────────────────────────────────────────────────────────────────
 var _ROUTE_ALIASES = {
   'okr': 'okr', 'okrtracker': 'okr', 'okr-tracker': 'okr', 'okrs': 'okr',
+  'home': 'home', 'start': 'home',
   'dashboard': 'dashboard', 'dash': 'dashboard',
   'tasks': 'tasks', 'task': 'tasks',
   'mytasks': 'mytasks', 'my-tasks': 'mytasks', 'my': 'mytasks',
@@ -15060,6 +15066,7 @@ function showHelp(){
     '<ol class="help-steps">'+stepsHTML+'</ol>'+
     (tipsHTML?'<div class="help-section-label">TIPS</div>'+tipsHTML:'')+
     '<div class="help-foot">'+
+      (window.PTOUR ? PTOUR.helpLink(key) : '')+
       '<a class="help-link" href="#" onclick="document.getElementById(\'help-drawer-ov\').remove();showFullGuide();return false;">Open the full user guide ↗</a>'+
     '</div>';
   ov.appendChild(box);
@@ -27071,6 +27078,7 @@ var HB = (function(){
       } else { S.err=(r&&r.error)||'error'; S.errDetail=(r&&r.detail)||''; S.isAdmin=!!(r&&r.isAdmin); if(refresh&&typeof toast==='function') toast('Sync failed: '+S.err,'err'); }
       updateCounters();
       if(typeof view!=='undefined' && String(view).indexOf('pb-')===0) render(view);
+      if(typeof view!=='undefined' && view==='home' && window.HOME) HOME.paintPlaybook();
     });
   }
 
@@ -27461,7 +27469,367 @@ var HB = (function(){
   function warm(){ if(!S.data && !S.loading && typeof currentUser!=='undefined' && currentUser) load(false); }
   setTimeout(function tick(){ if(typeof currentUser!=='undefined' && currentUser){ warm(); } else setTimeout(tick,3000); }, 4000);
 
-  return { render:render, nav:nav, navToggle:navToggle, openTab:openTab, openSearch:openSearch, load:load, _S:S, _CH:CH };
+  function summary(){
+    if(!S.data) return { loaded:false };
+    var live=(S.data.doc.tabs||[]).filter(function(t){return !isEmpty(t);}), read=0, upd=0, firstUpd=null, pr=principles();
+    live.forEach(function(t){ var st=status(t); if(st==='read') read++; if(st==='updated'||st==='new'){ upd++; if(!firstUpd) firstUpd=t.id; } });
+    return { loaded:true, total:live.length, read:read, updates:upd, firstUpdated:firstUpd, principle: pr.length ? pr[Math.floor(Date.now()/864e5)%pr.length] : '' };
+  }
+  return { render:render, nav:nav, navToggle:navToggle, summary:summary, openTab:openTab, openSearch:openSearch, load:load, _S:S, _CH:CH };
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     PULSE HOME + IN-APP WALKTHROUGHS (added 2026-11-21)
+     HOME: the landing page after sign-in — 4 live tiles (Tasks, OKRs, HPM,
+     Operating Playbook). Everything is computed from data already in memory,
+     so it costs no extra server calls.
+     PTOUR: short guided tours. "welcome" on first sign-in + a 3–4 step tip the
+     first time someone opens Tasks, OKRs, HPM (Performance) or the Playbook.
+     Completion is stored server-side (worker actions tour_status / tour_done /
+     tour_admin). New joiners (not on the roster when tours launched) can't
+     skip; existing staff can. Bump a tour's v to re-show it once to everyone.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<style id="home-styles">
+.hm-wrap{max-width:1180px;margin:0 auto;padding-bottom:50px}
+.hm-hero{position:relative;overflow:hidden;border-radius:18px;padding:28px 30px;color:#fff;margin-bottom:20px;background:radial-gradient(900px 300px at 105% -30%,rgba(9,250,163,.45),transparent 60%),radial-gradient(700px 400px at -10% 140%,rgba(119,0,255,.8),transparent 60%),linear-gradient(135deg,#01112e 0%,#1b0a4d 60%,#01112e 100%)}
+.hm-hi{font-family:'Roboto Mono',monospace;font-size:calc(10px*var(--fs,1));letter-spacing:.2em;text-transform:uppercase;color:#09faa3;margin-bottom:8px}
+.hm-h1{font-family:Lexend,sans-serif;font-size:calc(30px*var(--fs,1));font-weight:800;letter-spacing:-.02em;line-height:1.1;margin:0 0 8px}
+.hm-sub{font-size:calc(14px*var(--fs,1));color:rgba(255,255,255,.85);line-height:1.55;max-width:820px}
+.hm-sub b{color:#fff}
+.hm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.hm-tile{position:relative;background:var(--surf);border:1px solid var(--brd);border-radius:16px;padding:20px 20px 16px;cursor:pointer;transition:transform .18s,box-shadow .18s,border-color .18s;display:flex;flex-direction:column;gap:10px;min-height:230px;overflow:hidden}
+.hm-tile:hover{transform:translateY(-3px);border-color:var(--acc);box-shadow:0 16px 34px -20px rgba(119,0,255,.6)}
+.hm-tile::before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:var(--hm-c,var(--acc))}
+.hm-top{display:flex;align-items:center;gap:10px}
+.hm-ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:calc(19px*var(--fs,1));background:var(--surf2);flex:none}
+.hm-tt{font-family:Lexend,sans-serif;font-weight:800;font-size:calc(17px*var(--fs,1))}
+.hm-ts{font-family:'Roboto Mono',monospace;font-size:calc(9.5px*var(--fs,1));color:var(--mut)}
+.hm-big{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.hm-big b{font-family:Lexend,sans-serif;font-size:calc(34px*var(--fs,1));font-weight:800;line-height:1}
+.hm-big span{font-size:calc(12px*var(--fs,1));color:var(--mut)}
+.hm-chips{display:flex;gap:6px;flex-wrap:wrap}
+.hm-chip{font-family:'Roboto Mono',monospace;font-size:calc(9.5px*var(--fs,1));padding:2px 8px;border-radius:999px;border:1px solid var(--brd);background:var(--surf2);color:var(--mut);white-space:nowrap}
+.hm-chip.red{color:var(--red);border-color:rgba(242,116,116,.4);background:rgba(242,116,116,.08)}
+.hm-chip.yel{color:var(--yel);border-color:rgba(255,193,7,.4);background:rgba(255,193,7,.08)}
+.hm-chip.grn{color:var(--grn);border-color:rgba(9,250,163,.35);background:rgba(9,250,163,.08)}
+.hm-list{display:flex;flex-direction:column;gap:6px;flex:1}
+.hm-li{display:flex;align-items:center;gap:8px;font-size:calc(12px*var(--fs,1));line-height:1.35;min-width:0}
+.hm-li .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hm-li .m{font-family:'Roboto Mono',monospace;font-size:calc(9.5px*var(--fs,1));color:var(--mut);flex:none}
+.hm-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--mut)}
+.hm-bar{height:6px;border-radius:3px;background:var(--surf2);overflow:hidden;flex:none;width:70px}
+.hm-bar i{display:block;height:100%;background:linear-gradient(90deg,#7700ff,#09faa3)}
+.hm-cta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:10px;border-top:1px solid var(--brd);font-weight:700;font-size:calc(12.5px*var(--fs,1))}
+.hm-cta .go{color:var(--acc)}
+.hm-quote{font-family:Lexend,sans-serif;font-weight:800;font-size:calc(17px*var(--fs,1));line-height:1.3;padding:12px 14px;border-radius:12px;background:linear-gradient(135deg,rgba(119,0,255,.12),rgba(9,250,163,.08));border-left:3px solid #09faa3}
+.hm-empty{font-size:calc(12px*var(--fs,1));color:var(--mut);line-height:1.5}
+.hm-foot{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:18px}
+.hm-link{background:none;border:1px solid var(--brd);color:var(--txt);border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer;font-family:inherit;font-size:calc(12px*var(--fs,1))}
+.hm-link:hover{border-color:var(--acc)}
+.hm-admin{margin-top:16px;background:var(--surf);border:1px dashed var(--brd);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+@media(max-width:900px){.hm-grid{grid-template-columns:1fr}.hm-h1{font-size:calc(24px*var(--fs,1))}.hm-hero{padding:22px 18px}}
+/* Tour */
+.pt-hole{position:fixed;z-index:10000;border-radius:12px;box-shadow:0 0 0 9999px rgba(1,17,46,.72);transition:all .25s ease;pointer-events:none;outline:2px solid #09faa3;outline-offset:3px}
+.pt-block{position:fixed;inset:0;z-index:9999}
+.pt-card{position:fixed;z-index:10001;width:min(380px,calc(100vw - 24px));background:var(--surf);color:var(--txt);border:1px solid var(--brd);border-radius:16px;padding:18px 18px 14px;box-shadow:0 24px 60px -12px rgba(0,0,0,.55);transition:top .25s,left .25s;animation:ptin .25s ease-out}
+@keyframes ptin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.pt-k{font-family:'Roboto Mono',monospace;font-size:calc(9.5px*var(--fs,1));letter-spacing:.16em;text-transform:uppercase;color:var(--acc);margin-bottom:6px;display:flex;justify-content:space-between}
+.pt-t{font-family:Lexend,sans-serif;font-weight:800;font-size:calc(17px*var(--fs,1));margin-bottom:6px;line-height:1.25}
+.pt-b{font-size:calc(13px*var(--fs,1));line-height:1.6;color:var(--txt)}
+.pt-b b{color:var(--txt)}
+.pt-dots{display:flex;gap:4px;margin:14px 0 12px}
+.pt-dots i{height:4px;flex:1;border-radius:2px;background:var(--surf2)}
+.pt-dots i.on{background:linear-gradient(90deg,#7700ff,#09faa3)}
+.pt-row{display:flex;gap:8px;align-items:center}
+.pt-btn{border:none;border-radius:10px;padding:9px 14px;font-weight:800;cursor:pointer;font-family:inherit;font-size:calc(12px*var(--fs,1))}
+.pt-next{background:#09faa3;color:#01112e;margin-left:auto}
+.pt-back{background:var(--surf2);color:var(--txt)}
+.pt-skip{background:none;color:var(--mut);padding:9px 4px;font-weight:600}
+.pt-req{font-family:'Roboto Mono',monospace;font-size:calc(9px*var(--fs,1));color:var(--mut)}
+</style>
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// HOME
+// ════════════════════════════════════════════════════════════════════════
+var HOME = (function(){
+  function e(s){ return (typeof esc==='function')?esc(s):String(s==null?'':s); }
+  function first(){ try{ return ((currentUser&&currentUser.name)||'').split(' ')[0]; }catch(_){ return ''; } }
+  function greet(){ var h=new Date().getHours(); return h<12?'Good morning':h<18?'Good afternoon':'Good evening'; }
+
+  function tasksInfo(){
+    var r={open:0,today:0,overdue:0,blocked:0,top:[]};
+    try{
+      var mine=tmGetMyTasks({dept:'All',ownOnly:true}).filter(function(t){return t.status!=='Done' && !t.archived;});
+      var td=new Date().toDateString();
+      r.open=mine.length;
+      mine.forEach(function(t){ var h=tmHealth(t); if(h==='overdue') r.overdue++; if(h==='blocked') r.blocked++; if(t.due && new Date(t.due).toDateString()===td) r.today++; });
+      r.top=mine.slice().sort(function(a,b){ return tmFocusScore(b)-tmFocusScore(a); }).slice(0,3);
+    }catch(_){}
+    return r;
+  }
+  function okrInfo(){
+    var r={q:'',krs:[],avg:0,risk:0};
+    try{
+      var key=getCurrentOKRKey(), d=loadOKRForQuarter(key); r.q=(typeof quarterLabel==='function')?quarterLabel(key):key;
+      if(d && d.depts) Object.keys(d.depts).forEach(function(dn){ (d.depts[dn].objectives||[]).forEach(function(o){ (o.krs||[]).forEach(function(kr){
+        if(_okrOwnerIs(kr.owner, currentUser.email, currentUser.name)) r.krs.push({kr:kr,dept:dn});
+      }); }); });
+      if(r.krs.length){ r.avg=Math.round(r.krs.reduce(function(a,x){return a+(+x.kr.progress||0);},0)/r.krs.length); }
+      r.risk=r.krs.filter(function(x){return x.kr.confidence==='At Risk'||x.kr.confidence==='Off Track';}).length;
+      r.krs.sort(function(a,b){ var ra=(a.kr.confidence==='At Risk'||a.kr.confidence==='Off Track')?1:0, rb=(b.kr.confidence==='At Risk'||b.kr.confidence==='Off Track')?1:0; return rb-ra || (a.kr.progress||0)-(b.kr.progress||0); });
+    }catch(_){}
+    return r;
+  }
+  function hpmInfo(){
+    var r={state:'unknown',label:'',week:''};
+    try{
+      var wk=_currentReportingWeek(), win=_hpmWindow(wk), sub=_getMyHPM(currentUser.email, wk);
+      r.week=wk;
+      var onLeave=false; try{ onLeave=_isOnLeaveForWeek(currentUser.email, wk); }catch(_){}
+      if(sub && sub.submittedAt){ r.state='done'; r.label='Submitted '+new Date(sub.submittedAt).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}); }
+      else if(onLeave){ r.state='leave'; r.label='You’re on leave this week'; }
+      else if(win.status==='pre-open'){ r.state='pre'; r.label='Opens '+win.opensAt.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'}); }
+      else if(win.status==='open'){ r.state='due'; r.label='Due '+_hpmCloseLabel(win); }
+      else { r.state='late'; r.label='Overdue — submitting now still counts (marked late)'; }
+    }catch(_){}
+    return r;
+  }
+
+  function tile(id, color, icon, title, sub, body, cta){
+    return '<div class="hm-tile" id="'+id+'" style="--hm-c:'+color+'"><div class="hm-top"><div class="hm-ic">'+icon+'</div><div><div class="hm-tt">'+title+'</div><div class="hm-ts">'+sub+'</div></div></div>'+body+'<div class="hm-cta"><span>'+cta+'</span><span class="go">→</span></div></div>';
+  }
+  function pbBody(){
+    var s=(window.HB&&HB.summary)?HB.summary():null;
+    if(!s||!s.loaded) return '<div class="hm-empty">Loading the playbook…</div>';
+    var h='';
+    if(s.principle) h+='<div class="hm-ts" style="letter-spacing:.14em">PRINCIPLE OF THE DAY</div><div class="hm-quote">'+e(s.principle)+'</div>';
+    h+='<div class="hm-chips">'+(s.updates?'<span class="hm-chip yel">'+s.updates+' new or updated since you read</span>':'<span class="hm-chip grn">You’re up to date</span>')+'<span class="hm-chip">'+s.read+'/'+s.total+' sections read</span></div>';
+    return h;
+  }
+  function render(){
+    var main=document.getElementById('main'); if(!main) return;
+    var T=tasksInfo(), O=okrInfo(), H=hpmInfo();
+    var bits=[];
+    if(T.overdue) bits.push('<b>'+T.overdue+' overdue task'+(T.overdue>1?'s':'')+'</b>');
+    if(T.today) bits.push('<b>'+T.today+' due today</b>');
+    if(H.state==='due') bits.push('your <b>HPM is due</b> '+e(H.label.replace(/^Due /,'')));
+    if(H.state==='late') bits.push('your <b>HPM is overdue</b>');
+    if(O.risk) bits.push('<b>'+O.risk+' KR'+(O.risk>1?'s':'')+' at risk</b>');
+    var line = bits.length ? 'Today: '+bits.join(' · ')+'.' : 'You’re all caught up — a good moment to move a KR forward or read a playbook chapter.';
+    var date=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+    var h='<div class="hm-wrap"><div class="hm-hero"><div class="hm-hi">'+e(date)+'</div><div class="hm-h1">'+greet()+(first()?', '+e(first()):'')+'.</div><div class="hm-sub">'+line+'</div></div><div class="hm-grid">';
+
+    var tb='<div class="hm-big"><b>'+T.open+'</b><span>open task'+(T.open===1?'':'s')+' assigned to you</span></div>'
+      +'<div class="hm-chips">'+(T.today?'<span class="hm-chip yel">'+T.today+' due today</span>':'')+(T.overdue?'<span class="hm-chip red">'+T.overdue+' overdue</span>':'')+(T.blocked?'<span class="hm-chip red">'+T.blocked+' blocked</span>':'')+(!T.today&&!T.overdue&&!T.blocked?'<span class="hm-chip grn">Nothing urgent</span>':'')+'</div>'
+      +'<div class="hm-list">'+(T.top.length?T.top.map(function(t){ var hh=tmHealth(t), c=hh==='overdue'||hh==='blocked'?'var(--red)':hh==='soon'?'var(--yel)':'var(--grn)';
+        return '<div class="hm-li"><span class="hm-dot" style="background:'+c+'"></span><span class="t">'+e(t.name)+'</span><span class="m">'+(t.due?e(new Date(t.due).toLocaleDateString('en-GB',{day:'numeric',month:'short'})):'')+'</span></div>'; }).join(''):'<div class="hm-empty">No open tasks. Press <b>N</b> in the Tasks Manager to add one.</div>')+'</div>';
+    h+=tile('hm-t-tasks','#10b981','✅','Tasks Manager','Your work, this week',tb,'Open my tasks');
+
+    var ob='<div class="hm-big"><b>'+O.krs.length+'</b><span>key result'+(O.krs.length===1?'':'s')+' you own · '+e(O.q)+'</span></div>'
+      +(O.krs.length?'<div class="hm-chips"><span class="hm-chip">avg '+O.avg+'% complete</span>'+(O.risk?'<span class="hm-chip yel">'+O.risk+' at risk / off track</span>':'<span class="hm-chip grn">All on track</span>')+'</div>':'')
+      +'<div class="hm-list">'+(O.krs.length?O.krs.slice(0,3).map(function(x){ var p=Math.max(0,Math.min(100,+x.kr.progress||0)), risk=x.kr.confidence==='At Risk'||x.kr.confidence==='Off Track';
+        return '<div class="hm-li"><span class="hm-dot" style="background:'+(risk?'var(--yel)':'var(--grn)')+'"></span><span class="t">'+e(x.kr.title)+'</span><span class="hm-bar"><i style="width:'+p+'%"></i></span><span class="m">'+p+'%</span></div>'; }).join(''):'<div class="hm-empty">You don’t own a KR this quarter yet. Open the OKR Tracker to see your team’s objectives or add a personal one.</div>')+'</div>';
+    h+=tile('hm-t-okr','#7700ff','🎯','My OKRs','Update progress weekly',ob,'Open the OKR Tracker');
+
+    var hc={done:'grn',due:'yel',late:'red',pre:'',leave:'',unknown:''}[H.state];
+    var hb='<div class="hm-big"><b>'+({done:'✓ Done',due:'Due',late:'Overdue',pre:'Not open yet',leave:'On leave',unknown:'—'}[H.state])+'</b><span>'+e(H.week)+'</span></div>'
+      +'<div class="hm-chips"><span class="hm-chip '+hc+'">'+e(H.label||'')+'</span></div>'
+      +'<div class="hm-empty">Highlights, Progress, Me (+ blockers). About 5 minutes. Opens Thursday, due Friday 23:59 — weekend submissions still count as on time.</div>';
+    h+=tile('hm-t-hpm','#ffc107','📝','Weekly HPM','Your weekly check-in',hb, H.state==='done'?'View my HPM':H.state==='pre'?'See last week':'Submit my HPM');
+
+    h+=tile('hm-t-pb','#09faa3','📘','Operating Playbook','How we work at Reloadly','<div id="hm-pb-body" style="display:flex;flex-direction:column;gap:10px;flex:1">'+pbBody()+'</div>','Open the playbook');
+    h+='</div>';
+
+    h+='<div class="hm-foot"><span class="hm-ts">Tip: press <b>?</b> on any page for help, or replay a walkthrough.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="hm-link" id="hm-replay">▶ Replay the welcome tour</button><button class="hm-link" id="hm-dash">Company dashboard →</button></span></div>';
+    if(typeof isAdmin==='function' && isAdmin()) h+='<div class="hm-admin" id="hm-admin"><span style="font-size:calc(18px*var(--fs,1))">🎓</span><div style="flex:1;min-width:200px"><div style="font-weight:800">Walkthrough completion</div><div class="hm-ts" id="hm-admin-s">Loading…</div></div><button class="hm-link" id="hm-admin-b">View by person</button></div>';
+    h+='</div>';
+    main.innerHTML=h;
+
+    function on(id,fn){ var el=document.getElementById(id); if(el) el.onclick=fn; }
+    on('hm-t-tasks',function(){ try{ tmSetState({scope:'my'}); }catch(_){} go('tasks'); });
+    on('hm-t-okr',function(){ go('okr'); });
+    on('hm-t-hpm',function(){ try{ localStorage.setItem('rl_perf_view','hpm'); }catch(_){} go('perf'); });
+    on('hm-t-pb',function(){ var s=(window.HB&&HB.summary)?HB.summary():null; if(s&&s.firstUpdated) HB.openTab(s.firstUpdated); else HB.nav('pb-mission'); });
+    on('hm-replay',function(){ PTOUR.start('welcome',{replay:true}); });
+    on('hm-dash',function(){ go('dashboard'); });
+    on('hm-admin-b',function(){ PTOUR.adminModal(); });
+    if(document.getElementById('hm-admin')) PTOUR.adminSummary(function(t){ var el=document.getElementById('hm-admin-s'); if(el) el.textContent=t; });
+    if(window.HB && HB.summary && !HB.summary().loaded) { try{ HB.load(false); }catch(_){} }
+  }
+  function paintPlaybook(){ var el=document.getElementById('hm-pb-body'); if(el) el.innerHTML=pbBody(); }
+  return { render:render, paintPlaybook:paintPlaybook };
+})();
+
+// HELP drawer entries for the new pages (falls back to Dashboard otherwise).
+try{
+  if(typeof HELP_CONTENT!=='undefined'){
+    HELP_CONTENT.home={ title:'Home', intro:'Your starting point every day: what needs you now, in four tiles.',
+      steps:['Tasks Manager — your open tasks, what’s due today and overdue. Click to open your list.','My OKRs — the key results you own this quarter and their progress. Update them weekly.','Weekly HPM — whether this week’s check-in is open, due or done.','Operating Playbook — how we work; shows sections updated since you last read them.'],
+      tips:['Replay the welcome tour from the button under the tiles.','The company-wide charts are still under Dashboard in the sidebar.'] };
+    var pbHelp={ title:'Operating Playbook', intro:'Reloadly’s handbook, published from the Operating Handbook Google Doc every Friday.',
+      steps:['Pick a chapter in the sidebar under Operating Playbook.','Open a section card to read it; use Next → to move through the chapter.','Press ⌘K / Ctrl+K to search the whole playbook.','Sections tick ✓ as you finish them; anything changed since you read it is flagged.'],
+      tips:['“Suggest an edit” opens the source Doc.','Some pages are restricted (🔒) to admins or a department.'] };
+    ['pb-mission','pb-operate','pb-conduct','pb-teams','pb-people'].forEach(function(k){ HELP_CONTENT[k]=pbHelp; });
+  }
+}catch(_){}
+
+// ════════════════════════════════════════════════════════════════════════
+// PTOUR — in-app walkthroughs
+// ════════════════════════════════════════════════════════════════════════
+var PTOUR = (function(){
+  var TOURS = {
+    welcome: { v:1, title:'Welcome to Pulse', steps:[
+      { title:function(){ var f=((currentUser&&currentUser.name)||'').split(' ')[0]; return 'Welcome to Pulse'+(f?', '+f:'')+' 👋'; },
+        body:'Pulse is where Reloadly plans, tracks and reflects on its work: your <b>tasks</b>, our <b>OKRs</b>, the weekly <b>HPM</b> and the <b>Operating Playbook</b>. This tour takes about a minute.' },
+      { target:'.hm-grid', title:'Home — start here every day', body:'Four tiles show what needs you right now. Click any tile to jump straight in. You land here every time you sign in.' },
+      { target:'#hm-t-tasks', title:'Tasks Manager', body:'Everything assigned to you, with what’s due today and overdue. Keep statuses current — they feed your HPM and your OKR progress.' },
+      { target:'#hm-t-okr', title:'My OKRs', body:'The key results you own this quarter. Update the <b>progress %</b> and <b>confidence</b> (On track / At Risk / Off Track) every week.' },
+      { target:'#hm-t-hpm', title:'Weekly HPM', body:'Highlights, Progress, Me — your 5-minute weekly check-in. It opens <b>Thursday</b> and is due <b>Friday 23:59</b>. Weekend submissions still count as on time.' },
+      { target:'#hm-t-pb', title:'Operating Playbook', body:'How we work: mission, principles, cadence, policies and team playbooks. Read it chapter by chapter — Pulse ticks off what you’ve read and flags updates.' },
+      { target:'.sb', title:'The sidebar', body:'Everything else lives here: Strategy, the full OKR Tracker, Performance and the Playbook chapters.', mobileSkip:true },
+      { target:'#help-btn', title:'Stuck? Press ?', body:'Every page has a <b>?</b> help panel. You can replay this tour from Home any time. That’s it — welcome aboard!' }
+    ]},
+    tasks: { v:1, title:'Tasks Manager', view:'tasks', steps:[
+      { target:'.tm-strip, #main', title:'Your status strip', body:'Open, due today, overdue and blocked — at a glance. Aim to keep overdue at zero.' },
+      { target:'.tmx-seg, .tmx-hdr, #main', title:'Scope and views', body:'Switch between <b>My</b> tasks and the <b>Team</b>, and between views — List, Board, Calendar, Gantt and Table — to suit how you work.' },
+      { target:'#tm-new-btn, .tm-new-btn, #main', title:'Add a task in seconds', body:'Press <b>N</b> anywhere on this page. Give it an owner and a due date — tasks without an owner don’t get done.' },
+      { target:'#main', title:'Open any task', body:'Click a task to update status, add sub-tasks or <b>link it to a KR</b>. Linked tasks drive your OKR progress automatically.' }
+    ]},
+    okr: { v:1, title:'OKR Tracker', view:'okr', steps:[
+      { target:'#main', title:'Our OKRs, this quarter', body:'Company objectives cascade to department and individual key results. Everyone can see how their work connects to the company goals.' },
+      { target:'#main', title:'Update the KRs you own', body:'Find the KRs with your name as owner. Each week, update the <b>progress %</b> and <b>confidence</b>. Flag <b>At Risk</b> early — it’s how we get help to you.' },
+      { target:'#main', title:'Tasks roll up', body:'Tasks linked to a KR feed its progress, and KRs roll up to department and company objectives. You can also add <b>personal objectives</b>.' }
+    ]},
+    perf: { v:1, title:'Weekly HPM', view:'perf', steps:[
+      { target:'#nav-perf', title:'Performance & HPM', body:'Your weekly <b>HPM</b> (Highlights, Progress, Me) lives under Performance.' },
+      { target:'#main', title:'When it’s due', body:'Opens <b>Thursday</b>, due <b>Friday 23:59</b>; weekend submissions are still on time. You get one reminder on Friday.' },
+      { target:'#main', title:'Make it count', body:'Use the AI suggestion to draft from this week’s tasks, then edit it in your own words. Add <b>blockers</b> so your manager can unblock you.' },
+      { target:'#main', title:'Who sees it', body:'Your team sees named summaries; company-wide it’s anonymised in the weekly HPM & OKR Brief.' }
+    ]},
+    playbook: { v:1, title:'Operating Playbook', view:'pb-', steps:[
+      { target:'#nav-pb', title:'The Operating Playbook', body:'Reloadly’s handbook in five chapters — from our mission to how each team runs.' },
+      { target:'[data-hbact="search"], #main', title:'Search everything', body:'Press <b>⌘K</b> (Ctrl+K on Windows) to search the whole playbook — expenses, holidays, DRIs, meetings…' },
+      { target:'#main', title:'Read, tick, stay current', body:'Sections tick ✓ as you finish them. When a page changes after you’ve read it, it’s flagged so you never miss an update. New content is published every Friday.' }
+    ]}
+  };
+  var S={ status:null, mandatory:false, booting:false, active:null, queue:[], seenSession:{} };
+
+  function call(a,p){ return (typeof RL_SRV!=='undefined') ? RL_SRV.call(a,p||{}) : Promise.resolve({ok:false}); }
+  function doneV(id){ var p=S.status&&S.status[id]; return p?(+p.v||0):0; }
+  function needs(id){ return S.status && doneV(id) < TOURS[id].v; }
+  function busy(){ return S.booting || !!S.active; }
+  function after(fn){ if(busy()) S.queue.push(fn); else fn(); }
+  function flush(){ var q=S.queue; S.queue=[]; q.forEach(function(f){ try{ f(); }catch(_){ } }); }
+
+  function boot(){
+    if(S.status || S.booting || typeof currentUser==='undefined' || !currentUser) return;
+    S.booting=true;
+    var guard=setTimeout(function(){ if(S.booting){ S.booting=false; flush(); } }, 6000);
+    call('tour_status').then(function(r){
+      clearTimeout(guard); S.booting=false;
+      if(!r || !r.ok){ flush(); return; }
+      S.status=r.progress||{}; S.mandatory=!!r.mandatory;
+      if(needs('welcome')){
+        if(typeof view==='undefined' || view!=='home') go('home');
+        setTimeout(function(){ start('welcome'); }, 450);
+      } else { flush(); onView(view); }
+    });
+  }
+
+  function onView(v){
+    if(!S.status || S.active || S.booting) return;
+    if(needs('welcome')) return;
+    var id=null;
+    Object.keys(TOURS).forEach(function(k){ var t=TOURS[k]; if(!t.view) return; if(t.view==='pb-' ? String(v).indexOf('pb-')===0 : t.view===v) id=k; });
+    if(!id || !needs(id) || S.seenSession[id]) return;
+    S.seenSession[id]=true;
+    setTimeout(function(){ if(S.active) return; if(view===v || (TOURS[id].view==='pb-' && String(view).indexOf('pb-')===0)) start(id); }, 700);
+  }
+
+  function visible(el){ if(!el) return false; var r=el.getBoundingClientRect(); return r.width>4 && r.height>4 && r.bottom>0 && r.right>0 && r.top<window.innerHeight && r.left<window.innerWidth; }
+  function findTarget(sel){
+    if(!sel) return null;
+    var parts=sel.split(',');
+    for(var i=0;i<parts.length;i++){ var el=document.querySelector(parts[i].trim()); if(visible(el)) return el; if(el && parts[i].trim()!=='#main'){ try{ el.scrollIntoView({block:'center'}); }catch(_){} if(visible(el)) return el; } }
+    return null;
+  }
+
+  function start(id, opts){
+    opts=opts||{}; var T=TOURS[id]; if(!T) return;
+    close(true);
+    var steps=T.steps.filter(function(s){ return !(s.mobileSkip && window.innerWidth<=900); });
+    var canSkip = opts.replay || !S.mandatory || doneV(id)>0;
+    var i=0, block=document.createElement('div'), hole=document.createElement('div'), card=document.createElement('div');
+    block.className='pt-block'; hole.className='pt-hole'; card.className='pt-card';
+    document.body.appendChild(block); document.body.appendChild(hole); document.body.appendChild(card);
+    S.active={id:id, els:[block,hole,card], onKey:null, onResize:null};
+    function place(){
+      var st=steps[i], el=findTarget(st.target);
+      if(el && el.id==='main'){ var r0=el.getBoundingClientRect(); if(r0.height>window.innerHeight*0.8) el=null; }
+      var cw=card.offsetWidth||360, ch=card.offsetHeight||200, vw=window.innerWidth, vh=window.innerHeight;
+      if(!el){ hole.style.cssText='left:50%;top:50%;width:0;height:0;'; card.style.left=Math.max(12,(vw-cw)/2)+'px'; card.style.top=Math.max(12,(vh-ch)/2)+'px'; return; }
+      var r=el.getBoundingClientRect(), pad=6;
+      hole.style.left=(r.left-pad)+'px'; hole.style.top=(r.top-pad)+'px'; hole.style.width=(r.width+pad*2)+'px'; hole.style.height=(r.height+pad*2)+'px';
+      var left, top;
+      if(r.right+16+cw<vw){ left=r.right+16; top=r.top; }
+      else if(r.left-16-cw>0){ left=r.left-16-cw; top=r.top; }
+      else if(r.bottom+16+ch<vh){ left=r.left; top=r.bottom+16; }
+      else { left=r.left; top=r.top-16-ch; }
+      card.style.left=Math.max(12,Math.min(vw-cw-12,left))+'px'; card.style.top=Math.max(12,Math.min(vh-ch-12,top))+'px';
+    }
+    function paint(){
+      var st=steps[i], last=i===steps.length-1, title=typeof st.title==='function'?st.title():st.title;
+      card.innerHTML='<div class="pt-k"><span>'+esc(T.title)+'</span><span>'+(i+1)+' / '+steps.length+'</span></div>'
+        +'<div class="pt-t">'+esc(title)+'</div><div class="pt-b">'+st.body+'</div>'
+        +'<div class="pt-dots">'+steps.map(function(_,j){return '<i class="'+(j<=i?'on':'')+'"></i>';}).join('')+'</div>'
+        +'<div class="pt-row">'+(canSkip?'<button class="pt-btn pt-skip" data-pt="skip">Skip tour</button>':'<span class="pt-req">Required for new joiners</span>')
+        +(i>0?'<button class="pt-btn pt-back" data-pt="back" style="margin-left:auto">← Back</button>':'')
+        +'<button class="pt-btn pt-next" data-pt="next"'+(i>0?' style="margin-left:0"':'')+'>'+(last?'Finish ✓':'Next →')+'</button></div>';
+      requestAnimationFrame(place);
+    }
+    function finish(skipped){
+      close(); S.status=S.status||{}; S.status[id]={v:T.v, at:new Date().toISOString(), skipped:!!skipped};
+      if(!opts.replay || doneV(id)<T.v) call('tour_done',{tour:id, v:T.v, skipped:!!skipped});
+      if(!skipped && typeof toast==='function') toast(id==='welcome'?'You’re all set — welcome to Pulse!':'Got it — '+T.title+' tips done');
+      setTimeout(function(){ flush(); if(id==='welcome') onView(view); }, 300);
+    }
+    card.onclick=function(ev){ var b=ev.target.closest('[data-pt]'); if(!b) return; var a=b.getAttribute('data-pt');
+      if(a==='next'){ if(i<steps.length-1){ i++; paint(); } else finish(false); }
+      else if(a==='back'){ if(i>0){ i--; paint(); } }
+      else if(a==='skip') finish(true); };
+    S.active.onKey=function(ev){ if(ev.key==='ArrowRight'||ev.key==='Enter'){ ev.preventDefault(); card.querySelector('[data-pt="next"]').click(); } else if(ev.key==='ArrowLeft'){ if(i>0){ i--; paint(); } } else if(ev.key==='Escape' && canSkip){ finish(true); } };
+    S.active.onResize=function(){ place(); };
+    document.addEventListener('keydown',S.active.onKey,true); window.addEventListener('resize',S.active.onResize); window.addEventListener('scroll',S.active.onResize,true);
+    paint();
+  }
+  function close(silent){
+    if(!S.active) return;
+    document.removeEventListener('keydown',S.active.onKey,true); window.removeEventListener('resize',S.active.onResize); window.removeEventListener('scroll',S.active.onResize,true);
+    S.active.els.forEach(function(x){ try{ x.remove(); }catch(_){} }); S.active=null;
+  }
+  function forView(v){ var id=null; Object.keys(TOURS).forEach(function(k){ var t=TOURS[k]; if(t.view && (t.view==='pb-'?String(v).indexOf('pb-')===0:t.view===v)) id=k; }); if(v==='home') id='welcome'; return id; }
+  function helpLink(v){ var id=forView(v); return id ? '<a class="help-link" href="#" onclick="var o=document.getElementById(\'help-drawer-ov\');if(o)o.remove();PTOUR.start(\''+id+'\',{replay:true});return false;" style="margin-right:14px">▶ Replay the '+esc(TOURS[id].title)+' walkthrough</a>' : ''; }
+
+  // ── Admin: completion overview ────────────────────────────────────────
+  var adminCache=null;
+  function adminData(cb){ call('tour_admin').then(function(r){ adminCache=(r&&r.ok)?r:null; cb(adminCache); }); }
+  function adminSummary(cb){ adminData(function(r){ if(!r) return cb('Couldn’t load completion data.');
+    var u=r.users||[], done=u.filter(function(x){return x.welcome;}).length, nj=u.filter(function(x){return x.mandatory;}), njd=nj.filter(function(x){return x.welcome&&!x.welcomeSkipped;}).length;
+    cb(done+' of '+u.length+' people have done the welcome tour'+(nj.length?' · new joiners: '+njd+'/'+nj.length+' completed':'')); }); }
+  function adminModal(){
+    var ov=document.createElement('div'); ov.style.cssText='position:fixed;inset:0;background:rgba(1,17,46,.6);z-index:9990;display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.innerHTML='<div style="background:var(--surf);border:1px solid var(--brd);border-radius:16px;width:min(760px,96vw);max-height:84vh;overflow:auto;padding:20px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-weight:800;font-size:calc(16px*var(--fs,1))">🎓 Walkthrough completion</div><button class="hm-link" id="pt-adm-x">Close</button></div><div id="pt-adm-b" class="hm-ts">Loading…</div></div>';
+    document.body.appendChild(ov); ov.onclick=function(e){ if(e.target===ov) ov.remove(); }; ov.querySelector('#pt-adm-x').onclick=function(){ ov.remove(); };
+    adminData(function(r){ var b=ov.querySelector('#pt-adm-b'); if(!r){ b.textContent='Couldn’t load.'; return; }
+      var ids=['welcome','tasks','okr','perf','playbook'], lab={welcome:'Welcome',tasks:'Tasks',okr:'OKRs',perf:'HPM',playbook:'Playbook'};
+      var rows=(r.users||[]).slice().sort(function(a,b){ return (b.mandatory?1:0)-(a.mandatory?1:0) || String(a.name).localeCompare(b.name); });
+      var cell=function(p){ if(!p) return '<span style="color:var(--mut)">—</span>'; return p.skipped?'<span style="color:var(--yel)" title="Skipped">↷</span>':'<span style="color:var(--grn)" title="'+esc(p.at||'')+'">✓</span>'; };
+      b.innerHTML='<table style="width:100%;border-collapse:collapse;font-family:inherit;font-size:calc(12px*var(--fs,1))"><tr style="text-align:left;color:var(--mut)"><th style="padding:6px">Person</th><th>Dept</th>'+ids.map(function(k){return '<th style="text-align:center">'+lab[k]+'</th>';}).join('')+'</tr>'
+        +rows.map(function(u){ return '<tr style="border-top:1px solid var(--brd)"><td style="padding:7px 6px;font-weight:700">'+esc(u.name)+(u.mandatory?' <span class="hm-chip yel" style="font-weight:500">new joiner</span>':'')+'</td><td style="color:var(--mut)">'+esc(u.dept||'')+'</td>'+ids.map(function(k){ return '<td style="text-align:center">'+cell(u.progress&&u.progress[k])+'</td>'; }).join('')+'</tr>'; }).join('')+'</table><div class="hm-ts" style="margin-top:10px">✓ completed · ↷ skipped · — not seen yet. New joiners can’t skip.</div>';
+    });
+  }
+  return { boot:boot, onView:onView, start:start, busy:busy, after:after, helpLink:helpLink, adminSummary:adminSummary, adminModal:adminModal, _S:S, _T:TOURS };
 })();
 </script>
 
