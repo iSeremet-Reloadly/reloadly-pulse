@@ -1369,6 +1369,17 @@ function rlCycleFontScale(){var o=['1','1.15','1.3'],c=document.documentElement.
   <div class="sb">
     <div class="sb-lbl">OVERVIEW</div>
     <div class="ni" id="nav-home" onclick="go('home')" title="Your starting point: tasks, OKRs, HPM and the playbook"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#09faa3,#7700ff)"></div>Home</div></div>
+    <!-- OPERATING PLAYBOOK — live from the "Operating Handbook" Google Doc (2026-11-21).
+         One collapsible entry; the 5 chapters sit inside it (2026-11-21, Dren: keep the sidebar uncluttered). -->
+    <div class="ni" id="nav-pb" onclick="HB.navToggle(event)" style="margin-top:6px" title="Reloadly Operating Playbook — mission, how we operate, policies, team playbooks, people &amp; HR"><div class="ni-l" style="white-space:nowrap"><div class="dd" style="background:linear-gradient(135deg,#7700ff,#09faa3)"></div>Operating Playbook<span id="nav-pb-caret" style="font-size:calc(9px*var(--fs,1));color:var(--mut);margin-left:2px;transition:transform .15s;display:inline-block">▸</span></div><div class="cnt" id="c-pb-total"></div></div>
+    <div id="nav-pb-group" style="display:none;margin-bottom:2px">
+      <div class="ni ni-nested" id="nav-pb-mission" onclick="HB.nav('pb-mission')" title="Our mission, CEO ReadME, principles and culture"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#7700ff,#09faa3)"></div>Mission &amp; Culture</div><div class="cnt" id="c-pb-mission"></div></div>
+      <div class="ni ni-nested" id="nav-pb-operate" onclick="HB.nav('pb-operate')" title="Cadence, goals, meetings, DRIs, working agreement"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#09faa3,#06b6d4)"></div>How We Operate</div><div class="cnt" id="c-pb-operate"></div></div>
+      <div class="ni ni-nested" id="nav-pb-conduct" onclick="HB.nav('pb-conduct')" title="Code of conduct, workplace & device policies, whistleblower, governance"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f27474,#7700ff)"></div>Code &amp; Governance</div><div class="cnt" id="c-pb-conduct"></div></div>
+      <div class="ni ni-nested" id="nav-pb-teams" onclick="HB.nav('pb-teams')" title="Sales, Operations and Finance playbooks"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#ffc107,#f59e0b)"></div>Teams &amp; Playbooks</div><div class="cnt" id="c-pb-teams"></div></div>
+      <div class="ni ni-nested" id="nav-pb-people" onclick="HB.nav('pb-people')" title="Pay, time off, remote work, benefits, expenses"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#7700ff)"></div>People &amp; HR</div><div class="cnt" id="c-pb-people"></div></div>
+    </div>
+    <div id="nav-pb-spacer" style="height:6px"></div>
     <div class="ni active" id="nav-dashboard" onclick="go('dashboard')"><div class="ni-l"><div class="dd" style="background:var(--mut)"></div>Dashboard</div></div>
     
     <div class="ni" id="nav-strategy" onclick="go('strategy')"><div class="ni-l"><div class="dd" style="background:linear-gradient(45deg,var(--acc),var(--grn))"></div>Strategy</div></div>
@@ -1385,16 +1396,6 @@ function rlCycleFontScale(){var o=['1','1.15','1.3'],c=document.documentElement.
     <div class="ni" id="nav-mytasks" onclick="go('mytasks')" style="display:none"></div>
     <!-- Activity Log moved into User Management; route kept for back-compat -->
     <div class="ni" id="nav-log" onclick="go('log')" style="display:none"></div>
-    <!-- OPERATING PLAYBOOK — live from the "Operating Handbook" Google Doc (2026-11-21).
-         One collapsible entry; the 5 chapters sit inside it (2026-11-21, Dren: keep the sidebar uncluttered). -->
-    <div class="ni" id="nav-pb" onclick="HB.navToggle(event)" title="Reloadly Operating Playbook — mission, how we operate, policies, team playbooks, people &amp; HR"><div class="ni-l" style="white-space:nowrap"><div class="dd" style="background:linear-gradient(135deg,#7700ff,#09faa3)"></div>Operating Playbook<span id="nav-pb-caret" style="font-size:calc(9px*var(--fs,1));color:var(--mut);margin-left:2px;transition:transform .15s;display:inline-block">▸</span></div><div class="cnt" id="c-pb-total"></div></div>
-    <div id="nav-pb-group" style="display:none">
-      <div class="ni ni-nested" id="nav-pb-mission" onclick="HB.nav('pb-mission')" title="Our mission, CEO ReadME, principles and culture"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#7700ff,#09faa3)"></div>Mission &amp; Culture</div><div class="cnt" id="c-pb-mission"></div></div>
-      <div class="ni ni-nested" id="nav-pb-operate" onclick="HB.nav('pb-operate')" title="Cadence, goals, meetings, DRIs, working agreement"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#09faa3,#06b6d4)"></div>How We Operate</div><div class="cnt" id="c-pb-operate"></div></div>
-      <div class="ni ni-nested" id="nav-pb-conduct" onclick="HB.nav('pb-conduct')" title="Code of conduct, workplace & device policies, whistleblower, governance"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f27474,#7700ff)"></div>Code &amp; Governance</div><div class="cnt" id="c-pb-conduct"></div></div>
-      <div class="ni ni-nested" id="nav-pb-teams" onclick="HB.nav('pb-teams')" title="Sales, Operations and Finance playbooks"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#ffc107,#f59e0b)"></div>Teams &amp; Playbooks</div><div class="cnt" id="c-pb-teams"></div></div>
-      <div class="ni ni-nested" id="nav-pb-people" onclick="HB.nav('pb-people')" title="Pay, time off, remote work, benefits, expenses"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#7700ff)"></div>People &amp; HR</div><div class="cnt" id="c-pb-people"></div></div>
-    </div>
     <!-- Flex spacer pushes PRICING & TOOLS to the bottom of the sidebar -->
     <div style="flex:1;min-height:8px"></div>
     <div id="nav-pricing-group" style="display:none">
@@ -3987,6 +3988,8 @@ function render(){
     }
   } catch(e){}
   try { if(window.PTOUR) PTOUR.onView(view); } catch(e){}
+  // Operating Playbook nav folds away when you leave the Playbook (collapsed by default).
+  try { if(String(view).indexOf('pb-')!==0 && typeof HB!=='undefined' && HB.navClose) HB.navClose(); } catch(e){}
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Hash-based deep-linking. Writing `location.hash = '#/okr'` when the user
@@ -27466,7 +27469,7 @@ var HB = (function(){
     if(!navIsOpen()){ navOpen(true); if(!inPb) nav('pb-mission'); }
     else navOpen(false);
   }
-  try{ if(localStorage.getItem('rl_pb_nav_open')==='1') setTimeout(function(){ navOpen(true); },0); }catch(e){}
+  // 2026-11-21 (Dren): collapsed by default — opens on Playbook pages only.
 
   // Warm the cache shortly after sign-in so sidebar badges appear.
   function warm(){ if(!S.data && !S.loading && typeof currentUser!=='undefined' && currentUser) load(false); }
@@ -27478,7 +27481,8 @@ var HB = (function(){
     live.forEach(function(t){ var st=status(t); if(st==='read') read++; if(st==='updated'||st==='new'){ upd++; if(!firstUpd) firstUpd=t.id; } });
     return { loaded:true, total:live.length, read:read, updates:upd, firstUpdated:firstUpd, principle: pr.length ? pr[Math.floor(Date.now()/864e5)%pr.length] : '' };
   }
-  return { render:render, nav:nav, navToggle:navToggle, summary:summary, openTab:openTab, openSearch:openSearch, load:load, _S:S, _CH:CH };
+  function navClose(){ if(navIsOpen()) navOpen(false); }
+  return { render:render, nav:nav, navToggle:navToggle, navClose:navClose, summary:summary, openTab:openTab, openSearch:openSearch, load:load, _S:S, _CH:CH };
 })();
 </script>
 
