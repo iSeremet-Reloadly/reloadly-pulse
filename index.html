@@ -2589,7 +2589,7 @@ function loadData(){
     try{ _ensureHPMTaskForCurrentUser(); }catch(e){}
     try{ _injectHPMBanner(); }catch(e){}
     // Walkthroughs first (new joiners / first sign-in); HPM prompt + survey wait for them.
-    try{ PTOUR.boot(); }catch(e){}
+    try{ if(typeof PTOUR!=='undefined') PTOUR.boot(); else setTimeout(function(){ try{ PTOUR.boot(); }catch(_){} }, 50); }catch(e){}
     setTimeout(function(){ try{ PTOUR.after(function(){ try{ _hpmMaybePrompt(); }catch(e){} }); }catch(e){ try{ _hpmMaybePrompt(); }catch(_){} } }, 2500);
     // Quarterly Pulse feedback survey — waits for any HPM prompt to close first.
     setTimeout(function(){ try{ PTOUR.after(function(){ setTimeout(function(){ try{ PSV.maybePrompt(); }catch(e){} }, 2000); }); }catch(e){ try{ PSV.maybePrompt(); }catch(_){} } }, 4500);
@@ -3954,7 +3954,10 @@ function _renderAdminUsers(){
   });
 }
 function render(){
-  if(view==='home')HOME.render();
+  // HOME/HB/PTOUR are defined in scripts at the end of <body>; on a cached-session
+  // load init() runs before those are parsed, so defer instead of throwing (a throw
+  // here aborted loadData → no user pill, no Pricing/Wallet Ops nav, no reminders).
+  if(view==='home'){ if(typeof HOME!=='undefined') HOME.render(); else setTimeout(render,0); }
   else if(view==='tasks')renderTasksV2();
   else if(view==='roadmaps'){ view='dashboard'; renderDash(); }
   else if(view==='dashboard')renderDash();
@@ -3970,7 +3973,7 @@ function render(){
   else if(view==='pricing')SUP.renderPricing();
   else if(view==='proposals')PP.renderProposals();
   else if(view==='funding')FUND.renderFunding();
-  else if(String(view).indexOf('pb-')===0)HB.render(view);
+  else if(String(view).indexOf('pb-')===0){ if(typeof HB!=='undefined') HB.render(view); else setTimeout(render,0); }
   else renderDept(view);
   // HPM notification banner: only on Tasks/MyTasks/Dashboard/Dept views, NOT
   // on the HPM tab itself (the form is its own reminder) and NOT on Admin/
