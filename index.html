@@ -27029,15 +27029,96 @@ var HB = (function(){
   // ── Read state (per user, per browser): { tabId: contentHash } ──────────
   function readMap(){ try{ return JSON.parse(localStorage.getItem('rl_hb_read_v1:'+me())||'{}')||{}; }catch(e){ return {}; } }
   function saveRead(m){ try{ localStorage.setItem('rl_hb_read_v1:'+me(), JSON.stringify(m)); }catch(e){} }
+  // Entries are {h, at} (older browsers stored just the hash string).
+  function hOf(v){ return !v ? '' : (typeof v==='string' ? v : (v.h||'')); }
+  function atOf(v){ return (v && typeof v==='object' && v.at) ? String(v.at) : ''; }
   function status(t){
-    var h=readMap()[t.id];
+    var h=hOf(readMap()[t.id]);
     if(!h) return (t.changedAt && (Date.now()-new Date(t.changedAt))<14*864e5) ? 'new' : 'unread';
     return h===t.h ? 'read' : 'updated';
   }
   function markRead(id, on){
     var m=readMap(), t=S.byId[id]; if(!t) return;
-    if(on===false) delete m[id]; else m[id]=t.h||'1';
+    if(on===false){ delete m[id]; queueRead(id, null); }
+    else { m[id]={h:t.h||'1', at:new Date().toISOString()}; queueRead(id, m[id]); }
     saveRead(m); updateCounters();
+  }
+  // ── Company-wide sync of read state (2026-11-21) ─────────────────────
+  // Server = source of truth (hb_read:<email>); writes are batched (20s, or
+  // when the tab is hidden/closed) to keep KV writes low.
+  var RQ={pending:{}, timer:null, synced:false};
+  function queueRead(id, v){ RQ.pending[id]=v; clearTimeout(RQ.timer); RQ.timer=setTimeout(flushReads, 20000); }
+  function flushReads(keepalive){
+    clearTimeout(RQ.timer); RQ.timer=null;
+    var ids=Object.keys(RQ.pending); if(!ids.length) return;
+    var batch=RQ.pending; RQ.pending={};
+    try{
+      var url=RL_SRV.url(), tok=localStorage.getItem('rl_session_token'); if(!url||!tok){ Object.assign(RQ.pending,batch); return; }
+      fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},keepalive:!!keepalive,body:JSON.stringify({action:'hb_reads_put',sessionToken:tok,reads:batch})})
+        .then(function(r){ return r.json(); }).then(function(j){ if(!j||!j.ok) Object.keys(batch).forEach(function(k){ if(!(k in RQ.pending)) RQ.pending[k]=batch[k]; }); })
+        .catch(function(){ Object.keys(batch).forEach(function(k){ if(!(k in RQ.pending)) RQ.pending[k]=batch[k]; }); });
+    }catch(e){}
+  }
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') flushReads(true); });
+  window.addEventListener('pagehide',function(){ flushReads(true); });
+  function syncReads(){
+    if(RQ.synced || typeof RL_SRV==='undefined') return;
+    RQ.synced=true;
+    RL_SRV.call('hb_reads_get').then(function(r){
+      if(!r || !r.ok){ RQ.synced=false; return; }
+      var srv=r.reads||{}, loc=readMap(), merged={}, push={};
+      Object.keys(srv).forEach(function(id){ merged[id]=srv[id]; });
+      Object.keys(loc).forEach(function(id){
+        if(id in RQ.pending && RQ.pending[id]===null) return;
+        var lv=loc[id], sv=srv[id];
+        if(!sv){ var e={h:hOf(lv), at:atOf(lv)||new Date().toISOString()}; merged[id]=e; push[id]=e; }
+        else if(atOf(lv) > atOf(sv)){ merged[id]=lv; push[id]=lv; }
+      });
+      Object.keys(RQ.pending).forEach(function(id){ if(RQ.pending[id]===null) delete merged[id]; });
+      saveRead(merged);
+      Object.keys(push).forEach(function(id){ queueRead(id, push[id]); });
+      if(Object.keys(push).length) flushReads();
+      updateCounters();
+      if(typeof view!=='undefined' && String(view).indexOf('pb-')===0) render(view);
+      if(typeof view!=='undefined' && view==='home' && window.HOME) HOME.paintPlaybook();
+    });
+  }
+
+  // ── Admin: company-wide reading report ───────────────────────────────
+  function report(){
+    if(!S.data){ load(false); if(typeof toast==='function') toast('Loading the playbook — try again in a moment'); return; }
+    var ov=document.createElement('div'); ov.className='hb-sov'; ov.style.alignItems='center'; ov.style.paddingTop='0';
+    ov.innerHTML='<div class="hb-sbox" style="width:min(1000px,96vw);max-height:86vh;overflow:auto;padding:18px 20px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap"><div style="font-family:Lexend,sans-serif;font-weight:800;font-size:calc(18px*var(--fs,1))">📊 Operating Playbook — who has read it</div><div style="display:flex;gap:8px"><button class="hb-btn ghost" id="hbr-csv">⬇ CSV</button><button class="hb-btn ghost" id="hbr-x">Close</button></div></div><div id="hbr-b" style="color:var(--mut)">Loading…</div></div>';
+    document.body.appendChild(ov);
+    ov.onclick=function(e){ if(e.target===ov) ov.remove(); }; ov.querySelector('#hbr-x').onclick=function(){ ov.remove(); };
+    RL_SRV.call('hb_reads_report').then(function(r){
+      var b=ov.querySelector('#hbr-b'); if(!r||!r.ok){ b.textContent='Couldn’t load the report ('+((r&&r.error)||'error')+').'; return; }
+      // Denominator = sections everyone can see (restricted pages excluded).
+      var tabs=(S.data.doc.tabs||[]).filter(function(t){ return !isEmpty(t) && !t.restricted; });
+      var rows=r.users.map(function(u){
+        var cur=0, old=0, last='', ch={};
+        CH.forEach(function(c){ ch[c.key]={n:0,d:0}; });
+        tabs.forEach(function(t){ var v=u.reads[t.id], c=ch[S.chapterOf[t.id]]; if(c) c.d++; if(!v) return; if(v.h===t.h){ cur++; if(c) c.n++; } else old++; if((v.at||'')>last) last=v.at||''; });
+        return {u:u, cur:cur, old:old, pct:tabs.length?Math.round(cur*100/tabs.length):0, last:last, ch:ch};
+      }).sort(function(a,b){ return b.pct-a.pct || String(a.u.name).localeCompare(b.u.name); });
+      var full=rows.filter(function(x){return x.pct===100;}).length, none=rows.filter(function(x){return !x.cur && !x.old;}).length;
+      var avg=rows.length?Math.round(rows.reduce(function(a,x){return a+x.pct;},0)/rows.length):0;
+      var h='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px"><span class="hb-tagc read">'+full+' of '+rows.length+' read everything</span><span class="hb-tagc">company average '+avg+'%</span><span class="hb-tagc">'+none+' haven’t started</span><span class="hb-tagc">'+tabs.length+' sections counted (restricted pages excluded)</span></div>';
+      h+='<div class="hb-tw"><table><tr><th>Person</th><th>Dept</th><th>Read</th>'+CH.map(function(c){return '<th title="'+esc(c.title)+'">'+esc(c.emoji+' '+c.num)+'</th>';}).join('')+'<th>Needs re-read</th><th>Last read</th></tr>'
+        +rows.map(function(x){ var col=x.pct===100?'var(--grn)':x.pct>=50?'var(--yel)':'var(--red)';
+          return '<tr><td style="font-weight:700;white-space:nowrap">'+esc(x.u.name)+'</td><td style="color:var(--mut)">'+esc(x.u.dept)+'</td>'
+            +'<td style="white-space:nowrap"><span style="display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--surf2);vertical-align:middle;margin-right:6px;overflow:hidden"><i style="display:block;height:100%;width:'+x.pct+'%;background:'+col+'"></i></span><b>'+x.pct+'%</b> <span style="color:var(--mut)">('+x.cur+'/'+tabs.length+')</span></td>'
+            +CH.map(function(c){ var v=x.ch[c.key]; return '<td style="text-align:center;color:var(--mut)">'+(v.d?Math.round(v.n*100/v.d)+'%':'—')+'</td>'; }).join('')
+            +'<td style="text-align:center">'+(x.old?'<span style="color:var(--yel)">'+x.old+'</span>':'—')+'</td><td style="color:var(--mut);white-space:nowrap">'+(x.last?esc(relDate(x.last)):'never')+'</td></tr>'; }).join('')+'</table></div>'
+        +'<div style="font-size:calc(11px*var(--fs,1));color:var(--mut);margin-top:8px">“Read” counts a section once someone finishes it (scrolls to the end or presses ✓). If the section changes later it moves to “Needs re-read” until they read it again. Columns 01–05 are the five chapters.</div>';
+      b.innerHTML=h;
+      ov.querySelector('#hbr-csv').onclick=function(){
+        var lines=[['Name','Email','Dept','Read %','Sections read','Total sections','Needs re-read','Last read'].concat(CH.map(function(c){return c.title+' %';}))];
+        rows.forEach(function(x){ lines.push([x.u.name,x.u.email,x.u.dept,x.pct,x.cur,tabs.length,x.old,x.last].concat(CH.map(function(c){ var v=x.ch[c.key]; return v.d?Math.round(v.n*100/v.d):''; }))); });
+        var csv=lines.map(function(l){ return l.map(function(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(','); }).join('\n');
+        var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='operating-playbook-reading-'+new Date().toISOString().slice(0,10)+'.csv'; document.body.appendChild(a); a.click(); a.remove();
+      };
+    });
   }
   function statusTag(t, full){
     if(t.restricted && full) return '<span class="hb-tagc lock">🔒 '+esc(t.restricted)+'</span>';
@@ -27076,7 +27157,7 @@ var HB = (function(){
       S.loading=false; S.syncing=false;
       if(r && r.ok && r.doc){
         var before=S.data&&S.data.contentChangedAt;
-        S.data=r; S.err=null; S.loadedAt=Date.now(); index();
+        S.data=r; S.err=null; S.loadedAt=Date.now(); index(); syncReads();
         if(refresh && typeof toast==='function'){
           if(r.syncError) toast('Couldn’t reach the Doc — showing the last synced copy','err');
           else toast(before && before!==r.contentChangedAt ? 'Pulled the latest changes from the Doc' : 'Playbook is up to date');
@@ -27192,7 +27273,8 @@ var HB = (function(){
   function heroActions(){
     return '<button class="hb-btn" data-hbact="search">🔍 Search the playbook <kbd>⌘K</kbd></button>'
       +'<button class="hb-btn" data-hbact="sync" title="Reload the latest published copy. The Doc is published to Pulse weekly (Fridays, with the HPM), or on demand via Pulse → Push to Pulse now in the Doc">'+(S.syncing?'⟲ Syncing…':'⟲ Sync')+'</button>'
-      +'<a class="hb-btn" href="'+esc(docUrl())+'" target="_blank" rel="noopener" title="Edit the source Google Doc">✎ Open the Doc</a>';
+      +'<a class="hb-btn" href="'+esc(docUrl())+'" target="_blank" rel="noopener" title="Edit the source Google Doc">✎ Open the Doc</a>'
+      +((typeof isAdmin==='function'&&isAdmin())?'<button class="hb-btn" data-hbact="report" title="Who has read the playbook (admins only)">📊 Reading report</button>':'');
   }
   function syncLine(){
     var d=S.data; if(!d) return '';
@@ -27370,6 +27452,7 @@ var HB = (function(){
       if(act==='search') openSearch();
       else if(act==='sync'){ if(!S.syncing){ load(true); a.textContent='⟲ Syncing…'; } }
       else if(act==='deck') openDeck();
+      else if(act==='report') report();
       else if(act==='retry'){ S.err=null; load(false); render(view); }
     };
   }
@@ -27482,7 +27565,7 @@ var HB = (function(){
     return { loaded:true, total:live.length, read:read, updates:upd, firstUpdated:firstUpd, principle: pr.length ? pr[Math.floor(Date.now()/864e5)%pr.length] : '' };
   }
   function navClose(){ if(navIsOpen()) navOpen(false); }
-  return { render:render, nav:nav, navToggle:navToggle, navClose:navClose, summary:summary, openTab:openTab, openSearch:openSearch, load:load, _S:S, _CH:CH };
+  return { render:render, nav:nav, navToggle:navToggle, navClose:navClose, summary:summary, report:report, openTab:openTab, openSearch:openSearch, load:load, _S:S, _CH:CH };
 })();
 </script>
 
@@ -27649,7 +27732,7 @@ var HOME = (function(){
     h+='</div>';
 
     h+='<div class="hm-foot"><span class="hm-ts">Tip: press <b>?</b> on any page for help, or replay a walkthrough.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="hm-link" id="hm-replay">▶ Replay the welcome tour</button><button class="hm-link" id="hm-dash">Company dashboard →</button></span></div>';
-    if(typeof isAdmin==='function' && isAdmin()) h+='<div class="hm-admin" id="hm-admin"><span style="font-size:calc(18px*var(--fs,1))">🎓</span><div style="flex:1;min-width:200px"><div style="font-weight:800">Walkthrough completion</div><div class="hm-ts" id="hm-admin-s">Loading…</div></div><button class="hm-link" id="hm-admin-b">View by person</button></div>';
+    if(typeof isAdmin==='function' && isAdmin()) h+='<div class="hm-admin" id="hm-admin"><span style="font-size:calc(18px*var(--fs,1))">🎓</span><div style="flex:1;min-width:200px"><div style="font-weight:800">Walkthrough completion</div><div class="hm-ts" id="hm-admin-s">Loading…</div></div><button class="hm-link" id="hm-admin-b">Walkthroughs by person</button><button class="hm-link" id="hm-admin-pb">📊 Playbook reading report</button></div>';
     h+='</div>';
     main.innerHTML=h;
 
@@ -27661,6 +27744,7 @@ var HOME = (function(){
     on('hm-replay',function(){ PTOUR.start('welcome',{replay:true}); });
     on('hm-dash',function(){ go('dashboard'); });
     on('hm-admin-b',function(){ PTOUR.adminModal(); });
+    on('hm-admin-pb',function(){ if(window.HB && HB.report) HB.report(); });
     if(document.getElementById('hm-admin')) PTOUR.adminSummary(function(t){ var el=document.getElementById('hm-admin-s'); if(el) el.textContent=t; });
     if(window.HB && HB.summary && !HB.summary().loaded) { try{ HB.load(false); }catch(_){} }
   }
