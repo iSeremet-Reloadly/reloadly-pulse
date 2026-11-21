@@ -27084,7 +27084,7 @@ var HB = (function(){
           if(r.syncError) toast('Couldn’t reach the Doc — showing the last synced copy','err');
           else toast(before && before!==r.contentChangedAt ? 'Pulled the latest changes from the Doc' : 'Playbook is up to date');
         }
-      } else { S.err=(r&&(r.error||r.detail))||'error'; S.isAdmin=!!(r&&r.isAdmin); if(refresh&&typeof toast==='function') toast('Sync failed: '+S.err,'err'); }
+      } else { S.err=(r&&r.error)||'error'; S.errDetail=(r&&r.detail)||''; S.isAdmin=!!(r&&r.isAdmin); if(refresh&&typeof toast==='function') toast('Sync failed: '+S.err,'err'); }
       updateCounters();
       if(typeof view!=='undefined' && String(view).indexOf('pb-')===0) render(view);
     });
@@ -27322,14 +27322,14 @@ var HB = (function(){
              :'<div>Check back shortly — in the meantime the current handbook is at <a href="'+NEW_JOINERS_URL+'" target="_blank" rel="noopener" style="color:var(--acc)">handbook.reloadly.com ↗</a>.</div>')
         +'</div></div>';
     } else {
-      h+='<div class="hb-art"><div class="hb-empty"><div class="big">⚠️</div>Couldn’t load the playbook ('+esc(S.err)+'). <button class="hb-btn ghost" data-hbact="retry" style="margin-left:8px">Try again</button></div></div>';
+      h+='<div class="hb-art"><div class="hb-empty"><div class="big">⚠️</div>Couldn’t load the playbook ('+esc(S.err)+').'+(S.errDetail&&typeof isAdmin==='function'&&isAdmin()?'<div style="font-family:Roboto Mono,monospace;font-size:calc(10px*var(--fs,1));margin:10px auto;max-width:700px;text-align:left;white-space:pre-wrap;opacity:.8">'+esc(S.errDetail)+'</div>':'')+' <button class="hb-btn ghost" data-hbact="retry" style="margin-left:8px">Try again</button></div></div>';
     }
     shell(h);
   }
 
   function render(v){
     var c=chapter(v);
-    if(!S.data){ if(!S.loading && S.err!=='not_configured') load(false); renderState(c); return; }
+    if(!S.data){ if(!S.loading && !S.err) load(false); renderState(c); return; }
     if(Date.now()-S.loadedAt>30*60*1000) load(false); // quiet background refresh
     // deep link: #/pb-x?s=<tabId>&h=<headingId>
     var hp={}; try{ var qs=String(location.hash||'').split('?')[1]; if(qs) qs.split('&').forEach(function(kv){ var p=kv.split('='); hp[p[0]]=decodeURIComponent(p[1]||''); }); }catch(e){}
