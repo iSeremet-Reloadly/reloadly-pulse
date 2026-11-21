@@ -1383,13 +1383,16 @@ function rlCycleFontScale(){var o=['1','1.15','1.3'],c=document.documentElement.
     <div class="ni" id="nav-mytasks" onclick="go('mytasks')" style="display:none"></div>
     <!-- Activity Log moved into User Management; route kept for back-compat -->
     <div class="ni" id="nav-log" onclick="go('log')" style="display:none"></div>
-    <!-- OPERATING PLAYBOOK — live from the "Operating Handbook" Google Doc (2026-11-21) -->
-    <div class="sb-lbl">OPERATING PLAYBOOK</div>
-    <div class="ni" id="nav-pb-mission" onclick="HB.nav('pb-mission')" title="Our mission, CEO ReadME, principles and culture"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#7700ff,#09faa3)"></div>Mission &amp; Culture</div><div class="cnt" id="c-pb-mission"></div></div>
-    <div class="ni" id="nav-pb-operate" onclick="HB.nav('pb-operate')" title="Cadence, goals, meetings, DRIs, working agreement"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#09faa3,#06b6d4)"></div>How We Operate</div><div class="cnt" id="c-pb-operate"></div></div>
-    <div class="ni" id="nav-pb-conduct" onclick="HB.nav('pb-conduct')" title="Code of conduct, workplace & device policies, whistleblower, governance"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f27474,#7700ff)"></div>Code &amp; Governance</div><div class="cnt" id="c-pb-conduct"></div></div>
-    <div class="ni" id="nav-pb-teams" onclick="HB.nav('pb-teams')" title="Sales, Operations and Finance playbooks"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#ffc107,#f59e0b)"></div>Teams &amp; Playbooks</div><div class="cnt" id="c-pb-teams"></div></div>
-    <div class="ni" id="nav-pb-people" onclick="HB.nav('pb-people')" title="Pay, time off, remote work, benefits, expenses"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#7700ff)"></div>People &amp; HR</div><div class="cnt" id="c-pb-people"></div></div>
+    <!-- OPERATING PLAYBOOK — live from the "Operating Handbook" Google Doc (2026-11-21).
+         One collapsible entry; the 5 chapters sit inside it (2026-11-21, Dren: keep the sidebar uncluttered). -->
+    <div class="ni" id="nav-pb" onclick="HB.navToggle(event)" title="Reloadly Operating Playbook — mission, how we operate, policies, team playbooks, people &amp; HR"><div class="ni-l" style="white-space:nowrap"><div class="dd" style="background:linear-gradient(135deg,#7700ff,#09faa3)"></div>Operating Playbook<span id="nav-pb-caret" style="font-size:calc(9px*var(--fs,1));color:var(--mut);margin-left:2px;transition:transform .15s;display:inline-block">▸</span></div><div class="cnt" id="c-pb-total"></div></div>
+    <div id="nav-pb-group" style="display:none">
+      <div class="ni ni-nested" id="nav-pb-mission" onclick="HB.nav('pb-mission')" title="Our mission, CEO ReadME, principles and culture"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#7700ff,#09faa3)"></div>Mission &amp; Culture</div><div class="cnt" id="c-pb-mission"></div></div>
+      <div class="ni ni-nested" id="nav-pb-operate" onclick="HB.nav('pb-operate')" title="Cadence, goals, meetings, DRIs, working agreement"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#09faa3,#06b6d4)"></div>How We Operate</div><div class="cnt" id="c-pb-operate"></div></div>
+      <div class="ni ni-nested" id="nav-pb-conduct" onclick="HB.nav('pb-conduct')" title="Code of conduct, workplace & device policies, whistleblower, governance"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f27474,#7700ff)"></div>Code &amp; Governance</div><div class="cnt" id="c-pb-conduct"></div></div>
+      <div class="ni ni-nested" id="nav-pb-teams" onclick="HB.nav('pb-teams')" title="Sales, Operations and Finance playbooks"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#ffc107,#f59e0b)"></div>Teams &amp; Playbooks</div><div class="cnt" id="c-pb-teams"></div></div>
+      <div class="ni ni-nested" id="nav-pb-people" onclick="HB.nav('pb-people')" title="Pay, time off, remote work, benefits, expenses"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#7700ff)"></div>People &amp; HR</div><div class="cnt" id="c-pb-people"></div></div>
+    </div>
     <!-- Flex spacer pushes PRICING & TOOLS to the bottom of the sidebar -->
     <div style="flex:1;min-height:8px"></div>
     <div id="nav-pricing-group" style="display:none">
@@ -27097,6 +27100,9 @@ var HB = (function(){
       var n=tabsOf(c.key).filter(function(t){ if(isEmpty(t)) return false; var s=status(t); return s==='updated'||s==='new'; }).length;
       el.textContent=n?String(n):''; el.title=n?n+' new or updated section'+(n>1?'s':'')+' to read':'';
     });
+    // Collapsed parent shows the total so nothing new is hidden.
+    var tot=document.getElementById('c-pb-total');
+    if(tot){ var sum=0; CH.forEach(function(c){ var e=document.getElementById('c-'+c.key); if(e&&e.textContent) sum+=(+e.textContent||0); }); tot.textContent=(sum && !navIsOpen())?String(sum):''; tot.title=sum?sum+' new or updated sections in the Playbook':''; }
   }
 
   // ── Rich text ──────────────────────────────────────────────────────────
@@ -27190,12 +27196,12 @@ var HB = (function(){
   }
   function heroActions(){
     return '<button class="hb-btn" data-hbact="search">🔍 Search the playbook <kbd>⌘K</kbd></button>'
-      +'<button class="hb-btn" data-hbact="sync" title="Pull the latest from the Google Doc">'+(S.syncing?'⟲ Syncing…':'⟲ Sync')+'</button>'
+      +'<button class="hb-btn" data-hbact="sync" title="Reload the latest published copy. The Doc is published to Pulse weekly (Fridays, with the HPM), or on demand via Pulse → Push to Pulse now in the Doc">'+(S.syncing?'⟲ Syncing…':'⟲ Sync')+'</button>'
       +'<a class="hb-btn" href="'+esc(docUrl())+'" target="_blank" rel="noopener" title="Edit the source Google Doc">✎ Open the Doc</a>';
   }
   function syncLine(){
     var d=S.data; if(!d) return '';
-    return '<span class="hb-pill" title="Pulse checks the Doc hourly">🟢 Live from Google Doc · last change '+esc(relDate(d.contentChangedAt))+'</span>';
+    return '<span class="hb-pill" title="Published to Pulse from the Google Doc weekly (Fridays, with the HPM) or on demand">🟢 From the Google Doc · last update '+esc(relDate(d.contentChangedAt))+'</span>';
   }
   function cardHtml(t){
     var soon=isEmpty(t), kids=(t.kids||[]).filter(function(k){return S.chapterOf[k.id]===S.chapterOf[t.id];});
@@ -27329,6 +27335,8 @@ var HB = (function(){
 
   function render(v){
     var c=chapter(v);
+    if(!navIsOpen()) navOpen(true);
+    var pn=document.getElementById('nav-pb'); if(pn) pn.classList.add('active');
     if(!S.data){ if(!S.loading && !S.err) load(false); renderState(c); return; }
     if(Date.now()-S.loadedAt>30*60*1000) load(false); // quiet background refresh
     // deep link: #/pb-x?s=<tabId>&h=<headingId>
@@ -27453,11 +27461,26 @@ var HB = (function(){
     document.addEventListener('keydown',kd,true); paint();
   }
 
+  // ── Sidebar: one "Operating Playbook" entry that expands to the 5 chapters ──
+  function navIsOpen(){ var g=document.getElementById('nav-pb-group'); return !!(g && g.style.display!=='none'); }
+  function navOpen(on){
+    var g=document.getElementById('nav-pb-group'), c=document.getElementById('nav-pb-caret'); if(!g) return;
+    g.style.display=on?'':'none'; if(c) c.style.transform=on?'rotate(90deg)':'';
+    try{ localStorage.setItem('rl_pb_nav_open', on?'1':'0'); }catch(e){}
+    updateCounters();
+  }
+  function navToggle(){
+    var inPb=(typeof view!=='undefined' && String(view).indexOf('pb-')===0);
+    if(!navIsOpen()){ navOpen(true); if(!inPb) nav('pb-mission'); }
+    else navOpen(false);
+  }
+  try{ if(localStorage.getItem('rl_pb_nav_open')==='1') setTimeout(function(){ navOpen(true); },0); }catch(e){}
+
   // Warm the cache shortly after sign-in so sidebar badges appear.
   function warm(){ if(!S.data && !S.loading && typeof currentUser!=='undefined' && currentUser) load(false); }
   setTimeout(function tick(){ if(typeof currentUser!=='undefined' && currentUser){ warm(); } else setTimeout(tick,3000); }, 4000);
 
-  return { render:render, nav:nav, openTab:openTab, openSearch:openSearch, load:load, _S:S, _CH:CH };
+  return { render:render, nav:nav, navToggle:navToggle, openTab:openTab, openSearch:openSearch, load:load, _S:S, _CH:CH };
 })();
 </script>
 
