@@ -1373,7 +1373,8 @@ function rlCycleFontScale(){var o=['1','1.15','1.3'],c=document.documentElement.
     <div class="ni" id="nav-strategy" onclick="go('strategy')"><div class="ni-l"><div class="dd" style="background:linear-gradient(45deg,var(--acc),var(--grn))"></div>Strategy</div></div>
     <div class="ni" id="nav-okr" onclick="go('okr')"><div class="ni-l"><div class="dd" style="background:var(--acc2)"></div>OKR Tracker</div></div>
     <div class="ni" id="nav-tasks" onclick="go('tasks')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#10b981,#6c63ff)"></div>Tasks Manager</div><div class="cnt" id="c-mytasks-v2" title="Your open tasks"></div></div>
-    <div class="ni" id="nav-roadmaps" onclick="go('roadmaps')"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f59e0b,#ec4899)"></div>Roadmaps</div></div>
+    <!-- Roadmaps hidden for everyone 2026-11-21 (Dren: not in use). Route redirects to Dashboard. -->
+    <div class="ni" id="nav-roadmaps" onclick="go('roadmaps')" style="display:none"><div class="ni-l"><div class="dd" style="background:linear-gradient(135deg,#f59e0b,#ec4899)"></div>Roadmaps</div></div>
     <!-- Legacy dept tabs (hidden, routes still work) -->
     <div class="ni" id="nav-Management" onclick="go('Management')" style="display:none"></div>
     <div class="ni" id="nav-Operations" onclick="go('Operations')" style="display:none"></div>
@@ -3951,7 +3952,7 @@ function _renderAdminUsers(){
 }
 function render(){
   if(view==='tasks')renderTasksV2();
-  else if(view==='roadmaps')renderRoadmaps();
+  else if(view==='roadmaps'){ view='dashboard'; renderDash(); }
   else if(view==='dashboard')renderDash();
   else if(view==='log')renderLog();
   else if(view==='reminders')renderReminders();
@@ -4041,6 +4042,8 @@ function go(v){
   if(v==='feedback' && !isAdmin()){if(typeof toast==='function')toast('Access restricted','err');return;}
   // 2026-11-13: My Tasks merged into Tasks Manager (My tasks scope).
   if(v==='mytasks'){ try{ tmSetState({scope:'my'}); }catch(_){} v='tasks'; }
+  // 2026-11-21: Roadmaps retired from view (not in use) — send old links to Dashboard.
+  if(v==='roadmaps'){ v='dashboard'; }
   view=v;fStatus='All';fSearch='';
   document.querySelectorAll('.ni').forEach(function(e){e.classList.remove('active');});
   var el=document.getElementById('nav-'+v);if(el)el.classList.add('active');
@@ -15091,7 +15094,6 @@ function showFullGuide(){
     {id:'okr',label:'OKR Tracker'},
     {id:'tasks',label:'Tasks'},
     {id:'mytasks',label:'My Tasks'},
-    {id:'roadmaps',label:'Roadmaps'},
     {id:'perf',label:'Performance'},
     {id:'roles',label:'By role'},
     {id:'faq',label:'FAQ'},
@@ -15127,7 +15129,6 @@ function showFullGuide(){
         ['Strategy','OKR cascade from Company → Department → Individual. Forecast, attention center, mindmap.'],
         ['OKR Tracker','Quarterly OKR creation and progress editing. The source of truth for what we are committed to.'],
         ['Tasks','Unified task management. My Work · Team · Board · Timeline · Manager. Quick-add (press N).'],
-        ['Roadmaps','Product roadmap. Now / Next / Later + Timeline. Features link to KRs and Initiatives.'],
         ['My Tasks','Shortcut to Tasks page filtered to your personal list.'],
         ['Performance','Performance reviews, scorecards, 9-box, org tree.'],
         ['Reminders','Upcoming task and reminder feed.'],
@@ -15215,26 +15216,6 @@ function showFullGuide(){
         'Click any card to edit, mark blocked, or change due date.',
       ])+
       callout('Tip','Snooze a task to push due 1 day forward without changing anything else.')
-    ) +
-
-    sect('roadmaps','Roadmaps',
-      '<p>Product roadmap module. Where Features are planned, scheduled, and linked to strategy.</p>'+
-      '<h4>The hierarchy</h4>'+
-      '<p>Theme → Feature → Initiative → Task. Themes group features strategically. Features are the discrete things shipped. Initiatives + Tasks come from Strategy / Tasks — no duplicate hierarchies.</p>'+
-      '<h4>The three tabs</h4>'+
-      ul([
-        '<strong>Now / Next / Later</strong> (default) — features bucketed by horizon under their themes.',
-        '<strong>Timeline</strong> — horizontal Gantt with quarter columns and theme swimlanes.',
-        '<strong>Releases</strong> — placeholder for upcoming/recent versions. Ships next phase.',
-      ])+
-      '<h4>Creating a feature</h4>'+
-      ol([
-        'Click <strong>+ New feature</strong> (bright green button, top-right).',
-        'Title it. Pick a theme, horizon, target quarter, owner. Create.',
-        'Drawer opens automatically. Add description, impact + effort (1–5 each), risks, link to a KR, link to existing initiatives, confidence level.',
-        'Save. The feature appears in Now/Next/Later and Timeline.',
-      ])+
-      callout('Why this matters','Every feature linked to a KR means leadership can see strategy → roadmap → delivery → outcomes as one chain. That is the whole point of Pulse.')
     ) +
 
     sect('perf','Performance',
