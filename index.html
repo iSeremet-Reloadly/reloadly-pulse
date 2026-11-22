@@ -27587,6 +27587,10 @@ var HB = (function(){
 .hm-h1{font-family:Lexend,sans-serif;font-size:calc(30px*var(--fs,1));font-weight:800;letter-spacing:-.02em;line-height:1.1;margin:0 0 8px}
 .hm-sub{font-size:calc(14px*var(--fs,1));color:rgba(255,255,255,.85);line-height:1.55;max-width:820px}
 .hm-sub b{color:#fff}
+.hm-herotip{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.14);font-family:'Roboto Mono',monospace;font-size:calc(10.5px*var(--fs,1));color:rgba(255,255,255,.75)}
+.hm-herotip b{color:#09faa3}
+.hm-herobtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:10px;padding:8px 14px;font-weight:800;cursor:pointer;font-family:Lexend,sans-serif;font-size:calc(12px*var(--fs,1))}
+.hm-herobtn:hover{background:rgba(255,255,255,.18)}
 .hm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .hm-tile{position:relative;background:var(--surf);border:1px solid var(--brd);border-radius:16px;padding:20px 20px 16px;cursor:pointer;transition:transform .18s,box-shadow .18s,border-color .18s;display:flex;flex-direction:column;gap:10px;min-height:230px;overflow:hidden}
 .hm-tile:hover{transform:translateY(-3px);border-color:var(--acc);box-shadow:0 16px 34px -20px rgba(119,0,255,.6)}
@@ -27708,7 +27712,7 @@ var HOME = (function(){
     if(O.risk) bits.push('<b>'+O.risk+' KR'+(O.risk>1?'s':'')+' at risk</b>');
     var line = bits.length ? 'Today: '+bits.join(' · ')+'.' : 'You’re all caught up — a good moment to move a KR forward or read a playbook chapter.';
     var date=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
-    var h='<div class="hm-wrap"><div class="hm-hero"><div class="hm-hi">'+e(date)+'</div><div class="hm-h1">'+greet()+(first()?', '+e(first()):'')+'.</div><div class="hm-sub">'+line+'</div></div><div class="hm-grid">';
+    var h='<div class="hm-wrap"><div class="hm-hero"><div class="hm-hi">'+e(date)+'</div><div class="hm-h1">'+greet()+(first()?', '+e(first()):'')+'.</div><div class="hm-sub">'+line+'</div><div class="hm-herotip"><span>Tip: press <b>?</b> on any page for help, or replay a walkthrough.</span><button class="hm-herobtn" id="hm-replay">▶ Replay the welcome tour</button></div></div><div class="hm-grid">';
 
     var tb='<div class="hm-big"><b>'+T.open+'</b><span>open task'+(T.open===1?'':'s')+' assigned to you</span></div>'
       +'<div class="hm-chips">'+(T.today?'<span class="hm-chip yel">'+T.today+' due today</span>':'')+(T.overdue?'<span class="hm-chip red">'+T.overdue+' overdue</span>':'')+(T.blocked?'<span class="hm-chip red">'+T.blocked+' blocked</span>':'')+(!T.today&&!T.overdue&&!T.blocked?'<span class="hm-chip grn">Nothing urgent</span>':'')+'</div>'
@@ -27731,7 +27735,6 @@ var HOME = (function(){
     h+=tile('hm-t-pb','#09faa3','📘','Operating Playbook','How we work at Reloadly','<div id="hm-pb-body" style="display:flex;flex-direction:column;gap:10px;flex:1">'+pbBody()+'</div>','Open the playbook');
     h+='</div>';
 
-    h+='<div class="hm-foot"><span class="hm-ts">Tip: press <b>?</b> on any page for help, or replay a walkthrough.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="hm-link" id="hm-replay">▶ Replay the welcome tour</button><button class="hm-link" id="hm-dash">Company dashboard →</button></span></div>';
     if(typeof isAdmin==='function' && isAdmin()) h+='<div class="hm-admin" id="hm-admin"><span style="font-size:calc(18px*var(--fs,1))">🎓</span><div style="flex:1;min-width:200px"><div style="font-weight:800">Walkthrough completion</div><div class="hm-ts" id="hm-admin-s">Loading…</div></div><button class="hm-link" id="hm-admin-b">Walkthroughs by person</button><button class="hm-link" id="hm-admin-pb">📊 Playbook reading report</button></div>';
     h+='</div>';
     main.innerHTML=h;
@@ -27742,7 +27745,6 @@ var HOME = (function(){
     on('hm-t-hpm',function(){ try{ localStorage.setItem('rl_perf_view','hpm'); }catch(_){} go('perf'); });
     on('hm-t-pb',function(){ var s=(window.HB&&HB.summary)?HB.summary():null; if(s&&s.firstUpdated) HB.openTab(s.firstUpdated); else HB.nav('pb-mission'); });
     on('hm-replay',function(){ PTOUR.start('welcome',{replay:true}); });
-    on('hm-dash',function(){ go('dashboard'); });
     on('hm-admin-b',function(){ PTOUR.adminModal(); });
     on('hm-admin-pb',function(){ if(window.HB && HB.report) HB.report(); });
     if(document.getElementById('hm-admin')) PTOUR.adminSummary(function(t){ var el=document.getElementById('hm-admin-s'); if(el) el.textContent=t; });
@@ -27808,7 +27810,12 @@ var PTOUR = (function(){
 
   function call(a,p){ return (typeof RL_SRV!=='undefined') ? RL_SRV.call(a,p||{}) : Promise.resolve({ok:false}); }
   function doneV(id){ var p=S.status&&S.status[id]; return p?(+p.v||0):0; }
-  function needs(id){ return S.status && doneV(id) < TOURS[id].v; }
+  // 2026-11-21 (Dren): walkthroughs are required for EVERYONE at launch — not just new
+  // joiners. Anyone who skipped sees it again with no Skip button; people who
+  // finished it are not asked again. Set false to go back to new-joiners-only.
+  var REQUIRED_FOR_ALL = true;
+  function wasSkipped(id){ var p=S.status&&S.status[id]; return !!(p && p.skipped); }
+  function needs(id){ return S.status && (doneV(id) < TOURS[id].v || (S.mandatory && wasSkipped(id))); }
   function busy(){ return S.booting || !!S.active; }
   function after(fn){ if(busy()) S.queue.push(fn); else fn(); }
   function flush(){ var q=S.queue; S.queue=[]; q.forEach(function(f){ try{ f(); }catch(_){ } }); }
@@ -27820,7 +27827,7 @@ var PTOUR = (function(){
     call('tour_status').then(function(r){
       clearTimeout(guard); S.booting=false;
       if(!r || !r.ok){ flush(); return; }
-      S.status=r.progress||{}; S.mandatory=!!r.mandatory;
+      S.status=r.progress||{}; S.newJoiner=!!r.mandatory; S.mandatory=REQUIRED_FOR_ALL || !!r.mandatory;
       if(needs('welcome')){
         if(typeof view==='undefined' || view!=='home') go('home');
         setTimeout(function(){ start('welcome'); }, 450);
@@ -27850,7 +27857,7 @@ var PTOUR = (function(){
     opts=opts||{}; var T=TOURS[id]; if(!T) return;
     close(true);
     var steps=T.steps.filter(function(s){ return !(s.mobileSkip && window.innerWidth<=900); });
-    var canSkip = opts.replay || !S.mandatory || doneV(id)>0;
+    var canSkip = opts.replay || !S.mandatory || (doneV(id)>0 && !wasSkipped(id));
     var i=0, block=document.createElement('div'), hole=document.createElement('div'), card=document.createElement('div');
     block.className='pt-block'; hole.className='pt-hole'; card.className='pt-card';
     document.body.appendChild(block); document.body.appendChild(hole); document.body.appendChild(card);
@@ -27874,7 +27881,7 @@ var PTOUR = (function(){
       card.innerHTML='<div class="pt-k"><span>'+esc(T.title)+'</span><span>'+(i+1)+' / '+steps.length+'</span></div>'
         +'<div class="pt-t">'+esc(title)+'</div><div class="pt-b">'+st.body+'</div>'
         +'<div class="pt-dots">'+steps.map(function(_,j){return '<i class="'+(j<=i?'on':'')+'"></i>';}).join('')+'</div>'
-        +'<div class="pt-row">'+(canSkip?'<button class="pt-btn pt-skip" data-pt="skip">Skip tour</button>':'<span class="pt-req">Required for new joiners</span>')
+        +'<div class="pt-row">'+(canSkip?'<button class="pt-btn pt-skip" data-pt="skip">Skip tour</button>':'<span class="pt-req">'+(S.newJoiner?'Required for new joiners':'Required for everyone')+'</span>')
         +(i>0?'<button class="pt-btn pt-back" data-pt="back" style="margin-left:auto">← Back</button>':'')
         +'<button class="pt-btn pt-next" data-pt="next"'+(i>0?' style="margin-left:0"':'')+'>'+(last?'Finish ✓':'Next →')+'</button></div>';
       requestAnimationFrame(place);
@@ -27917,7 +27924,7 @@ var PTOUR = (function(){
       var rows=(r.users||[]).slice().sort(function(a,b){ return (b.mandatory?1:0)-(a.mandatory?1:0) || String(a.name).localeCompare(b.name); });
       var cell=function(p){ if(!p) return '<span style="color:var(--mut)">—</span>'; return p.skipped?'<span style="color:var(--yel)" title="Skipped">↷</span>':'<span style="color:var(--grn)" title="'+esc(p.at||'')+'">✓</span>'; };
       b.innerHTML='<table style="width:100%;border-collapse:collapse;font-family:inherit;font-size:calc(12px*var(--fs,1))"><tr style="text-align:left;color:var(--mut)"><th style="padding:6px">Person</th><th>Dept</th>'+ids.map(function(k){return '<th style="text-align:center">'+lab[k]+'</th>';}).join('')+'</tr>'
-        +rows.map(function(u){ return '<tr style="border-top:1px solid var(--brd)"><td style="padding:7px 6px;font-weight:700">'+esc(u.name)+(u.mandatory?' <span class="hm-chip yel" style="font-weight:500">new joiner</span>':'')+'</td><td style="color:var(--mut)">'+esc(u.dept||'')+'</td>'+ids.map(function(k){ return '<td style="text-align:center">'+cell(u.progress&&u.progress[k])+'</td>'; }).join('')+'</tr>'; }).join('')+'</table><div class="hm-ts" style="margin-top:10px">✓ completed · ↷ skipped · — not seen yet. New joiners can’t skip.</div>';
+        +rows.map(function(u){ return '<tr style="border-top:1px solid var(--brd)"><td style="padding:7px 6px;font-weight:700">'+esc(u.name)+(u.mandatory?' <span class="hm-chip yel" style="font-weight:500">new joiner</span>':'')+'</td><td style="color:var(--mut)">'+esc(u.dept||'')+'</td>'+ids.map(function(k){ return '<td style="text-align:center">'+cell(u.progress&&u.progress[k])+'</td>'; }).join('')+'</tr>'; }).join('')+'</table><div class="hm-ts" style="margin-top:10px">✓ completed · ↷ skipped (will be shown again — walkthroughs are required for everyone) · — not seen yet.</div>';
     });
   }
   return { boot:boot, onView:onView, start:start, busy:busy, after:after, helpLink:helpLink, adminSummary:adminSummary, adminModal:adminModal, _S:S, _T:TOURS };
