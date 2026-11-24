@@ -2855,22 +2855,50 @@ var _TASKS_SYNC = {
   lastLocalChangeAt: 0,
 };
 
-function _pushTasksToWorker(){
+function _pushTasksToWorker(immediate, keepalive){
   if(typeof RL_SRV === 'undefined' || typeof data === 'undefined') return;
   _TASKS_SYNC.lastLocalChangeAt = Date.now();
   if(_TASKS_SYNC.pushTimer) clearTimeout(_TASKS_SYNC.pushTimer);
-  _TASKS_SYNC.pushTimer = setTimeout(function(){
+  _TASKS_SYNC.pushTimer = null;
+  var doPush = function(){
     _TASKS_SYNC.pushTimer = null;
+    _TASKS_SYNC.inFlight = true; _tasksSaveChanged();
     var by = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
-    RL_SRV.call('put_tasks', {data: data, by: by}).then(function(r){
+    RL_SRV.call('put_tasks', {data: data, by: by}, {keepalive: !!keepalive}).then(function(r){
+      _TASKS_SYNC.inFlight = false;
       if(r && r.ok){
         _TASKS_SYNC.lastPushedAt = Date.now();
         _TASKS_SYNC.lastPolledMetaAt = r.updatedAt || '';
+        _TASKS_SYNC.lastFailedAt = 0; _TASKS_SYNC.lastError = ''; _TASKS_SYNC.retryDelay = 0;
+        window._pulseLastSyncAt = Date.now();
         try{ var dot=document.getElementById('as-dot'); if(dot){dot.title='Synced ✓ — shared with team';} }catch(e){}
+      } else {
+        _tasksMarkFailed((r && r.error) || 'rejected');
       }
-    }).catch(function(){});
-  }, 2000);
+      _tasksSaveChanged();
+    }).catch(function(){ _TASKS_SYNC.inFlight = false; _tasksMarkFailed('network'); _tasksSaveChanged(); });
+  };
+  if(immediate){ doPush(); }
+  else { _TASKS_SYNC.pushTimer = setTimeout(doPush, 2000); _tasksSaveChanged(); }
 }
+function _tasksSaveChanged(){ try { if(typeof window._pulseSaveChanged === 'function') window._pulseSaveChanged(); } catch(e){} }
+function _tasksMarkFailed(err){
+  var s = _TASKS_SYNC;
+  s.lastFailedAt = Date.now(); s.lastError = String(err);
+  if(err === 'invalid_session' || err === 'no_worker_url') return;
+  s.retryDelay = Math.min(s.retryDelay ? s.retryDelay * 2 : 15000, 300000);
+  if(s.retryTimer) clearTimeout(s.retryTimer);
+  s.retryTimer = setTimeout(function(){ s.retryTimer = null; _reconcileTasksSync(); }, s.retryDelay);
+}
+// Tasks joins the shared engine registry so flush-on-close and the save pill cover it.
+try { (window._PULSE_SYNC_ENGINES = window._PULSE_SYNC_ENGINES || []).push({
+  key: 'shared_tasks',
+  state: _TASKS_SYNC,
+  flush: function(){ if(_TASKS_SYNC.pushTimer){ _pushTasksToWorker(true, true); return true; } return false; },
+  isPending: function(){ var s = _TASKS_SYNC; return !!(s.pushTimer || s.inFlight || (s.lastLocalChangeAt && s.lastLocalChangeAt > s.lastPushedAt)); },
+  isFailed: function(){ var s = _TASKS_SYNC; return !!(s.lastFailedAt && s.lastLocalChangeAt > s.lastPushedAt && !s.pushTimer && !s.inFlight); },
+  reconcile: function(){ if(typeof _reconcileTasksSync === 'function') _reconcileTasksSync(); }
+}); } catch(e){}
 
 // Same self-heal as _createDocSync.reconcile() -- retries a push that
 // never confirmed success instead of leaving local task edits stranded.
@@ -2935,35 +2963,61 @@ function _createDocSync(opts){
   //   debounceMs:   default 2000
   //   pollIntervalMs: default 30000
   //   onPullApplied: fn(data, updatedBy) — UI re-render hook
-  var state = {lastPushedAt: 0, lastPolledMetaAt: '', pushTimer: null, pulling: false, started: false, lastLocalChangeAt: 0};
-  function push(immediate){
+  var state = {lastPushedAt: 0, lastPolledMetaAt: '', pushTimer: null, pulling: false, started: false, lastLocalChangeAt: 0, inFlight: false, lastFailedAt: 0, lastError: '', retryDelay: 0, retryTimer: null};
+  function _sc(){ try { if(typeof window._pulseSaveChanged === 'function') window._pulseSaveChanged(); } catch(e){} }
+  function push(immediate, keepalive){
     state.lastLocalChangeAt = Date.now();
     if(typeof RL_SRV === 'undefined') return;
     if(state.pushTimer) clearTimeout(state.pushTimer);
+    state.pushTimer = null;
     var doPush = function(){
       state.pushTimer = null;
       try {
         var by = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
         var d = opts.getLocal();
-        RL_SRV.call('put_doc', {key: opts.key, data: d, by: by}).then(function(r){
+        state.inFlight = true; _sc();
+        RL_SRV.call('put_doc', {key: opts.key, data: d, by: by}, {keepalive: !!keepalive}).then(function(r){
+          state.inFlight = false;
           if(r && r.ok){
             state.lastPushedAt = Date.now();
             state.lastPolledMetaAt = r.updatedAt || '';
+            state.lastFailedAt = 0; state.lastError = ''; state.retryDelay = 0;
+            window._pulseLastSyncAt = Date.now();
+          } else {
+            _markFailed((r && r.error) || 'rejected');
           }
-        }).catch(function(){});
-      } catch(e){}
+          _sc();
+        }).catch(function(){ state.inFlight = false; _markFailed('network'); _sc(); });
+      } catch(e){ state.inFlight = false; _markFailed('error'); _sc(); }
     };
     // immediate=true skips the debounce entirely -- used for one-shot admin
-    // actions (add/archive/restore user) where a closed tab or quick refresh
-    // must not be able to race ahead of the write reaching the server.
+    // actions (add/archive/restore user) and for flushing when the tab is
+    // hidden/closed, so a quick close can't race ahead of the write.
     if(immediate){ doPush(); }
-    else { state.pushTimer = setTimeout(doPush, opts.debounceMs || 2000); }
+    else { state.pushTimer = setTimeout(doPush, opts.debounceMs || 2000); _sc(); }
   }
+  // 2026-11-23: failed saves now retry on their own with back-off
+  // (15s, 30s, 60s ... max 5 min) and are surfaced in the header pill.
+  function _markFailed(err){
+    state.lastFailedAt = Date.now(); state.lastError = String(err);
+    if(err === 'invalid_session' || err === 'no_worker_url') return;
+    state.retryDelay = Math.min(state.retryDelay ? state.retryDelay * 2 : 15000, 300000);
+    if(state.retryTimer) clearTimeout(state.retryTimer);
+    state.retryTimer = setTimeout(function(){ state.retryTimer = null; reconcile(); }, state.retryDelay);
+  }
+  // Send a debounced change right away (tab hidden / closing).
+  function flush(){
+    if(state.pushTimer){ push(true, true); return true; }
+    return false;
+  }
+  function isPending(){ return !!(state.pushTimer || state.inFlight || (state.lastLocalChangeAt && state.lastLocalChangeAt > state.lastPushedAt)); }
+  function isFailed(){ return !!(state.lastFailedAt && state.lastLocalChangeAt > state.lastPushedAt && !state.pushTimer && !state.inFlight); }
   function pull(force){
     if(typeof RL_SRV === 'undefined' || state.pulling) return Promise.resolve();
     state.pulling = true;
     return RL_SRV.call('get_doc', {key: opts.key}).then(function(r){
       state.pulling = false;
+      if(r && r.ok) window._pulseLastSyncAt = Date.now();
       if(!r || !r.ok || !r.found || r.data == null) return;
       if(!force && r.updatedAt && r.updatedAt <= state.lastPolledMetaAt) return;
       var me = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || null;
@@ -2980,6 +3034,7 @@ function _createDocSync(opts){
       if(typeof document !== 'undefined' && document.hidden) return;
       if(typeof RL_SRV === 'undefined') return;
       RL_SRV.call('get_doc_meta', {key: opts.key}).then(function(r){
+        if(r && r.ok) window._pulseLastSyncAt = Date.now();
         if(!r || !r.ok || !r.found) return;
         if(r.updatedAt && r.updatedAt > state.lastPolledMetaAt){
           pull();
@@ -2995,7 +3050,9 @@ function _createDocSync(opts){
     if(state.pushTimer) return;
     if(state.lastLocalChangeAt && state.lastLocalChangeAt > state.lastPushedAt){ push(true); }
   }
-  return {push: push, pull: pull, startPoll: startPoll, state: state, key: opts.key, reconcile: reconcile};
+  var api = {push: push, pull: pull, startPoll: startPoll, state: state, key: opts.key, reconcile: reconcile, flush: flush, isPending: isPending, isFailed: isFailed};
+  try { (window._PULSE_SYNC_ENGINES = window._PULSE_SYNC_ENGINES || []).push(api); } catch(e){}
+  return api;
 }
 
 // ── Phase 3: USER_REGISTRY sync ──────────────────────────────────────────
@@ -3266,6 +3323,27 @@ function _showNewVersionBanner(){
   // Auto-reload after 60s if user doesn't click — assumes they're inactive.
   setTimeout(function(){ if(document.getElementById('_pulse-new-ver')) location.reload(); }, 60000);
 }
+// 2026-11-23 sync quick wins: the header pill now reports SAVE state, not
+// just "Live": Saving… (amber) / Not saved · retrying (red) / Saved (green).
+window._pulseSaveChanged = function(){ try { _updateFreshnessPill(); } catch(e){} };
+function _pulseSaveStatus(){
+  var engs = window._PULSE_SYNC_ENGINES || [], pending = false, failed = null;
+  engs.forEach(function(e){ try { if(e.isFailed && e.isFailed()) failed = e; else if(e.isPending && e.isPending()) pending = true; } catch(_){} });
+  return {pending: pending, failed: failed};
+}
+function _pulseFlushAll(){
+  var n = 0;
+  (window._PULSE_SYNC_ENGINES || []).forEach(function(e){ try { if(e.flush && e.flush()) n++; } catch(_){} });
+  return n;
+}
+function _pulseUnsavedNow(){
+  return (window._PULSE_SYNC_ENGINES || []).some(function(e){ try { var s = e.state || {}; return !!(s.pushTimer || s.inFlight); } catch(_){ return false; } });
+}
+function _pulsePillClick(){
+  var st = _pulseSaveStatus();
+  if(st.failed || st.pending){ _reconcileAllSyncs(); } else { _forcePullAllSyncs(); }
+  _updateFreshnessPill();
+}
 function _updateFreshnessPill(){
   var el = document.getElementById('_pulse-live-pill');
   if(!el){
@@ -3273,14 +3351,53 @@ function _updateFreshnessPill(){
     if(!host) return;
     el = document.createElement('span');
     el.id = '_pulse-live-pill';
-    el.style.cssText = 'font-size:calc(9px*var(--fs,1));font-family:Roboto Mono,monospace;color:var(--grn);margin-right:8px;padding:2px 8px;border-radius:20px;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.3);cursor:pointer';
-    el.title = 'Data auto-syncs every 30s. Click to force a refresh now.';
-    el.onclick = _forcePullAllSyncs;
+    el.onclick = _pulsePillClick;
     host.parentNode.insertBefore(el, host);
   }
+  var st = _pulseSaveStatus();
   var age = Math.round((Date.now() - window._pulseLastSyncAt)/1000);
-  el.textContent = '● Live · ' + (age < 5 ? 'just now' : age < 60 ? age+'s ago' : Math.floor(age/60)+'m ago');
+  var ageTxt = age < 5 ? 'just now' : age < 60 ? age+'s ago' : Math.floor(age/60)+'m ago';
+  var c, bg, txt, tip;
+  if(st.failed){
+    var err = (st.failed.state && st.failed.state.lastError) || 'error';
+    c = '#f87171'; bg = 'rgba(248,113,113,0.12)';
+    txt = err === 'invalid_session' ? '● Not saved · sign in again' : '● Not saved · retrying';
+    tip = 'Your latest change has not reached the server yet (' + err + '). Pulse retries automatically — click to retry now. Please keep this tab open until it shows Saved.';
+  } else if(st.pending){
+    c = '#fbbf24'; bg = 'rgba(251,191,36,0.12)'; txt = '● Saving…';
+    tip = 'Sending your latest change to the server.';
+  } else if(window._pulseStorageFull){
+    c = '#fbbf24'; bg = 'rgba(251,191,36,0.12)'; txt = '⚠ Saved · browser storage full';
+    tip = 'Your changes are saved, but this browser\'s storage for Pulse is full, so some data (mainly Wallet Ops history) can\'t be kept on this device. Please let Dren know.';
+  } else {
+    c = '#4ade80'; bg = 'rgba(74,222,128,0.12)'; txt = '● Saved · synced ' + ageTxt;
+    tip = 'All your changes are saved. Data auto-syncs every 30s — click to refresh now.';
+  }
+  el.style.cssText = 'font-size:calc(9px*var(--fs,1));font-family:Roboto Mono,monospace;color:' + c + ';margin-right:8px;padding:2px 8px;border-radius:20px;background:' + bg + ';border:1px solid ' + c + '55;cursor:pointer';
+  el.title = tip;
+  el.textContent = txt;
 }
+// Detects a full localStorage (previously failed silently) without changing
+// behaviour: the error is still thrown to the caller as before.
+(function(){
+  try {
+    var _origSet = Storage.prototype.setItem;
+    if(_origSet && !_origSet._pulseWrapped){
+      var w = function(k, v){
+        try { return _origSet.call(this, k, v); }
+        catch(e){
+          if(e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014)){
+            window._pulseStorageFull = {key: k, at: Date.now()};
+            try { _updateFreshnessPill(); } catch(_){}
+          }
+          throw e;
+        }
+      };
+      w._pulseWrapped = true;
+      Storage.prototype.setItem = w;
+    }
+  } catch(e){}
+})();
 // Re-verifies the signed-in session against the Worker. On success it
 // refreshes the server's lastActivity (staving off the 2h idle cutoff)
 // and our local expiresAt cache; on failure it forces a clean sign-out
@@ -3291,10 +3408,11 @@ function _reconcileAllSyncs(){
   // confirmed push to the server gets another attempt. Cheap and safe to
   // call often -- each reconcile()/_reconcileTasksSync()/_reconcileHPM()
   // call is itself a no-op unless there's an actual unconfirmed change.
-  [window.USER_REG_SYNC, window.ACT_LOG_SYNC, window.RM_SYNC, window.OKR_SYNC, window.PERF_SYNC].forEach(function(eng){
+  // 2026-11-23: iterate the engine registry, which also covers Tasks and the
+  // Wallet Ops engines (Daily Pull / Top-ups) that the old list missed.
+  (window._PULSE_SYNC_ENGINES || []).forEach(function(eng){
     if(eng && eng.reconcile){ try { eng.reconcile(); } catch(e){} }
   });
-  if(typeof _reconcileTasksSync === 'function'){ try { _reconcileTasksSync(); } catch(e){} }
   if(typeof _reconcileHPM === 'function'){ try { _reconcileHPM(); } catch(e){} }
 }
 function _verifySessionHeartbeat(){
@@ -3319,8 +3437,18 @@ function _initFreshnessLoop(){
       _forcePullAllSyncs();
       _checkForNewDeploy();
       _verifySessionHeartbeat();
+    } else {
+      // 2026-11-23: tab hidden (switching away, minimising, closing) — send
+      // any change still waiting in its 2s debounce right now.
+      _pulseFlushAll();
     }
   });
+  window.addEventListener('pagehide', function(){ _pulseFlushAll(); });
+  window.addEventListener('beforeunload', function(e){
+    // Only warns in the few seconds a change is actually still being sent.
+    if(_pulseUnsavedNow()){ _pulseFlushAll(); e.preventDefault(); e.returnValue = ''; return ''; }
+  });
+  window.addEventListener('online', function(){ _reconcileAllSyncs(); _updateFreshnessPill(); });
   // 2) Version check on interval
   _checkForNewDeploy(); // baseline
   setInterval(_checkForNewDeploy, 120000); // every 2 min
@@ -5881,7 +6009,7 @@ var RL_SRV = {
       return null;
     } catch(e){ return null; }
   },
-  call: function(action, payload){
+  call: function(action, payload, callOpts){
     var u = RL_SRV.url();
     if(!u) return Promise.resolve({error:'no_worker_url'});
     // Auto-attach the signed-in session token to every call so the Worker
@@ -5890,11 +6018,13 @@ var RL_SRV = {
     var tok = null;
     try { tok = localStorage.getItem('rl_session_token'); } catch(e){}
     var merged = Object.assign({action:action}, tok ? {sessionToken:tok} : {}, payload||{});
-    return fetch(u, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(merged)
-    }).then(function(r){return r.json();}).catch(function(e){return {error:'network', detail:String(e)};});
+    var bodyStr = JSON.stringify(merged);
+    var fo = {method:'POST', headers:{'Content-Type':'application/json'}, body: bodyStr};
+    // 2026-11-23 sync quick wins: keepalive lets a save survive the tab
+    // closing. Browsers cap keepalive bodies at 64 KB; text/plain avoids a
+    // CORS preflight (the Worker parses the JSON body regardless).
+    if(callOpts && callOpts.keepalive && bodyStr.length < 60000){ fo.keepalive = true; fo.headers = {'Content-Type':'text/plain'}; }
+    return fetch(u, fo).then(function(r){return r.json();}).catch(function(e){return {error:'network', detail:String(e)};});
   },
   pushHPM: function(email, weekKey, entry){ return RL_SRV.call('put_hpm', {email:email, weekKey:weekKey, entry:entry}); },
   pushRoster: function(roster){
@@ -19369,7 +19499,7 @@ var FUND=(function(){
     var by = (window.currentUser && window.currentUser.email) || 'unknown';
     return fetch(url, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'put_registry', registry: NS.loadRegistry(), by: by})
+      body:JSON.stringify({sessionToken:(function(){try{return localStorage.getItem('rl_session_token');}catch(e){return null;}})(), action:'put_registry', registry: NS.loadRegistry(), by: by})
     }).then(function(r){return r.json();}).then(function(res){
       NS.SYNC.pushing = false;
       NS.SYNC.lastPushAt = Date.now();
@@ -19397,7 +19527,7 @@ var FUND=(function(){
     if(NS.SYNC.pulling || NS.SYNC.pushing) return Promise.resolve({ok:false, error:'busy'});
     return fetch(url, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'get_registry_meta'})
+      body:JSON.stringify({sessionToken:(function(){try{return localStorage.getItem('rl_session_token');}catch(e){return null;}})(), action:'get_registry_meta'})
     }).then(function(r){return r.json();}).then(function(res){
       if(!res || !res.ok || !res.found) return {ok:false, skipped:true};
       // First call after page load: just record the timestamp, don't pull.
@@ -19424,7 +19554,7 @@ var FUND=(function(){
     NS._updateSyncIndicator();
     return fetch(url, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'get_registry'})
+      body:JSON.stringify({sessionToken:(function(){try{return localStorage.getItem('rl_session_token');}catch(e){return null;}})(), action:'get_registry'})
     }).then(function(r){return r.json();}).then(function(res){
       NS.SYNC.pulling = false;
       NS.SYNC.lastPullAt = Date.now();
@@ -19527,8 +19657,15 @@ var FUND=(function(){
     el.title = tip;
     el.textContent = text;
   };
-  NS.loadSnapshots=function(){return loadJSON(K.snapshots,[]);};
-  NS.saveSnapshots=function(s){saveJSON(K.snapshots,s);};
+  // 2026-11-22 perf fix: computeBurnRate() calls loadSnapshots() once per provider
+  // per window (2,205 calls per Fund Now render), and each call JSON-parsed the
+  // ~1.6 MB snapshot history from localStorage — Daily 1.8s, Forecast 3.6s, Fund
+  // Now 8.3s of frozen UI. Cache the parsed copy briefly; any save (or another
+  // tab writing the key) invalidates it. Fund Now now renders in ~50ms.
+  var _snapCache=null,_snapAt=0;
+  NS.loadSnapshots=function(){var n=Date.now();if(_snapCache&&n-_snapAt<3000)return _snapCache;_snapCache=loadJSON(K.snapshots,[]);_snapAt=n;return _snapCache;};
+  NS.saveSnapshots=function(s){_snapCache=null;saveJSON(K.snapshots,s);};
+  try{window.addEventListener('storage',function(e){if(!e.key||e.key===K.snapshots)_snapCache=null;});}catch(_){}
   // Hourly archive — forward-only history of snapshots captured by the hourly
   // sync. One entry per (date,hour) bucket; same-hour applies replace the
   // existing bucket so we don't accumulate duplicates if the worker fires
@@ -19939,7 +20076,7 @@ var FUND=(function(){
     return fetch(url, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({action: 'latest_hourly'})
+      body: JSON.stringify({sessionToken:(function(){try{return localStorage.getItem('rl_session_token');}catch(e){return null;}})(), action: 'latest_hourly'})
     }).then(function(r){return r.json();}).catch(function(e){return {error: 'network', detail: String(e)};});
   };
 
@@ -19980,7 +20117,7 @@ var FUND=(function(){
     return fetch(url, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({action: 'latest_all'})
+      body: JSON.stringify({sessionToken:(function(){try{return localStorage.getItem('rl_session_token');}catch(e){return null;}})(), action: 'latest_all'})
     }).then(function(r){return r.json();}).catch(function(e){return {error: 'network', detail: String(e)};});
   };
 
@@ -20596,7 +20733,7 @@ var FUND=(function(){
     return fetch(url, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'alert', text:text, blocks:blocks||null})
+      body:JSON.stringify({sessionToken:(function(){try{return localStorage.getItem('rl_session_token');}catch(e){return null;}})(), action:'alert', text:text, blocks:blocks||null})
     }).then(function(r){return r.json();}).catch(function(e){return {error:'network', detail:String(e)};});
   };
 
@@ -20617,7 +20754,7 @@ var FUND=(function(){
     return fetch(url, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'recompute_alerts', trigger: trigger || 'manual'})
+      body:JSON.stringify({sessionToken:(function(){try{return localStorage.getItem('rl_session_token');}catch(e){return null;}})(), action:'recompute_alerts', trigger: trigger || 'manual'})
     }).then(function(r){return r.json();}).catch(function(e){
       return {checked:0, eligible:0, sent:0, error:'network', detail:String(e)};
     });
@@ -22592,7 +22729,7 @@ var FUND=(function(){
         cmdHtml='<span class="bender-cmd" style="background:rgba(6,182,212,.12);color:#22d3ee">'+swypeCmd+'</span>'
           +(p.subKey?' <span class="mut" style="font-size:calc(9px*var(--fs,1))">→ '+_esc(p.subKey)+'</span>':'')
           +' <span class="fund-source-pill swype" style="font-size:calc(8px*var(--fs,1));margin-left:6px" title="Bender auto-pulls this every hour. No need to send the command — just paste the latest channel message.">AUTO HOURLY</span>';
-      } else if(p.mode==='portal'&&p.portalUrl){
+      } else if(p.mode==='portal'&&p.portalUrl&&/^https?:\/\//i.test(String(p.portalUrl))){
         cmdHtml='<a class="fund-action-btn portal" href="'+_esc(p.portalUrl)+'" target="_blank" rel="noopener" title="Open '+_esc(p.portalUrl)+' in a new tab">↗ Open portal</a>';
       } else if(p.mode==='portal'){
         cmdHtml='<span class="mut">portal — set URL in Providers tab</span>';
