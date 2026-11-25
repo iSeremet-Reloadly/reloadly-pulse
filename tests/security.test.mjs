@@ -15,6 +15,17 @@ test('every inline <script> parses (catches broken edits)', () => {
   assert.ok(n > 0);
 });
 
+test('a Content-Security-Policy is present and safe on the important directives', () => {
+  const m = html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/);
+  assert.ok(m, 'CSP meta tag missing');
+  const csp = m[1];
+  assert.match(csp, /object-src 'none'/);
+  assert.match(csp, /base-uri 'none'/);
+  assert.doesNotMatch(csp, /unsafe-eval/, "CSP must not allow 'unsafe-eval'");
+  const connect = csp.match(/connect-src ([^;]+)/)[1];
+  assert.doesNotMatch(connect, /\*|https:(?!\/)/, 'connect-src must not be a wildcard');
+});
+
 test('every external <script src> has Subresource Integrity', () => {
   const tags = [...html.matchAll(/<script[^>]*\bsrc="(https?:[^"]+)"[^>]*>/g)];
   // Cloudflare Turnstile must load from Cloudflare unpinned; everything else is pinned.

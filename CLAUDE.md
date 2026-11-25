@@ -30,8 +30,9 @@ Your job is to deliver what they ask **and** protect the app, the data and futur
    `tests/security.test.mjs` fails the build if raw free text is concatenated into `innerHTML`.
 4. **Never** use `eval`, `new Function`, `document.write`, or load scripts from a new domain.
 5. **New third-party scripts**: pin an exact version, add an SRI hash (see `window._PULSE_SRI` and the tags in
-   `<head>`), Prefer no new dependency.
-6. **Do not remove SRI** to make something work. If a script cannot be pinned, explain and ask.
+   `<head>`), and add the domain to the CSP `<meta>` only after confirming it is needed. Prefer no new dependency.
+6. **Do not weaken the CSP** (`<meta http-equiv="Content-Security-Policy">`) or remove SRI to make something work.
+   If the CSP blocks a legitimate need, explain and ask.
 7. **Auth/session**: never log, display, copy or send `rl_session_token`. Never add new `localStorage` keys that store
    personal data, tokens or performance/HPM content. Do not store secrets in code.
 8. **Data hygiene**: do not commit exports, CSV/JSON dumps of people data, `.bak` files, or screenshots with real
@@ -40,12 +41,12 @@ Your job is to deliver what they ask **and** protect the app, the data and futur
 10. Do not copy-paste helper functions (`esc` already exists twice – reuse, don't add a third).
 
 ## Before you say "done"
-- `npm test` passes (syntax, SRI, escaping ratchet, no secrets).
+- `npm test` passes (syntax, CSP, SRI, escaping ratchet, no secrets).
 - You loaded the page locally (`python3 -m http.server 8765`) and checked the browser console for CSP/JS errors.
 - For anything user-visible, list the exact screens you checked.
 - Mention anything you could not verify (especially anything depending on the Worker).
 
 ## Things to refuse or escalate
-- Requests to hide, bypass, or "temporarily disable" login, OTP, Turnstile or permissions.
+- Requests to hide, bypass, or "temporarily disable" login, OTP, Turnstile, permissions or the CSP.
 - Requests to paste real credentials, tokens, customer data or employee review text into prompts, code or the repo.
 - Changes to who is admin or who can see pricing/proposals/wallet ops: confirm with the user and flag for engineering review.
