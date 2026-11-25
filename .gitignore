@@ -1,0 +1,11 @@
+node_modules/
+.DS_Store
+*.bak
+*.bak-*
+*-1.html
+index.html.html
+.env
+.env.*
+# Never commit exported people/performance data
+*_import.json
+funding-proxy/

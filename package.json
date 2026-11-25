@@ -1,0 +1,9 @@
+{
+  "name": "reloadly-pulse",
+  "private": true,
+  "description": "Reloadly Pulse - internal task manager. Static site served by GitHub Pages.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" }
+}
